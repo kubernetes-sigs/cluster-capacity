@@ -55,7 +55,7 @@ func NewPredictiveStrategy(c *caches) Strategy {
 	}
 }
 
-func NewClientEmulator() {
+func NewClientEmulator() ClientEmulator {
 	caches := &caches{
 		PodCache:                   cache.NewStore(cache.MetaNamespaceKeyFunc),
 		NodeCache:                  cache.NewStore(cache.MetaNamespaceKeyFunc),
@@ -66,14 +66,14 @@ func NewClientEmulator() {
 		ReplicationControllerCache: cache.NewStore(cache.MetaNamespaceKeyFunc),
 	}
 
-	resourceToCache := map[string]*cache.Store{
+	resourceToCache := map[string]cache.Store{
 		"pods":                   caches.PodCache,
-		"node":                   caches.NodeCache,
-		"persistentVolumes":      caches.PVCache,
-		"persistentVolumeClaims": caches.PVCCache,
-		"services":               caches.ServiceCache,
-		"replicasets":            caches.ServiceCache,
-		"replicationControllers": caches.ReplicationControllerCache,
+		//"node":                   caches.NodeCache,
+		//"persistentVolumes":      caches.PVCache,
+		//"persistentVolumeClaims": caches.PVCCache,
+		//"services":               caches.ServiceCache,
+		//"replicasets":            caches.ServiceCache,
+		//"replicationControllers": caches.ReplicationControllerCache,
 	}
 	return ClientEmulator{
 		caches:          caches,
@@ -81,12 +81,15 @@ func NewClientEmulator() {
 	}
 }
 func (*predictiveStrategy) Add(obj []interface{}) error {
+	return fmt.Errorf("Not implemented yet")
 }
 
 func (*predictiveStrategy) Update(objs []interface{}) error {
+	return fmt.Errorf("Not implemented yet")
 }
 
 func (*predictiveStrategy) Delete(objs []interface{}) error {
+	return fmt.Errorf("Not implemented yet")
 }
 
 type ClientEmulator struct {
@@ -99,14 +102,14 @@ type ClientEmulator struct {
 	// emulation strategy
 	strategy *Strategy
 
-	resourceToCache map[string]*cache.Store
+	resourceToCache map[string]cache.Store
 }
 
-func storeItems(lw *cache.ListWatch, store *cache.Store) error {
+func storeItems(lw *cache.ListWatch, store cache.Store) error {
 	options := api.ListOptions{ResourceVersion: "0"}
 	list, err := lw.List(options)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to list objects: %v", err)
+		return fmt.Errorf("Failed to list objects: %v", err)
 	}
 
 	listMetaInterface, err := meta.ListAccessor(list)
@@ -117,7 +120,7 @@ func storeItems(lw *cache.ListWatch, store *cache.Store) error {
 
 	items, err := meta.ExtractList(list)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to understand list result %#v (%v)", list, err)
+		return fmt.Errorf("Unable to understand list result %#v (%v)", list, err)
 	}
 	found := make([]interface{}, 0, len(items))
 	for _, item := range items {
@@ -130,7 +133,7 @@ func storeItems(lw *cache.ListWatch, store *cache.Store) error {
 	return nil
 }
 
-func (c *ClientEmulator) sync(client cache.Getter) {
+func (c *ClientEmulator) sync(client cache.Getter) error {
 
 	for resource, objectCache := range c.resourceToCache {
 		listWatcher := cache.NewListWatchFromClient(client, resource, api.NamespaceAll, fields.ParseSelectorOrDie(""))
@@ -138,4 +141,5 @@ func (c *ClientEmulator) sync(client cache.Getter) {
 			return fmt.Errorf("Unable to sync %s: %v", resource, err)
 		}
 	}
+	return nil
 }
