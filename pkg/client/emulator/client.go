@@ -1,10 +1,12 @@
 package emulator
 
 import (
-	"k8s.io/kubernetes/pkg/client/cache"
-	"k8s.io/kubernetes/pkg/watch"
-	"k8s.io/kubernetes/pkg/fields"
+	"fmt"
 	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api/meta"
+	"k8s.io/kubernetes/pkg/client/cache"
+	"k8s.io/kubernetes/pkg/fields"
+	"k8s.io/kubernetes/pkg/watch"
 )
 
 // TODO(jchaloup,hodovska): currently, only scheduler caches are considered.
@@ -63,8 +65,19 @@ func NewClientEmulator() {
 		ReplicaSetCache:            cache.NewStore(cache.MetaNamespaceKeyFunc),
 		ReplicationControllerCache: cache.NewStore(cache.MetaNamespaceKeyFunc),
 	}
+
+	resourceToCache := map[string]*cache.Store{
+		"pods":                   caches.PodCache,
+		"node":                   caches.NodeCache,
+		"persistentVolumes":      caches.PVCache,
+		"persistentVolumeClaims": caches.PVCCache,
+		"services":               caches.ServiceCache,
+		"replicasets":            caches.ServiceCache,
+		"replicationControllers": caches.ReplicationControllerCache,
+	}
 	return ClientEmulator{
-		caches: caches,
+		caches:          caches,
+		resourceToCache: resourceToCache,
 	}
 }
 func (*predictiveStrategy) Add(obj []interface{}) error {
@@ -85,15 +98,44 @@ type ClientEmulator struct {
 
 	// emulation strategy
 	strategy *Strategy
+
+	resourceToCache map[string]*cache.Store
 }
 
-func (c *ClientEmulator) sync (client cache.Getter) {
-	podLW := cache.NewListWatchFromClient(client, "pods", api.NamespaceAll, fields.ParseSelectorOrDie(""))
-	nodeLW := cache.NewListWatchFromClient(client, "nodes", api.NamespaceAll, fields.ParseSelectorOrDie(""))
-	pvLW := cache.NewListWatchFromClient(client, "persistentVolumes", api.NamespaceAll, fields.ParseSelectorOrDie(""))
-	pvcLW := cache.NewListWatchFromClient(client, "persistentVolumeClaims", api.NamespaceAll, fields.ParseSelectorOrDie(""))
-	serviceLW := cache.NewListWatchFromClient(client, "services", api.NamespaceAll, fields.ParseSelectorOrDie(""))
-	replicasetLW := cache.NewListWatchFromClient(client, "replicasets", api.NamespaceAll, fields.ParseSelectorOrDie(""))
-	replicationcontrollerLW := cache.NewListWatchFromClient(client, "replicationControllers", api.NamespaceAll, fields.ParseSelectorOrDie(""))
+func storeItems(lw *cache.ListWatch, store *cache.Store) error {
+	options := api.ListOptions{ResourceVersion: "0"}
+	list, err := lw.List(options)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to list objects: %v", err)
+	}
 
+	listMetaInterface, err := meta.ListAccessor(list)
+	if err != nil {
+		return fmt.Errorf("Unable to understand list result %#v: %v", list, err)
+	}
+	resourceVersion := listMetaInterface.GetResourceVersion()
+
+	items, err := meta.ExtractList(list)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to understand list result %#v (%v)", list, err)
+	}
+	found := make([]interface{}, 0, len(items))
+	for _, item := range items {
+		found = append(found, item)
+	}
+	err = store.Replace(found, resourceVersion)
+	if err != nil {
+		return fmt.Errorf("Unable to store list result: %v", err)
+	}
+	return nil
+}
+
+func (c *ClientEmulator) sync(client cache.Getter) {
+
+	for resource, objectCache := range c.resourceToCache {
+		listWatcher := cache.NewListWatchFromClient(client, resource, api.NamespaceAll, fields.ParseSelectorOrDie(""))
+		if err := storeItems(listWatcher, objectCache); err != nil {
+			return fmt.Errorf("Unable to sync %s: %v", resource, err)
+		}
+	}
 }
