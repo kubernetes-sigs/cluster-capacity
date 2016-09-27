@@ -3,6 +3,8 @@ package emulator
 import (
 	"k8s.io/kubernetes/pkg/client/cache"
 	"k8s.io/kubernetes/pkg/watch"
+	"k8s.io/kubernetes/pkg/fields"
+	"k8s.io/kubernetes/pkg/api"
 )
 
 // TODO(jchaloup,hodovska): currently, only scheduler caches are considered.
@@ -85,6 +87,13 @@ type ClientEmulator struct {
 	strategy *Strategy
 }
 
-func (c *ClientEmulator) {
+func (c *ClientEmulator) sync (client cache.Getter) {
+	podLW := cache.NewListWatchFromClient(client, "pods", api.NamespaceAll, fields.ParseSelectorOrDie(""))
+	nodeLW := cache.NewListWatchFromClient(client, "nodes", api.NamespaceAll, fields.ParseSelectorOrDie(""))
+	pvLW := cache.NewListWatchFromClient(client, "persistentVolumes", api.NamespaceAll, fields.ParseSelectorOrDie(""))
+	pvcLW := cache.NewListWatchFromClient(client, "persistentVolumeClaims", api.NamespaceAll, fields.ParseSelectorOrDie(""))
+	serviceLW := cache.NewListWatchFromClient(client, "services", api.NamespaceAll, fields.ParseSelectorOrDie(""))
+	replicasetLW := cache.NewListWatchFromClient(client, "replicasets", api.NamespaceAll, fields.ParseSelectorOrDie(""))
+	replicationcontrollerLW := cache.NewListWatchFromClient(client, "replicationControllers", api.NamespaceAll, fields.ParseSelectorOrDie(""))
 
 }
