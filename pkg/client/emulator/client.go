@@ -42,15 +42,29 @@ type Strategy interface {
 }
 
 type predictiveStrategy struct {
-	client *ClientEmulator
+	caches *caches
 }
 
-func NewPredictiveStrategy(client *ClientEmulator) Strategy {
-	return predictiveStrategy{
-		client: client,
+func NewPredictiveStrategy(c *caches) Strategy {
+	return &predictiveStrategy{
+		caches: c,
 	}
 }
 
+func NewClientEmulator() {
+	caches := &caches{
+		PodCache:                   cache.NewStore(cache.MetaNamespaceKeyFunc),
+		NodeCache:                  cache.NewStore(cache.MetaNamespaceKeyFunc),
+		PVCache:                    cache.NewStore(cache.MetaNamespaceKeyFunc),
+		PVCCache:                   cache.NewStore(cache.MetaNamespaceKeyFunc),
+		ServiceCache:               cache.NewStore(cache.MetaNamespaceKeyFunc),
+		ReplicaSetCache:            cache.NewStore(cache.MetaNamespaceKeyFunc),
+		ReplicationControllerCache: cache.NewStore(cache.MetaNamespaceKeyFunc),
+	}
+	return ClientEmulator{
+		caches: caches,
+	}
+}
 func (*predictiveStrategy) Add(obj []interface{}) error {
 }
 
@@ -69,4 +83,8 @@ type ClientEmulator struct {
 
 	// emulation strategy
 	strategy *Strategy
+}
+
+func (c *ClientEmulator) {
+
 }
