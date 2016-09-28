@@ -76,12 +76,27 @@ func testReplicationControllersData() *api.ReplicationControllerList {
 
 // RESTClient provides a fake RESTClient interface.
 type RESTClient struct {
-	Client               *http.Client
 	NegotiatedSerializer runtime.NegotiatedSerializer
 
 	Req  *http.Request
 	Resp *http.Response
 	Err  error
+
+	podsDataSource func() *api.PodList
+	servicesDataSource func() *api.ServiceList
+	replicationControllersDataSource func() *api.ReplicationControllerList
+}
+
+func (c *RESTClient) Pods() *api.PodList {
+	return c.podsDataSource()
+}
+
+func (c *RESTClient) Services() *api.ServiceList {
+	return c.servicesDataSource()
+}
+
+func (c *RESTClient) ReplicationControllers() *api.ReplicationControllerList {
+	return c.replicationControllersDataSource()
 }
 
 func (c *RESTClient) Get() *restclient.Request {
@@ -143,11 +158,11 @@ func (c *RESTClient) Do(req *http.Request) (*http.Response, error) {
 
 	switch parts[0] {
 		case "pods":
-			obj = testPodsData()
+			obj = c.Pods()
 		case "services":
-			obj = testServicesData()
+			obj = c.Services()
 		case "replicationcontrollers":
-			obj = testReplicationControllersData()
+			obj = c.ReplicationControllers()
 		default:
 			return nil, fmt.Errorf("Resource %s not recognized", parts[0])
 	}
@@ -158,6 +173,18 @@ func (c *RESTClient) Do(req *http.Request) (*http.Response, error) {
 	c.Resp = &http.Response{StatusCode: 200, Header: header, Body: body}
 
 	return c.Resp, nil
+}
+
+func NewRestClient() *RESTClient {
+
+	client := &RESTClient{
+		NegotiatedSerializer: testapi.Default.NegotiatedSerializer(),
+		podsDataSource: testPodsData,
+		servicesDataSource: testServicesData,
+		replicationControllersDataSource: testReplicationControllersData,
+	}
+
+	return client
 }
 
 // splitPath returns the segments for a URL path.
@@ -198,13 +225,9 @@ func compareItems(expected, actual interface{}) bool {
 }
 
 func TestSyncPods(t *testing.T) {
-	fakeClient := &RESTClient{
-		NegotiatedSerializer: testapi.Default.NegotiatedSerializer(),
-	}
 
-	data := testPodsData()
-	expected := data.Items
-
+	fakeClient := NewRestClient()
+	expected := fakeClient.Pods().Items
 	emulator := NewClientEmulator()
 
 	err := emulator.sync(fakeClient)
@@ -228,13 +251,9 @@ func TestSyncPods(t *testing.T) {
 }
 
 func TestSyncServices(t *testing.T) {
-	fakeClient := &RESTClient{
-		NegotiatedSerializer: testapi.Default.NegotiatedSerializer(),
-	}
 
-	data := testServicesData()
-	expected := data.Items
-
+	fakeClient := NewRestClient()
+	expected := fakeClient.Services().Items
 	emulator := NewClientEmulator()
 
 	err := emulator.sync(fakeClient)
@@ -258,13 +277,9 @@ func TestSyncServices(t *testing.T) {
 }
 
 func TestSyncReplicationControllers(t *testing.T) {
-	fakeClient := &RESTClient{
-		NegotiatedSerializer: testapi.Default.NegotiatedSerializer(),
-	}
 
-	data := testReplicationControllersData()
-	expected := data.Items
-
+	fakeClient := NewRestClient()
+	expected := fakeClient.ReplicationControllers().Items
 	emulator := NewClientEmulator()
 
 	err := emulator.sync(fakeClient)
