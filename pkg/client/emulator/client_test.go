@@ -146,6 +146,8 @@ func (c *RESTClient) Do(req *http.Request) (*http.Response, error) {
 			obj = testPodsData()
 		case "services":
 			obj = testServicesData()
+		case "replicationcontrollers":
+			obj = testReplicationControllersData()
 		default:
 			return nil, fmt.Errorf("Resource %s not recognized", parts[0])
 	}
@@ -244,6 +246,36 @@ func TestSyncServices(t *testing.T) {
 	actual := make([]api.Service, 0, len(storedItems))
 	for _, value := range storedItems {
 		item, ok := value.(*api.Service)
+		if !ok {
+			t.Errorf("Expected api.Service type, found different")
+		}
+		actual = append(actual, *item)
+	}
+
+	if !compareItems(expected, actual) {
+		t.Errorf("unexpected object: expected: %#v\n actual: %#v", expected, actual)
+	}
+}
+
+func TestSyncReplicationControllers(t *testing.T) {
+	fakeClient := &RESTClient{
+		NegotiatedSerializer: testapi.Default.NegotiatedSerializer(),
+	}
+
+	data := testReplicationControllersData()
+	expected := data.Items
+
+	emulator := NewClientEmulator()
+
+	err := emulator.sync(fakeClient)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	storedItems := emulator.ReplicationControllerCache.List()
+	actual := make([]api.ReplicationController, 0, len(storedItems))
+	for _, value := range storedItems {
+		item, ok := value.(*api.ReplicationController)
 		if !ok {
 			t.Errorf("Expected api.Service type, found different")
 		}

@@ -73,7 +73,7 @@ func NewClientEmulator() ClientEmulator {
 		//"persistentVolumeClaims": caches.PVCCache,
 		"services":               caches.ServiceCache,
 		//"replicasets":            caches.ServiceCache,
-		//"replicationControllers": caches.ReplicationControllerCache,
+		"replicationControllers": caches.ReplicationControllerCache,
 	}
 	return ClientEmulator{
 		caches:          caches,
@@ -134,7 +134,6 @@ func storeItems(lw *cache.ListWatch, store cache.Store) error {
 }
 
 func (c *ClientEmulator) sync(client cache.Getter) error {
-
 	for resource, objectCache := range c.resourceToCache {
 		listWatcher := cache.NewListWatchFromClient(client, resource, api.NamespaceAll, fields.ParseSelectorOrDie(""))
 		if err := storeItems(listWatcher, objectCache); err != nil {
