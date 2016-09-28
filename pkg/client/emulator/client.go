@@ -7,6 +7,8 @@ import (
 	"k8s.io/kubernetes/pkg/client/cache"
 	"k8s.io/kubernetes/pkg/fields"
 	"k8s.io/kubernetes/pkg/watch"
+	"k8s.io/kubernetes/pkg/api/testapi"
+	"k8s.io/kubernetes/pkg/api/unversioned"
 )
 
 // TODO(jchaloup,hodovska): currently, only scheduler caches are considered.
@@ -141,4 +143,58 @@ func (c *ClientEmulator) sync(client cache.Getter) error {
 		}
 	}
 	return nil
+}
+
+func (c *ClientEmulator) RESTClient() *RESTClient {
+	return &RESTClient{
+		NegotiatedSerializer: testapi.Default.NegotiatedSerializer(),
+		// define methods for ListerWatcher's List()
+		podsDataSource: func() *api.PodList {
+			items := c.caches.PodCache.List()
+			podItems := make([]api.Pod, 0, len(items))
+			for _, item := range items {
+				podItems = append(podItems, item.(api.Pod))
+			}
+
+			return &api.PodList{
+				ListMeta: unversioned.ListMeta{
+					// choose arbitrary value as the cache does not store the ResourceVersion
+					ResourceVersion: "0",
+				},
+				Items: podItems,
+			}
+		},
+		servicesDataSource: func() *api.ServiceList {
+			items := c.caches.ServiceCache.List()
+			serviceItems := make([]api.Service, 0, len(items))
+			for _, item := range items {
+				serviceItems = append(serviceItems, item.(api.Service))
+			}
+
+			return &api.ServiceList{
+				ListMeta: unversioned.ListMeta{
+					// choose arbitrary value as the cache does not store the ResourceVersion
+					ResourceVersion: "0",
+				},
+				Items: serviceItems,
+			}
+
+		},
+		replicationControllersDataSource: func() *api.ReplicationControllerList {
+			items := c.caches.ReplicationControllerCache.List()
+			rcItems := make([]api.ReplicationController, 0, len(items))
+			for _, item := range items {
+				rcItems = append(rcItems, item.(api.ReplicationController))
+			}
+
+			return &api.ReplicationControllerList{
+				ListMeta: unversioned.ListMeta{
+					// choose arbitrary value as the cache does not store the ResourceVersion
+					ResourceVersion: "0",
+				},
+				Items: rcItems,
+			}
+		},
+		// TODO(jchaloup): add methods for missing resources
+	}
 }
