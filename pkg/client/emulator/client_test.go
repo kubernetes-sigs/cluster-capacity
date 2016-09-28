@@ -167,6 +167,34 @@ func splitPath(path string) []string {
         return strings.Split(path, "/")
 }
 
+func compareItems(expected, actual interface{}) bool {
+	if reflect.TypeOf(expected).Kind() != reflect.Slice {
+		return false
+	}
+
+	if reflect.TypeOf(actual).Kind() != reflect.Slice {
+		return false
+	}
+
+	expectedSlice := reflect.ValueOf(expected)
+	expectedMap := make(map[string]interface{})
+	for i := 0; i < expectedSlice.Len(); i++ {
+		meta := expectedSlice.Index(i).FieldByName("ObjectMeta").Interface().(api.ObjectMeta)
+		key := strings.Join([]string{meta.Namespace, meta.Name, meta.ResourceVersion}, "/")
+		expectedMap[key] = expectedSlice.Index(i).Interface()
+	}
+
+	actualMap := make(map[string]interface{})
+	actualSlice := reflect.ValueOf(actual)
+	for i := 0; i < actualSlice.Len(); i++ {
+		meta := actualSlice.Index(i).FieldByName("ObjectMeta").Interface().(api.ObjectMeta)
+		key := strings.Join([]string{meta.Namespace, meta.Name, meta.ResourceVersion}, "/")
+		actualMap[key] = actualSlice.Index(i).Interface()
+	}
+
+	return reflect.DeepEqual(expectedMap, actualMap)
+}
+
 func TestSyncPods(t *testing.T) {
 	fakeClient := &RESTClient{
 		NegotiatedSerializer: testapi.Default.NegotiatedSerializer(),
@@ -191,10 +219,10 @@ func TestSyncPods(t *testing.T) {
 		}
 		actual = append(actual, *item)
 	}
-
-	if !reflect.DeepEqual(expected, actual) {
+	if !compareItems(expected, actual) {
 		t.Errorf("unexpected object: expected: %#v\n actual: %#v", expected, actual)
 	}
+
 }
 
 func TestSyncServices(t *testing.T) {
@@ -222,7 +250,7 @@ func TestSyncServices(t *testing.T) {
 		actual = append(actual, *item)
 	}
 
-	if !reflect.DeepEqual(expected, actual) {
+	if !compareItems(expected, actual) {
 		t.Errorf("unexpected object: expected: %#v\n actual: %#v", expected, actual)
 	}
 }
