@@ -71,7 +71,7 @@ func NewClientEmulator() ClientEmulator {
 		//"node":                   caches.NodeCache,
 		//"persistentVolumes":      caches.PVCache,
 		//"persistentVolumeClaims": caches.PVCCache,
-		//"services":               caches.ServiceCache,
+		"services":               caches.ServiceCache,
 		//"replicasets":            caches.ServiceCache,
 		//"replicationControllers": caches.ReplicationControllerCache,
 	}
