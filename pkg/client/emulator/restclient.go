@@ -11,6 +11,8 @@ import (
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/api/testapi"
+	"strings"
+	"k8s.io/kubernetes/pkg/apis/extensions"
 )
 
 // RESTClient provides a fake RESTClient interface.
@@ -24,6 +26,7 @@ type RESTClient struct {
 	podsDataSource func() *api.PodList
 	servicesDataSource func() *api.ServiceList
 	replicationControllersDataSource func() *api.ReplicationControllerList
+	replicaSetsDataSource func() *extensions.ReplicaSetList
 }
 
 func (c *RESTClient) Pods() *api.PodList {
@@ -36,6 +39,10 @@ func (c *RESTClient) Services() *api.ServiceList {
 
 func (c *RESTClient) ReplicationControllers() *api.ReplicationControllerList {
 	return c.replicationControllersDataSource()
+}
+
+func (c *RESTClient) ReplicaSets() *extensions.ReplicaSetList {
+	return c.replicaSetsDataSource()
 }
 
 func (c *RESTClient) Get() *restclient.Request {
@@ -79,6 +86,15 @@ func (c *RESTClient) request(verb string) *restclient.Request {
 		Framer:              streamingSerializer.Framer,
 	}
 	return restclient.NewRequest(c, verb, &url.URL{Host: "localhost"}, "", config, serializers, nil, nil)
+}
+
+// splitPath returns the segments for a URL path.
+func splitPath(path string) []string {
+        path = strings.Trim(path, "/")
+        if path == "" {
+                return []string{}
+        }
+        return strings.Split(path, "/")
 }
 
 func (c *RESTClient) Do(req *http.Request) (*http.Response, error) {

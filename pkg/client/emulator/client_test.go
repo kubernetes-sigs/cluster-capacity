@@ -8,6 +8,8 @@ import (
 	"k8s.io/kubernetes/pkg/api/testapi"
 	"reflect"
 	"strings"
+	"k8s.io/kubernetes/pkg/apis/extensions"
+	"fmt"
 )
 
 
@@ -16,16 +18,15 @@ func testPodsData() *api.PodList {
 		ListMeta: unversioned.ListMeta{
 			ResourceVersion: "15",
 		},
-		Items: []api.Pod{
-			{
-				ObjectMeta: api.ObjectMeta{Name: "foo", Namespace: "test", ResourceVersion: "10"},
-				Spec:       apitesting.DeepEqualSafePodSpec(),
-			},
-			{
-				ObjectMeta: api.ObjectMeta{Name: "bar", Namespace: "test", ResourceVersion: "11"},
-				Spec:       apitesting.DeepEqualSafePodSpec(),
-			},
-		},
+	}
+	for i := 0; i < 10; i++ {
+		name := fmt.Sprintf("pod%v", i)
+		item := api.Pod{
+			ObjectMeta: api.ObjectMeta{Name: name, Namespace: "test", ResourceVersion: "10"},
+			Spec:       apitesting.DeepEqualSafePodSpec(),
+		}
+
+		pods.Items = append(pods.Items, item)
 	}
 
 	return pods
@@ -36,16 +37,21 @@ func testServicesData() *api.ServiceList {
 		ListMeta: unversioned.ListMeta{
 			ResourceVersion: "16",
 		},
-		Items: []api.Service{
-			{
-				ObjectMeta: api.ObjectMeta{Name: "baz", Namespace: "test", ResourceVersion: "12"},
-				Spec: api.ServiceSpec{
-					SessionAffinity: "None",
-					Type:            api.ServiceTypeClusterIP,
-				},
-			},
-		},
 	}
+
+	for i := 0; i < 10; i++ {
+		name := fmt.Sprintf("service%v", i)
+		item := api.Service{
+			ObjectMeta: api.ObjectMeta{Name: name, Namespace: "test", ResourceVersion: "12"},
+			Spec: api.ServiceSpec{
+				SessionAffinity: "None",
+				Type:            api.ServiceTypeClusterIP,
+			},
+		}
+
+		svc.Items = append(svc.Items, item)
+	}
+
 	return svc
 }
 
@@ -54,17 +60,43 @@ func testReplicationControllersData() *api.ReplicationControllerList {
 		ListMeta: unversioned.ListMeta{
 			ResourceVersion: "17",
 		},
-		Items: []api.ReplicationController{
-			{
-				ObjectMeta: api.ObjectMeta{Name: "rc1", Namespace: "test", ResourceVersion: "18"},
-				Spec: api.ReplicationControllerSpec{
-					Replicas: 1,
-				},
-			},
-		},
 	}
+
+	for i := 0; i < 10; i++ {
+		name := fmt.Sprintf("rc%v", i)
+		item := api.ReplicationController{
+			ObjectMeta: api.ObjectMeta{Name: name, Namespace: "test", ResourceVersion: "18"},
+			Spec: api.ReplicationControllerSpec{
+				Replicas: 1,
+			},
+		}
+		rc.Items = append(rc.Items, item)
+	}
+
 	return rc
 }
+
+func testReplicaSetsData() *extensions.ReplicaSetList {
+	rs := &extensions.ReplicaSetList{
+		ListMeta: unversioned.ListMeta{
+			ResourceVersion: "10",
+		},
+	}
+
+	for i := 0; i < 10; i++ {
+		name := fmt.Sprintf("replicaset%v", i)
+		item := extensions.ReplicaSet{
+			ObjectMeta: api.ObjectMeta{Name: name, Namespace: "test", ResourceVersion: "125"},
+			Spec: extensions.ReplicaSetSpec{
+				Replicas: 3,
+			},
+		}
+		rs.Items = append(rs.Items, item)
+	}
+
+	return rs
+}
+
 
 func NewTestRestClient() *RESTClient {
 
@@ -76,15 +108,6 @@ func NewTestRestClient() *RESTClient {
 	}
 
 	return client
-}
-
-// splitPath returns the segments for a URL path.
-func splitPath(path string) []string {
-        path = strings.Trim(path, "/")
-        if path == "" {
-                return []string{}
-        }
-        return strings.Split(path, "/")
 }
 
 func compareItems(expected, actual interface{}) bool {
@@ -138,7 +161,6 @@ func TestSyncPods(t *testing.T) {
 	if !compareItems(expected, actual) {
 		t.Errorf("unexpected object: expected: %#v\n actual: %#v", expected, actual)
 	}
-
 }
 
 func TestSyncServices(t *testing.T) {
@@ -182,6 +204,32 @@ func TestSyncReplicationControllers(t *testing.T) {
 	actual := make([]api.ReplicationController, 0, len(storedItems))
 	for _, value := range storedItems {
 		item, ok := value.(*api.ReplicationController)
+		if !ok {
+			t.Errorf("Expected api.Service type, found different")
+		}
+		actual = append(actual, *item)
+	}
+
+	if !compareItems(expected, actual) {
+		t.Errorf("unexpected object: expected: %#v\n actual: %#v", expected, actual)
+	}
+}
+
+func testSyncReplicaSets(t *testing.T) {
+	fakeClient := NewTestRestClient()
+	expected := fakeClient.ReplicaSets().Items
+	emulator := NewClientEmulator()
+
+	err := emulator.sync(fakeClient)
+
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	storedItems := emulator.ReplicaSetCache.List()
+	actual := make([]extensions.ReplicaSet, 0, len(storedItems))
+	for _, value := range storedItems {
+		item, ok := value.(*extensions.ReplicaSet)
 		if !ok {
 			t.Errorf("Expected api.Service type, found different")
 		}
