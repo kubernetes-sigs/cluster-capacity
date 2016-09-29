@@ -5,6 +5,9 @@ import (
 	"io"
 	"fmt"
 	"time"
+	"k8s.io/kubernetes/pkg/runtime"
+	"k8s.io/kubernetes/pkg/api/testapi"
+	"k8s.io/kubernetes/pkg/watch"
 )
 
 // Every watcher expects infinite byte stream
@@ -50,6 +53,23 @@ func (w *WatchBuffer) Close() error {
 func (w *WatchBuffer) Write(data []byte) (nr int, err error)  {
 	w.write <- data
 	return len(data), nil
+}
+
+func (c *WatchBuffer) EmitWatchEvent(eType watch.EventType, object runtime.Object) {
+	//event := watch.Event{
+	//	Type: eType,
+	//	Object: object,
+	//}
+	var buffer bytes.Buffer
+	buffer.WriteString("{\"type\":\"")
+	buffer.WriteString(string(eType))
+	buffer.WriteString("\",\"object\":")
+
+	payload := []byte(buffer.String())
+	payload = append(payload, ([]byte)(runtime.EncodeOrDie(testapi.Default.Codec(), object))...)
+	payload = append(payload, []byte("}")...)
+
+	c.Write(payload)
 }
 
 func (w *WatchBuffer) loop() {

@@ -53,20 +53,7 @@ func (c *RESTClient) ReplicaSets() *extensions.ReplicaSetList {
 
 func (c *RESTClient) EmitPodWatchEvent(eType watch.EventType, object *api.Pod) {
 	if c.podsWatcherReadGetter != nil {
-		//event := watch.Event{
-		//	Type: eType,
-		//	Object: object,
-		//}
-		var buffer bytes.Buffer
-		buffer.WriteString("{\"type\":\"")
-		buffer.WriteString(string(eType))
-		buffer.WriteString("\",\"object\":")
-
-		payload := []byte(buffer.String())
-		payload = append(payload, ([]byte)(runtime.EncodeOrDie(testapi.Default.Codec(), object))...)
-		payload = append(payload, []byte("}")...)
-
-		c.podsWatcherReadGetter.Write(payload)
+		c.podsWatcherReadGetter.EmitWatchEvent(eType, object)
 	}
 }
 
