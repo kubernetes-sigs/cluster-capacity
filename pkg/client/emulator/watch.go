@@ -33,6 +33,9 @@ var _ io.ReadCloser = &WatchBuffer{}
 
 // Read watch events as byte stream
 func (w *WatchBuffer) Read(p []byte) (n int, err error) {
+	if w.closed {
+		return 0, io.EOF
+	}
 	w.read <- p
 	ret := <-w.retc
 	return ret.n, ret.e
@@ -73,10 +76,8 @@ func (c *WatchBuffer) EmitWatchEvent(eType watch.EventType, object runtime.Objec
 }
 
 func (w *WatchBuffer) loop() {
-	defer w.Close()
-
 	var dataIn, dataOut []byte
-
+	var ok bool
 	for {
 		select {
 			case dataIn = <-w.write:
@@ -88,7 +89,10 @@ func (w *WatchBuffer) loop() {
 				}
 			case dataOut = <-w.read:
 				if w.buf.Len() == 0 {
-					dataIn = <-w.write
+					dataIn, ok = <-w.write
+					if !ok {
+						break
+					}
 					_, err := w.buf.Write(dataIn)
 					if err != nil {
 						// TODO(jchaloup): add log message
@@ -97,6 +101,9 @@ func (w *WatchBuffer) loop() {
 					}
 				}
 				nr, err := w.buf.Read(dataOut)
+				if w.closed {
+					break
+				}
 				w.retc <-retc{nr,err}
 		}
 	}

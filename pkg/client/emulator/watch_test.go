@@ -39,6 +39,8 @@ func emitEvent(client *RESTClient, resource string, test eventTest) {
 	switch resource {
 		case "pods":
 			client.EmitPodWatchEvent(test.event, test.item.(*api.Pod))
+		case "services":
+			client.EmitServiceWatchEvent(test.event, test.item.(*api.Service))
 	}
 }
 
@@ -74,7 +76,6 @@ func testWatch(tests []eventTest, resource string, t *testing.T) {
 			if !reflect.DeepEqual(test.item, event.Object) {
 				t.Errorf("unexpected object: expected: %#v\n actual: %#v", test.item, event.Object)
 			}
-
 		}
 		sync<- struct{}{}
 	}()
@@ -89,6 +90,8 @@ func testWatch(tests []eventTest, resource string, t *testing.T) {
 
 	// wait for all events
 	<-sync
+	close(sync)
+	client.Close()
 }
 
 func TestWatchPods(t *testing.T) {
@@ -118,4 +121,36 @@ func TestWatchPods(t *testing.T) {
 	}
 
 	testWatch(tests, "pods", t)
+}
+
+func TestWatchServices(t *testing.T) {
+
+	service := &api.Service{
+		ObjectMeta: api.ObjectMeta{Name: "service1", Namespace: "test", ResourceVersion: "12"},
+		Spec: api.ServiceSpec{
+			SessionAffinity: "None",
+			Type:            api.ServiceTypeClusterIP,
+		},
+	}
+
+	tests := []eventTest{
+		{
+			event: watch.Modified,
+			item: service,
+		},
+		{
+			event: watch.Added,
+			item: service,
+		},
+		{
+			event: watch.Modified,
+			item: service,
+		},
+		{
+			event: watch.Deleted,
+			item: service,
+		},
+	}
+
+	testWatch(tests, "services", t)
 }

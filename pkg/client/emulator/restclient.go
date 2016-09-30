@@ -32,6 +32,7 @@ type RESTClient struct {
 
 	podsWatcherReadGetter *WatchBuffer
 	servicesWatcherReadGetter *WatchBuffer
+	rcsWatcherReadGetter *WatchBuffer
 }
 
 func (c *RESTClient) Pods() *api.PodList {
@@ -57,6 +58,29 @@ func (c *RESTClient) EmitPodWatchEvent(eType watch.EventType, object *api.Pod) {
 	}
 }
 
+func (c *RESTClient) EmitServiceWatchEvent(eType watch.EventType, object *api.Service) {
+	if c.servicesWatcherReadGetter != nil {
+		c.servicesWatcherReadGetter.EmitWatchEvent(eType, object)
+	}
+}
+
+func (c *RESTClient) EmitReplicationControllerWatchEvent(eType watch.EventType, object *api.Pod) {
+	if c.rcsWatcherReadGetter != nil {
+		c.rcsWatcherReadGetter.EmitWatchEvent(eType, object)
+	}
+}
+
+func (c *RESTClient) Close() {
+	if c.podsWatcherReadGetter != nil {
+		c.podsWatcherReadGetter.Close()
+	}
+	if c.servicesWatcherReadGetter != nil {
+		c.servicesWatcherReadGetter.Close()
+	}
+	if c.rcsWatcherReadGetter != nil {
+		c.rcsWatcherReadGetter.Close()
+	}
+}
 
 func (c *RESTClient) Get() *restclient.Request {
 	return c.request("GET")
