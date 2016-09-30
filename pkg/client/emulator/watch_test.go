@@ -10,6 +10,7 @@ import (
 	"k8s.io/kubernetes/pkg/fields"
 	"k8s.io/kubernetes/pkg/api"
 	"reflect"
+	"fmt"
 )
 
 func newTestRestClient() *RESTClient {
@@ -41,6 +42,11 @@ func emitEvent(client *RESTClient, resource string, test eventTest) {
 			client.EmitPodWatchEvent(test.event, test.item.(*api.Pod))
 		case "services":
 			client.EmitServiceWatchEvent(test.event, test.item.(*api.Service))
+		case "replicationcontrollers":
+			client.EmitReplicationControllerWatchEvent(test.event, test.item.(*api.ReplicationController))
+		default:
+			fmt.Printf("Unsupported resource %s", resource)
+			// TODO(jchaloup): log the error
 	}
 }
 
@@ -154,3 +160,36 @@ func TestWatchServices(t *testing.T) {
 
 	testWatch(tests, "services", t)
 }
+
+func TestWatchReplicationControllers(t *testing.T) {
+
+	rc := &api.ReplicationController{
+		ObjectMeta: api.ObjectMeta{Name: "replicationcontroller1", Namespace: "test", ResourceVersion: "18"},
+		Spec: api.ReplicationControllerSpec{
+			Replicas: 1,
+		},
+	}
+
+	tests := []eventTest{
+		{
+			event: watch.Modified,
+			item: rc,
+		},
+		{
+			event: watch.Added,
+			item: rc,
+		},
+		{
+			event: watch.Modified,
+			item: rc,
+		},
+		{
+			event: watch.Deleted,
+			item: rc,
+		},
+	}
+
+	testWatch(tests, "replicationcontrollers", t)
+}
+
+

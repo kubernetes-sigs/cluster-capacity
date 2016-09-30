@@ -64,7 +64,7 @@ func (c *RESTClient) EmitServiceWatchEvent(eType watch.EventType, object *api.Se
 	}
 }
 
-func (c *RESTClient) EmitReplicationControllerWatchEvent(eType watch.EventType, object *api.Pod) {
+func (c *RESTClient) EmitReplicationControllerWatchEvent(eType watch.EventType, object *api.ReplicationController) {
 	if c.rcsWatcherReadGetter != nil {
 		c.rcsWatcherReadGetter.EmitWatchEvent(eType, object)
 	}
@@ -165,6 +165,12 @@ func (c *RESTClient) createWatchReadCloser(resource string) (rc *WatchBuffer, er
 				c.servicesWatcherReadGetter.Close()
 			}
 			c.servicesWatcherReadGetter = rc
+		case "replicationcontrollers":
+			if c.rcsWatcherReadGetter != nil {
+				c.rcsWatcherReadGetter.Close()
+			}
+			c.rcsWatcherReadGetter = rc
+
 		default:
 			return nil, fmt.Errorf("Resource %s not recognized", resource)
 	}
