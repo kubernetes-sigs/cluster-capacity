@@ -64,7 +64,7 @@ func testWatch(tests []eventTest, resource string, t *testing.T) {
 	emitEvent(client, resource, tests[0])
 	emitEvent(client, resource, tests[1])
 	// wait for a while so both events are in one byte stream
-	time.Sleep(time.Second)
+	time.Sleep(10*time.Millisecond)
 	sync := make(chan struct{})
 
 	// retrieve all events one by one in the same order
@@ -89,7 +89,7 @@ func testWatch(tests []eventTest, resource string, t *testing.T) {
 	// send remaining events
 	t.Logf("Emitting remaining events")
 	for _, test := range tests[2:] {
-		time.Sleep(time.Second)
+		time.Sleep(10*time.Millisecond)
 		emitEvent(client, resource, test)
 		t.Logf("Event emitted")
 	}
