@@ -35,9 +35,16 @@ func getResourceWatcher(client cache.Getter, resource string) watch.Interface {
 	return w
 }
 
+func emitEvent(client *RESTClient, resource string, test eventTest) {
+	switch resource {
+		case "pods":
+			client.EmitPodWatchEvent(test.event, test.item.(*api.Pod))
+	}
+}
+
 type eventTest struct{
 	event watch.EventType
-	item *api.Pod
+	item interface{}
 }
 
 func testWatch(tests []eventTest, resource string, t *testing.T) {
@@ -46,8 +53,8 @@ func testWatch(tests []eventTest, resource string, t *testing.T) {
 	w := getResourceWatcher(client, resource)
 
 	t.Logf("Emitting first two events")
-	client.EmitPodWatchEvent(tests[0].event, tests[0].item)
-	client.EmitPodWatchEvent(tests[1].event, tests[1].item)
+	emitEvent(client, resource, tests[0])
+	emitEvent(client, resource, tests[1])
 	// wait for a while so both events are in one byte stream
 	time.Sleep(time.Second)
 	sync := make(chan struct{})
@@ -76,7 +83,7 @@ func testWatch(tests []eventTest, resource string, t *testing.T) {
 	t.Logf("Emitting remaining events")
 	for _, test := range tests[2:] {
 		time.Sleep(time.Second)
-		client.EmitPodWatchEvent(test.event, test.item)
+		emitEvent(client, resource, test)
 		t.Logf("Event emitted")
 	}
 
