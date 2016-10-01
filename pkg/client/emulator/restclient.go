@@ -15,6 +15,8 @@ import (
 	"k8s.io/kubernetes/pkg/apis/extensions"
 	"io"
 	"k8s.io/kubernetes/pkg/watch"
+	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/store"
+	ewatch "github.com/ingvagabund/cluster-capacity/pkg/client/emulator/watch"
 )
 
 // RESTClient provides a fake RESTClient interface.
@@ -25,30 +27,63 @@ type RESTClient struct {
 	Resp *http.Response
 	Err  error
 
-	podsDataSource func() *api.PodList
-	servicesDataSource func() *api.ServiceList
-	replicationControllersDataSource func() *api.ReplicationControllerList
-	replicaSetsDataSource func() *extensions.ReplicaSetList
+	resourceStore store.ResourceStore
 
-	podsWatcherReadGetter *WatchBuffer
-	servicesWatcherReadGetter *WatchBuffer
-	rcsWatcherReadGetter *WatchBuffer
+	podsWatcherReadGetter *ewatch.WatchBuffer
+	servicesWatcherReadGetter *ewatch.WatchBuffer
+	rcsWatcherReadGetter *ewatch.WatchBuffer
 }
 
 func (c *RESTClient) Pods() *api.PodList {
-	return c.podsDataSource()
+	items := c.resourceStore.List("pods")
+	podItems := make([]api.Pod, 0, len(items))
+	for _, item := range items {
+		podItems = append(podItems, item.(api.Pod))
+	}
+
+	return &api.PodList{
+		ListMeta: unversioned.ListMeta{
+			// choose arbitrary value as the cache does not store the ResourceVersion
+			ResourceVersion: "0",
+		},
+		Items: podItems,
+	}
 }
 
 func (c *RESTClient) Services() *api.ServiceList {
-	return c.servicesDataSource()
+	items := c.resourceStore.List("services")
+	serviceItems := make([]api.Service, 0, len(items))
+	for _, item := range items {
+		serviceItems = append(serviceItems, item.(api.Service))
+	}
+
+	return &api.ServiceList{
+		ListMeta: unversioned.ListMeta{
+			// choose arbitrary value as the cache does not store the ResourceVersion
+			ResourceVersion: "0",
+		},
+		Items: serviceItems,
+	}
 }
 
 func (c *RESTClient) ReplicationControllers() *api.ReplicationControllerList {
-	return c.replicationControllersDataSource()
+	items := c.resourceStore.List("replicationControllers")
+	rcItems := make([]api.ReplicationController, 0, len(items))
+	for _, item := range items {
+		rcItems = append(rcItems, item.(api.ReplicationController))
+	}
+
+	return &api.ReplicationControllerList{
+		ListMeta: unversioned.ListMeta{
+			// choose arbitrary value as the cache does not store the ResourceVersion
+			ResourceVersion: "0",
+		},
+		Items: rcItems,
+	}
 }
 
 func (c *RESTClient) ReplicaSets() *extensions.ReplicaSetList {
-	return c.replicaSetsDataSource()
+	return nil
 }
 
 
@@ -152,8 +187,8 @@ func (c *RESTClient) createListReadCloser(resource string) (rc *io.ReadCloser, e
 
 }
 
-func (c *RESTClient) createWatchReadCloser(resource string) (rc *WatchBuffer, err error) {
-	rc = NewWatchBuffer()
+func (c *RESTClient) createWatchReadCloser(resource string) (rc *ewatch.WatchBuffer, err error) {
+	rc = ewatch.NewWatchBuffer()
 	switch resource {
 		case "pods":
 			if c.podsWatcherReadGetter != nil {
@@ -212,4 +247,11 @@ func (c *RESTClient) Do(req *http.Request) (*http.Response, error) {
 	}
 
 	return c.Resp, nil
+}
+
+func NewRESTClient(resourceStore store.ResourceStore) *RESTClient {
+	return &RESTClient{
+		NegotiatedSerializer: testapi.Default.NegotiatedSerializer(),
+		resourceStore: resourceStore,
+	}
 }
