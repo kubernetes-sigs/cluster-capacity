@@ -1,4 +1,4 @@
-package emulator
+package watch
 
 import (
 	"bytes"
