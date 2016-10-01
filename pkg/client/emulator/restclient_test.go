@@ -9,7 +9,12 @@ import (
 	"reflect"
 	"strings"
 	"k8s.io/kubernetes/pkg/apis/extensions"
+	"k8s.io/kubernetes/pkg/runtime"
 	"fmt"
+	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/store"
+	"k8s.io/kubernetes/pkg/fields"
+	"k8s.io/kubernetes/pkg/client/cache"
+	"k8s.io/kubernetes/pkg/api/meta"
 )
 
 
@@ -97,14 +102,23 @@ func testReplicaSetsData() *extensions.ReplicaSetList {
 	return rs
 }
 
+func newTestListRestClient() *RESTClient {
 
-func NewTestRestClient() *RESTClient {
+	resourceStore := &store.FakeResourceStore{
+		PodsData: func() []api.Pod {
+			return testPodsData().Items
+		},
+		ServicesData: func() []api.Service {
+			return testServicesData().Items
+		},
+		ReplicationControllersData: func() []api.ReplicationController {
+			return testReplicationControllersData().Items
+		},
+	}
 
 	client := &RESTClient{
 		NegotiatedSerializer: testapi.Default.NegotiatedSerializer(),
-		podsDataSource: testPodsData,
-		servicesDataSource: testServicesData,
-		replicationControllersDataSource: testReplicationControllersData,
+		resourceStore: resourceStore,
 	}
 
 	return client
@@ -138,105 +152,99 @@ func compareItems(expected, actual interface{}) bool {
 	return reflect.DeepEqual(expectedMap, actualMap)
 }
 
+func getResourceList(client cache.Getter, resource string) runtime.Object {
+	// client listerWatcher
+	listerWatcher := cache.NewListWatchFromClient(client, resource, api.NamespaceAll, fields.ParseSelectorOrDie(""))
+	options := api.ListOptions{ResourceVersion: "0"}
+	l, _ := listerWatcher.List(options)
+	return l
+}
+
 func TestSyncPods(t *testing.T) {
 
-	fakeClient := NewTestRestClient()
+	fakeClient := newTestListRestClient()
 	expected := fakeClient.Pods().Items
-	emulator := NewClientEmulator()
 
-	err := emulator.sync(fakeClient)
+	list := getResourceList(fakeClient, "pods")
+	items, err := meta.ExtractList(list)
 	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
+		t.Errorf("Unable to understand list result %#v (%v)", list, err)
 	}
 
-	storedItems := emulator.PodCache.List()
-	actual := make([]api.Pod, 0, len(storedItems))
-	for _, value := range storedItems {
-		item, ok := value.(*api.Pod)
-		if !ok {
-			t.Errorf("Expected api.Pod type, found different")
-		}
-		actual = append(actual, *item)
+	found := make([]api.Pod, 0, len(items))
+	for _, item := range items {
+		found = append(found, *((interface{})(item).(*api.Pod)))
 	}
-	if !compareItems(expected, actual) {
-		t.Errorf("unexpected object: expected: %#v\n actual: %#v", expected, actual)
+
+	if !compareItems(expected, found) {
+		t.Errorf("unexpected object: expected: %#v\n actual: %#v", expected, found)
 	}
 }
 
 func TestSyncServices(t *testing.T) {
 
-	fakeClient := NewTestRestClient()
+	fakeClient := newTestListRestClient()
 	expected := fakeClient.Services().Items
-	emulator := NewClientEmulator()
 
-	err := emulator.sync(fakeClient)
+	list := getResourceList(fakeClient, "services")
+	items, err := meta.ExtractList(list)
 	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
+		t.Errorf("Unable to understand list result %#v (%v)", list, err)
 	}
 
-	storedItems := emulator.ServiceCache.List()
-	actual := make([]api.Service, 0, len(storedItems))
-	for _, value := range storedItems {
-		item, ok := value.(*api.Service)
-		if !ok {
-			t.Errorf("Expected api.Service type, found different")
-		}
-		actual = append(actual, *item)
+	found := make([]api.Service, 0, len(items))
+	for _, item := range items {
+		found = append(found, *((interface{})(item).(*api.Service)))
 	}
 
-	if !compareItems(expected, actual) {
-		t.Errorf("unexpected object: expected: %#v\n actual: %#v", expected, actual)
+	if !compareItems(expected, found) {
+		t.Errorf("unexpected object: expected: %#v\n actual: %#v", expected, found)
 	}
 }
 
 func TestSyncReplicationControllers(t *testing.T) {
 
-	fakeClient := NewTestRestClient()
+	fakeClient := newTestListRestClient()
 	expected := fakeClient.ReplicationControllers().Items
-	emulator := NewClientEmulator()
 
-	err := emulator.sync(fakeClient)
+	list := getResourceList(fakeClient, "replicationControllers")
+	items, err := meta.ExtractList(list)
 	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
+		t.Errorf("Unable to understand list result %#v (%v)", list, err)
 	}
 
-	storedItems := emulator.ReplicationControllerCache.List()
-	actual := make([]api.ReplicationController, 0, len(storedItems))
-	for _, value := range storedItems {
-		item, ok := value.(*api.ReplicationController)
-		if !ok {
-			t.Errorf("Expected api.Service type, found different")
-		}
-		actual = append(actual, *item)
+	found := make([]api.ReplicationController, 0, len(items))
+	for _, item := range items {
+		found = append(found, *((interface{})(item).(*api.ReplicationController)))
 	}
 
-	if !compareItems(expected, actual) {
-		t.Errorf("unexpected object: expected: %#v\n actual: %#v", expected, actual)
+	if !compareItems(expected, found) {
+		t.Errorf("unexpected object: expected: %#v\n actual: %#v", expected, found)
 	}
 }
 
-func testSyncReplicaSets(t *testing.T) {
-	fakeClient := NewTestRestClient()
-	expected := fakeClient.ReplicaSets().Items
-	emulator := NewClientEmulator()
-
-	err := emulator.sync(fakeClient)
-
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-
-	storedItems := emulator.ReplicaSetCache.List()
-	actual := make([]extensions.ReplicaSet, 0, len(storedItems))
-	for _, value := range storedItems {
-		item, ok := value.(*extensions.ReplicaSet)
-		if !ok {
-			t.Errorf("Expected api.Service type, found different")
-		}
-		actual = append(actual, *item)
-	}
-
-	if !compareItems(expected, actual) {
-		t.Errorf("unexpected object: expected: %#v\n actual: %#v", expected, actual)
-	}
-}
+//func testSyncReplicaSets(t *testing.T) {
+//	fakeClient := newTestListRestClient()
+//	expected := fakeClient.ReplicaSets().Items
+//	emulator := NewClientEmulator()
+//
+//	err := emulator.sync(fakeClient)
+//
+//	if err != nil {
+//		t.Fatalf("Unexpected error: %v", err)
+//	}
+//
+//	storedItems := emulator.ReplicaSetCache.List()
+//	actual := make([]extensions.ReplicaSet, 0, len(storedItems))
+//	for _, value := range storedItems {
+//		item, ok := value.(*extensions.ReplicaSet)
+//		if !ok {
+//			t.Errorf("Expected api.Service type, found different")
+//		}
+//		actual = append(actual, *item)
+//	}
+//
+//	if !compareItems(expected, actual) {
+//		t.Errorf("unexpected object: expected: %#v\n actual: %#v", expected, actual)
+//	}
+//}
