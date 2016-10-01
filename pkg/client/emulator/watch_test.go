@@ -4,19 +4,17 @@ import (
 	"testing"
 	"k8s.io/kubernetes/pkg/client/cache"
 	apitesting "k8s.io/kubernetes/pkg/api/testing"
-	"k8s.io/kubernetes/pkg/api/testapi"
 	"k8s.io/kubernetes/pkg/watch"
 	"time"
 	"k8s.io/kubernetes/pkg/fields"
 	"k8s.io/kubernetes/pkg/api"
 	"reflect"
 	"fmt"
+	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/store"
 )
 
-func newTestRestClient() *RESTClient {
-	return &RESTClient{
-		NegotiatedSerializer: testapi.Default.NegotiatedSerializer(),
-	}
+func newTestWatchRestClient() *RESTClient {
+	return NewRESTClient(&store.FakeResourceStore{})
 }
 
 func getResourceWatcher(client cache.Getter, resource string) watch.Interface {
@@ -57,7 +55,7 @@ type eventTest struct{
 
 func testWatch(tests []eventTest, resource string, t *testing.T) {
 
-	client := newTestRestClient()
+	client := newTestWatchRestClient()
 	w := getResourceWatcher(client, resource)
 
 	t.Logf("Emitting first two events")
