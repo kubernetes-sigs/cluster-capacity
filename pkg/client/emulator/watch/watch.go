@@ -58,7 +58,7 @@ func (w *WatchBuffer) Write(data []byte) (nr int, err error)  {
 	return len(data), nil
 }
 
-func (c *WatchBuffer) EmitWatchEvent(eType watch.EventType, object runtime.Object) {
+func (c *WatchBuffer) EmitWatchEvent(eType watch.EventType, object runtime.Object) error {
 	//event := watch.Event{
 	//	Type: eType,
 	//	Object: object,
@@ -72,7 +72,8 @@ func (c *WatchBuffer) EmitWatchEvent(eType watch.EventType, object runtime.Objec
 	payload = append(payload, ([]byte)(runtime.EncodeOrDie(testapi.Default.Codec(), object))...)
 	payload = append(payload, []byte("}")...)
 
-	c.Write(payload)
+	_, err := c.Write(payload)
+	return err
 }
 
 func (w *WatchBuffer) loop() {
