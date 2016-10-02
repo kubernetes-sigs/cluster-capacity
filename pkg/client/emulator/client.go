@@ -8,61 +8,18 @@ import (
 	"k8s.io/kubernetes/pkg/fields"
 	"k8s.io/kubernetes/pkg/watch"
 	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/store"
+	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/strategy"
 )
-
-//type Strategy interface {
-//	// Add new objects
-//	Add(objs []interface{}) error
-//
-//	// Update objects
-//	Update(objs []interface{}) error
-//
-//	// Delete objects
-//	Delete(objs []interface{}) error
-//}
-//
-//type predictiveStrategy struct {
-//	resourceStore store.ResourceStore
-//}
-//
-//func (*predictiveStrategy) Add(obj []interface{}) error {
-//	return fmt.Errorf("Not implemented yet")
-//}
-//
-//func (*predictiveStrategy) Update(objs []interface{}) error {
-//	return fmt.Errorf("Not implemented yet")
-//}
-//
-//func (*predictiveStrategy) Delete(objs []interface{}) error {
-//	return fmt.Errorf("Not implemented yet")
-//}
-//
-//func NewPredictiveStrategy(resourceStore store.ResourceStore) Strategy {
-//	return &predictiveStrategy{
-//		resourceStore: resourceStore,
-//	}
-//}
 
 type ClientEmulator struct {
 	// caches modified by emulation strategy
 	resourceStore store.ResourceStore
 
 	// emulation strategy
-	//strategy *Strategy
+	strategy *strategy.Strategy
 
 	// fake rest client
 	restClient *RESTClient
-}
-
-// Add pod resource object to a cache
-func (c *ClientEmulator) AddPod(pod *api.Pod) error {
-	// add pod to cache
-	if err := c.resourceStore.Add("pods", pod); err != nil {
-		return fmt.Errorf("Unable to store pod: %v", err)
-	}
-
-	// emit watch event
-	return c.restClient.EmitPodWatchEvent(watch.Added, pod)
 }
 
 func (c *ClientEmulator) sync(client cache.Getter) error {
