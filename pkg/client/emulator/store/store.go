@@ -49,15 +49,63 @@ type resourceStore struct {
 	eventHandler map[string]cache.ResourceEventHandler
 }
 
+// Add resource obj to store and emit event handler if set
 func (s *resourceStore) Add(resource string, obj interface{}) error {
+	cache, exists := s.resourceToCache[resource]
+	if !exists {
+		return fmt.Errorf("Resource %s not recognized", resource)
+	}
+
+	err := cache.Add(obj)
+	if err != nil {
+		return fmt.Errorf("Unable to add %s: %v", resource, err)
+	}
+
+	handler, found := s.eventHandler[resource]
+	if !found {
+		return nil
+	}
+	handler.OnAdd(obj)
 	return nil
 }
 
+// Update resource obj to store and emit event handler if set
 func (s *resourceStore) Update(resource string, obj interface{}) error {
+	cache, exists := s.resourceToCache[resource]
+	if !exists {
+		return fmt.Errorf("Resource %s not recognized", resource)
+	}
+
+	err := cache.Update(obj)
+	if err != nil {
+		return fmt.Errorf("Unable to update %s: %v", resource, err)
+	}
+
+	handler, found := s.eventHandler[resource]
+	if !found {
+		return nil
+	}
+	handler.OnUpdate(struct{}{}, obj)
 	return nil
 }
 
+// Delete resource obj to store and emit event handler if set
 func (s *resourceStore) Delete(resource string, obj interface{}) error {
+	cache, exists := s.resourceToCache[resource]
+	if !exists {
+		return fmt.Errorf("Resource %s not recognized", resource)
+	}
+
+	err := cache.Delete(obj)
+	if err != nil {
+		return fmt.Errorf("Unable to delete %s: %v", resource, err)
+	}
+
+	handler, found := s.eventHandler[resource]
+	if !found {
+		return nil
+	}
+	handler.OnDelete(obj)
 	return nil
 }
 
