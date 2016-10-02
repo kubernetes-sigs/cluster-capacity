@@ -22,7 +22,7 @@ import (
 //}
 //
 //type predictiveStrategy struct {
-//	caches *caches
+//	resourceStore store.ResourceStore
 //}
 //
 //func (*predictiveStrategy) Add(obj []interface{}) error {
@@ -37,9 +37,9 @@ import (
 //	return fmt.Errorf("Not implemented yet")
 //}
 //
-//func NewPredictiveStrategy(c *caches) Strategy {
+//func NewPredictiveStrategy(resourceStore store.ResourceStore) Strategy {
 //	return &predictiveStrategy{
-//		caches: c,
+//		resourceStore: resourceStore,
 //	}
 //}
 
@@ -57,10 +57,12 @@ type ClientEmulator struct {
 // Add pod resource object to a cache
 func (c *ClientEmulator) AddPod(pod *api.Pod) error {
 	// add pod to cache
+	if err := c.resourceStore.Add("pods", pod); err != nil {
+		return fmt.Errorf("Unable to store pod: %v", err)
+	}
 
 	// emit watch event
-	c.restClient.EmitPodWatchEvent(watch.Added, pod)
-	return nil
+	return c.restClient.EmitPodWatchEvent(watch.Added, pod)
 }
 
 func (c *ClientEmulator) sync(client cache.Getter) error {
@@ -96,13 +98,62 @@ func (c *ClientEmulator) sync(client cache.Getter) error {
 	return nil
 }
 
+func (c *ClientEmulator) Run() {
+	// 1. sync store with cluster
+	// 2. init rest client (lister part)
+	// 3. register rest client to resource store (watch part)
+	// 4. init strategy (pod -> (As,Us,Ds)
+	// 5. bake scheduler with the rest client
+	// 6. init predictive loop
+	// 6.1. schedule pod or get error
+	// 6.2. run strategy, get items to add/update/delete (e.g. new pod, new volume, updated node info) or error (e.g max. number of PD exceeded)
+	// 6.3. update resource store
+}
+
 func NewClientEmulator() *ClientEmulator {
 	resourceStore := store.NewResourceStore()
+	restClient := NewRESTClient(resourceStore)
 
 	client := &ClientEmulator{
 		resourceStore: resourceStore,
-		restClient: NewRESTClient(resourceStore),
+		restClient: restClient,
 	}
+
+	resourceStore.RegisterEventHandler("pods", cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			restClient.EmitPodWatchEvent(watch.Added, obj.(*api.Pod))
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			restClient.EmitPodWatchEvent(watch.Modified, newObj.(*api.Pod))
+		},
+		DeleteFunc: func(obj interface{}) {
+			restClient.EmitPodWatchEvent(watch.Deleted, obj.(*api.Pod))
+		},
+	})
+
+	resourceStore.RegisterEventHandler("services", cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			restClient.EmitServiceWatchEvent(watch.Added, obj.(*api.Service))
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			restClient.EmitServiceWatchEvent(watch.Modified, newObj.(*api.Service))
+		},
+		DeleteFunc: func(obj interface{}) {
+			restClient.EmitServiceWatchEvent(watch.Deleted, obj.(*api.Service))
+		},
+	})
+
+	resourceStore.RegisterEventHandler("replicationControllers", cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			restClient.EmitReplicationControllerWatchEvent(watch.Added, obj.(*api.ReplicationController))
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			restClient.EmitReplicationControllerWatchEvent(watch.Modified, newObj.(*api.ReplicationController))
+		},
+		DeleteFunc: func(obj interface{}) {
+			restClient.EmitReplicationControllerWatchEvent(watch.Deleted, obj.(*api.ReplicationController))
+		},
+	})
 
 	return client
 }
