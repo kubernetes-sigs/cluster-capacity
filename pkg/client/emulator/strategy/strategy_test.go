@@ -92,6 +92,26 @@ func newScheduledPod() *api.Pod {
 		Spec:       apitesting.DeepEqualSafePodSpec(),
 	}
 
+	// set pod's resource consumption
+	pod.Spec.Containers = []api.Container{
+		{
+			Resources: api.ResourceRequirements{
+				Limits: api.ResourceList{
+					api.ResourceCPU:       *resource.NewMilliQuantity(400, resource.DecimalSI),
+					api.ResourceMemory:    *resource.NewQuantity(10E6, resource.BinarySI),
+					api.ResourcePods:      *resource.NewQuantity(0, resource.DecimalSI),
+					api.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
+				},
+				Requests: api.ResourceList{
+					api.ResourceCPU:       *resource.NewMilliQuantity(400, resource.DecimalSI),
+					api.ResourceMemory:    *resource.NewQuantity(10E6, resource.BinarySI),
+					api.ResourcePods:      *resource.NewQuantity(0, resource.DecimalSI),
+					api.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
+				},
+			},
+		},
+	}
+
 	// schedule the pod on the node
 	pod.Spec.NodeName = testStrategyNode
 
