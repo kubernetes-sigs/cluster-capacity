@@ -117,7 +117,12 @@ func (s *resourceStore) List(resource string) []interface{} {
 }
 
 func (s *resourceStore) Get(resource string, obj interface{}) (item interface{}, exists bool, err error) {
-	return nil, false, nil
+	cache, exists := s.resourceToCache[resource]
+	if !exists {
+		return nil, false, fmt.Errorf("Resource %s not recognized", resource)
+	}
+
+	return cache.Get(obj)
 }
 
 func (s *resourceStore) GetByKey(key string) (item interface{}, exists bool, err error) {
@@ -187,7 +192,7 @@ func NewResourceStore() *resourceStore {
 
 	resourceToCache := map[string]cache.Store{
 		"pods":                   resourceStore.PodCache,
-		//"node":                   resourceStore.NodeCache,
+		"nodes":                   resourceStore.NodeCache,
 		//"persistentVolumes":      resourceStore.PVCache,
 		//"persistentVolumeClaims": resourceStore.PVCCache,
 		"services":               resourceStore.ServiceCache,
