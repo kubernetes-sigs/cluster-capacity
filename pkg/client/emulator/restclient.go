@@ -87,22 +87,25 @@ func (c *RESTClient) ReplicaSets() *extensions.ReplicaSetList {
 }
 
 
-func (c *RESTClient) EmitPodWatchEvent(eType watch.EventType, object *api.Pod) {
+func (c *RESTClient) EmitPodWatchEvent(eType watch.EventType, object *api.Pod) error {
 	if c.podsWatcherReadGetter != nil {
-		c.podsWatcherReadGetter.EmitWatchEvent(eType, object)
+		return c.podsWatcherReadGetter.EmitWatchEvent(eType, object)
 	}
+	return fmt.Errorf("Watch buffer for pods not initialized")
 }
 
-func (c *RESTClient) EmitServiceWatchEvent(eType watch.EventType, object *api.Service) {
+func (c *RESTClient) EmitServiceWatchEvent(eType watch.EventType, object *api.Service) error {
 	if c.servicesWatcherReadGetter != nil {
-		c.servicesWatcherReadGetter.EmitWatchEvent(eType, object)
+		return c.servicesWatcherReadGetter.EmitWatchEvent(eType, object)
 	}
+	return fmt.Errorf("Watch buffer for services not initialized")
 }
 
-func (c *RESTClient) EmitReplicationControllerWatchEvent(eType watch.EventType, object *api.ReplicationController) {
+func (c *RESTClient) EmitReplicationControllerWatchEvent(eType watch.EventType, object *api.ReplicationController) error {
 	if c.rcsWatcherReadGetter != nil {
-		c.rcsWatcherReadGetter.EmitWatchEvent(eType, object)
+		return c.rcsWatcherReadGetter.EmitWatchEvent(eType, object)
 	}
+	return fmt.Errorf("Watch buffer for replication controllers not initialized")
 }
 
 func (c *RESTClient) Close() {
