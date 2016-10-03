@@ -57,7 +57,7 @@ func newStubPod(nodeName string, node *api.Node) *api.Pod {
 	}
 
 	// schedule the pod on the node
-	pod.Spec.NodeName = testStrategyNode
+	pod.Spec.NodeName = nodeName
 
 	return pod
 }
