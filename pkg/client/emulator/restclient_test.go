@@ -15,6 +15,8 @@ import (
 	"k8s.io/kubernetes/pkg/fields"
 	"k8s.io/kubernetes/pkg/client/cache"
 	"k8s.io/kubernetes/pkg/api/meta"
+	"k8s.io/kubernetes/pkg/api/resource"
+	ccapi "github.com/ingvagabund/cluster-capacity/pkg/api"
 )
 
 
@@ -81,6 +83,77 @@ func testReplicationControllersData() *api.ReplicationControllerList {
 	return rc
 }
 
+func testPersistentVolumesData() *api.PersistentVolumeList {
+	pv := &api.PersistentVolumeList{
+		ListMeta: unversioned.ListMeta{
+			ResourceVersion: "11",
+		},
+	}
+
+	for i := 0; i < 1; i++ {
+		name := fmt.Sprintf("pv%v", i)
+		item := api.PersistentVolume{
+			ObjectMeta: api.ObjectMeta{Name: name, Namespace: "test", ResourceVersion: "123"},
+			Spec: api.PersistentVolumeSpec{
+				Capacity: api.ResourceList{
+					api.ResourceName(api.ResourceStorage): resource.MustParse("10G"),
+				},
+				PersistentVolumeSource: api.PersistentVolumeSource{
+					HostPath: &api.HostPathVolumeSource{Path: "/foo"},
+				},
+				PersistentVolumeReclaimPolicy: "Retain",
+			},
+			Status: api.PersistentVolumeStatus{
+				Phase: api.PersistentVolumePhase("Pending"),
+			},
+		}
+		pv.Items = append(pv.Items, item)
+	}
+	return pv
+}
+
+func testPersistentVolumeClaimsData() *api.PersistentVolumeClaimList {
+	pvc := &api.PersistentVolumeClaimList{
+		ListMeta: unversioned.ListMeta{
+			ResourceVersion: "5456",
+		},
+	}
+	for i := 0; i < 10; i++ {
+		name := fmt.Sprintf("pvc%v", i)
+		item := api.PersistentVolumeClaim{
+			ObjectMeta: api.ObjectMeta{Name: name, Namespace: "test", ResourceVersion: "123"},
+			Spec: api.PersistentVolumeClaimSpec{
+				VolumeName: "volume",
+			},
+			Status: api.PersistentVolumeClaimStatus{
+				Phase: api.PersistentVolumeClaimPhase("Pending"),
+			},
+		}
+		pvc.Items = append(pvc.Items, item)
+	}
+	return pvc
+}
+
+func testNodesData() *api.NodeList {
+	nodes := &api.NodeList{
+		ListMeta: unversioned.ListMeta{
+			ResourceVersion: "687",
+		},
+	}
+
+	for i := 0; i< 10; i++ {
+		name := fmt.Sprintln("node%v", i)
+		item := api.Node{
+			ObjectMeta: api.ObjectMeta{Name: name, Namespace: "test", ResourceVersion: "123"},
+			Spec: api.NodeSpec{
+				ExternalID: "ext",
+			},
+		}
+		nodes.Items = append(nodes.Items, item)
+	}
+	return nodes
+}
+
 func testReplicaSetsData() *extensions.ReplicaSetList {
 	rs := &extensions.ReplicaSetList{
 		ListMeta: unversioned.ListMeta{
@@ -102,6 +175,7 @@ func testReplicaSetsData() *extensions.ReplicaSetList {
 	return rs
 }
 
+
 func newTestListRestClient() *RESTClient {
 
 	resourceStore := &store.FakeResourceStore{
@@ -113,6 +187,15 @@ func newTestListRestClient() *RESTClient {
 		},
 		ReplicationControllersData: func() []api.ReplicationController {
 			return testReplicationControllersData().Items
+		},
+		PersistentVolumesData: func() []api.PersistentVolume {
+			return testPersistentVolumesData().Items
+		},
+		PersistentVolumeClaimsData: func() []api.PersistentVolumeClaim {
+			return testPersistentVolumeClaimsData().Items
+		},
+		NodesData: func() []api.Node {
+			return testNodesData().Items
 		},
 	}
 
@@ -165,7 +248,7 @@ func TestSyncPods(t *testing.T) {
 	fakeClient := newTestListRestClient()
 	expected := fakeClient.Pods().Items
 
-	list := getResourceList(fakeClient, "pods")
+	list := getResourceList(fakeClient, ccapi.Pods)
 	items, err := meta.ExtractList(list)
 	if err != nil {
 		t.Errorf("Unable to understand list result %#v (%v)", list, err)
@@ -186,7 +269,7 @@ func TestSyncServices(t *testing.T) {
 	fakeClient := newTestListRestClient()
 	expected := fakeClient.Services().Items
 
-	list := getResourceList(fakeClient, "services")
+	list := getResourceList(fakeClient, ccapi.Services)
 	items, err := meta.ExtractList(list)
 	if err != nil {
 		t.Errorf("Unable to understand list result %#v (%v)", list, err)
@@ -207,7 +290,7 @@ func TestSyncReplicationControllers(t *testing.T) {
 	fakeClient := newTestListRestClient()
 	expected := fakeClient.ReplicationControllers().Items
 
-	list := getResourceList(fakeClient, "replicationControllers")
+	list := getResourceList(fakeClient, ccapi.ReplicationControllers)
 	items, err := meta.ExtractList(list)
 	if err != nil {
 		t.Errorf("Unable to understand list result %#v (%v)", list, err)
@@ -223,6 +306,63 @@ func TestSyncReplicationControllers(t *testing.T) {
 	}
 }
 
+func TestSyncPersistentVolumes(t *testing.T) {
+	fakeClient := newTestListRestClient()
+	expected := fakeClient.PersistentVolumes().Items
+
+	list := getResourceList(fakeClient, ccapi.PersistentVolumes)
+	items, err := meta.ExtractList(list)
+	if err != nil {
+		t.Errorf("Unable to understand list result %#v (%v)", list, err)
+	}
+	found := make([]api.PersistentVolume, 0, len(items))
+	for _, item := range items {
+		found = append(found, *((interface{})(item).(*api.PersistentVolume)))
+	}
+
+	if !compareItems(expected, found) {
+		t.Errorf("unexpected object: expected: %#v\n actual: %#v", expected, found)
+	}
+}
+
+
+func TestSyncPersistentVolumeClaims(t *testing.T) {
+	fakeClient := newTestListRestClient()
+	expected := fakeClient.PersistentVolumeClaims().Items
+
+	list := getResourceList(fakeClient, ccapi.PersistentVolumeClaims)
+	items, err := meta.ExtractList(list)
+	if err != nil {
+		t.Errorf("Unable to understand list result %#v (%v)", list, err)
+	}
+	found := make([]api.PersistentVolumeClaim, 0, len(items))
+	for _, item := range items {
+		found = append(found, *((interface{})(item).(*api.PersistentVolumeClaim)))
+	}
+
+	if !compareItems(expected, found) {
+		t.Errorf("unexpected object: expected: %#v\n actual: %#v", expected, found)
+	}
+}
+
+func TestSyncNodes(t *testing.T) {
+	fakeClient := newTestListRestClient()
+	expected := fakeClient.Nodes().Items
+
+	list := getResourceList(fakeClient, ccapi.Nodes)
+	items, err := meta.ExtractList(list)
+	if err != nil {
+		t.Errorf("Unable to understand list result %#v (%v)", list, err)
+	}
+	found := make([]api.Node, 0, len(items))
+	for _, item := range items {
+		found = append(found, *((interface{})(item).(*api.Node)))
+	}
+
+	if !compareItems(expected, found) {
+		t.Errorf("unexpected object: expected: %#v\n actual: %#v", expected, found)
+	}
+}
 //func testSyncReplicaSets(t *testing.T) {
 //	fakeClient := newTestListRestClient()
 //	expected := fakeClient.ReplicaSets().Items

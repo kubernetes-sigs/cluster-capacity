@@ -3,6 +3,7 @@ package store
 import (
 	"k8s.io/kubernetes/pkg/client/cache"
 	"fmt"
+	ccapi "github.com/ingvagabund/cluster-capacity/pkg/api"
 )
 
 type ResourceStore interface {
@@ -191,13 +192,13 @@ func NewResourceStore() *resourceStore {
 	}
 
 	resourceToCache := map[string]cache.Store{
-		"pods":                   resourceStore.PodCache,
-		"nodes":                   resourceStore.NodeCache,
-		//"persistentVolumes":      resourceStore.PVCache,
-		//"persistentVolumeClaims": resourceStore.PVCCache,
-		"services":               resourceStore.ServiceCache,
+		ccapi.Pods:                   resourceStore.PodCache,
+		ccapi.Nodes:                  resourceStore.NodeCache,
+		ccapi.PersistentVolumes:      resourceStore.PVCache,
+		ccapi.PersistentVolumeClaims: resourceStore.PVCCache,
+		ccapi.Services:               resourceStore.ServiceCache,
 		//"replicasets":            resourceStore.ReplicaSetCache,
-		"replicationControllers": resourceStore.ReplicationControllerCache,
+		ccapi.ReplicationControllers: resourceStore.ReplicationControllerCache,
 	}
 
 	resourceStore.resourceToCache = resourceToCache

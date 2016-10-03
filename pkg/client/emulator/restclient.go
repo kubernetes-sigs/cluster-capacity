@@ -17,6 +17,7 @@ import (
 	"k8s.io/kubernetes/pkg/watch"
 	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/store"
 	ewatch "github.com/ingvagabund/cluster-capacity/pkg/client/emulator/watch"
+	ccapi "github.com/ingvagabund/cluster-capacity/pkg/api"
 )
 
 // RESTClient provides a fake RESTClient interface.
@@ -32,10 +33,13 @@ type RESTClient struct {
 	podsWatcherReadGetter *ewatch.WatchBuffer
 	servicesWatcherReadGetter *ewatch.WatchBuffer
 	rcsWatcherReadGetter *ewatch.WatchBuffer
+	pvWatcherReadGetter *ewatch.WatchBuffer
+	pvcWatcherReadGetter *ewatch.WatchBuffer
+	nodesWatcherReadGetter *ewatch.WatchBuffer
 }
 
 func (c *RESTClient) Pods() *api.PodList {
-	items := c.resourceStore.List("pods")
+	items := c.resourceStore.List(ccapi.Pods)
 	podItems := make([]api.Pod, 0, len(items))
 	for _, item := range items {
 		podItems = append(podItems, item.(api.Pod))
@@ -51,7 +55,7 @@ func (c *RESTClient) Pods() *api.PodList {
 }
 
 func (c *RESTClient) Services() *api.ServiceList {
-	items := c.resourceStore.List("services")
+	items := c.resourceStore.List(ccapi.Services)
 	serviceItems := make([]api.Service, 0, len(items))
 	for _, item := range items {
 		serviceItems = append(serviceItems, item.(api.Service))
@@ -67,7 +71,7 @@ func (c *RESTClient) Services() *api.ServiceList {
 }
 
 func (c *RESTClient) ReplicationControllers() *api.ReplicationControllerList {
-	items := c.resourceStore.List("replicationControllers")
+	items := c.resourceStore.List(ccapi.ReplicationControllers)
 	rcItems := make([]api.ReplicationController, 0, len(items))
 	for _, item := range items {
 		rcItems = append(rcItems, item.(api.ReplicationController))
@@ -79,6 +83,51 @@ func (c *RESTClient) ReplicationControllers() *api.ReplicationControllerList {
 			ResourceVersion: "0",
 		},
 		Items: rcItems,
+	}
+}
+
+func (c *RESTClient) PersistentVolumes() *api.PersistentVolumeList {
+	items := c.resourceStore.List(ccapi.PersistentVolumes)
+	pvItems := make([]api.PersistentVolume, 0, len(items))
+	for _, item := range items {
+		pvItems = append(pvItems, item.(api.PersistentVolume))
+	}
+
+	return &api.PersistentVolumeList{
+		ListMeta: unversioned.ListMeta{
+			ResourceVersion: "0",
+		},
+		Items: pvItems,
+	}
+}
+
+func (c *RESTClient) PersistentVolumeClaims() *api.PersistentVolumeClaimList {
+	items := c.resourceStore.List(ccapi.PersistentVolumeClaims)
+	pvcItems := make([]api.PersistentVolumeClaim, 0, len(items))
+	for _, item := range items {
+		pvcItems = append(pvcItems, item.(api.PersistentVolumeClaim))
+	}
+
+	return &api.PersistentVolumeClaimList{
+		ListMeta: unversioned.ListMeta{
+			ResourceVersion: "0",
+		},
+		Items: pvcItems,
+	}
+}
+
+func (c *RESTClient) Nodes() *api.NodeList {
+	items := c.resourceStore.List(ccapi.Nodes)
+	nodeItems := make([]api.Node, 0, len(items))
+	for _, item := range items {
+		nodeItems = append(nodeItems, item.(api.Node))
+	}
+
+	return &api.NodeList{
+		ListMeta: unversioned.ListMeta{
+			ResourceVersion:  "0",
+		},
+		Items: nodeItems,
 	}
 }
 
@@ -108,6 +157,27 @@ func (c *RESTClient) EmitReplicationControllerWatchEvent(eType watch.EventType, 
 	return fmt.Errorf("Watch buffer for replication controllers not initialized")
 }
 
+func (c *RESTClient) EmitPersistentVolumeWatchEvent(eType watch.EventType, object *api.PersistentVolume) error {
+	if c.pvWatcherReadGetter != nil {
+		return c.pvWatcherReadGetter.EmitWatchEvent(eType, object)
+	}
+	return fmt.Errorf("Watch buffer for persistent volumes not initialized")
+}
+
+func (c *RESTClient) EmitPersistentVolumeClaimWatchEvent(eType watch.EventType, object *api.PersistentVolumeClaim) error {
+	if c.pvcWatcherReadGetter != nil {
+		return c.pvcWatcherReadGetter.EmitWatchEvent(eType, object)
+	}
+	return fmt.Errorf("Watch buffer for persistent volume claims not initialized")
+}
+
+func (c *RESTClient) EmitNodeWatchEvent(eType watch.EventType, object *api.Node) error {
+	if c.nodesWatcherReadGetter != nil {
+		return c.nodesWatcherReadGetter.EmitWatchEvent(eType, object)
+	}
+	return fmt.Errorf("Watch buffer for nodes not initialized")
+}
+
 func (c *RESTClient) Close() {
 	if c.podsWatcherReadGetter != nil {
 		c.podsWatcherReadGetter.Close()
@@ -117,6 +187,15 @@ func (c *RESTClient) Close() {
 	}
 	if c.rcsWatcherReadGetter != nil {
 		c.rcsWatcherReadGetter.Close()
+	}
+	if c.pvWatcherReadGetter != nil {
+		c.pvWatcherReadGetter.Close()
+	}
+	if c.nodesWatcherReadGetter != nil {
+		c.nodesWatcherReadGetter.Close()
+	}
+	if c.pvcWatcherReadGetter != nil {
+		c.pvcWatcherReadGetter.Close()
 	}
 }
 
@@ -175,12 +254,18 @@ func splitPath(path string) []string {
 func (c *RESTClient) createListReadCloser(resource string) (rc *io.ReadCloser, err error) {
 	var obj runtime.Object
 	switch resource {
-		case "pods":
+		case ccapi.Pods:
 			obj = c.Pods()
-		case "services":
+		case ccapi.Services:
 			obj = c.Services()
-		case "replicationcontrollers":
+		case ccapi.ReplicationControllers:
 			obj = c.ReplicationControllers()
+		case ccapi.PersistentVolumes:
+			obj = c.PersistentVolumes()
+		case ccapi.PersistentVolumeClaims:
+			obj = c.PersistentVolumeClaims()
+		case ccapi.Nodes:
+			obj = c.Nodes()
 		default:
 			return nil, fmt.Errorf("Resource %s not recognized", resource)
 	}
@@ -193,22 +278,36 @@ func (c *RESTClient) createListReadCloser(resource string) (rc *io.ReadCloser, e
 func (c *RESTClient) createWatchReadCloser(resource string) (rc *ewatch.WatchBuffer, err error) {
 	rc = ewatch.NewWatchBuffer()
 	switch resource {
-		case "pods":
+		case ccapi.Pods:
 			if c.podsWatcherReadGetter != nil {
 				c.podsWatcherReadGetter.Close()
 			}
 			c.podsWatcherReadGetter = rc
-		case "services":
+		case ccapi.Services:
 			if c.servicesWatcherReadGetter != nil {
 				c.servicesWatcherReadGetter.Close()
 			}
 			c.servicesWatcherReadGetter = rc
-		case "replicationcontrollers":
+		case ccapi.ReplicationControllers:
 			if c.rcsWatcherReadGetter != nil {
 				c.rcsWatcherReadGetter.Close()
 			}
 			c.rcsWatcherReadGetter = rc
-
+		case ccapi.PersistentVolumes:
+			if c.pvWatcherReadGetter != nil {
+				c.pvWatcherReadGetter.Close()
+			}
+			c.pvWatcherReadGetter = rc
+		case ccapi.PersistentVolumeClaims:
+			if c.pvcWatcherReadGetter != nil {
+				c.pvcWatcherReadGetter.Close()
+			}
+			c.pvcWatcherReadGetter = rc
+		case ccapi.Nodes:
+			if c.nodesWatcherReadGetter != nil {
+				c.nodesWatcherReadGetter.Close()
+			}
+			c.nodesWatcherReadGetter = rc
 		default:
 			return nil, fmt.Errorf("Resource %s not recognized", resource)
 	}
@@ -244,7 +343,7 @@ func (c *RESTClient) Do(req *http.Request) (*http.Response, error) {
 	} else {
 		body, err := c.createListReadCloser(parts[0])
 		if err != nil {
-			return nil, fmt.Errorf("Unable to create lister for %s\n", parts[1])
+			return nil, fmt.Errorf("Unable to create lister for %s\n", parts[0])
 		}
 		c.Resp = &http.Response{StatusCode: 200, Header: header, Body: *body}
 	}

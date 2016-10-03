@@ -11,6 +11,8 @@ import (
 	"reflect"
 	"fmt"
 	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/store"
+	ccapi "github.com/ingvagabund/cluster-capacity/pkg/api"
+	"k8s.io/kubernetes/pkg/api/resource"
 )
 
 func newTestWatchRestClient() *RESTClient {
@@ -36,12 +38,18 @@ func getResourceWatcher(client cache.Getter, resource string) watch.Interface {
 
 func emitEvent(client *RESTClient, resource string, test eventTest) {
 	switch resource {
-		case "pods":
+		case ccapi.Pods:
 			client.EmitPodWatchEvent(test.event, test.item.(*api.Pod))
-		case "services":
+		case ccapi.Services:
 			client.EmitServiceWatchEvent(test.event, test.item.(*api.Service))
-		case "replicationcontrollers":
+		case ccapi.ReplicationControllers:
 			client.EmitReplicationControllerWatchEvent(test.event, test.item.(*api.ReplicationController))
+		case ccapi.PersistentVolumes:
+			client.EmitPersistentVolumeWatchEvent(test.event, test.item.(*api.PersistentVolume))
+		case ccapi.Nodes:
+			client.EmitNodeWatchEvent(test.event, test.item.(*api.Node))
+		case ccapi.PersistentVolumeClaims:
+			client.EmitPersistentVolumeClaimWatchEvent(test.event, test.item.(*api.PersistentVolumeClaim))
 		default:
 			fmt.Printf("Unsupported resource %s", resource)
 			// TODO(jchaloup): log the error
@@ -124,7 +132,7 @@ func TestWatchPods(t *testing.T) {
 		},
 	}
 
-	testWatch(tests, "pods", t)
+	testWatch(tests, ccapi.Pods, t)
 }
 
 func TestWatchServices(t *testing.T) {
@@ -156,7 +164,7 @@ func TestWatchServices(t *testing.T) {
 		},
 	}
 
-	testWatch(tests, "services", t)
+	testWatch(tests, ccapi.Services, t)
 }
 
 func TestWatchReplicationControllers(t *testing.T) {
@@ -187,7 +195,107 @@ func TestWatchReplicationControllers(t *testing.T) {
 		},
 	}
 
-	testWatch(tests, "replicationcontrollers", t)
+	testWatch(tests, ccapi.ReplicationControllers, t)
 }
 
+func TestWatchPersistentVolumes(t *testing.T) {
+	pv := &api.PersistentVolume{
+		ObjectMeta: api.ObjectMeta{Name: "persistentvolume1", Namespace: "test", ResourceVersion: "18"},
+		Spec: api.PersistentVolumeSpec{
+				Capacity: api.ResourceList{
+					api.ResourceName(api.ResourceStorage): resource.MustParse("10G"),
+				},
+				PersistentVolumeSource: api.PersistentVolumeSource{
+					HostPath: &api.HostPathVolumeSource{Path: "/foo"},
+				},
+				PersistentVolumeReclaimPolicy: "Retain",
+			},
+			Status: api.PersistentVolumeStatus{
+				Phase: api.PersistentVolumePhase("Pending"),
+			},
+	}
 
+	tests := []eventTest{
+		{
+			event: watch.Modified,
+			item: pv,
+		},
+		{
+			event: watch.Added,
+			item: pv,
+		},
+		{
+			event: watch.Modified,
+			item: pv,
+		},
+		{
+			event: watch.Deleted,
+			item: pv,
+		},
+	}
+
+	testWatch(tests, ccapi.PersistentVolumes, t)
+}
+
+func TestWatchPersistentVolumeClaims(t *testing.T) {
+	pvc := &api.PersistentVolumeClaim{
+		ObjectMeta: api.ObjectMeta{Name: "persistentVolumeClaim1", Namespace: "test", ResourceVersion: "123"},
+		Spec: api.PersistentVolumeClaimSpec{
+			VolumeName: "volume",
+		},
+		Status: api.PersistentVolumeClaimStatus{
+			Phase: api.PersistentVolumeClaimPhase("Pending"),
+		},
+	}
+
+	tests := []eventTest{
+		{
+			event: watch.Modified,
+			item: pvc,
+		},
+		{
+			event: watch.Added,
+			item: pvc,
+		},
+		{
+			event: watch.Modified,
+			item: pvc,
+		},
+		{
+			event: watch.Deleted,
+			item: pvc,
+		},
+	}
+
+	testWatch(tests, ccapi.PersistentVolumeClaims, t)
+}
+
+func TestWatchNodes(t *testing.T) {
+	node := &api.Node{
+		ObjectMeta: api.ObjectMeta{Name: "node1", Namespace: "test", ResourceVersion: "123"},
+		Spec: api.NodeSpec{
+			ExternalID: "ext",
+		},
+	}
+
+	tests := []eventTest{
+		{
+			event: watch.Modified,
+			item: node,
+		},
+		{
+			event: watch.Added,
+			item: node,
+		},
+		{
+			event: watch.Modified,
+			item: node,
+		},
+		{
+			event: watch.Deleted,
+			item: node,
+		},
+	}
+
+	testWatch(tests, ccapi.Nodes, t)
+}

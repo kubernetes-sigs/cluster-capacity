@@ -9,6 +9,7 @@ import (
 	"k8s.io/kubernetes/pkg/watch"
 	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/store"
 	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/strategy"
+	ccapi "github.com/ingvagabund/cluster-capacity/pkg/api"
 )
 
 type ClientEmulator struct {
@@ -76,7 +77,7 @@ func NewClientEmulator() *ClientEmulator {
 		restClient: restClient,
 	}
 
-	resourceStore.RegisterEventHandler("pods", cache.ResourceEventHandlerFuncs{
+	resourceStore.RegisterEventHandler(ccapi.Pods, cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			restClient.EmitPodWatchEvent(watch.Added, obj.(*api.Pod))
 		},
@@ -88,7 +89,7 @@ func NewClientEmulator() *ClientEmulator {
 		},
 	})
 
-	resourceStore.RegisterEventHandler("services", cache.ResourceEventHandlerFuncs{
+	resourceStore.RegisterEventHandler(ccapi.Services, cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			restClient.EmitServiceWatchEvent(watch.Added, obj.(*api.Service))
 		},
@@ -100,7 +101,7 @@ func NewClientEmulator() *ClientEmulator {
 		},
 	})
 
-	resourceStore.RegisterEventHandler("replicationControllers", cache.ResourceEventHandlerFuncs{
+	resourceStore.RegisterEventHandler(ccapi.ReplicationControllers, cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			restClient.EmitReplicationControllerWatchEvent(watch.Added, obj.(*api.ReplicationController))
 		},
@@ -109,6 +110,42 @@ func NewClientEmulator() *ClientEmulator {
 		},
 		DeleteFunc: func(obj interface{}) {
 			restClient.EmitReplicationControllerWatchEvent(watch.Deleted, obj.(*api.ReplicationController))
+		},
+	})
+
+	resourceStore.RegisterEventHandler(ccapi.PersistentVolumes, cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			restClient.EmitPersistentVolumeWatchEvent(watch.Added, obj.(*api.PersistentVolume))
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			restClient.EmitPersistentVolumeWatchEvent(watch.Modified, newObj.(*api.PersistentVolume))
+		},
+		DeleteFunc: func(obj interface{}) {
+			restClient.EmitPersistentVolumeWatchEvent(watch.Deleted, obj.(*api.PersistentVolume))
+		},
+	})
+
+	resourceStore.RegisterEventHandler(ccapi.Nodes, cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			restClient.EmitNodeWatchEvent(watch.Added, obj.(*api.Node))
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			restClient.EmitNodeWatchEvent(watch.Modified, newObj.(*api.Node))
+		},
+		DeleteFunc: func(obj interface{}) {
+			restClient.EmitNodeWatchEvent(watch.Deleted, obj.(*api.Node))
+		},
+	})
+
+	resourceStore.RegisterEventHandler(ccapi.PersistentVolumeClaims, cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			restClient.EmitPersistentVolumeClaimWatchEvent(watch.Added, obj.(*api.PersistentVolumeClaim))
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			restClient.EmitPersistentVolumeClaimWatchEvent(watch.Modified, newObj.(*api.PersistentVolumeClaim))
+		},
+		DeleteFunc: func(obj interface{}) {
+			restClient.EmitPersistentVolumeClaimWatchEvent(watch.Deleted, obj.(*api.PersistentVolumeClaim))
 		},
 	})
 
