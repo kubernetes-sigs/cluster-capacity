@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"testing"
 	goruntime "runtime"
+	"reflect"
 	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api/meta"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/version"
 	"k8s.io/kubernetes/pkg/api/resource"
@@ -70,8 +72,8 @@ func getTestNode(nodeName string) *api.Node {
 				api.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
 			},
 			Allocatable: api.ResourceList{
-				api.ResourceCPU:       *resource.NewMilliQuantity(0, resource.DecimalSI),
-				api.ResourceMemory:    *resource.NewQuantity(0, resource.BinarySI),
+				api.ResourceCPU:       *resource.NewMilliQuantity(300, resource.DecimalSI),
+				api.ResourceMemory:    *resource.NewQuantity(20E6, resource.BinarySI),
 				api.ResourcePods:      *resource.NewQuantity(0, resource.DecimalSI),
 				api.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
 			},
@@ -118,28 +120,50 @@ func newScheduledPod() *api.Pod {
 	return pod
 }
 
-func newTestStrategyResourceStore() store.ResourceStore {
-	return &store.FakeResourceStore{
-		NodesData: func() []api.Node {
-			return []api.Node{
-				*getTestNode(testStrategyNode),
-			}
-		},
-	}
-}
-
-
 func TestAddPodStrategy(t *testing.T) {
 	// 1. create resource storage and fill it with a fake node
-	resourceStorage := newTestStrategyResourceStore()
-	predictiveStrategy := NewPredictiveStrategy(resourceStorage)
+	resourceStore := store.NewResourceStore()
+	resourceStore.Add("nodes", getTestNode(testStrategyNode))
+
+	predictiveStrategy := NewPredictiveStrategy(resourceStore)
 
 	// 2. create fake pod with some consumed resources assigned to the fake fake
 	scheduledPod := newScheduledPod()
 
 	// 3. run the strategy to retrieve the node from the resource store recomputing the node's allocatable
 	err := predictiveStrategy.Add(scheduledPod)
-	fmt.Println(err)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
 
 	// 4. check both the update node and the pod is stored back into the resource store
+	foundPod, exists, err := resourceStore.Get("pods", meta.Object(scheduledPod))
+	if err != nil {
+		t.Errorf("Unexpected error when retrieving scheduled pod: %v", err)
+	}
+	if !exists {
+		t.Errorf("Unable to find scheduled pod: %v", err)
+	}
+
+	actualPod := foundPod.(*api.Pod)
+	if !reflect.DeepEqual(scheduledPod, actualPod) {
+		t.Errorf("Unexpected object: expected: %#v\n actual: %#v", scheduledPod, actualPod)
+	}
+
+	node := &api.Node{
+		ObjectMeta: api.ObjectMeta{Name: testStrategyNode},
+	}
+
+	foundNode, exists, err := resourceStore.Get("nodes", meta.Object(node))
+	if err != nil {
+		t.Errorf("Unexpected error when retrieving scheduled node: %v", err)
+	}
+	if !exists {
+		t.Errorf("Unable to find scheduled node: %v", err)
+	}
+
+	actualNode := foundNode.(*api.Node)
+	if reflect.DeepEqual(node, actualNode) {
+		t.Errorf("Expected %q node to be modified", testStrategyNode)
+	}
 }
