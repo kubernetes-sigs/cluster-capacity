@@ -10,6 +10,7 @@ import (
 	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/store"
 	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/strategy"
 	ccapi "github.com/ingvagabund/cluster-capacity/pkg/api"
+	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/restclient"
 )
 
 type ClientEmulator struct {
@@ -20,7 +21,7 @@ type ClientEmulator struct {
 	strategy *strategy.Strategy
 
 	// fake rest client
-	restClient *RESTClient
+	restClient *restclient.RESTClient
 }
 
 func (c *ClientEmulator) sync(client cache.Getter) error {
@@ -70,7 +71,7 @@ func (c *ClientEmulator) Run() {
 
 func NewClientEmulator() *ClientEmulator {
 	resourceStore := store.NewResourceStore()
-	restClient := NewRESTClient(resourceStore)
+	restClient := restclient.NewRESTClient(resourceStore)
 
 	client := &ClientEmulator{
 		resourceStore: resourceStore,
