@@ -1,4 +1,4 @@
-package emulator
+package restclient
 
 import (
 	"testing"
