@@ -1,9 +1,8 @@
-package restclient
+package watch
 
 import (
 	"testing"
 	"k8s.io/kubernetes/pkg/client/cache"
-	apitesting "k8s.io/kubernetes/pkg/api/testing"
 	"k8s.io/kubernetes/pkg/watch"
 	"time"
 	"k8s.io/kubernetes/pkg/fields"
@@ -12,11 +11,12 @@ import (
 	"fmt"
 	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/store"
 	ccapi "github.com/ingvagabund/cluster-capacity/pkg/api"
-	"k8s.io/kubernetes/pkg/api/resource"
+	"github.com/ingvagabund/cluster-capacity/pkg/test"
+	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/restclient"
 )
 
-func newTestWatchRestClient() *RESTClient {
-	return NewRESTClient(&store.FakeResourceStore{})
+func newTestWatchRestClient() *restclient.RESTClient {
+	return restclient.NewRESTClient(&store.FakeResourceStore{})
 }
 
 func getResourceWatcher(client cache.Getter, resource string) watch.Interface {
@@ -36,7 +36,7 @@ func getResourceWatcher(client cache.Getter, resource string) watch.Interface {
 	return w
 }
 
-func emitEvent(client *RESTClient, resource string, test eventTest) {
+func emitEvent(client *restclient.RESTClient, resource string, test eventTest) {
 	switch resource {
 		case ccapi.Pods:
 			client.EmitPodWatchEvent(test.event, test.item.(*api.Pod))
@@ -108,27 +108,24 @@ func testWatch(tests []eventTest, resource string, t *testing.T) {
 
 func TestWatchPods(t *testing.T) {
 
-	pod := &api.Pod{
-		ObjectMeta: api.ObjectMeta{Name: "pod1", Namespace: "test", ResourceVersion: "10"},
-		Spec:       apitesting.DeepEqualSafePodSpec(),
-	}
+	pod := test.PodExample("pod1")
 
 	tests := []eventTest{
 		{
 			event: watch.Modified,
-			item: pod,
+			item: &pod,
 		},
 		{
 			event: watch.Added,
-			item: pod,
+			item: &pod,
 		},
 		{
 			event: watch.Modified,
-			item: pod,
+			item: &pod,
 		},
 		{
 			event: watch.Deleted,
-			item: pod,
+			item: &pod,
 		},
 	}
 
@@ -137,30 +134,24 @@ func TestWatchPods(t *testing.T) {
 
 func TestWatchServices(t *testing.T) {
 
-	service := &api.Service{
-		ObjectMeta: api.ObjectMeta{Name: "service1", Namespace: "test", ResourceVersion: "12"},
-		Spec: api.ServiceSpec{
-			SessionAffinity: "None",
-			Type:            api.ServiceTypeClusterIP,
-		},
-	}
+	service := test.ServiceExample("service1")
 
 	tests := []eventTest{
 		{
 			event: watch.Modified,
-			item: service,
+			item: &service,
 		},
 		{
 			event: watch.Added,
-			item: service,
+			item: &service,
 		},
 		{
 			event: watch.Modified,
-			item: service,
+			item: &service,
 		},
 		{
 			event: watch.Deleted,
-			item: service,
+			item: &service,
 		},
 	}
 
@@ -169,29 +160,24 @@ func TestWatchServices(t *testing.T) {
 
 func TestWatchReplicationControllers(t *testing.T) {
 
-	rc := &api.ReplicationController{
-		ObjectMeta: api.ObjectMeta{Name: "replicationcontroller1", Namespace: "test", ResourceVersion: "18"},
-		Spec: api.ReplicationControllerSpec{
-			Replicas: 1,
-		},
-	}
+	rc := test.ReplicationControllerExample("rc1")
 
 	tests := []eventTest{
 		{
 			event: watch.Modified,
-			item: rc,
+			item: &rc,
 		},
 		{
 			event: watch.Added,
-			item: rc,
+			item: &rc,
 		},
 		{
 			event: watch.Modified,
-			item: rc,
+			item: &rc,
 		},
 		{
 			event: watch.Deleted,
-			item: rc,
+			item: &rc,
 		},
 	}
 
@@ -199,38 +185,24 @@ func TestWatchReplicationControllers(t *testing.T) {
 }
 
 func TestWatchPersistentVolumes(t *testing.T) {
-	pv := &api.PersistentVolume{
-		ObjectMeta: api.ObjectMeta{Name: "persistentvolume1", Namespace: "test", ResourceVersion: "18"},
-		Spec: api.PersistentVolumeSpec{
-				Capacity: api.ResourceList{
-					api.ResourceName(api.ResourceStorage): resource.MustParse("10G"),
-				},
-				PersistentVolumeSource: api.PersistentVolumeSource{
-					HostPath: &api.HostPathVolumeSource{Path: "/foo"},
-				},
-				PersistentVolumeReclaimPolicy: "Retain",
-			},
-			Status: api.PersistentVolumeStatus{
-				Phase: api.PersistentVolumePhase("Pending"),
-			},
-	}
+	pv := test.PersistentVolumeExample("persistentvolume1")
 
 	tests := []eventTest{
 		{
 			event: watch.Modified,
-			item: pv,
+			item: &pv,
 		},
 		{
 			event: watch.Added,
-			item: pv,
+			item: &pv,
 		},
 		{
 			event: watch.Modified,
-			item: pv,
+			item: &pv,
 		},
 		{
 			event: watch.Deleted,
-			item: pv,
+			item: &pv,
 		},
 	}
 
@@ -238,32 +210,24 @@ func TestWatchPersistentVolumes(t *testing.T) {
 }
 
 func TestWatchPersistentVolumeClaims(t *testing.T) {
-	pvc := &api.PersistentVolumeClaim{
-		ObjectMeta: api.ObjectMeta{Name: "persistentVolumeClaim1", Namespace: "test", ResourceVersion: "123"},
-		Spec: api.PersistentVolumeClaimSpec{
-			VolumeName: "volume",
-		},
-		Status: api.PersistentVolumeClaimStatus{
-			Phase: api.PersistentVolumeClaimPhase("Pending"),
-		},
-	}
+	pvc := test.PersistentVolumeClaimExample("persistentVolumeClaim1")
 
 	tests := []eventTest{
 		{
 			event: watch.Modified,
-			item: pvc,
+			item: &pvc,
 		},
 		{
 			event: watch.Added,
-			item: pvc,
+			item: &pvc,
 		},
 		{
 			event: watch.Modified,
-			item: pvc,
+			item: &pvc,
 		},
 		{
 			event: watch.Deleted,
-			item: pvc,
+			item: &pvc,
 		},
 	}
 
@@ -271,29 +235,24 @@ func TestWatchPersistentVolumeClaims(t *testing.T) {
 }
 
 func TestWatchNodes(t *testing.T) {
-	node := &api.Node{
-		ObjectMeta: api.ObjectMeta{Name: "node1", Namespace: "test", ResourceVersion: "123"},
-		Spec: api.NodeSpec{
-			ExternalID: "ext",
-		},
-	}
+	node := test.NodeExample("node1")
 
 	tests := []eventTest{
 		{
 			event: watch.Modified,
-			item: node,
+			item: &node,
 		},
 		{
 			event: watch.Added,
-			item: node,
+			item: &node,
 		},
 		{
 			event: watch.Modified,
-			item: node,
+			item: &node,
 		},
 		{
 			event: watch.Deleted,
-			item: node,
+			item: &node,
 		},
 	}
 
