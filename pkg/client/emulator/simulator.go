@@ -9,21 +9,37 @@ import (
 	"k8s.io/kubernetes/pkg/watch"
 	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/store"
 	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/strategy"
+	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/restclient"
 	ccapi "github.com/ingvagabund/cluster-capacity/pkg/api"
+	"k8s.io/kubernetes/plugin/pkg/scheduler/factory"
+	"k8s.io/kubernetes/plugin/pkg/scheduler"
+	soptions "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app/options"
+	schedulerapi "k8s.io/kubernetes/plugin/pkg/scheduler/api"
+	latestschedulerapi "k8s.io/kubernetes/plugin/pkg/scheduler/api/latest"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
+
+	"os"
+	"io/ioutil"
+	"k8s.io/kubernetes/pkg/runtime"
+	"k8s.io/kubernetes/pkg/client/record"
 )
 
-type ClientEmulator struct {
+type ClusterCapacity struct {
 	// caches modified by emulation strategy
 	resourceStore store.ResourceStore
 
 	// emulation strategy
 	strategy *strategy.Strategy
 
-	// fake rest client
-	restClient *RESTClient
+	// fake kube client
+	kubeclient clientset.Interface
+
+	// schedulers
+	schedulers map[string]*scheduler.Scheduler
+	defaultScheduler string
 }
 
-func (c *ClientEmulator) sync(client cache.Getter) error {
+func (c *ClusterCapacity) SyncWithClient(client cache.Getter) error {
 
 	for _, resource := range c.resourceStore.Resources() {
 		listWatcher := cache.NewListWatchFromClient(client, resource, api.NamespaceAll, fields.ParseSelectorOrDie(""))
@@ -56,7 +72,13 @@ func (c *ClientEmulator) sync(client cache.Getter) error {
 	return nil
 }
 
-func (c *ClientEmulator) Run() {
+func (c *ClusterCapacity) SyncWithStore(resourceStore store.ResourceStore) {
+	for _, resource := range resourceStore.Resources() {
+		fmt.Println(resource)
+	}
+}
+
+func (c *ClusterCapacity) Run() {
 	// 1. sync store with cluster
 	// 2. init rest client (lister part)
 	// 3. register rest client to resource store (watch part)
@@ -68,13 +90,46 @@ func (c *ClientEmulator) Run() {
 	// 6.3. update resource store
 }
 
-func NewClientEmulator() *ClientEmulator {
-	resourceStore := store.NewResourceStore()
-	restClient := NewRESTClient(resourceStore)
+func (c *ClusterCapacity) AddScheduler(s *soptions.SchedulerServer) error {
+	configFactory := factory.NewConfigFactory(c.kubeclient, s.SchedulerName, s.HardPodAffinitySymmetricWeight, s.FailureDomains)
+	config, err := createConfig(s, configFactory)
 
-	client := &ClientEmulator{
+	if err != nil {
+		return fmt.Errorf("Failed to create scheduler configuration: %v", err)
+	}
+
+	// Does it make sense to collect events here?
+	config.Recorder = &record.FakeRecorder{}
+	c.schedulers[s.SchedulerName] = scheduler.New(config)
+	return nil
+}
+
+func createConfig(s *soptions.SchedulerServer, configFactory *factory.ConfigFactory) (*scheduler.Config, error) {
+	if _, err := os.Stat(s.PolicyConfigFile); err == nil {
+		var (
+			policy     schedulerapi.Policy
+			configData []byte
+		)
+		configData, err := ioutil.ReadFile(s.PolicyConfigFile)
+		if err != nil {
+			return nil, fmt.Errorf("unable to read policy config: %v", err)
+		}
+		if err := runtime.DecodeInto(latestschedulerapi.Codec, configData, &policy); err != nil {
+			return nil, fmt.Errorf("invalid configuration: %v", err)
+		}
+		return configFactory.CreateFromConfig(policy)
+	}
+
+	// if the config file isn't provided, use the specified (or default) provider
+	return configFactory.CreateFromProvider(s.AlgorithmProvider)
+}
+func New() *ClusterCapacity {
+	resourceStore := store.NewResourceStore()
+	restClient := restclient.NewRESTClient(resourceStore)
+
+	cc := &ClusterCapacity{
 		resourceStore: resourceStore,
-		restClient: restClient,
+		kubeclient: clientset.New(restClient),
 	}
 
 	resourceStore.RegisterEventHandler(ccapi.Pods, cache.ResourceEventHandlerFuncs{
@@ -149,5 +204,11 @@ func NewClientEmulator() *ClientEmulator {
 		},
 	})
 
-	return client
+	// read the default scheduler name from configuration
+	cc.defaultScheduler = "default"
+
+	// Create empty event recorder, broadcaster, metrics and everything up to binder.
+	// Binder is redirected to cluster capacity's counter.
+
+	return cc
 }
