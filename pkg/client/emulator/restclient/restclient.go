@@ -18,6 +18,7 @@ import (
 	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/store"
 	ewatch "github.com/ingvagabund/cluster-capacity/pkg/client/emulator/watch"
 	ccapi "github.com/ingvagabund/cluster-capacity/pkg/api"
+	"k8s.io/kubernetes/pkg/util/flowcontrol"
 )
 
 // RESTClient provides a fake RESTClient interface.
@@ -197,6 +198,18 @@ func (c *RESTClient) Close() {
 	if c.pvcWatcherReadGetter != nil {
 		c.pvcWatcherReadGetter.Close()
 	}
+}
+
+func (c *RESTClient) GetRateLimiter() flowcontrol.RateLimiter {
+	return nil
+}
+
+func (c *RESTClient) Verb(verb string) *restclient.Request {
+	return c.request(verb)
+}
+
+func (c *RESTClient) APIVersion() unversioned.GroupVersion {
+	return *(testapi.Default.GroupVersion())
 }
 
 func (c *RESTClient) Get() *restclient.Request {
