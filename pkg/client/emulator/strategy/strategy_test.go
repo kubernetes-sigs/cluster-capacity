@@ -2,16 +2,17 @@ package strategy
 
 import (
 	"fmt"
-	"testing"
-	goruntime "runtime"
 	"reflect"
+	goruntime "runtime"
+	"testing"
+
+	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/store"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/meta"
-	"k8s.io/kubernetes/pkg/api/unversioned"
-	"k8s.io/kubernetes/pkg/version"
 	"k8s.io/kubernetes/pkg/api/resource"
 	apitesting "k8s.io/kubernetes/pkg/api/testing"
-	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/store"
+	"k8s.io/kubernetes/pkg/api/unversioned"
+	"k8s.io/kubernetes/pkg/version"
 )
 
 func getTestNode(nodeName string) *api.Node {

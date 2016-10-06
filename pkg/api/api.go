@@ -1,11 +1,10 @@
 package api
 
-
 const (
-	Pods = "pods"
-	PersistentVolumes = "persistentvolumes"
+	Pods                   = "pods"
+	PersistentVolumes      = "persistentvolumes"
 	ReplicationControllers = "replicationcontrollers"
-	Nodes = "nodes"
-	Services = "services"
+	Nodes                  = "nodes"
+	Services               = "services"
 	PersistentVolumeClaims = "persistentvolumeclaims"
 )

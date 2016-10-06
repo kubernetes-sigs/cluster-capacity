@@ -1,9 +1,10 @@
 package store
 
 import (
-	"k8s.io/kubernetes/pkg/client/cache"
 	"fmt"
+
 	ccapi "github.com/ingvagabund/cluster-capacity/pkg/api"
+	"k8s.io/kubernetes/pkg/client/cache"
 )
 
 type ResourceStore interface {
@@ -47,7 +48,7 @@ type resourceStore struct {
 	ReplicaSetCache cache.Store
 
 	resourceToCache map[string]cache.Store
-	eventHandler map[string]cache.ResourceEventHandler
+	eventHandler    map[string]cache.ResourceEventHandler
 }
 
 // Add resource obj to store and emit event handler if set
@@ -148,26 +149,26 @@ func (s *resourceStore) Replace(resource string, items []interface{}, resourceVe
 // TODO(jchaloup,hodovska): currently, only scheduler caches are considered.
 // Later, include cache for each object.
 type caches struct {
-       // Pod cache modifed by emulation strategy
-       PodCache cache.Store
+	// Pod cache modifed by emulation strategy
+	PodCache cache.Store
 
-       // Node cache modifed by emulation strategy
-       NodeCache cache.Store
+	// Node cache modifed by emulation strategy
+	NodeCache cache.Store
 
-       // PVC cache modifed by emulation strategy
-       PVCCache cache.Store
+	// PVC cache modifed by emulation strategy
+	PVCCache cache.Store
 
-       // PV cache modifed by emulation strategy
-       PVCache cache.Store
+	// PV cache modifed by emulation strategy
+	PVCache cache.Store
 
-       // Service cache modifed by emulation strategy
-       ServiceCache cache.Store
+	// Service cache modifed by emulation strategy
+	ServiceCache cache.Store
 
-       // RC cache modifed by emulation strategy
-       ReplicationControllerCache cache.Store
+	// RC cache modifed by emulation strategy
+	ReplicationControllerCache cache.Store
 
-       // RS cache modifed by emulation strategy
-       ReplicaSetCache cache.Store
+	// RS cache modifed by emulation strategy
+	ReplicaSetCache cache.Store
 }
 
 func (s *resourceStore) Resources() []string {
@@ -188,7 +189,7 @@ func NewResourceStore() *resourceStore {
 		ServiceCache:               cache.NewStore(cache.MetaNamespaceKeyFunc),
 		ReplicaSetCache:            cache.NewStore(cache.MetaNamespaceKeyFunc),
 		ReplicationControllerCache: cache.NewStore(cache.MetaNamespaceKeyFunc),
-		eventHandler: make(map[string]cache.ResourceEventHandler),
+		eventHandler:               make(map[string]cache.ResourceEventHandler),
 	}
 
 	resourceToCache := map[string]cache.Store{

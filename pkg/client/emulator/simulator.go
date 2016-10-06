@@ -2,26 +2,28 @@ package emulator
 
 import (
 	"fmt"
+
+	ccapi "github.com/ingvagabund/cluster-capacity/pkg/api"
+	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/restclient"
+	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/store"
+	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/strategy"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/meta"
 	"k8s.io/kubernetes/pkg/client/cache"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 	"k8s.io/kubernetes/pkg/fields"
 	"k8s.io/kubernetes/pkg/watch"
-	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/store"
-	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/strategy"
-	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/restclient"
-	ccapi "github.com/ingvagabund/cluster-capacity/pkg/api"
-	"k8s.io/kubernetes/plugin/pkg/scheduler/factory"
-	"k8s.io/kubernetes/plugin/pkg/scheduler"
 	soptions "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app/options"
+	"k8s.io/kubernetes/plugin/pkg/scheduler"
 	schedulerapi "k8s.io/kubernetes/plugin/pkg/scheduler/api"
 	latestschedulerapi "k8s.io/kubernetes/plugin/pkg/scheduler/api/latest"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
+	"k8s.io/kubernetes/plugin/pkg/scheduler/factory"
 
-	"os"
 	"io/ioutil"
-	"k8s.io/kubernetes/pkg/runtime"
+	"os"
+
 	"k8s.io/kubernetes/pkg/client/record"
+	"k8s.io/kubernetes/pkg/runtime"
 )
 
 type ClusterCapacity struct {
@@ -35,7 +37,7 @@ type ClusterCapacity struct {
 	kubeclient clientset.Interface
 
 	// schedulers
-	schedulers map[string]*scheduler.Scheduler
+	schedulers       map[string]*scheduler.Scheduler
 	defaultScheduler string
 }
 
@@ -129,7 +131,7 @@ func New() *ClusterCapacity {
 
 	cc := &ClusterCapacity{
 		resourceStore: resourceStore,
-		kubeclient: clientset.New(restClient),
+		kubeclient:    clientset.New(restClient),
 	}
 
 	resourceStore.RegisterEventHandler(ccapi.Pods, cache.ResourceEventHandlerFuncs{

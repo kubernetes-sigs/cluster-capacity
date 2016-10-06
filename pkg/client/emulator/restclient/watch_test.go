@@ -1,17 +1,18 @@
 package restclient
 
 import (
-	"testing"
-	"k8s.io/kubernetes/pkg/client/cache"
-	"k8s.io/kubernetes/pkg/watch"
-	"time"
-	"k8s.io/kubernetes/pkg/fields"
-	"k8s.io/kubernetes/pkg/api"
-	"reflect"
 	"fmt"
-	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/store"
+	"reflect"
+	"testing"
+	"time"
+
 	ccapi "github.com/ingvagabund/cluster-capacity/pkg/api"
+	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/store"
 	"github.com/ingvagabund/cluster-capacity/pkg/test"
+	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/client/cache"
+	"k8s.io/kubernetes/pkg/fields"
+	"k8s.io/kubernetes/pkg/watch"
 )
 
 func newTestWatchRestClient() *RESTClient {
@@ -37,27 +38,27 @@ func getResourceWatcher(client cache.Getter, resource string) watch.Interface {
 
 func emitEvent(client *RESTClient, resource string, test eventTest) {
 	switch resource {
-		case ccapi.Pods:
-			client.EmitPodWatchEvent(test.event, test.item.(*api.Pod))
-		case ccapi.Services:
-			client.EmitServiceWatchEvent(test.event, test.item.(*api.Service))
-		case ccapi.ReplicationControllers:
-			client.EmitReplicationControllerWatchEvent(test.event, test.item.(*api.ReplicationController))
-		case ccapi.PersistentVolumes:
-			client.EmitPersistentVolumeWatchEvent(test.event, test.item.(*api.PersistentVolume))
-		case ccapi.Nodes:
-			client.EmitNodeWatchEvent(test.event, test.item.(*api.Node))
-		case ccapi.PersistentVolumeClaims:
-			client.EmitPersistentVolumeClaimWatchEvent(test.event, test.item.(*api.PersistentVolumeClaim))
-		default:
-			fmt.Printf("Unsupported resource %s", resource)
-			// TODO(jchaloup): log the error
+	case ccapi.Pods:
+		client.EmitPodWatchEvent(test.event, test.item.(*api.Pod))
+	case ccapi.Services:
+		client.EmitServiceWatchEvent(test.event, test.item.(*api.Service))
+	case ccapi.ReplicationControllers:
+		client.EmitReplicationControllerWatchEvent(test.event, test.item.(*api.ReplicationController))
+	case ccapi.PersistentVolumes:
+		client.EmitPersistentVolumeWatchEvent(test.event, test.item.(*api.PersistentVolume))
+	case ccapi.Nodes:
+		client.EmitNodeWatchEvent(test.event, test.item.(*api.Node))
+	case ccapi.PersistentVolumeClaims:
+		client.EmitPersistentVolumeClaimWatchEvent(test.event, test.item.(*api.PersistentVolumeClaim))
+	default:
+		fmt.Printf("Unsupported resource %s", resource)
+		// TODO(jchaloup): log the error
 	}
 }
 
-type eventTest struct{
+type eventTest struct {
 	event watch.EventType
-	item interface{}
+	item  interface{}
 }
 
 func testWatch(tests []eventTest, resource string, t *testing.T) {
@@ -69,7 +70,7 @@ func testWatch(tests []eventTest, resource string, t *testing.T) {
 	emitEvent(client, resource, tests[0])
 	emitEvent(client, resource, tests[1])
 	// wait for a while so both events are in one byte stream
-	time.Sleep(10*time.Millisecond)
+	time.Sleep(10 * time.Millisecond)
 	sync := make(chan struct{})
 
 	// retrieve all events one by one in the same order
@@ -88,13 +89,13 @@ func testWatch(tests []eventTest, resource string, t *testing.T) {
 				t.Errorf("unexpected object: expected: %#v\n actual: %#v", test.item, event.Object)
 			}
 		}
-		sync<- struct{}{}
+		sync <- struct{}{}
 	}()
 
 	// send remaining events
 	t.Logf("Emitting remaining events")
 	for _, test := range tests[2:] {
-		time.Sleep(10*time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 		emitEvent(client, resource, test)
 		t.Logf("Event emitted")
 	}
@@ -112,19 +113,19 @@ func TestWatchPods(t *testing.T) {
 	tests := []eventTest{
 		{
 			event: watch.Modified,
-			item: &pod,
+			item:  &pod,
 		},
 		{
 			event: watch.Added,
-			item: &pod,
+			item:  &pod,
 		},
 		{
 			event: watch.Modified,
-			item: &pod,
+			item:  &pod,
 		},
 		{
 			event: watch.Deleted,
-			item: &pod,
+			item:  &pod,
 		},
 	}
 
@@ -138,19 +139,19 @@ func TestWatchServices(t *testing.T) {
 	tests := []eventTest{
 		{
 			event: watch.Modified,
-			item: &service,
+			item:  &service,
 		},
 		{
 			event: watch.Added,
-			item: &service,
+			item:  &service,
 		},
 		{
 			event: watch.Modified,
-			item: &service,
+			item:  &service,
 		},
 		{
 			event: watch.Deleted,
-			item: &service,
+			item:  &service,
 		},
 	}
 
@@ -164,19 +165,19 @@ func TestWatchReplicationControllers(t *testing.T) {
 	tests := []eventTest{
 		{
 			event: watch.Modified,
-			item: &rc,
+			item:  &rc,
 		},
 		{
 			event: watch.Added,
-			item: &rc,
+			item:  &rc,
 		},
 		{
 			event: watch.Modified,
-			item: &rc,
+			item:  &rc,
 		},
 		{
 			event: watch.Deleted,
-			item: &rc,
+			item:  &rc,
 		},
 	}
 
@@ -189,19 +190,19 @@ func TestWatchPersistentVolumes(t *testing.T) {
 	tests := []eventTest{
 		{
 			event: watch.Modified,
-			item: &pv,
+			item:  &pv,
 		},
 		{
 			event: watch.Added,
-			item: &pv,
+			item:  &pv,
 		},
 		{
 			event: watch.Modified,
-			item: &pv,
+			item:  &pv,
 		},
 		{
 			event: watch.Deleted,
-			item: &pv,
+			item:  &pv,
 		},
 	}
 
@@ -214,19 +215,19 @@ func TestWatchPersistentVolumeClaims(t *testing.T) {
 	tests := []eventTest{
 		{
 			event: watch.Modified,
-			item: &pvc,
+			item:  &pvc,
 		},
 		{
 			event: watch.Added,
-			item: &pvc,
+			item:  &pvc,
 		},
 		{
 			event: watch.Modified,
-			item: &pvc,
+			item:  &pvc,
 		},
 		{
 			event: watch.Deleted,
-			item: &pvc,
+			item:  &pvc,
 		},
 	}
 
@@ -239,19 +240,19 @@ func TestWatchNodes(t *testing.T) {
 	tests := []eventTest{
 		{
 			event: watch.Modified,
-			item: &node,
+			item:  &node,
 		},
 		{
 			event: watch.Added,
-			item: &node,
+			item:  &node,
 		},
 		{
 			event: watch.Modified,
-			item: &node,
+			item:  &node,
 		},
 		{
 			event: watch.Deleted,
-			item: &node,
+			item:  &node,
 		},
 	}
 

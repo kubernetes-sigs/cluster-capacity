@@ -1,13 +1,14 @@
 package strategy
 
 import (
+	"fmt"
+
+	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/store"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/meta"
 	"k8s.io/kubernetes/pkg/api/resource"
-	"k8s.io/kubernetes/plugin/pkg/scheduler/schedulercache"
 	apitesting "k8s.io/kubernetes/pkg/api/testing"
-	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/store"
-	"fmt"
+	"k8s.io/kubernetes/plugin/pkg/scheduler/schedulercache"
 )
 
 type Strategy interface {
@@ -50,7 +51,7 @@ func newStubPod(nodeName string, node *api.Node) *api.Pod {
 	pod.Spec.Containers = []api.Container{
 		{
 			Resources: api.ResourceRequirements{
-				Limits: limitResourceList,
+				Limits:   limitResourceList,
 				Requests: requestsResourceList,
 			},
 		},
@@ -119,10 +120,10 @@ func (s *predictiveStrategy) addPod(pod *api.Pod) error {
 // If so, all succesfully processed objects up to the first failed are reflected in the resource store.
 func (s *predictiveStrategy) Add(obj interface{}) error {
 	switch item := obj.(type) {
-		case *api.Pod:
-			return s.addPod(item)
-		default:
-			return fmt.Errorf("resource kind not recognized")
+	case *api.Pod:
+		return s.addPod(item)
+	default:
+		return fmt.Errorf("resource kind not recognized")
 	}
 }
 

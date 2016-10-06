@@ -2,11 +2,12 @@ package watch
 
 import (
 	"bytes"
-	"io"
 	"fmt"
+	"io"
 	"time"
-	"k8s.io/kubernetes/pkg/runtime"
+
 	"k8s.io/kubernetes/pkg/api/testapi"
+	"k8s.io/kubernetes/pkg/runtime"
 	"k8s.io/kubernetes/pkg/watch"
 )
 
@@ -17,9 +18,9 @@ import (
 // Implementation of io.ReadCloser
 type WatchBuffer struct {
 	buf   *bytes.Buffer
-        read  chan []byte
-        write chan []byte
-        retc  chan retc
+	read  chan []byte
+	write chan []byte
+	retc  chan retc
 
 	closed bool
 }
@@ -53,7 +54,7 @@ func (w *WatchBuffer) Close() error {
 }
 
 // Write
-func (w *WatchBuffer) Write(data []byte) (nr int, err error)  {
+func (w *WatchBuffer) Write(data []byte) (nr int, err error) {
 	w.write <- data
 	return len(data), nil
 }
@@ -81,42 +82,41 @@ func (w *WatchBuffer) loop() {
 	var ok bool
 	for {
 		select {
-			case dataIn = <-w.write:
+		case dataIn = <-w.write:
+			_, err := w.buf.Write(dataIn)
+			if err != nil {
+				// TODO(jchaloup): add log message
+				fmt.Println("Write error")
+				break
+			}
+		case dataOut = <-w.read:
+			if w.buf.Len() == 0 {
+				dataIn, ok = <-w.write
+				if !ok {
+					break
+				}
 				_, err := w.buf.Write(dataIn)
 				if err != nil {
 					// TODO(jchaloup): add log message
 					fmt.Println("Write error")
 					break
 				}
-			case dataOut = <-w.read:
-				if w.buf.Len() == 0 {
-					dataIn, ok = <-w.write
-					if !ok {
-						break
-					}
-					_, err := w.buf.Write(dataIn)
-					if err != nil {
-						// TODO(jchaloup): add log message
-						fmt.Println("Write error")
-						break
-					}
-				}
-				nr, err := w.buf.Read(dataOut)
-				if w.closed {
-					break
-				}
-				w.retc <-retc{nr,err}
+			}
+			nr, err := w.buf.Read(dataOut)
+			if w.closed {
+				break
+			}
+			w.retc <- retc{nr, err}
 		}
 	}
 }
 
-
 func NewWatchBuffer() *WatchBuffer {
 	wb := &WatchBuffer{
-		buf: bytes.NewBuffer(nil),
-		read: make(chan []byte),
-		write: make(chan []byte),
-		retc: make(chan retc),
+		buf:    bytes.NewBuffer(nil),
+		read:   make(chan []byte),
+		write:  make(chan []byte),
+		retc:   make(chan retc),
 		closed: false,
 	}
 
@@ -129,18 +129,18 @@ func main() {
 
 	go func() {
 		buffer.Write([]byte("Ahoj"))
-		time.Sleep(5*time.Second)
+		time.Sleep(5 * time.Second)
 		buffer.Write([]byte(" Svete"))
 		//time.Sleep(time.Second)
 	}()
 
-	data := []byte{0,0,0,0,0,0}
+	data := []byte{0, 0, 0, 0, 0, 0}
 	buffer.Read(data)
 	fmt.Printf("\tdata: %s\n", data)
 	buffer.Read(data)
 	fmt.Printf("\tdata: %s\n", data)
 
-	time.Sleep(10*time.Second)
+	time.Sleep(10 * time.Second)
 
 	buffer.Close()
 	fmt.Println("Ahoj")

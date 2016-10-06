@@ -2,11 +2,12 @@ package options
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+
 	"github.com/spf13/pflag"
 	"k8s.io/kubernetes/pkg/util/yaml"
 	schedopt "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app/options"
-	"os"
-	"path/filepath"
 )
 
 type ClusterCapacityServer struct {

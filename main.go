@@ -1,9 +1,10 @@
 package main
 
 import (
-	"github.com/ingvagabund/cluster-capacity/cmd"
 	"fmt"
 	"os"
+
+	"github.com/ingvagabund/cluster-capacity/cmd"
 )
 
 func main() {

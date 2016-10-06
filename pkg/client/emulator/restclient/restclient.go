@@ -1,24 +1,25 @@
 package restclient
 
 import (
-	"net/http"
-	"k8s.io/kubernetes/pkg/runtime"
 	"bytes"
-	"io/ioutil"
-	"k8s.io/kubernetes/pkg/client/restclient"
 	"fmt"
-	"net/url"
-	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/unversioned"
-	"k8s.io/kubernetes/pkg/api/testapi"
-	"strings"
-	"k8s.io/kubernetes/pkg/apis/extensions"
 	"io"
-	"k8s.io/kubernetes/pkg/watch"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	"strings"
+
+	ccapi "github.com/ingvagabund/cluster-capacity/pkg/api"
 	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/store"
 	ewatch "github.com/ingvagabund/cluster-capacity/pkg/client/emulator/watch"
-	ccapi "github.com/ingvagabund/cluster-capacity/pkg/api"
+	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api/testapi"
+	"k8s.io/kubernetes/pkg/api/unversioned"
+	"k8s.io/kubernetes/pkg/apis/extensions"
+	"k8s.io/kubernetes/pkg/client/restclient"
+	"k8s.io/kubernetes/pkg/runtime"
 	"k8s.io/kubernetes/pkg/util/flowcontrol"
+	"k8s.io/kubernetes/pkg/watch"
 )
 
 // RESTClient provides a fake RESTClient interface.
@@ -31,12 +32,12 @@ type RESTClient struct {
 
 	resourceStore store.ResourceStore
 
-	podsWatcherReadGetter *ewatch.WatchBuffer
+	podsWatcherReadGetter     *ewatch.WatchBuffer
 	servicesWatcherReadGetter *ewatch.WatchBuffer
-	rcsWatcherReadGetter *ewatch.WatchBuffer
-	pvWatcherReadGetter *ewatch.WatchBuffer
-	pvcWatcherReadGetter *ewatch.WatchBuffer
-	nodesWatcherReadGetter *ewatch.WatchBuffer
+	rcsWatcherReadGetter      *ewatch.WatchBuffer
+	pvWatcherReadGetter       *ewatch.WatchBuffer
+	pvcWatcherReadGetter      *ewatch.WatchBuffer
+	nodesWatcherReadGetter    *ewatch.WatchBuffer
 }
 
 func (c *RESTClient) Pods() *api.PodList {
@@ -126,7 +127,7 @@ func (c *RESTClient) Nodes() *api.NodeList {
 
 	return &api.NodeList{
 		ListMeta: unversioned.ListMeta{
-			ResourceVersion:  "0",
+			ResourceVersion: "0",
 		},
 		Items: nodeItems,
 	}
@@ -135,7 +136,6 @@ func (c *RESTClient) Nodes() *api.NodeList {
 func (c *RESTClient) ReplicaSets() *extensions.ReplicaSetList {
 	return nil
 }
-
 
 func (c *RESTClient) EmitPodWatchEvent(eType watch.EventType, object *api.Pod) error {
 	if c.podsWatcherReadGetter != nil {
@@ -257,30 +257,30 @@ func (c *RESTClient) request(verb string) *restclient.Request {
 
 // splitPath returns the segments for a URL path.
 func splitPath(path string) []string {
-        path = strings.Trim(path, "/")
-        if path == "" {
-                return []string{}
-        }
-        return strings.Split(path, "/")
+	path = strings.Trim(path, "/")
+	if path == "" {
+		return []string{}
+	}
+	return strings.Split(path, "/")
 }
 
 func (c *RESTClient) createListReadCloser(resource string) (rc *io.ReadCloser, err error) {
 	var obj runtime.Object
 	switch resource {
-		case ccapi.Pods:
-			obj = c.Pods()
-		case ccapi.Services:
-			obj = c.Services()
-		case ccapi.ReplicationControllers:
-			obj = c.ReplicationControllers()
-		case ccapi.PersistentVolumes:
-			obj = c.PersistentVolumes()
-		case ccapi.PersistentVolumeClaims:
-			obj = c.PersistentVolumeClaims()
-		case ccapi.Nodes:
-			obj = c.Nodes()
-		default:
-			return nil, fmt.Errorf("Resource %s not recognized", resource)
+	case ccapi.Pods:
+		obj = c.Pods()
+	case ccapi.Services:
+		obj = c.Services()
+	case ccapi.ReplicationControllers:
+		obj = c.ReplicationControllers()
+	case ccapi.PersistentVolumes:
+		obj = c.PersistentVolumes()
+	case ccapi.PersistentVolumeClaims:
+		obj = c.PersistentVolumeClaims()
+	case ccapi.Nodes:
+		obj = c.Nodes()
+	default:
+		return nil, fmt.Errorf("Resource %s not recognized", resource)
 	}
 
 	nopCloser := ioutil.NopCloser(bytes.NewReader([]byte(runtime.EncodeOrDie(testapi.Default.Codec(), obj))))
@@ -291,38 +291,38 @@ func (c *RESTClient) createListReadCloser(resource string) (rc *io.ReadCloser, e
 func (c *RESTClient) createWatchReadCloser(resource string) (rc *ewatch.WatchBuffer, err error) {
 	rc = ewatch.NewWatchBuffer()
 	switch resource {
-		case ccapi.Pods:
-			if c.podsWatcherReadGetter != nil {
-				c.podsWatcherReadGetter.Close()
-			}
-			c.podsWatcherReadGetter = rc
-		case ccapi.Services:
-			if c.servicesWatcherReadGetter != nil {
-				c.servicesWatcherReadGetter.Close()
-			}
-			c.servicesWatcherReadGetter = rc
-		case ccapi.ReplicationControllers:
-			if c.rcsWatcherReadGetter != nil {
-				c.rcsWatcherReadGetter.Close()
-			}
-			c.rcsWatcherReadGetter = rc
-		case ccapi.PersistentVolumes:
-			if c.pvWatcherReadGetter != nil {
-				c.pvWatcherReadGetter.Close()
-			}
-			c.pvWatcherReadGetter = rc
-		case ccapi.PersistentVolumeClaims:
-			if c.pvcWatcherReadGetter != nil {
-				c.pvcWatcherReadGetter.Close()
-			}
-			c.pvcWatcherReadGetter = rc
-		case ccapi.Nodes:
-			if c.nodesWatcherReadGetter != nil {
-				c.nodesWatcherReadGetter.Close()
-			}
-			c.nodesWatcherReadGetter = rc
-		default:
-			return nil, fmt.Errorf("Resource %s not recognized", resource)
+	case ccapi.Pods:
+		if c.podsWatcherReadGetter != nil {
+			c.podsWatcherReadGetter.Close()
+		}
+		c.podsWatcherReadGetter = rc
+	case ccapi.Services:
+		if c.servicesWatcherReadGetter != nil {
+			c.servicesWatcherReadGetter.Close()
+		}
+		c.servicesWatcherReadGetter = rc
+	case ccapi.ReplicationControllers:
+		if c.rcsWatcherReadGetter != nil {
+			c.rcsWatcherReadGetter.Close()
+		}
+		c.rcsWatcherReadGetter = rc
+	case ccapi.PersistentVolumes:
+		if c.pvWatcherReadGetter != nil {
+			c.pvWatcherReadGetter.Close()
+		}
+		c.pvWatcherReadGetter = rc
+	case ccapi.PersistentVolumeClaims:
+		if c.pvcWatcherReadGetter != nil {
+			c.pvcWatcherReadGetter.Close()
+		}
+		c.pvcWatcherReadGetter = rc
+	case ccapi.Nodes:
+		if c.nodesWatcherReadGetter != nil {
+			c.nodesWatcherReadGetter.Close()
+		}
+		c.nodesWatcherReadGetter = rc
+	default:
+		return nil, fmt.Errorf("Resource %s not recognized", resource)
 	}
 	return rc, nil
 }
@@ -367,6 +367,6 @@ func (c *RESTClient) Do(req *http.Request) (*http.Response, error) {
 func NewRESTClient(resourceStore store.ResourceStore) *RESTClient {
 	return &RESTClient{
 		NegotiatedSerializer: testapi.Default.NegotiatedSerializer(),
-		resourceStore: resourceStore,
+		resourceStore:        resourceStore,
 	}
 }

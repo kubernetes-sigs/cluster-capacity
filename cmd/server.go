@@ -2,8 +2,9 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
+
 	"github.com/ingvagabund/cluster-capacity/cmd/options"
+	"github.com/spf13/cobra"
 	"k8s.io/kubernetes/pkg/client/unversioned"
 	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
 )
@@ -43,5 +44,4 @@ func Run(s *options.ClusterCapacityServer) error {
 	} else {
 		return fmt.Errorf("Server version: %#v\n", v)
 	}
-	return nil
 }

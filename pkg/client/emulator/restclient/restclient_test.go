@@ -1,24 +1,23 @@
 package restclient
 
 import (
-	"testing"
-	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/unversioned"
-	"k8s.io/kubernetes/pkg/api/testapi"
+	"fmt"
 	"reflect"
 	"strings"
-	"k8s.io/kubernetes/pkg/apis/extensions"
-	"k8s.io/kubernetes/pkg/runtime"
-	"fmt"
-	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/store"
-	"k8s.io/kubernetes/pkg/fields"
-	"k8s.io/kubernetes/pkg/client/cache"
-	"k8s.io/kubernetes/pkg/api/meta"
-	"github.com/ingvagabund/cluster-capacity/pkg/test"
+	"testing"
+
 	ccapi "github.com/ingvagabund/cluster-capacity/pkg/api"
-
+	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/store"
+	"github.com/ingvagabund/cluster-capacity/pkg/test"
+	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api/meta"
+	"k8s.io/kubernetes/pkg/api/testapi"
+	"k8s.io/kubernetes/pkg/api/unversioned"
+	"k8s.io/kubernetes/pkg/apis/extensions"
+	"k8s.io/kubernetes/pkg/client/cache"
+	"k8s.io/kubernetes/pkg/fields"
+	"k8s.io/kubernetes/pkg/runtime"
 )
-
 
 func testPodsData() *api.PodList {
 	pods := &api.PodList{
@@ -103,7 +102,7 @@ func testNodesData() *api.NodeList {
 		},
 	}
 
-	for i := 0; i< 10; i++ {
+	for i := 0; i < 10; i++ {
 		name := fmt.Sprintln("node%v", i)
 		item := test.NodeExample(name)
 		nodes.Items = append(nodes.Items, item)
@@ -132,7 +131,6 @@ func testReplicaSetsData() *extensions.ReplicaSetList {
 	return rs
 }
 
-
 func newTestListRestClient() *RESTClient {
 
 	resourceStore := &store.FakeResourceStore{
@@ -158,7 +156,7 @@ func newTestListRestClient() *RESTClient {
 
 	client := &RESTClient{
 		NegotiatedSerializer: testapi.Default.NegotiatedSerializer(),
-		resourceStore: resourceStore,
+		resourceStore:        resourceStore,
 	}
 
 	return client
@@ -282,7 +280,6 @@ func TestSyncPersistentVolumes(t *testing.T) {
 	}
 }
 
-
 func TestSyncPersistentVolumeClaims(t *testing.T) {
 	fakeClient := newTestListRestClient()
 	expected := fakeClient.PersistentVolumeClaims().Items
@@ -320,6 +317,7 @@ func TestSyncNodes(t *testing.T) {
 		t.Errorf("unexpected object: expected: %#v\n actual: %#v", expected, found)
 	}
 }
+
 //func testSyncReplicaSets(t *testing.T) {
 //	fakeClient := newTestListRestClient()
 //	expected := fakeClient.ReplicaSets().Items
