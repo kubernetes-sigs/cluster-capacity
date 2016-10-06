@@ -4,7 +4,6 @@ import (
 	"testing"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/unversioned"
-	apitesting "k8s.io/kubernetes/pkg/api/testing"
 	"k8s.io/kubernetes/pkg/api/testapi"
 	"reflect"
 	"strings"
@@ -15,8 +14,9 @@ import (
 	"k8s.io/kubernetes/pkg/fields"
 	"k8s.io/kubernetes/pkg/client/cache"
 	"k8s.io/kubernetes/pkg/api/meta"
-	"k8s.io/kubernetes/pkg/api/resource"
+	"github.com/ingvagabund/cluster-capacity/pkg/test"
 	ccapi "github.com/ingvagabund/cluster-capacity/pkg/api"
+
 )
 
 
@@ -28,11 +28,7 @@ func testPodsData() *api.PodList {
 	}
 	for i := 0; i < 10; i++ {
 		name := fmt.Sprintf("pod%v", i)
-		item := api.Pod{
-			ObjectMeta: api.ObjectMeta{Name: name, Namespace: "test", ResourceVersion: "10"},
-			Spec:       apitesting.DeepEqualSafePodSpec(),
-		}
-
+		item := test.PodExample(name)
 		pods.Items = append(pods.Items, item)
 	}
 
@@ -48,14 +44,7 @@ func testServicesData() *api.ServiceList {
 
 	for i := 0; i < 10; i++ {
 		name := fmt.Sprintf("service%v", i)
-		item := api.Service{
-			ObjectMeta: api.ObjectMeta{Name: name, Namespace: "test", ResourceVersion: "12"},
-			Spec: api.ServiceSpec{
-				SessionAffinity: "None",
-				Type:            api.ServiceTypeClusterIP,
-			},
-		}
-
+		item := test.ServiceExample(name)
 		svc.Items = append(svc.Items, item)
 	}
 
@@ -71,12 +60,7 @@ func testReplicationControllersData() *api.ReplicationControllerList {
 
 	for i := 0; i < 10; i++ {
 		name := fmt.Sprintf("rc%v", i)
-		item := api.ReplicationController{
-			ObjectMeta: api.ObjectMeta{Name: name, Namespace: "test", ResourceVersion: "18"},
-			Spec: api.ReplicationControllerSpec{
-				Replicas: 1,
-			},
-		}
+		item := test.ReplicationControllerExample(name)
 		rc.Items = append(rc.Items, item)
 	}
 
@@ -92,21 +76,7 @@ func testPersistentVolumesData() *api.PersistentVolumeList {
 
 	for i := 0; i < 1; i++ {
 		name := fmt.Sprintf("pv%v", i)
-		item := api.PersistentVolume{
-			ObjectMeta: api.ObjectMeta{Name: name, Namespace: "test", ResourceVersion: "123"},
-			Spec: api.PersistentVolumeSpec{
-				Capacity: api.ResourceList{
-					api.ResourceName(api.ResourceStorage): resource.MustParse("10G"),
-				},
-				PersistentVolumeSource: api.PersistentVolumeSource{
-					HostPath: &api.HostPathVolumeSource{Path: "/foo"},
-				},
-				PersistentVolumeReclaimPolicy: "Retain",
-			},
-			Status: api.PersistentVolumeStatus{
-				Phase: api.PersistentVolumePhase("Pending"),
-			},
-		}
+		item := test.PersistentVolumeExample(name)
 		pv.Items = append(pv.Items, item)
 	}
 	return pv
@@ -120,15 +90,7 @@ func testPersistentVolumeClaimsData() *api.PersistentVolumeClaimList {
 	}
 	for i := 0; i < 10; i++ {
 		name := fmt.Sprintf("pvc%v", i)
-		item := api.PersistentVolumeClaim{
-			ObjectMeta: api.ObjectMeta{Name: name, Namespace: "test", ResourceVersion: "123"},
-			Spec: api.PersistentVolumeClaimSpec{
-				VolumeName: "volume",
-			},
-			Status: api.PersistentVolumeClaimStatus{
-				Phase: api.PersistentVolumeClaimPhase("Pending"),
-			},
-		}
+		item := test.PersistentVolumeClaimExample(name)
 		pvc.Items = append(pvc.Items, item)
 	}
 	return pvc
@@ -143,12 +105,7 @@ func testNodesData() *api.NodeList {
 
 	for i := 0; i< 10; i++ {
 		name := fmt.Sprintln("node%v", i)
-		item := api.Node{
-			ObjectMeta: api.ObjectMeta{Name: name, Namespace: "test", ResourceVersion: "123"},
-			Spec: api.NodeSpec{
-				ExternalID: "ext",
-			},
-		}
+		item := test.NodeExample(name)
 		nodes.Items = append(nodes.Items, item)
 	}
 	return nodes
