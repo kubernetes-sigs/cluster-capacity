@@ -1,7 +1,7 @@
 package main
 
 import (
-	"k8s.io/cluster-capacity/cmd"
+	"github.com/ingvagabund/cluster-capacity/cmd"
 	"fmt"
 	"os"
 )
