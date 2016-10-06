@@ -1,4 +1,4 @@
-package watch
+package restclient
 
 import (
 	"testing"
@@ -12,11 +12,10 @@ import (
 	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/store"
 	ccapi "github.com/ingvagabund/cluster-capacity/pkg/api"
 	"github.com/ingvagabund/cluster-capacity/pkg/test"
-	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/restclient"
 )
 
-func newTestWatchRestClient() *restclient.RESTClient {
-	return restclient.NewRESTClient(&store.FakeResourceStore{})
+func newTestWatchRestClient() *RESTClient {
+	return NewRESTClient(&store.FakeResourceStore{})
 }
 
 func getResourceWatcher(client cache.Getter, resource string) watch.Interface {
@@ -36,7 +35,7 @@ func getResourceWatcher(client cache.Getter, resource string) watch.Interface {
 	return w
 }
 
-func emitEvent(client *restclient.RESTClient, resource string, test eventTest) {
+func emitEvent(client *RESTClient, resource string, test eventTest) {
 	switch resource {
 		case ccapi.Pods:
 			client.EmitPodWatchEvent(test.event, test.item.(*api.Pod))
