@@ -10,22 +10,22 @@ import (
 	schedopt "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app/options"
 )
 
-type ClusterCapacityServer struct {
+type ClusterCapacityOptions struct {
 	schedulerConfigFile string
 	Scheduler           *schedopt.SchedulerServer
 }
 
-func NewClusterCapacityServer() *ClusterCapacityServer {
-	return &ClusterCapacityServer{
+func NewClusterCapacityOptions() *ClusterCapacityOptions {
+	return &ClusterCapacityOptions{
 		Scheduler: schedopt.NewSchedulerServer(),
 	}
 }
 
-func (s *ClusterCapacityServer) AddFlags(fs *pflag.FlagSet) {
+func (s *ClusterCapacityOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&s.schedulerConfigFile, "config", s.schedulerConfigFile, "Path to file containing scheduler configuration in JSON or YAML format")
 }
 
-func (s *ClusterCapacityServer) validateOptions() error {
+func (s *ClusterCapacityOptions) validateOptions() error {
 	if len(s.Scheduler.Master) == 0 {
 		return fmt.Errorf("master needs to be specified")
 	}
@@ -36,7 +36,7 @@ func (s *ClusterCapacityServer) validateOptions() error {
 	return nil
 }
 
-func (s *ClusterCapacityServer) ParseSchedulerConfig() error {
+func (s *ClusterCapacityOptions) ParseSchedulerConfig() error {
 	if len(s.schedulerConfigFile) == 0 {
 		return fmt.Errorf("missing --config flag argument")
 	}

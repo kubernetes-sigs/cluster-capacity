@@ -10,7 +10,7 @@ import (
 )
 
 func NewClusterCapacityCommand() *cobra.Command {
-	s := options.NewClusterCapacityServer()
+	s := options.NewClusterCapacityOptions()
 	cmd := &cobra.Command{
 		Use:  "cluster-capacity",
 		Long: `Cluster-capacity is used for emulating scheduling of one or multiple pods`,
@@ -25,7 +25,7 @@ func NewClusterCapacityCommand() *cobra.Command {
 	return cmd
 }
 
-func Run(s *options.ClusterCapacityServer) error {
+func Run(s *options.ClusterCapacityOptions) error {
 	err := s.ParseSchedulerConfig()
 	if err != nil {
 		return fmt.Errorf("Failed to parse config file: %v ", err)
