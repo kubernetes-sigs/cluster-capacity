@@ -25,15 +25,11 @@ func NewClusterCapacityCommand() *cobra.Command {
 }
 
 func Run(s *options.ClusterCapacityServer) error {
-	if len(s.Master) < 0 {
-		return fmt.Errorf("master needs to be specified")
+	err := s.ParseSchedulerConfig()
+	if err != nil {
+		return fmt.Errorf("Failed to parse config file: %v ", err)
 	}
-
-	if len(s.Kubeconfig) < 0 {
-		return fmt.Errorf("kubeconfig needs to be specified")
-	}
-
-	kubeconfig, err := clientcmd.BuildConfigFromFlags(s.Master, s.Kubeconfig)
+	kubeconfig, err := clientcmd.BuildConfigFromFlags(s.Scheduler.Master, s.Scheduler.Kubeconfig)
 	if err != nil {
 		return fmt.Errorf("unable to build config from flags: %v", err)
 	}
