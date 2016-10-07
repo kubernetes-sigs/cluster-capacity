@@ -209,8 +209,10 @@ func (r *Reflector) Run() {
 // RunUntil starts a goroutine and returns immediately. It will exit when stopCh is closed.
 func (r *Reflector) RunUntil(stopCh <-chan struct{}) {
 	glog.V(3).Infof("Starting reflector %v (%s) from %s", r.expectedType, r.resyncPeriod, r.name)
+	fmt.Printf("Starting reflector %v (%s) from %s\n", r.expectedType, r.resyncPeriod, r.name)
 	go wait.Until(func() {
 		if err := r.ListAndWatch(stopCh); err != nil {
+			fmt.Printf("ListAndWatch error: %v", err)
 			utilruntime.HandleError(err)
 		}
 	}, r.period, stopCh)
@@ -247,6 +249,7 @@ func (r *Reflector) resyncChan() (<-chan time.Time, func() bool) {
 // It returns error if ListAndWatch didn't even try to initialize watch.
 func (r *Reflector) ListAndWatch(stopCh <-chan struct{}) error {
 	glog.V(3).Infof("Listing and watching %v from %s", r.expectedType, r.name)
+	fmt.Printf("Listing and watching %v from %s\n", r.expectedType, r.name)
 	var resourceVersion string
 	resyncCh, cleanup := r.resyncChan()
 	defer cleanup()
@@ -256,6 +259,7 @@ func (r *Reflector) ListAndWatch(stopCh <-chan struct{}) error {
 	// etcd contents. Reflector framework will catch up via Watch() eventually.
 	options := api.ListOptions{ResourceVersion: "0"}
 	list, err := r.listerWatcher.List(options)
+	fmt.Println("Listed baby!!!")
 	if err != nil {
 		return fmt.Errorf("%s: Failed to list %v: %v", r.name, r.expectedType, err)
 	}
