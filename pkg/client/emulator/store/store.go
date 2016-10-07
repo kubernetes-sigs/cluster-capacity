@@ -172,7 +172,7 @@ type caches struct {
 }
 
 func (s *resourceStore) Resources() []string {
-	keys := make([]string, len(s.resourceToCache))
+	keys := make([]string, 0, len(s.resourceToCache))
 	for key := range s.resourceToCache {
 		keys = append(keys, key)
 	}
