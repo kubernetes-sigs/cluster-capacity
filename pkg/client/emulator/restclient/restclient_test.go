@@ -12,111 +12,74 @@ import (
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/meta"
 	"k8s.io/kubernetes/pkg/api/testapi"
-	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/apis/extensions"
 	"k8s.io/kubernetes/pkg/client/cache"
 	"k8s.io/kubernetes/pkg/fields"
 	"k8s.io/kubernetes/pkg/runtime"
 )
 
-func testPodsData() *api.PodList {
-	pods := &api.PodList{
-		ListMeta: unversioned.ListMeta{
-			ResourceVersion: "15",
-		},
-	}
+func testPodsData() []*api.Pod {
+	pods := make([]*api.Pod, 0, 10)
 	for i := 0; i < 10; i++ {
 		name := fmt.Sprintf("pod%v", i)
 		item := test.PodExample(name)
-		pods.Items = append(pods.Items, item)
+		pods = append(pods, &item)
 	}
-
 	return pods
 }
 
-func testServicesData() *api.ServiceList {
-	svc := &api.ServiceList{
-		ListMeta: unversioned.ListMeta{
-			ResourceVersion: "16",
-		},
-	}
-
+func testServicesData() []*api.Service {
+	svcs := make([]*api.Service, 0, 10)
 	for i := 0; i < 10; i++ {
 		name := fmt.Sprintf("service%v", i)
 		item := test.ServiceExample(name)
-		svc.Items = append(svc.Items, item)
+		svcs = append(svcs, &item)
 	}
-
-	return svc
+	return svcs
 }
 
-func testReplicationControllersData() *api.ReplicationControllerList {
-	rc := &api.ReplicationControllerList{
-		ListMeta: unversioned.ListMeta{
-			ResourceVersion: "17",
-		},
-	}
-
+func testReplicationControllersData() []*api.ReplicationController {
+	rcs := make([]*api.ReplicationController, 0, 10)
 	for i := 0; i < 10; i++ {
 		name := fmt.Sprintf("rc%v", i)
 		item := test.ReplicationControllerExample(name)
-		rc.Items = append(rc.Items, item)
+		rcs = append(rcs, &item)
 	}
-
-	return rc
+	return rcs
 }
 
-func testPersistentVolumesData() *api.PersistentVolumeList {
-	pv := &api.PersistentVolumeList{
-		ListMeta: unversioned.ListMeta{
-			ResourceVersion: "11",
-		},
-	}
-
+func testPersistentVolumesData() []*api.PersistentVolume {
+	pvs := make([]*api.PersistentVolume, 0, 10)
 	for i := 0; i < 1; i++ {
 		name := fmt.Sprintf("pv%v", i)
 		item := test.PersistentVolumeExample(name)
-		pv.Items = append(pv.Items, item)
+		pvs = append(pvs, &item)
 	}
-	return pv
+	return pvs
 }
 
-func testPersistentVolumeClaimsData() *api.PersistentVolumeClaimList {
-	pvc := &api.PersistentVolumeClaimList{
-		ListMeta: unversioned.ListMeta{
-			ResourceVersion: "5456",
-		},
-	}
+func testPersistentVolumeClaimsData() []*api.PersistentVolumeClaim {
+	pvcs := make([]*api.PersistentVolumeClaim, 0, 10)
 	for i := 0; i < 10; i++ {
 		name := fmt.Sprintf("pvc%v", i)
 		item := test.PersistentVolumeClaimExample(name)
-		pvc.Items = append(pvc.Items, item)
+		pvcs = append(pvcs, &item)
 	}
-	return pvc
+	return pvcs
 }
 
-func testNodesData() *api.NodeList {
-	nodes := &api.NodeList{
-		ListMeta: unversioned.ListMeta{
-			ResourceVersion: "687",
-		},
-	}
-
+func testNodesData() []*api.Node {
+	nodes := make([]*api.Node, 0, 10)
 	for i := 0; i < 10; i++ {
-		name := fmt.Sprintln("node%v", i)
+		name := fmt.Sprintf("node%v", i)
 		item := test.NodeExample(name)
-		nodes.Items = append(nodes.Items, item)
+		nodes = append(nodes, &item)
 	}
 	return nodes
 }
 
-func testReplicaSetsData() *extensions.ReplicaSetList {
-	rs := &extensions.ReplicaSetList{
-		ListMeta: unversioned.ListMeta{
-			ResourceVersion: "10",
-		},
-	}
-
+func testReplicaSetsData() []*extensions.ReplicaSet {
+	rss := make([]*extensions.ReplicaSet, 0, 10)
 	for i := 0; i < 10; i++ {
 		name := fmt.Sprintf("replicaset%v", i)
 		item := extensions.ReplicaSet{
@@ -125,32 +88,31 @@ func testReplicaSetsData() *extensions.ReplicaSetList {
 				Replicas: 3,
 			},
 		}
-		rs.Items = append(rs.Items, item)
+		rss = append(rss, &item)
 	}
-
-	return rs
+	return rss
 }
 
 func newTestListRestClient() *RESTClient {
 
 	resourceStore := &store.FakeResourceStore{
-		PodsData: func() []api.Pod {
-			return testPodsData().Items
+		PodsData: func() []*api.Pod {
+			return testPodsData()
 		},
-		ServicesData: func() []api.Service {
-			return testServicesData().Items
+		ServicesData: func() []*api.Service {
+			return testServicesData()
 		},
-		ReplicationControllersData: func() []api.ReplicationController {
-			return testReplicationControllersData().Items
+		ReplicationControllersData: func() []*api.ReplicationController {
+			return testReplicationControllersData()
 		},
-		PersistentVolumesData: func() []api.PersistentVolume {
-			return testPersistentVolumesData().Items
+		PersistentVolumesData: func() []*api.PersistentVolume {
+			return testPersistentVolumesData()
 		},
-		PersistentVolumeClaimsData: func() []api.PersistentVolumeClaim {
-			return testPersistentVolumeClaimsData().Items
+		PersistentVolumeClaimsData: func() []*api.PersistentVolumeClaim {
+			return testPersistentVolumeClaimsData()
 		},
-		NodesData: func() []api.Node {
-			return testNodesData().Items
+		NodesData: func() []*api.Node {
+			return testNodesData()
 		},
 	}
 
@@ -201,7 +163,7 @@ func getResourceList(client cache.Getter, resource string) runtime.Object {
 func TestSyncPods(t *testing.T) {
 
 	fakeClient := newTestListRestClient()
-	expected := fakeClient.Pods().Items
+	expected := fakeClient.Pods(fields.Everything()).Items
 
 	list := getResourceList(fakeClient, ccapi.Pods)
 	items, err := meta.ExtractList(list)
@@ -222,7 +184,7 @@ func TestSyncPods(t *testing.T) {
 func TestSyncServices(t *testing.T) {
 
 	fakeClient := newTestListRestClient()
-	expected := fakeClient.Services().Items
+	expected := fakeClient.Services(fields.Everything()).Items
 
 	list := getResourceList(fakeClient, ccapi.Services)
 	items, err := meta.ExtractList(list)
@@ -243,7 +205,7 @@ func TestSyncServices(t *testing.T) {
 func TestSyncReplicationControllers(t *testing.T) {
 
 	fakeClient := newTestListRestClient()
-	expected := fakeClient.ReplicationControllers().Items
+	expected := fakeClient.ReplicationControllers(fields.Everything()).Items
 
 	list := getResourceList(fakeClient, ccapi.ReplicationControllers)
 	items, err := meta.ExtractList(list)
@@ -263,7 +225,7 @@ func TestSyncReplicationControllers(t *testing.T) {
 
 func TestSyncPersistentVolumes(t *testing.T) {
 	fakeClient := newTestListRestClient()
-	expected := fakeClient.PersistentVolumes().Items
+	expected := fakeClient.PersistentVolumes(fields.Everything()).Items
 
 	list := getResourceList(fakeClient, ccapi.PersistentVolumes)
 	items, err := meta.ExtractList(list)
@@ -282,7 +244,7 @@ func TestSyncPersistentVolumes(t *testing.T) {
 
 func TestSyncPersistentVolumeClaims(t *testing.T) {
 	fakeClient := newTestListRestClient()
-	expected := fakeClient.PersistentVolumeClaims().Items
+	expected := fakeClient.PersistentVolumeClaims(fields.Everything()).Items
 
 	list := getResourceList(fakeClient, ccapi.PersistentVolumeClaims)
 	items, err := meta.ExtractList(list)
@@ -301,7 +263,7 @@ func TestSyncPersistentVolumeClaims(t *testing.T) {
 
 func TestSyncNodes(t *testing.T) {
 	fakeClient := newTestListRestClient()
-	expected := fakeClient.Nodes().Items
+	expected := fakeClient.Nodes(fields.Everything()).Items
 
 	list := getResourceList(fakeClient, ccapi.Nodes)
 	items, err := meta.ExtractList(list)
