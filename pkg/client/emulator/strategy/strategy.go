@@ -76,7 +76,6 @@ func (s *predictiveStrategy) addPod(pod *api.Pod) error {
 		return fmt.Errorf("Unable to find scheduled pod's node")
 	}
 	scheduledNode := foundNode.(*api.Node)
-
 	// 2. update the node info to include new pod's resources
 	// The node's allocated resources are grabed from the system (cgroup's)
 	// so the schedulercache.NodeInfo as actually never used.
@@ -107,7 +106,9 @@ func (s *predictiveStrategy) addPod(pod *api.Pod) error {
 		return fmt.Errorf("Unable to update node: %v", err)
 	}
 
-	err = s.resourceStore.Add("pods", meta.Object(pod))
+	// here asuming the pod is already in the resource storage
+	// so the update is needed to emit update event in case a handler is registered
+	err = s.resourceStore.Update("pods", meta.Object(pod))
 	if err != nil {
 		return fmt.Errorf("Unable to add new node: %v", err)
 	}
