@@ -36,7 +36,6 @@ func NewClusterCapacityConfig(opt *ClusterCapacityOptions) *ClusterCapacityConfi
 		Schedulers: make([]*schedopt.SchedulerServer,0),
 		Options: opt,
 		DefaultScheduler: schedopt.NewSchedulerServer(),
-
 	}
 }
 
@@ -53,21 +52,7 @@ func (s *ClusterCapacityOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringArrayVar(&s.SchedulerConfigFile, "config", s.SchedulerConfigFile, "Paths to files containing scheduler configuration in JSON or YAML format")
 }
 
-func (s *ClusterCapacityOptions) validateOptions() error {
-	if len(s.Master) == 0 {
-		return fmt.Errorf("master needs to be specified")
-	}
-
-	if len(s.Kubeconfig) == 0 {
-		return fmt.Errorf("kubeconfig needs to be specified")
-	}
-	return nil
-}
-
 func parseSchedulerConfig(path string) (*schedopt.SchedulerServer,error) {
-	if len(path) == 0 {
-		return nil, fmt.Errorf("missing --config flag argument")
-	}
 	filename, _ := filepath.Abs(path)
 	config, err := os.Open(filename)
 	if err != nil {
@@ -86,15 +71,14 @@ func (s *ClusterCapacityConfig) ParseAdditionalSchedulerConfigs() error {
 		if err != nil {
 			return err
 		}
+		//newScheduler.Master = s.Options.Master
+		//newScheduler.Kubeconfig = s.Options.Kubeconfig
 		s.Schedulers = append(s.Schedulers, newScheduler)
 	}
 	return nil
 }
 
 func (s *ClusterCapacityConfig) ParseAPISpec() error {
-	if len(s.Options.PodSpecFile) == 0 {
-		return fmt.Errorf("missing --podspec flag argument")
-	}
 	filename, _ := filepath.Abs(s.Options.PodSpecFile)
 	config, err := os.Open(filename)
 	if err != nil {
@@ -119,5 +103,7 @@ func (s *ClusterCapacityConfig) SetDefaultScheduler() error {
 	if err != nil {
 		return err
 	}
+	//s.DefaultScheduler.Master = s.Options.Master
+	//s.DefaultScheduler.Kubeconfig = s.Options.Kubeconfig
 	return nil
 }

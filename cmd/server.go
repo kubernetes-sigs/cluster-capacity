@@ -12,19 +12,37 @@ import (
 )
 
 func NewClusterCapacityCommand() *cobra.Command {
-	s := options.NewClusterCapacityOptions()
+	opt := options.NewClusterCapacityOptions()
 	cmd := &cobra.Command{
 		Use:  "cluster-capacity",
 		Long: `Cluster-capacity is used for emulating scheduling of one or multiple pods`,
 		Run: func(cmd *cobra.Command, args []string) {
-			err := Run(s)
+			err := Validate(opt)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			err = Run(opt)
 			if err != nil {
 				fmt.Println(err)
 			}
 		},
 	}
-	s.AddFlags(cmd.Flags())
+	opt.AddFlags(cmd.Flags())
 	return cmd
+}
+
+func Validate(opt *options.ClusterCapacityOptions) error {
+	if len(opt.Kubeconfig) == 0 {
+		return fmt.Errorf("Path to Kubernetes config file missing")
+	}
+	if len(opt.Master) == 0 {
+		return  fmt.Errorf("Adress of Kubernetes API server missing")
+	}
+	if len(opt.PodSpecFile) == 0 {
+		return fmt.Errorf("Pod spec file is missing")
+	}
+	return nil
 }
 
 func Run(opt *options.ClusterCapacityOptions) error {
@@ -51,6 +69,11 @@ func Run(opt *options.ClusterCapacityOptions) error {
 	if err != nil {
 		return fmt.Errorf("Invalid API configuration: %v", err)
 	}
+
+	if _, err = conf.KubeClient.Discovery().ServerVersion(); err != nil {
+		return fmt.Errorf("Unable to get server version: %v\n", err)
+	}
+
 	return runSimulator(conf)
 }
 
@@ -61,10 +84,18 @@ func runSimulator(s *options.ClusterCapacityConfig) error {
 		return err
 	}
 	for i := 0; i < len(s.Schedulers); i++ {
-		cc.AddScheduler(s.Schedulers[0])
+		if err = cc.AddScheduler(s.Schedulers[i]); err != nil {
+			return err
+		}
 	}
-	fmt.Printf("max limit = %v\n", s.Options.MaxLimit)
-	cc.SyncWithClient(s.KubeClient)
-	return cc.Run()
-
+	err = cc.SyncWithClient(s.KubeClient)
+	if err != nil {
+		return err
+	}
+	err = cc.Run()
+	if err != nil {
+		return err
+	}
+	fmt.Println(cc.Status())
+	return  nil
 }
