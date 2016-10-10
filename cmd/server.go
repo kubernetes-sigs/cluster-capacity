@@ -79,7 +79,7 @@ func Run(opt *options.ClusterCapacityOptions) error {
 
 
 func runSimulator(s *options.ClusterCapacityConfig) error {
-	cc, err := emulator.New(s.DefaultScheduler, s.Pod)
+	cc, err := emulator.New(s.DefaultScheduler, s.Pod, s.Options.MaxLimit)
 	if err != nil {
 		return err
 	}

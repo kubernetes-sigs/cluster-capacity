@@ -26,7 +26,7 @@ type ClusterCapacityOptions struct {
 	Master              string
 	Kubeconfig          string
 	SchedulerConfigFile []string
-	MaxLimit            int64
+	MaxLimit            int
 	verbose             bool
 	PodSpecFile         string
 }
@@ -48,7 +48,7 @@ func (s *ClusterCapacityOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&s.Master, "master", s.Master, "The address of the Kubernetes API server (overrides any value in kubeconfig)")
 	fs.StringVar(&s.Kubeconfig, "kubeconfig", s.Kubeconfig, "Path to kubeconfig file with authorization and master location information.")
 	fs.StringVar(&s.PodSpecFile, "podspec", s.PodSpecFile, "Path to JSON or YAML file containing pod definition.")
-	fs.Int64Var(&s.MaxLimit, "maxLimit", 0, "Number of pods to be scheduled.")
+	fs.IntVar(&s.MaxLimit, "maxLimit", 0, "Number of pods to be scheduled.")
 	fs.StringArrayVar(&s.SchedulerConfigFile, "config", s.SchedulerConfigFile, "Paths to files containing scheduler configuration in JSON or YAML format")
 }
 
