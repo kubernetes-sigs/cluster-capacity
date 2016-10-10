@@ -137,6 +137,14 @@ func (c *ClusterCapacity) Bind(binding *api.Binding, schedulerName string) error
 		<-c.schedulerConfigs[schedulerName].Recorder.(*record.FakeRecorder).Events
 		//fmt.Printf("Scheduling event: %v\n", event)
 	}()
+
+	if c.maxSimulated > 0 && c.simulated >= c.maxSimulated {
+		c.status.StopReason = fmt.Sprintf("Maximal number %v of pods simulated", c.maxSimulated)
+		c.Close()
+		c.stop <- struct{}{}
+		return nil
+	}
+
 	// all good, create another pod
 	if err := c.nextPod(); err != nil {
 		return fmt.Errorf("Unable to create next pod to schedule: %v", err)
@@ -274,7 +282,7 @@ func createConfig(s *soptions.SchedulerServer, configFactory *factory.ConfigFact
 // Create new cluster capacity analysis
 // The analysis is completely independent of apiserver so no need
 // for kubeconfig nor for apiserver url
-func New(s *soptions.SchedulerServer, simulatedPod *api.Pod) (*ClusterCapacity, error) {
+func New(s *soptions.SchedulerServer, simulatedPod *api.Pod, maxPods int) (*ClusterCapacity, error) {
 	resourceStore := store.NewResourceStore()
 	restClient := restclient.NewRESTClient(resourceStore)
 
@@ -284,6 +292,7 @@ func New(s *soptions.SchedulerServer, simulatedPod *api.Pod) (*ClusterCapacity, 
 		kubeclient:    clientset.New(restClient),
 		simulatedPod:  simulatedPod,
 		simulated:     0,
+		maxSimulated:  maxPods,
 	}
 
 	resourceStore.RegisterEventHandler(ccapi.Pods, cache.ResourceEventHandlerFuncs{

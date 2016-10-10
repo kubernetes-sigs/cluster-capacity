@@ -200,7 +200,7 @@ func TestPrediction(t *testing.T) {
 		},
 		Master:     "http://localhost:8080",
 		Kubeconfig: "/etc/kubernetes/kubeconfig",
-	}, simulatedPod)
+	}, simulatedPod, 6)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
