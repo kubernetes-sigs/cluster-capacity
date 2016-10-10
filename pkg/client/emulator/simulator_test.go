@@ -4,7 +4,6 @@ import (
 	"fmt"
 	goruntime "runtime"
 	"testing"
-	"time"
 
 	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/store"
 	"k8s.io/kubernetes/pkg/api"
@@ -16,8 +15,6 @@ import (
 	"k8s.io/kubernetes/pkg/version"
 	soptions "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app/options"
 	"k8s.io/kubernetes/plugin/pkg/scheduler/factory"
-	// register algorithm providers
-	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
 )
 
 func getGeneralNode(nodeName string) *api.Node {
@@ -113,7 +110,6 @@ func TestPrediction(t *testing.T) {
 	}
 
 	if err := resourceStore.Add("nodes", meta.Object(node1)); err != nil {
-		fmt.Printf("Unexpected error: %v\n", err)
 		t.Errorf("Unexpected error: %v", err)
 	}
 
@@ -131,8 +127,9 @@ func TestPrediction(t *testing.T) {
 		api.ResourcePods:      *resource.NewQuantity(3, resource.DecimalSI),
 		api.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
 	}
-	resourceStore.Add("nodes", meta.Object(node2))
-
+	if err := resourceStore.Add("nodes", meta.Object(node2)); err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
 	// create third node with 2 cpus and 4GB, with some resources already consumed
 	node3 := getGeneralNode("test-node-3")
 	node3.Status.Capacity = api.ResourceList{
@@ -147,7 +144,9 @@ func TestPrediction(t *testing.T) {
 		api.ResourcePods:      *resource.NewQuantity(3, resource.DecimalSI),
 		api.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
 	}
-	resourceStore.Add("nodes", meta.Object(node3))
+	if err := resourceStore.Add("nodes", meta.Object(node3)); err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
 
 	// pod := &api.Pod{
 	// 	ObjectMeta: api.ObjectMeta{Name: "pod-stub", Namespace: "test-node-3", ResourceVersion: "10"},
@@ -212,6 +211,12 @@ func TestPrediction(t *testing.T) {
 	if err := cc.Run(); err != nil {
 		t.Errorf("Unable to run analysis: %v", err)
 	}
-	time.Sleep(5 * time.Second)
+
+	for _, pod := range cc.Status().Pods {
+		fmt.Printf("Pod: %v, node: %v\n", pod.Name, pod.Spec.NodeName)
+	}
+
+	fmt.Printf("Stop reason: %v\n", cc.Status().StopReason)
+
 	// 4. check expected number of pods is scheduled and reflected in the resource storage
 }

@@ -412,7 +412,7 @@ func (c *RESTClient) Do(req *http.Request) (*http.Response, error) {
 	queryParams := req.URL.Query()
 
 	// check all fields
-	fmt.Printf("URL request path: %v, rawQuery: %v, fields selector: %v\n", req.URL.Path, queryParams, fieldsSelector)
+	//fmt.Printf("URL request path: %v, rawQuery: %v, fields selector: %v\n", req.URL.Path, queryParams, fieldsSelector)
 	// is field selector on?
 	value, ok := queryParams[unversioned.FieldSelectorQueryParam(testapi.Default.GroupVersion().String())]
 	if ok {
