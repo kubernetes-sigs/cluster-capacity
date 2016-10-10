@@ -144,6 +144,12 @@ func (c *ClusterCapacity) Bind(binding *api.Binding, schedulerName string) error
 	return nil
 }
 
+func (c *ClusterCapacity) Close() {
+	for _, name := range c.schedulerConfigs {
+		close(name.StopEverything)
+	}
+}
+
 func (c *ClusterCapacity) Update(pod *api.Pod, podCondition *api.PodCondition, schedulerName string) error {
 	// once the api.PodCondition
 	podUnschedulableCond := &api.PodCondition{
@@ -162,9 +168,7 @@ func (c *ClusterCapacity) Update(pod *api.Pod, podCondition *api.PodCondition, s
 		// The stop condition is different for a case of multi-pods
 		if stop {
 			c.status.StopReason = event
-			for _, name := range c.schedulerConfigs {
-				close(name.StopEverything)
-			}
+			c.Close()
 			c.stop <- struct{}{}
 		}
 	}()
@@ -192,6 +196,8 @@ func (c *ClusterCapacity) Run() error {
 	// create the first simulated pod
 	err := c.nextPod()
 	if err != nil {
+		c.Close()
+		close(c.stop)
 		return fmt.Errorf("Unable to create next pod to schedule: %v", err)
 	}
 
