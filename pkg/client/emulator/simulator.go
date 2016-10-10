@@ -2,6 +2,8 @@ package emulator
 
 import (
 	"fmt"
+	"reflect"
+	"time"
 
 	ccapi "github.com/ingvagabund/cluster-capacity/pkg/api"
 	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/restclient"
@@ -31,14 +33,20 @@ type ClusterCapacity struct {
 	resourceStore store.ResourceStore
 
 	// emulation strategy
-	strategy *strategy.Strategy
+	strategy strategy.Strategy
 
 	// fake kube client
 	kubeclient clientset.Interface
 
 	// schedulers
 	schedulers       map[string]*scheduler.Scheduler
+	schedulerConfigs map[string]*scheduler.Config
 	defaultScheduler string
+
+	// pod to schedule
+	simulatedPod *api.Pod
+	maxSimulated int
+	simulated    int
 }
 
 func (c *ClusterCapacity) SyncWithClient(client cache.Getter) error {
@@ -76,33 +84,116 @@ func (c *ClusterCapacity) SyncWithClient(client cache.Getter) error {
 
 func (c *ClusterCapacity) SyncWithStore(resourceStore store.ResourceStore) {
 	for _, resource := range resourceStore.Resources() {
-		fmt.Println(resource)
+		err := c.resourceStore.Replace(resource, resourceStore.List(resource), "0")
+		if err != nil {
+			fmt.Printf("Resource replace error: %v\n", err)
+		}
 	}
 }
 
-func (c *ClusterCapacity) Run() {
-	// 1. sync store with cluster
-	// 2. init rest client (lister part)
-	// 3. register rest client to resource store (watch part)
-	// 4. init strategy (pod -> (As,Us,Ds)
-	// 5. bake scheduler with the rest client
-	// 6. init predictive loop
-	// 6.1. schedule pod or get error
-	// 6.2. run strategy, get items to add/update/delete (e.g. new pod, new volume, updated node info) or error (e.g max. number of PD exceeded)
-	// 6.3. update resource store
+func (c *ClusterCapacity) Bind(binding *api.Binding) error {
+	// pod name: binding.Name
+	// node name: binding.Target.Name
+	fmt.Printf("\nPod: %v, node: %v\n", binding.Name, binding.Target.Name)
+
+	// run the pod through strategy
+	key := &api.Pod{
+		ObjectMeta: api.ObjectMeta{Name: binding.Name, Namespace: binding.Namespace},
+	}
+	pod, exists, err := c.resourceStore.Get(ccapi.Pods, runtime.Object(key))
+	if err != nil {
+		return fmt.Errorf("Unable to bind: %v", err)
+	}
+	if !exists {
+		return fmt.Errorf("Unable to bind, pod %v not found", pod)
+	}
+	updatedPod := *pod.(*api.Pod)
+	updatedPod.Spec.NodeName = binding.Target.Name
+	fmt.Printf("Pod binding: %v\n", updatedPod)
+
+	// TODO(jchaloup): rename Add to Update as this actually updates the scheduled pod
+	if err := c.strategy.Add(&updatedPod); err != nil {
+		return fmt.Errorf("Unable to recompute new cluster state: %v", err)
+	}
+
+	if c.simulated > 6 {
+		return nil
+	}
+
+	// all good, create another pod
+	if err := c.nextPod(); err != nil {
+		return fmt.Errorf("Unable to create next pod to schedule: %v", err)
+	}
+	return nil
 }
 
-func (c *ClusterCapacity) AddScheduler(s *soptions.SchedulerServer) error {
+func (c *ClusterCapacity) Update(pod *api.Pod, podCondition *api.PodCondition) error {
+	// once the api.PodCondition
+	podUnschedulableCond := &api.PodCondition{
+		Type:   api.PodScheduled,
+		Status: api.ConditionFalse,
+		Reason: "Unschedulable",
+	}
+
+	// end the simulation
+	if reflect.DeepEqual(podCondition, podUnschedulableCond) {
+		for _, name := range c.schedulerConfigs {
+			close(name.StopEverything)
+		}
+	}
+
+	return nil
+}
+
+func (c *ClusterCapacity) nextPod() error {
+	pod := *c.simulatedPod
+	// use simulated pod name with an index to construct the name
+	pod.ObjectMeta.Name = fmt.Sprintf("%v-%v", c.simulatedPod.Name, c.simulated)
+	c.simulated++
+	return c.resourceStore.Add(ccapi.Pods, runtime.Object(&pod))
+}
+
+func (c *ClusterCapacity) Run() error {
+	// TODO(jchaloup): remove all pods that are not scheduled yet
+
+	for name, scheduler := range c.schedulers {
+		fmt.Printf("Running %v scheduler\n", name)
+		scheduler.Run()
+	}
+	time.Sleep(time.Second)
+	// create the first simulated pod
+	err := c.nextPod()
+	if err != nil {
+		return fmt.Errorf("Unable to create next pod to schedule: %v", err)
+	}
+
+	return nil
+}
+
+func (c *ClusterCapacity) createSchedulerConfig(s *soptions.SchedulerServer) (*scheduler.Config, error) {
 	configFactory := factory.NewConfigFactory(c.kubeclient, s.SchedulerName, s.HardPodAffinitySymmetricWeight, s.FailureDomains)
 	config, err := createConfig(s, configFactory)
 
 	if err != nil {
-		return fmt.Errorf("Failed to create scheduler configuration: %v", err)
+		return nil, fmt.Errorf("Failed to create scheduler configuration: %v", err)
 	}
 
 	// Does it make sense to collect events here?
 	config.Recorder = &record.FakeRecorder{}
+	// Replace the binder with simulator pod counter
+	config.Binder = c
+	config.PodConditionUpdater = c
+	return config, nil
+}
+
+func (c *ClusterCapacity) AddScheduler(s *soptions.SchedulerServer) error {
+	config, err := c.createSchedulerConfig(s)
+	if err != nil {
+		return err
+	}
+
 	c.schedulers[s.SchedulerName] = scheduler.New(config)
+	c.schedulerConfigs[s.SchedulerName] = config
 	return nil
 }
 
@@ -125,13 +216,20 @@ func createConfig(s *soptions.SchedulerServer, configFactory *factory.ConfigFact
 	// if the config file isn't provided, use the specified (or default) provider
 	return configFactory.CreateFromProvider(s.AlgorithmProvider)
 }
-func New() *ClusterCapacity {
+
+// Create new cluster capacity analysis
+// The analysis is completely independent of apiserver so no need
+// for kubeconfig nor for apiserver url
+func New(s *soptions.SchedulerServer, simulatedPod *api.Pod) (*ClusterCapacity, error) {
 	resourceStore := store.NewResourceStore()
 	restClient := restclient.NewRESTClient(resourceStore)
 
 	cc := &ClusterCapacity{
 		resourceStore: resourceStore,
+		strategy:      strategy.NewPredictiveStrategy(resourceStore),
 		kubeclient:    clientset.New(restClient),
+		simulatedPod:  simulatedPod,
+		simulated:     0,
 	}
 
 	resourceStore.RegisterEventHandler(ccapi.Pods, cache.ResourceEventHandlerFuncs{
@@ -206,11 +304,21 @@ func New() *ClusterCapacity {
 		},
 	})
 
+	cc.schedulers = make(map[string]*scheduler.Scheduler)
+	cc.schedulerConfigs = make(map[string]*scheduler.Config)
+
 	// read the default scheduler name from configuration
-	cc.defaultScheduler = "default"
+	config, err := cc.createSchedulerConfig(s)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to create cluster capacity analyzer: %v", err)
+	}
+
+	cc.schedulers[s.SchedulerName] = scheduler.New(config)
+	cc.schedulerConfigs[s.SchedulerName] = config
+	cc.defaultScheduler = s.SchedulerName
 
 	// Create empty event recorder, broadcaster, metrics and everything up to binder.
 	// Binder is redirected to cluster capacity's counter.
 
-	return cc
+	return cc, nil
 }

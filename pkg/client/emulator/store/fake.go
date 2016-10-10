@@ -11,12 +11,12 @@ import (
 )
 
 type FakeResourceStore struct {
-	PodsData                   func() []api.Pod
-	ServicesData               func() []api.Service
-	ReplicationControllersData func() []api.ReplicationController
-	NodesData                  func() []api.Node
-	PersistentVolumesData      func() []api.PersistentVolume
-	PersistentVolumeClaimsData func() []api.PersistentVolumeClaim
+	PodsData                   func() []*api.Pod
+	ServicesData               func() []*api.Service
+	ReplicationControllersData func() []*api.ReplicationController
+	NodesData                  func() []*api.Node
+	PersistentVolumesData      func() []*api.PersistentVolume
+	PersistentVolumeClaimsData func() []*api.PersistentVolumeClaim
 	// TODO(jchaloup): fill missing resource functions
 }
 

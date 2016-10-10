@@ -319,7 +319,7 @@ func (f *ConfigFactory) CreateFromKeys(predicateKeys, priorityKeys sets.String, 
 	if err != nil {
 		return nil, err
 	}
-
+	fmt.Printf("About to run scheduler factory\n")
 	f.Run()
 
 	algo := scheduler.NewGenericScheduler(f.schedulerCache, predicateFuncs, priorityMetaProducer, priorityConfigs, extenders)
