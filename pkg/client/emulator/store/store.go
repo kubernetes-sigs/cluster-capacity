@@ -141,7 +141,19 @@ func (s *resourceStore) RegisterEventHandler(resource string, handler cache.Reso
 // it after calling this function.
 func (s *resourceStore) Replace(resource string, items []interface{}, resourceVersion string) error {
 	if cache, exists := s.resourceToCache[resource]; exists {
-		return cache.Replace(items, resourceVersion)
+		err := cache.Replace(items, resourceVersion)
+		if err != nil {
+			return err
+		}
+		// send one add event for each item
+		handler, found := s.eventHandler[resource]
+		if !found {
+			return nil
+		}
+		for _, obj := range items {
+			handler.OnAdd(obj)
+		}
+		return nil
 	}
 	return fmt.Errorf("Resource %s not recognized", resource)
 }
