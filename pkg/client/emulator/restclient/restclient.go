@@ -357,11 +357,20 @@ func (c *RESTClient) createWatchReadCloser(resource string, fieldsSelector field
 		return nil, fmt.Errorf("Resource %s not recognized", resource)
 	}
 
+	// This will not work when one scheduler creates more watch channels with the same field Selector
+	// At the same time, this will cause failures when multiple schedulers share the same watch channel.
+	// Most likely, the map should be changed to list. If a watch fails' its corresponding watch buffer
+	// is closed by decoder so the close does not have to be called.
+	// However, the Close must be called for all watchbuffers.
+	// Thus, the watch buffer must ignore multiple invocations of the Close method.
 	rg, exists := resourceWatcherReadGetter[fieldsSelector.String()]
-	if !exists {
-		rg = ewatch.NewWatchBuffer()
-		c.watcherReadGetters[resource][fieldsSelector.String()] = rg
+	if exists {
+		rg.Close()
 	}
+
+	rg = ewatch.NewWatchBuffer(resource)
+
+	c.watcherReadGetters[resource][fieldsSelector.String()] = rg
 
 	// list all objects of the given resource to the wormhole
 	switch resource {
