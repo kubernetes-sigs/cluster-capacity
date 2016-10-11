@@ -6,6 +6,7 @@ import (
 	"time"
 
 	ccapi "github.com/ingvagabund/cluster-capacity/pkg/api"
+	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/record"
 	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/restclient"
 	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/store"
 	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/strategy"
@@ -24,7 +25,6 @@ import (
 	"io/ioutil"
 	"os"
 
-	"k8s.io/kubernetes/pkg/client/record"
 	"k8s.io/kubernetes/pkg/runtime"
 	// register algorithm providers
 	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
@@ -134,7 +134,7 @@ func (c *ClusterCapacity) Bind(binding *api.Binding, schedulerName string) error
 
 	c.status.Pods = append(c.status.Pods, &updatedPod)
 	go func() {
-		<-c.schedulerConfigs[schedulerName].Recorder.(*record.FakeRecorder).Events
+		<-c.schedulerConfigs[schedulerName].Recorder.(*record.Recorder).Events
 		//fmt.Printf("Scheduling event: %v\n", event)
 	}()
 
@@ -170,12 +170,12 @@ func (c *ClusterCapacity) Update(pod *api.Pod, podCondition *api.PodCondition, s
 
 	//fmt.Printf("pod condition: %v\n", podCondition)
 	go func() {
-		event := <-c.schedulerConfigs[schedulerName].Recorder.(*record.FakeRecorder).Events
+		event := <-c.schedulerConfigs[schedulerName].Recorder.(*record.Recorder).Events
 		// end the simulation
 		// TODO(jchaloup): this needs to be reworked in a case of multiple schedulers
 		// The stop condition is different for a case of multi-pods
 		if stop {
-			c.status.StopReason = event
+			c.status.StopReason = fmt.Sprintf("%v: %v", event.Reason, event.Message)
 			c.Close()
 			c.stop <- struct{}{}
 		}
@@ -237,7 +237,7 @@ func (c *ClusterCapacity) createSchedulerConfig(s *soptions.SchedulerServer) (*s
 	}
 
 	// Collect scheduler succesfully/failed scheduled pod
-	config.Recorder = record.NewFakeRecorder(10)
+	config.Recorder = record.NewRecorder(10)
 	// Replace the binder with simulator pod counter
 	lbpcu := &localBinderPodConditionUpdater{
 		SchedulerName: s.SchedulerName,
