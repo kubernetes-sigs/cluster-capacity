@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"strings"
+	"sync"
 	"time"
 
 	"k8s.io/kubernetes/pkg/api/testapi"
@@ -17,12 +19,14 @@ import (
 
 // Implementation of io.ReadCloser
 type WatchBuffer struct {
-	buf   *bytes.Buffer
-	read  chan []byte
-	write chan []byte
-	retc  chan retc
+	buf      *bytes.Buffer
+	read     chan []byte
+	write    chan []byte
+	retc     chan retc
+	Resource string
 
-	closed bool
+	closed   bool
+	closeMux sync.RWMutex
 }
 
 type retc struct {
@@ -44,17 +48,23 @@ func (w *WatchBuffer) Read(p []byte) (n int, err error) {
 
 // Close all channels
 func (w *WatchBuffer) Close() error {
+	w.closeMux.Lock()
+	defer w.closeMux.Unlock()
+
 	if !w.closed {
+		w.closed = true
 		close(w.read)
 		close(w.write)
 		close(w.retc)
-		w.closed = true
 	}
 	return nil
 }
 
 // Write
 func (w *WatchBuffer) Write(data []byte) (nr int, err error) {
+	if w.closed {
+		return 0, io.EOF
+	}
 	w.write <- data
 	return len(data), nil
 }
@@ -64,16 +74,18 @@ func (c *WatchBuffer) EmitWatchEvent(eType watch.EventType, object runtime.Objec
 	//	Type: eType,
 	//	Object: object,
 	//}
+
+	obj_str := runtime.EncodeOrDie(testapi.Default.Codec(), object)
+	obj_str = strings.Replace(obj_str, "\n", "", -1)
+
 	var buffer bytes.Buffer
 	buffer.WriteString("{\"type\":\"")
 	buffer.WriteString(string(eType))
 	buffer.WriteString("\",\"object\":")
+	buffer.WriteString(obj_str)
+	buffer.WriteString("}")
 
-	payload := []byte(buffer.String())
-	payload = append(payload, ([]byte)(runtime.EncodeOrDie(testapi.Default.Codec(), object))...)
-	payload = append(payload, []byte("}")...)
-
-	_, err := c.Write(payload)
+	_, err := c.Write(buffer.Bytes())
 	return err
 }
 
@@ -83,6 +95,12 @@ func (w *WatchBuffer) loop() {
 	for {
 		select {
 		case dataIn = <-w.write:
+			// channel closed
+			if len(dataIn) == 0 {
+				if w.closed {
+					return
+				}
+			}
 			_, err := w.buf.Write(dataIn)
 			if err != nil {
 				// TODO(jchaloup): add log message
@@ -111,13 +129,14 @@ func (w *WatchBuffer) loop() {
 	}
 }
 
-func NewWatchBuffer() *WatchBuffer {
+func NewWatchBuffer(resource string) *WatchBuffer {
 	wb := &WatchBuffer{
-		buf:    bytes.NewBuffer(nil),
-		read:   make(chan []byte),
-		write:  make(chan []byte),
-		retc:   make(chan retc),
-		closed: false,
+		buf:      bytes.NewBuffer(nil),
+		read:     make(chan []byte),
+		write:    make(chan []byte),
+		retc:     make(chan retc),
+		Resource: resource,
+		closed:   false,
 	}
 
 	go wb.loop()
@@ -125,7 +144,7 @@ func NewWatchBuffer() *WatchBuffer {
 }
 
 func main() {
-	buffer := NewWatchBuffer()
+	buffer := NewWatchBuffer("pods")
 
 	go func() {
 		buffer.Write([]byte("Ahoj"))
