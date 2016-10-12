@@ -148,22 +148,6 @@ func TestPrediction(t *testing.T) {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
-	// pod := &api.Pod{
-	// 	ObjectMeta: api.ObjectMeta{Name: "pod-stub", Namespace: "test-node-3", ResourceVersion: "10"},
-	// 	Spec:       apitesting.DeepEqualSafePodSpec(),
-	// }
-	// if err := resourceStore.Add("pods", meta.Object(pod)); err != nil {
-	// 	t.Errorf("Unexpected error: %v", err)
-	// }
-	//
-	// pod = &api.Pod{
-	// 	ObjectMeta: api.ObjectMeta{Name: "pod-stub2", Namespace: "test-node-3", ResourceVersion: "10"},
-	// 	Spec:       apitesting.DeepEqualSafePodSpec(),
-	// }
-	// if err := resourceStore.Add("pods", meta.Object(pod)); err != nil {
-	// 	t.Errorf("Unexpected error: %v", err)
-	// }
-
 	simulatedPod := &api.Pod{
 		ObjectMeta: api.ObjectMeta{Name: "simulated-pod", Namespace: "test-node-3", ResourceVersion: "10"},
 		Spec:       apitesting.DeepEqualSafePodSpec(),
@@ -213,10 +197,13 @@ func TestPrediction(t *testing.T) {
 	}
 
 	for _, pod := range cc.Status().Pods {
-		fmt.Printf("Pod: %v, node: %v\n", pod.Name, pod.Spec.NodeName)
+		t.Logf("Pod: %v, node: %v\n", pod.Name, pod.Spec.NodeName)
 	}
 
-	fmt.Printf("Stop reason: %v\n", cc.Status().StopReason)
+	t.Logf("Stop reason: %v\n", cc.Status().StopReason)
 
 	// 4. check expected number of pods is scheduled and reflected in the resource storage
+	if cc.Status().StopReason != "Maximal number 6 of pods simulated" {
+		t.Errorf("Unexpected stop reason occured: %v, expecting: Maximal number 6 of pods simulated", cc.Status().StopReason)
+	}
 }
