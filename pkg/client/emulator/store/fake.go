@@ -7,6 +7,7 @@ import (
 	ccapi "github.com/ingvagabund/cluster-capacity/pkg/api"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/meta"
+	"k8s.io/kubernetes/pkg/apis/extensions"
 	"k8s.io/kubernetes/pkg/client/cache"
 )
 
@@ -17,6 +18,7 @@ type FakeResourceStore struct {
 	NodesData                  func() []*api.Node
 	PersistentVolumesData      func() []*api.PersistentVolume
 	PersistentVolumeClaimsData func() []*api.PersistentVolumeClaim
+	ReplicaSetsData            func() []*extensions.ReplicaSet
 	// TODO(jchaloup): fill missing resource functions
 }
 
@@ -86,21 +88,42 @@ func findResource(obj interface{}, objs interface{}) (item interface{}, exists b
 func (s *FakeResourceStore) List(resource string) []interface{} {
 	switch resource {
 	case ccapi.Pods:
+		if s.PodsData == nil {
+			return make([]interface{}, 0, 0)
+		}
 		return resourcesToItems(s.PodsData())
 	case ccapi.Services:
+		if s.ServicesData == nil {
+			return make([]interface{}, 0, 0)
+		}
 		return resourcesToItems(s.ServicesData())
 	case ccapi.ReplicationControllers:
+		if s.ReplicationControllersData == nil {
+			return make([]interface{}, 0, 0)
+		}
 		return resourcesToItems(s.ReplicationControllersData())
 	case ccapi.Nodes:
+		if s.NodesData == nil {
+			return make([]interface{}, 0, 0)
+		}
 		return resourcesToItems(s.NodesData())
 	case ccapi.PersistentVolumes:
+		if s.PersistentVolumesData == nil {
+			return make([]interface{}, 0, 0)
+		}
 		return resourcesToItems(s.PersistentVolumesData())
 	case ccapi.PersistentVolumeClaims:
+		if s.PersistentVolumeClaimsData == nil {
+			return make([]interface{}, 0, 0)
+		}
 		return resourcesToItems(s.PersistentVolumeClaimsData())
-		//case "replicasets":
-		//	return testReplicaSetsData().Items
+	case ccapi.ReplicaSets:
+		if s.ReplicaSetsData == nil {
+			return make([]interface{}, 0, 0)
+		}
+		return resourcesToItems(s.ReplicaSetsData())
 	}
-	return nil
+	return make([]interface{}, 0, 0)
 }
 
 func (s *FakeResourceStore) Get(resource string, obj interface{}) (item interface{}, exists bool, err error) {
