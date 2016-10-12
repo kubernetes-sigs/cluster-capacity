@@ -12,6 +12,7 @@ import (
 	schedopt "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app/options"
 	"runtime"
 	"path"
+	"k8s.io/kubernetes/pkg/api/validation"
 )
 
 type ClusterCapacityConfig struct {
@@ -71,8 +72,8 @@ func (s *ClusterCapacityConfig) ParseAdditionalSchedulerConfigs() error {
 		if err != nil {
 			return err
 		}
-		//newScheduler.Master = s.Options.Master
-		//newScheduler.Kubeconfig = s.Options.Kubeconfig
+		newScheduler.Master = s.Options.Master
+		newScheduler.Kubeconfig = s.Options.Kubeconfig
 		s.Schedulers = append(s.Schedulers, newScheduler)
 	}
 	return nil
@@ -80,15 +81,19 @@ func (s *ClusterCapacityConfig) ParseAdditionalSchedulerConfigs() error {
 
 func (s *ClusterCapacityConfig) ParseAPISpec() error {
 	filename, _ := filepath.Abs(s.Options.PodSpecFile)
-	config, err := os.Open(filename)
+	spec, err := os.Open(filename)
 	if err != nil {
 		return fmt.Errorf("Failed to open config file: %v", err)
 	}
 
-	decoder := yaml.NewYAMLOrJSONDecoder(config, 4096)
+	decoder := yaml.NewYAMLOrJSONDecoder(spec, 4096)
 	decoder.Decode(&(s.Pod))
 	if err != nil {
 		return fmt.Errorf("Failed to decode config file: %v", err)
+	}
+
+	if errs := validation.ValidatePod(s.Pod); len(errs) > 0 {
+		return fmt.Errorf("Invalid pod: %#v", err)
 	}
 	return nil
 }
@@ -103,7 +108,7 @@ func (s *ClusterCapacityConfig) SetDefaultScheduler() error {
 	if err != nil {
 		return err
 	}
-	//s.DefaultScheduler.Master = s.Options.Master
-	//s.DefaultScheduler.Kubeconfig = s.Options.Kubeconfig
+	s.DefaultScheduler.Master = s.Options.Master
+	s.DefaultScheduler.Kubeconfig = s.Options.Kubeconfig
 	return nil
 }

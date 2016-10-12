@@ -14,12 +14,17 @@ import (
 func NewClusterCapacityCommand() *cobra.Command {
 	opt := options.NewClusterCapacityOptions()
 	cmd := &cobra.Command{
-		Use:  "cluster-capacity",
-		Long: `Cluster-capacity is used for emulating scheduling of one or multiple pods`,
+		Use:  "cluster-capacity --master MASTER --kubeconfig KUBECONFIG --podspec PODSPEC",
+		Short: "Cluster-capacity is used for emulating scheduling of one or multiple pods",
+		Long: `Cluster-capacity simulates API server with initial state copied from kubernetes enviroment running
+		on address MASTER with its configuration specified in KUBECONFIG. Simulated API server tries to schedule number of
+		pods specified by --maxLimits flag. If the --maxLimits flag is not specified, pods are scheduled till
+		the simulated API server runs out of resources.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			err := Validate(opt)
 			if err != nil {
 				fmt.Println(err)
+				cmd.Help()
 				return
 			}
 			err = Run(opt)
@@ -60,21 +65,30 @@ func Run(opt *options.ClusterCapacityOptions) error {
 	if err != nil {
 		return fmt.Errorf("Failed to parse config file: %v ", err)
 	}
-	kubeconfig, err := clientcmd.BuildConfigFromFlags(conf.Options.Master, conf.Options.Kubeconfig)
+
+	conf.KubeClient, err = getKubeClient(conf.Options.Master, conf.Options.Kubeconfig)
+
 	if err != nil {
-		return fmt.Errorf("unable to build config from flags: %v", err)
+		return err
 	}
-
-	conf.KubeClient, err = unversioned.New(kubeconfig)
-	if err != nil {
-		return fmt.Errorf("Invalid API configuration: %v", err)
-	}
-
-	if _, err = conf.KubeClient.Discovery().ServerVersion(); err != nil {
-		return fmt.Errorf("Unable to get server version: %v\n", err)
-	}
-
 	return runSimulator(conf)
+}
+
+func getKubeClient(master string, config string) (*unversioned.Client, error) {
+	kubeconfig, err := clientcmd.BuildConfigFromFlags(master, config)
+	if err != nil {
+		return nil, fmt.Errorf("unable to build config from flags: %v", err)
+	}
+
+	kubeClient, err := unversioned.New(kubeconfig)
+	if err != nil {
+		return nil, fmt.Errorf("Invalid API configuration: %v", err)
+	}
+
+	if _, err = kubeClient.Discovery().ServerVersion(); err != nil {
+		return nil, fmt.Errorf("Unable to get server version: %v\n", err)
+	}
+	return kubeClient, nil
 }
 
 
