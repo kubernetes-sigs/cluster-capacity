@@ -16,7 +16,7 @@ import (
 )
 
 func newTestWatchRestClient() *RESTClient {
-	return NewRESTClient(&store.FakeResourceStore{})
+	return NewRESTClient(&store.FakeResourceStore{}, "")
 }
 
 func getResourceWatcher(client cache.Getter, resource string) watch.Interface {

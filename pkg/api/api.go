@@ -7,4 +7,5 @@ const (
 	Nodes                  = "nodes"
 	Services               = "services"
 	PersistentVolumeClaims = "persistentvolumeclaims"
+	ReplicaSets            = "replicasets"
 )

@@ -12,8 +12,11 @@ import (
 	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/strategy"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/meta"
+	"k8s.io/kubernetes/pkg/apis/extensions"
 	"k8s.io/kubernetes/pkg/client/cache"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
+	unversionedextensions "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/typed/extensions/unversioned"
+	"k8s.io/kubernetes/pkg/client/unversioned"
 	"k8s.io/kubernetes/pkg/fields"
 	"k8s.io/kubernetes/pkg/watch"
 	soptions "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app/options"
@@ -38,7 +41,7 @@ type ClusterCapacity struct {
 	strategy strategy.Strategy
 
 	// fake kube client
-	kubeclient clientset.Interface
+	kubeclient *clientset.Clientset
 
 	// schedulers
 	schedulers       map[string]*scheduler.Scheduler
@@ -65,10 +68,14 @@ func (c *ClusterCapacity) Status() Status {
 	return c.status
 }
 
-func (c *ClusterCapacity) SyncWithClient(client cache.Getter) error {
-
+func (c *ClusterCapacity) SyncWithClient(client *unversioned.Client) error {
 	for _, resource := range c.resourceStore.Resources() {
-		listWatcher := cache.NewListWatchFromClient(client, resource, api.NamespaceAll, fields.ParseSelectorOrDie(""))
+		var listWatcher *cache.ListWatch
+		if resource == ccapi.ReplicaSets {
+			listWatcher = cache.NewListWatchFromClient(client.ExtensionsClient, resource, api.NamespaceAll, fields.ParseSelectorOrDie(""))
+		} else {
+			listWatcher = cache.NewListWatchFromClient(client, resource, api.NamespaceAll, fields.ParseSelectorOrDie(""))
+		}
 
 		options := api.ListOptions{ResourceVersion: "0"}
 		list, err := listWatcher.List(options)
@@ -284,7 +291,8 @@ func createConfig(s *soptions.SchedulerServer, configFactory *factory.ConfigFact
 // for kubeconfig nor for apiserver url
 func New(s *soptions.SchedulerServer, simulatedPod *api.Pod, maxPods int) (*ClusterCapacity, error) {
 	resourceStore := store.NewResourceStore()
-	restClient := restclient.NewRESTClient(resourceStore)
+	restClient := restclient.NewRESTClient(resourceStore, "core")
+	extensionsRestClient := restclient.NewRESTClient(resourceStore, "extensions")
 
 	cc := &ClusterCapacity{
 		resourceStore: resourceStore,
@@ -294,6 +302,8 @@ func New(s *soptions.SchedulerServer, simulatedPod *api.Pod, maxPods int) (*Clus
 		simulated:     0,
 		maxSimulated:  maxPods,
 	}
+
+	cc.kubeclient.ExtensionsClient = unversionedextensions.New(extensionsRestClient)
 
 	resourceStore.RegisterEventHandler(ccapi.Pods, cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
@@ -364,6 +374,18 @@ func New(s *soptions.SchedulerServer, simulatedPod *api.Pod, maxPods int) (*Clus
 		},
 		DeleteFunc: func(obj interface{}) {
 			restClient.EmitPersistentVolumeClaimWatchEvent(watch.Deleted, obj.(*api.PersistentVolumeClaim))
+		},
+	})
+
+	resourceStore.RegisterEventHandler(ccapi.ReplicaSets, cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			restClient.EmitReplicaSetWatchEvent(watch.Added, obj.(*extensions.ReplicaSet))
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			restClient.EmitReplicaSetWatchEvent(watch.Modified, newObj.(*extensions.ReplicaSet))
+		},
+		DeleteFunc: func(obj interface{}) {
+			restClient.EmitReplicaSetWatchEvent(watch.Deleted, obj.(*extensions.ReplicaSet))
 		},
 	})
 

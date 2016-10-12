@@ -78,6 +78,8 @@ type RESTClient struct {
 	resourceStore store.ResourceStore
 
 	watcherReadGetters map[string]map[string]*ewatch.WatchBuffer
+	// name the rest client
+	name string
 }
 
 func (c *RESTClient) Pods(fieldsSelector fields.Selector) *api.PodList {
@@ -177,7 +179,18 @@ func (c *RESTClient) Nodes(fieldsSelector fields.Selector) *api.NodeList {
 }
 
 func (c *RESTClient) ReplicaSets(fieldsSelector fields.Selector) *extensions.ReplicaSetList {
-	return nil
+	items := c.resourceStore.List(ccapi.ReplicaSets)
+	RSItems := make([]extensions.ReplicaSet, 0, len(items))
+	for _, item := range items {
+		RSItems = append(RSItems, *item.(*extensions.ReplicaSet))
+	}
+
+	return &extensions.ReplicaSetList{
+		ListMeta: unversioned.ListMeta{
+			ResourceVersion: "0",
+		},
+		Items: RSItems,
+	}
 }
 
 func (c *RESTClient) EmitObjectWatchEvent(resource string, eType watch.EventType, object runtime.Object) error {
@@ -220,6 +233,10 @@ func (c *RESTClient) EmitPersistentVolumeClaimWatchEvent(eType watch.EventType, 
 
 func (c *RESTClient) EmitNodeWatchEvent(eType watch.EventType, object *api.Node) error {
 	return c.EmitObjectWatchEvent(ccapi.Nodes, eType, object)
+}
+
+func (c *RESTClient) EmitReplicaSetWatchEvent(eType watch.EventType, object *extensions.ReplicaSet) error {
+	return c.EmitObjectWatchEvent(ccapi.ReplicaSets, eType, object)
 }
 
 func (c *RESTClient) Close() {
@@ -271,17 +288,25 @@ func (c *RESTClient) request(verb string) *restclient.Request {
 	ns := c.NegotiatedSerializer
 	serializer, _ := ns.SerializerForMediaType(runtime.ContentTypeJSON, nil)
 	streamingSerializer, _ := ns.StreamingSerializerForMediaType(runtime.ContentTypeJSON, nil)
-	internalVersion := unversioned.GroupVersion{
-		Group:   testapi.Default.GroupVersion().Group,
-		Version: runtime.APIVersionInternal,
+
+	var targetVersion unversioned.GroupVersion
+	if c.name == "extensions" {
+		gvr := unversioned.GroupVersionResource{Group: "extensions", Version: "v1beta1", Resource: "replicasets"}
+		targetVersion = gvr.GroupVersion()
+	} else {
+		targetVersion = unversioned.GroupVersion{
+			Group:   testapi.Default.GroupVersion().Group,
+			Version: runtime.APIVersionInternal,
+		}
 	}
-	internalVersion.Version = runtime.APIVersionInternal
+
 	serializers := restclient.Serializers{
 		Encoder:             ns.EncoderForVersion(serializer, *testapi.Default.GroupVersion()),
-		Decoder:             ns.DecoderToVersion(serializer, internalVersion),
+		Decoder:             ns.DecoderToVersion(serializer, targetVersion),
 		StreamingSerializer: streamingSerializer,
 		Framer:              streamingSerializer.Framer,
 	}
+
 	return restclient.NewRequest(c, verb, &url.URL{Host: "localhost"}, "", config, serializers, nil, nil)
 }
 
@@ -309,12 +334,27 @@ func (c *RESTClient) createListReadCloser(resource string, fieldsSelector fields
 		obj = c.PersistentVolumeClaims(fieldsSelector)
 	case ccapi.Nodes:
 		obj = c.Nodes(fieldsSelector)
+	case ccapi.ReplicaSets:
+		obj = c.ReplicaSets(fieldsSelector)
 	default:
 		return nil, fmt.Errorf("Resource %s not recognized", resource)
 	}
 
-	nopCloser := ioutil.NopCloser(bytes.NewReader([]byte(runtime.EncodeOrDie(testapi.Default.Codec(), obj))))
-	return &nopCloser, nil
+	if resource == ccapi.ReplicaSets {
+		contentType := "application/json"
+		gvr := unversioned.GroupVersionResource{Group: "extensions", Version: "v1beta1", Resource: "replicasets"}
+		info, ok := api.Codecs.SerializerForMediaType(contentType, nil)
+		if !ok {
+			return nil, fmt.Errorf("serializer for %s not registered", contentType)
+		}
+
+		encoder := api.Codecs.EncoderForVersion(info.Serializer, gvr.GroupVersion())
+		nopCloser := ioutil.NopCloser(bytes.NewReader([]byte(runtime.EncodeOrDie(encoder, obj.(*extensions.ReplicaSetList)))))
+		return &nopCloser, nil
+	} else {
+		nopCloser := ioutil.NopCloser(bytes.NewReader([]byte(runtime.EncodeOrDie(testapi.Default.Codec(), obj))))
+		return &nopCloser, nil
+	}
 }
 
 func (c *RESTClient) createGetReadCloser(resource string, resourceName string, namespace string) (rc *io.ReadCloser, err error) {
@@ -396,6 +436,10 @@ func (c *RESTClient) createWatchReadCloser(resource string, fieldsSelector field
 		}
 	case ccapi.Nodes:
 		for _, item := range c.Nodes(fieldsSelector).Items {
+			rg.EmitWatchEvent(watch.Added, runtime.Object(&item))
+		}
+	case ccapi.ReplicaSets:
+		for _, item := range c.ReplicaSets(fieldsSelector).Items {
 			rg.EmitWatchEvent(watch.Added, runtime.Object(&item))
 		}
 	default:
@@ -490,11 +534,12 @@ func (c *RESTClient) Do(req *http.Request) (*http.Response, error) {
 	return c.Resp, nil
 }
 
-func NewRESTClient(resourceStore store.ResourceStore) *RESTClient {
+func NewRESTClient(resourceStore store.ResourceStore, name string) *RESTClient {
 	client := &RESTClient{
 		NegotiatedSerializer: testapi.Default.NegotiatedSerializer(),
 		resourceStore:        resourceStore,
 		watcherReadGetters:   make(map[string]map[string]*ewatch.WatchBuffer),
+		name:                 name,
 	}
 
 	client.watcherReadGetters[ccapi.Pods] = make(map[string]*ewatch.WatchBuffer)
@@ -503,6 +548,7 @@ func NewRESTClient(resourceStore store.ResourceStore) *RESTClient {
 	client.watcherReadGetters[ccapi.PersistentVolumeClaims] = make(map[string]*ewatch.WatchBuffer)
 	client.watcherReadGetters[ccapi.Services] = make(map[string]*ewatch.WatchBuffer)
 	client.watcherReadGetters[ccapi.ReplicationControllers] = make(map[string]*ewatch.WatchBuffer)
+	client.watcherReadGetters[ccapi.ReplicaSets] = make(map[string]*ewatch.WatchBuffer)
 
 	return client
 }

@@ -210,7 +210,7 @@ func NewResourceStore() *resourceStore {
 		ccapi.PersistentVolumes:      resourceStore.PVCache,
 		ccapi.PersistentVolumeClaims: resourceStore.PVCCache,
 		ccapi.Services:               resourceStore.ServiceCache,
-		//"replicasets":            resourceStore.ReplicaSetCache,
+		ccapi.ReplicaSets:            resourceStore.ReplicaSetCache,
 		ccapi.ReplicationControllers: resourceStore.ReplicationControllerCache,
 	}
 
