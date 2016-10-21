@@ -1,9 +1,13 @@
 package apiserver
 
 import (
+	"fmt"
 	"github.com/emicklei/go-restful"
 	"net/http"
+	"time"
 )
+
+var TIMELAYOUT = "2006-01-02T15:04:05Z07:00"
 
 type RestResource struct {
 	cache *Cache
@@ -24,11 +28,12 @@ func (r *RestResource) Register(container *restful.Container) {
 		Operation("getStatus").
 		Writes(Report{}))
 
-	ws.Route(ws.GET("/status/list/").To(r.listStatus).
-		Doc("List cluster capacity reports").
-		Operation("listStatus").
+	ws.Route(ws.GET("/status/list").To(r.listStatus).
+		Doc("List all reports since and to specified date.").
+		Operation("listRange").
+		Param(ws.QueryParameter("since", "RFC3339 standard").DataType("string")).
+		Param(ws.QueryParameter("to", "RFC3339 standard").DataType("string")).
 		Writes([]Report{}))
-
 	container.Add(ws)
 }
 
@@ -56,7 +61,34 @@ func (r *RestResource) getStatus(request *restful.Request, response *restful.Res
 }
 
 func (r *RestResource) listStatus(request *restful.Request, response *restful.Response) {
-	reports := r.cache.All()
+
+	//if since is not defined set is as start of epoch
+	sinceStr := request.QueryParameter("since")
+	if sinceStr == "" {
+		sinceStr = "1970-01-01T00:00:00+00:00"
+	}
+	since, err := time.Parse(TIMELAYOUT, sinceStr)
+	if err != nil {
+		str := fmt.Sprintf("400: Failed to parse parameter \"since\": %v\n", err)
+		response.WriteErrorString(http.StatusBadRequest, str)
+		return
+	}
+
+	//if to is not defined set it as now
+	toStr := request.QueryParameter("to")
+	var to time.Time
+	if toStr == "" {
+		to = time.Now()
+	} else {
+		to, err = time.Parse(TIMELAYOUT, toStr)
+		if err != nil {
+			str := fmt.Sprintf("400: Failed to parse parameter \"to\": %v\n", err)
+			response.WriteErrorString(http.StatusBadRequest, str)
+			return
+		}
+	}
+
+	reports := r.cache.List(since, to)
 	if reports == nil {
 		response.AddHeader("Content-Type", "text/plain")
 		response.WriteErrorString(http.StatusNotFound, "404: No reports found.")

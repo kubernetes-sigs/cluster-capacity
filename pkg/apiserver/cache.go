@@ -1,6 +1,9 @@
 package apiserver
 
-import "sync"
+import (
+	"sync"
+	"time"
+)
 
 type Cache struct {
 	position int
@@ -51,4 +54,20 @@ func (c *Cache) All() []*Report {
 		sorted = append(sorted, c.reports[i])
 	}
 	return sorted
+}
+
+func (c *Cache) List(since time.Time, to time.Time) []*Report {
+	all := c.All()
+	if len(all) == 0 {
+		return nil
+	}
+
+	list := make([]*Report, 0)
+	for i := 0; i < len(all); i++ {
+		if all[i].Timestamp.After(since) && all[i].Timestamp.Before(to) {
+			list = append(list, all[i])
+		}
+	}
+	return list
+
 }
