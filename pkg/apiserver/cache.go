@@ -39,7 +39,11 @@ func (c *Cache) GetLast() *Report {
 	if len(c.reports) == 0 {
 		return nil
 	}
-	return c.reports[c.position-1]
+	p := c.position-1
+	if p == -1 {
+		p = c.size-1
+	}
+	return c.reports[p]
 }
 
 func (c *Cache) All() []*Report {
