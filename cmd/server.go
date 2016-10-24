@@ -86,21 +86,24 @@ func Run(opt *options.ClusterCapacityOptions) error {
 	}
 
 	if opt.Period == 0 {
-		return runSimulator(conf)
+		_, err = runSimulator(conf)
+		return err
 	}
 
 	conf.Reports = apiserver.NewCache(MAXREPORTS)
 
+	watch := make(chan *apiserver.Report)
 	go func() {
-		r := apiserver.NewResource(conf.Reports)
+		r := apiserver.NewResource(conf.Reports, watch)
 		log.Fatal(apiserver.ListenAndServe(r))
 	}()
 
 	for {
-		err := runSimulator(conf)
+		report, err := runSimulator(conf)
 		if err != nil {
 			return err
 		}
+		watch <- report
 		time.Sleep(time.Duration(opt.Period) * time.Second)
 	}
 	return nil
@@ -123,23 +126,23 @@ func getKubeClient(master string, config string) (*unversioned.Client, error) {
 	return kubeClient, nil
 }
 
-func runSimulator(s *options.ClusterCapacityConfig) error {
+func runSimulator(s *options.ClusterCapacityConfig) (*apiserver.Report, error) {
 	cc, err := emulator.New(s.DefaultScheduler, s.Pod, s.Options.MaxLimit)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	for i := 0; i < len(s.Schedulers); i++ {
 		if err = cc.AddScheduler(s.Schedulers[i]); err != nil {
-			return err
+			return nil, err
 		}
 	}
 	err = cc.SyncWithClient(s.KubeClient)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	err = cc.Run()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	report := createFullReport(s, cc.Status())
@@ -149,7 +152,7 @@ func runSimulator(s *options.ClusterCapacityConfig) error {
 	} else {
 		s.Reports.Add(report)
 	}
-	return nil
+	return report, nil
 }
 
 func createFullReport(s *options.ClusterCapacityConfig, status emulator.Status) *apiserver.Report {
