@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 
 	ccapi "github.com/ingvagabund/cluster-capacity/pkg/api"
 	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/store"
@@ -77,7 +78,8 @@ type RESTClient struct {
 
 	resourceStore store.ResourceStore
 
-	watcherReadGetters map[string]map[string]*ewatch.WatchBuffer
+	watcherReadGetters    map[string]map[string]*ewatch.WatchBuffer
+	watcherReadGettersMux sync.RWMutex
 	// name the rest client
 	name string
 }
@@ -392,6 +394,9 @@ func (c *RESTClient) createGetReadCloser(resource string, resourceName string, n
 }
 
 func (c *RESTClient) createWatchReadCloser(resource string, fieldsSelector fields.Selector) (rc *ewatch.WatchBuffer, err error) {
+	c.watcherReadGettersMux.Lock()
+	defer c.watcherReadGettersMux.Unlock()
+
 	resourceWatcherReadGetter, ok := c.watcherReadGetters[resource]
 	if !ok {
 		return nil, fmt.Errorf("Resource %s not recognized", resource)
