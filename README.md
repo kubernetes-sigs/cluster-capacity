@@ -60,3 +60,71 @@ Pod distribution among nodes:
 	- kube-node-2: 13 instance(s)
 	- kube-node-3: 13 instance(s)
 ```
+
+To decrease available resources you can use provided RC (`rc.yml`):
+
+```sh
+$ kubectl create -f rc.yml
+```
+
+E.g. to change a number of replicas to `6`, you can run:
+
+```sh
+$ kubectl patch -f rc.yml -p '{"spec":{"replicas":6}}
+```
+
+## Continuous cluster capacity analysis
+
+The provided analysis can be run in loop to provide continuous stream of actual cluster capacities.
+
+
+To start the continuous analysis providing the capacity each second you can run:
+
+```sh
+$ ./cluster-capacity --kubeconfig <path to kubeconfig> --master <API server address > --podspec=pod.yaml --period 1
+```
+
+With the ``period`` set to non-zero value, the ``cluster-capacity`` binary publishes the current capacity
+at ``http://localhost:8081/capacity/status/watch`` address.
+You can use ``curl`` to access the data:
+
+```sh
+$ curl http://localhost:8081/capacity/status/watch
+{
+  "Timestamp": "2016-10-24T22:27:52.67211714+02:00",
+  "PodRequirements": {
+   "Cpu": 0.15,
+   "Memory": 104857600
+  },
+  "Total": {
+   "Instances": 23,
+   "Reason": "FailedScheduling: pod (small-pod-23) failed to fit in any node\nfit failure on node (127.0.0.1): Insufficient cpu\n"
+  },
+  "Nodes": [
+   {
+    "NodeName": "127.0.0.1",
+    "Instances": 23,
+    "Reason": ""
+   }
+  ]
+ }{
+  "Timestamp": "2016-10-24T22:27:53.872736917+02:00",
+  "PodRequirements": {
+   "Cpu": 0.15,
+   "Memory": 104857600
+  },
+  "Total": {
+   "Instances": 23,
+   "Reason": "FailedScheduling: pod (small-pod-23) failed to fit in any node\nfit failure on node (127.0.0.1): Insufficient cpu\n"
+  },
+  "Nodes": [
+   {
+    "NodeName": "127.0.0.1",
+    "Instances": 23,
+    "Reason": ""
+   }
+  ]
+...
+```
+
+
