@@ -3,6 +3,7 @@ package emulator
 import (
 	"fmt"
 	"reflect"
+	"sync"
 	"time"
 
 	ccapi "github.com/ingvagabund/cluster-capacity/pkg/api"
@@ -55,7 +56,11 @@ type ClusterCapacity struct {
 	status       Status
 
 	// stop the analysis
-	stop chan struct{}
+	stop      chan struct{}
+	stopMux   sync.RWMutex
+	stopped   bool
+	closedMux sync.RWMutex
+	closed    bool
 }
 
 // capture all scheduled pods with reason why the analysis could not continue
@@ -148,6 +153,7 @@ func (c *ClusterCapacity) Bind(binding *api.Binding, schedulerName string) error
 	if c.maxSimulated > 0 && c.simulated >= c.maxSimulated {
 		c.status.StopReason = fmt.Sprintf("Maximal number %v of pods simulated", c.maxSimulated)
 		c.Close()
+
 		c.stop <- struct{}{}
 		return nil
 	}
@@ -160,9 +166,17 @@ func (c *ClusterCapacity) Bind(binding *api.Binding, schedulerName string) error
 }
 
 func (c *ClusterCapacity) Close() {
+	c.closedMux.Lock()
+	defer c.closedMux.Unlock()
+
+	if c.closed {
+		return
+	}
+
 	for _, name := range c.schedulerConfigs {
 		close(name.StopEverything)
 	}
+	c.closed = true
 }
 
 func (c *ClusterCapacity) Update(pod *api.Pod, podCondition *api.PodCondition, schedulerName string) error {
@@ -184,6 +198,15 @@ func (c *ClusterCapacity) Update(pod *api.Pod, podCondition *api.PodCondition, s
 		if stop {
 			c.status.StopReason = fmt.Sprintf("%v: %v", event.Reason, event.Message)
 			c.Close()
+
+			// The Update function can be run more than once before any corresponding
+			// scheduler is closed. The behaviour is implementation specific
+			c.stopMux.Lock()
+			defer c.stopMux.Unlock()
+			if c.stopped {
+				return
+			}
+			c.stopped = true
 			c.stop <- struct{}{}
 		}
 	}()
@@ -206,7 +229,7 @@ func (c *ClusterCapacity) Run() error {
 		scheduler.Run()
 	}
 	// wait some time before at least nodes are populated
-	// TODO(jchaloup); find a better way how to do this or at least increase it to <100ms
+	// TODO(jchaloup); find a better way how to do this or at least decrease it to <100ms
 	time.Sleep(100 * time.Millisecond)
 	// create the first simulated pod
 	err := c.nextPod()
