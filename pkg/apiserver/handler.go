@@ -1,17 +1,17 @@
 package apiserver
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/emicklei/go-restful"
 	"net/http"
 	"time"
-	"encoding/json"
 )
 
 var TIMELAYOUT = "2006-01-02T15:04:05Z07:00"
 
 type RestResource struct {
-	cache *Cache
+	cache   *Cache
 	watcher *WatchChannelDistributor
 }
 
@@ -43,7 +43,7 @@ func (r *RestResource) Register(container *restful.Container) {
 
 func NewResource(c *Cache, watch chan *Report) *RestResource {
 	return &RestResource{
-		cache: c,
+		cache:   c,
 		watcher: NewWatchChannelDistributor(watch),
 	}
 }
@@ -52,7 +52,7 @@ func ListenAndServe(r *RestResource) error {
 	wsContainer := restful.NewContainer()
 	r.Register(wsContainer)
 
-	r.watcher.Run()
+	go r.watcher.Run()
 	server := &http.Server{Addr: ":8081", Handler: wsContainer}
 	return server.ListenAndServe()
 }
@@ -79,18 +79,25 @@ func writeJson(resp *restful.Response, r *Report) error {
 
 func (r *RestResource) watchStatus(request *restful.Request, response *restful.Response) {
 	w := response.ResponseWriter
+
+	ch := make(chan *Report)
+	chpos, err := r.watcher.AddChannel(ch)
+	if err != nil {
+		w.Header().Set("Content-Type", "text/plain")
+		errmsg := fmt.Sprintf("Can't start watching: %v", err)
+		response.WriteErrorString(http.StatusForbidden, errmsg)
+		return
+	}
+	defer r.watcher.RemoveChannel(chpos)
+
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Transfer-Encoding", "chunked")
 	w.WriteHeader(http.StatusOK)
 	w.(http.Flusher).Flush()
 
-	ch := make(chan *Report)
-	chpos := r.watcher.AddChannel(ch)
-	defer r.watcher.RemoveChannel(chpos)
-
 	for {
 		select {
-		case <- w.(http.CloseNotifier).CloseNotify():
+		case <-w.(http.CloseNotifier).CloseNotify():
 			return
 		case report, ok := <-ch:
 			if !ok {
@@ -104,7 +111,6 @@ func (r *RestResource) watchStatus(request *restful.Request, response *restful.R
 		}
 	}
 }
-
 
 func (r *RestResource) listStatus(request *restful.Request, response *restful.Response) {
 
