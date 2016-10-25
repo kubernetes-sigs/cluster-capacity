@@ -6,19 +6,13 @@ import (
 	"net/http"
 	"time"
 	"encoding/json"
-	"sync"
 )
 
 var TIMELAYOUT = "2006-01-02T15:04:05Z07:00"
 
 type RestResource struct {
 	cache *Cache
-	// watchChannelInput continuously receives new reports. If watching=true, watch
-	// method forwards new reports to internalWatchChannel
-	watchChannelInput chan *Report
-	watchChanels []chan *Report
-	mux      sync.Mutex
-
+	watcher *WatchChannelDistributor
 }
 
 func (r *RestResource) Register(container *restful.Container) {
@@ -50,8 +44,7 @@ func (r *RestResource) Register(container *restful.Container) {
 func NewResource(c *Cache, watch chan *Report) *RestResource {
 	return &RestResource{
 		cache: c,
-		watchChannelInput: watch,
-		watchChanels: make([]chan *Report, 0),
+		watcher: NewWatchChannelDistributor(watch),
 	}
 }
 
@@ -59,7 +52,7 @@ func ListenAndServe(r *RestResource) error {
 	wsContainer := restful.NewContainer()
 	r.Register(wsContainer)
 
-	go r.watch()
+	r.watcher.Run()
 	server := &http.Server{Addr: ":8081", Handler: wsContainer}
 	return server.ListenAndServe()
 }
@@ -84,34 +77,6 @@ func writeJson(resp *restful.Response, r *Report) error {
 	return err
 }
 
-// watch method takes care of input channel also when there are no watch requests
-func (r *RestResource) watch() {
-	for {
-		select {
-		case report := <-r.watchChannelInput:
-			for i := 0; i < len(r.watchChanels); i++ {
-				r.watchChanels[i] <- report
-			}
-		}
-	}
-}
-
-func (r *RestResource) addWatcher(ch chan *Report) int {
-	r.mux.Lock()
-	defer r.mux.Unlock()
-	pos := len(r.watchChanels)
-	r.watchChanels = append(r.watchChanels, ch)
-	return pos
-}
-
-func (r* RestResource) removeWatcher(pos int) {
-	r.mux.Lock()
-	defer r.mux.Unlock()
-	copy(r.watchChanels[pos:], r.watchChanels[pos+1:])
-	r.watchChanels[len(r.watchChanels)-1] = nil
-	r.watchChanels = r.watchChanels[:len(r.watchChanels)-1]
-}
-
 func (r *RestResource) watchStatus(request *restful.Request, response *restful.Response) {
 	w := response.ResponseWriter
 	w.Header().Set("Content-Type", "application/json")
@@ -120,8 +85,8 @@ func (r *RestResource) watchStatus(request *restful.Request, response *restful.R
 	w.(http.Flusher).Flush()
 
 	ch := make(chan *Report)
-	chanpos :=r.addWatcher(ch)
-	defer r.removeWatcher(chanpos)
+	chpos := r.watcher.AddChannel(ch)
+	defer r.watcher.RemoveChannel(chpos)
 
 	for {
 		select {
