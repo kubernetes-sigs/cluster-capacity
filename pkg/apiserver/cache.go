@@ -51,15 +51,14 @@ func (c *Cache) All() []*Report {
 	defer c.mux.Unlock()
 	sorted := make([]*Report, 0)
 
-	for i := c.position - 1; i > -1; i-- {
+	for i := c.position; i < len(c.reports); i++ {
 		sorted = append(sorted, c.reports[i])
 	}
-	for i := len(c.reports) - 1; i > c.position-1; i-- {
+	for i := 0; i < c.position; i++ {
 		sorted = append(sorted, c.reports[i])
 	}
 	return sorted
 }
-
 func (c *Cache) List(since time.Time, to time.Time) []*Report {
 	all := c.All()
 	if len(all) == 0 {
