@@ -148,6 +148,7 @@ func runSimulator(s *options.ClusterCapacityConfig) (*apiserver.Report, error) {
 	report := createFullReport(s, cc.Status())
 
 	if s.Options.Period == 0 {
+		//TODO: print output in yaml
 		report.Print(s.Options.Verbose)
 	} else {
 		s.Reports.Add(report)

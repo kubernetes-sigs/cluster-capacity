@@ -80,6 +80,7 @@ func writeJson(resp *restful.Response, r *Report) error {
 func (r *RestResource) watchStatus(request *restful.Request, response *restful.Response) {
 	w := response.ResponseWriter
 
+	//receive read channel
 	ch := make(chan *Report)
 	chpos, err := r.watcher.AddChannel(ch)
 	if err != nil {
@@ -90,11 +91,12 @@ func (r *RestResource) watchStatus(request *restful.Request, response *restful.R
 	}
 	defer r.watcher.RemoveChannel(chpos)
 
-	w.Header().Set("Content-Type", "application/json")
+	//list all
+	response.WriteAsJson(r.cache.All())
 	w.Header().Set("Transfer-Encoding", "chunked")
-	w.WriteHeader(http.StatusOK)
 	w.(http.Flusher).Flush()
 
+	//listen read channel
 	for {
 		select {
 		case <-w.(http.CloseNotifier).CloseNotify():
