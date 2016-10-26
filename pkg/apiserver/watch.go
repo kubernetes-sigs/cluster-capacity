@@ -39,14 +39,14 @@ func (w *WatchChannelDistributor) AddChannel(ch chan *Report) (int, error) {
 	w.mux.Lock()
 	defer w.mux.Unlock()
 
-	if len(w.outputChannels) > MAXWATCHERS {
-		return -1, fmt.Errorf("Maximal number of watches exceeded")
-	}
 	for i := 0; i < len(w.outputChannels); i++ {
 		if w.outputChannels[i] == nil {
 			w.outputChannels[i] = ch
 			return i, nil
 		}
+	}
+	if len(w.outputChannels) >= MAXWATCHERS {
+		return -1, fmt.Errorf("Maximal number of watches exceeded\n")
 	}
 	w.outputChannels = append(w.outputChannels, ch)
 	return len(w.outputChannels) - 1, nil
