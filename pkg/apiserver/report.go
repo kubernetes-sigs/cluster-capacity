@@ -3,6 +3,8 @@ package apiserver
 import (
 	"fmt"
 	"time"
+	"encoding/json"
+	"github.com/ghodss/yaml"
 )
 
 const CLR_0 = "\x1b[30;1m"
@@ -38,7 +40,7 @@ type Report struct {
 	Nodes           []ReportNode
 }
 
-func (r *Report) Print(verbose bool) {
+func (r *Report) prettyPrint(verbose bool) {
 	if verbose {
 		fmt.Printf("%vPod requirements:%v\n", CLR_W, CLR_N)
 		fmt.Printf("\t- cpu: %v\n", r.PodRequirements.Cpu)
@@ -54,5 +56,37 @@ func (r *Report) Print(verbose bool) {
 		for _, node := range r.Nodes {
 			fmt.Printf("\t- %v: %v instance(s)\n", node.NodeName, node.Instances)
 		}
+	}
+}
+
+func (r *Report) printJson() error {
+	jsoned, err:= json.Marshal(r)
+	if err != nil {
+		return fmt.Errorf("Failed to create json: %v", err)
+	}
+	fmt.Println(string(jsoned))
+	return nil
+}
+
+func (r *Report) printYaml() error {
+	yamled, err := yaml.Marshal(r)
+	if err != nil {
+		return fmt.Errorf("Failed to create yaml: %v", err)
+	}
+	fmt.Print(string(yamled))
+	return nil
+}
+
+func (r *Report) Print(verbose bool, format string) error {
+	switch format {
+	case "json":
+		return r.printJson()
+	case "yaml":
+		return r.printYaml()
+	case "":
+		r.prettyPrint(verbose)
+		return nil
+	default:
+		return fmt.Errorf("output format %q not recognized", format)
 	}
 }

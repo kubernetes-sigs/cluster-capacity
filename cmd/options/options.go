@@ -35,6 +35,7 @@ type ClusterCapacityOptions struct {
 	Verbose             bool
 	PodSpecFile         string
 	Period              int
+	OutputFormat          string
 }
 
 func NewClusterCapacityConfig(opt *ClusterCapacityOptions) *ClusterCapacityConfig {
@@ -57,6 +58,7 @@ func (s *ClusterCapacityOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringArrayVar(&s.SchedulerConfigFile, "config", s.SchedulerConfigFile, "Paths to files containing scheduler configuration in JSON or YAML format")
 	fs.BoolVar(&s.Verbose, "verbose", s.Verbose, "Verbose mode")
 	fs.IntVar(&s.Period, "period", 0, "Number of seconds between cluster capacity checks, if period=0 cluster-capacity will be checked just once")
+	fs.StringVarP(&s.OutputFormat, "output", "o", s.OutputFormat, "Output format. One of: json|yaml")
 }
 
 func parseSchedulerConfig(path string) (*schedopt.SchedulerServer, error) {

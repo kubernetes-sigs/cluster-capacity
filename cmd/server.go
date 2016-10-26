@@ -148,8 +148,10 @@ func runSimulator(s *options.ClusterCapacityConfig) (*apiserver.Report, error) {
 	report := createFullReport(s, cc.Status())
 
 	if s.Options.Period == 0 {
-		//TODO: print output in yaml
-		report.Print(s.Options.Verbose)
+		err := report.Print(s.Options.Verbose, s.Options.OutputFormat)
+		if err != nil {
+			return nil, fmt.Errorf("Error while printing: %v", err)
+		}
 	} else {
 		s.Reports.Add(report)
 	}
