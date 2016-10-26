@@ -6,6 +6,7 @@ import (
 	"github.com/emicklei/go-restful"
 	"net/http"
 	"time"
+	"strconv"
 )
 
 var TIMELAYOUT = "2006-01-02T15:04:05Z07:00"
@@ -23,9 +24,10 @@ func (r *RestResource) Register(container *restful.Container) {
 		Consumes(restful.MIME_XML, restful.MIME_JSON).
 		Produces(restful.MIME_JSON, restful.MIME_XML)
 
-	ws.Route(ws.GET("/status/last").To(r.getStatus).
+	ws.Route(ws.GET("/status/last").To(r.getLastStatus).
 		Doc("Get most recent cluster capacity report").
 		Operation("getStatus").
+		Param(ws.QueryParameter("num", "number of last records to be listed").DataType("string")).
 		Writes(Report{}))
 
 	ws.Route(ws.GET("/status/watch").To(r.watchStatus).
@@ -57,8 +59,16 @@ func ListenAndServe(r *RestResource) error {
 	return server.ListenAndServe()
 }
 
-func (r *RestResource) getStatus(request *restful.Request, response *restful.Response) {
-	report := r.cache.GetLast()
+func (r *RestResource) getLastStatus(request *restful.Request, response *restful.Response) {
+	numStr := request.QueryParameter("num")
+	num, err := strconv.Atoi(numStr)
+	if err != nil {
+		response.AddHeader("Content-Type", "text/plain")
+		str := fmt.Sprintf("400: Failed to parse parameter \"num\": %v\n", err)
+		response.WriteErrorString(http.StatusBadRequest, str)
+		return
+	}
+	report := r.cache.GetLast(num)
 	if report == nil {
 		response.AddHeader("Content-Type", "text/plain")
 		response.WriteErrorString(http.StatusNotFound, "404: No reports found.")

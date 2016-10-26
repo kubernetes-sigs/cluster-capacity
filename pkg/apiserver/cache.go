@@ -35,15 +35,17 @@ func (c *Cache) Add(r *Report) {
 	}
 }
 
-func (c *Cache) GetLast() *Report {
+func (c *Cache) GetLast(num int) []*Report {
 	if len(c.reports) == 0 {
 		return nil
 	}
-	p := c.position-1
-	if p == -1 {
-		p = c.size-1
+	sorted := c.All()
+
+	if num >= len(sorted) {
+		num = len(sorted)
 	}
-	return c.reports[p]
+
+	return sorted[len(sorted)-num:]
 }
 
 func (c *Cache) All() []*Report {
