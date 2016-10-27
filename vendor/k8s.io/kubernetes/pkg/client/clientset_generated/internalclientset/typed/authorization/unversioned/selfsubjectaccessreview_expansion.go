@@ -26,7 +26,7 @@ type SelfSubjectAccessReviewExpansion interface {
 
 func (c *selfSubjectAccessReviews) Create(sar *authorizationapi.SelfSubjectAccessReview) (result *authorizationapi.SelfSubjectAccessReview, err error) {
 	result = &authorizationapi.SelfSubjectAccessReview{}
-	err = c.client.GetRESTClient().Post().
+	err = c.client.Post().
 		Resource("selfsubjectaccessreviews").
 		Body(sar).
 		Do().

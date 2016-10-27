@@ -46,10 +46,10 @@ func TestExtract(t *testing.T) {
 	}
 
 	testCases := []struct {
-		dst     *GCSReference
-		src     *Table
-		options []Option
-		want    *bq.Job
+		dst    *GCSReference
+		src    *Table
+		config ExtractConfig
+		want   *bq.Job
 	}{
 		{
 			dst:  defaultGCS(),
@@ -57,11 +57,9 @@ func TestExtract(t *testing.T) {
 			want: defaultExtractJob(),
 		},
 		{
-			dst: defaultGCS(),
-			src: c.Dataset("dataset-id").Table("table-id"),
-			options: []Option{
-				DisableHeader(),
-			},
+			dst:    defaultGCS(),
+			src:    c.Dataset("dataset-id").Table("table-id"),
+			config: ExtractConfig{DisableHeader: true},
 			want: func() *bq.Job {
 				j := defaultExtractJob()
 				f := false
@@ -70,12 +68,13 @@ func TestExtract(t *testing.T) {
 			}(),
 		},
 		{
-			dst: &GCSReference{
-				uris:              []string{"uri"},
-				Compression:       Gzip,
-				DestinationFormat: JSON,
-				FieldDelimiter:    "\t",
-			},
+			dst: func() *GCSReference {
+				g := c.NewGCSReference("uri")
+				g.Compression = Gzip
+				g.DestinationFormat = JSON
+				g.FieldDelimiter = "\t"
+				return g
+			}(),
 			src: c.Dataset("dataset-id").Table("table-id"),
 			want: func() *bq.Job {
 				j := defaultExtractJob()
@@ -88,7 +87,11 @@ func TestExtract(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		if _, err := c.Copy(context.Background(), tc.dst, tc.src, tc.options...); err != nil {
+		ext := tc.src.ExtractorTo(tc.dst)
+		tc.config.Src = ext.Src
+		tc.config.Dst = ext.Dst
+		ext.ExtractConfig = tc.config
+		if _, err := ext.Run(context.Background()); err != nil {
 			t.Errorf("err calling extract: %v", err)
 			continue
 		}

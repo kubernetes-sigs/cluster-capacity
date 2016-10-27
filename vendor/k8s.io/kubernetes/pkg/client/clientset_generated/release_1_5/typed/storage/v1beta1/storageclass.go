@@ -20,6 +20,7 @@ import (
 	api "k8s.io/kubernetes/pkg/api"
 	v1 "k8s.io/kubernetes/pkg/api/v1"
 	v1beta1 "k8s.io/kubernetes/pkg/apis/storage/v1beta1"
+	restclient "k8s.io/kubernetes/pkg/client/restclient"
 	watch "k8s.io/kubernetes/pkg/watch"
 )
 
@@ -44,20 +45,20 @@ type StorageClassInterface interface {
 
 // storageClasses implements StorageClassInterface
 type storageClasses struct {
-	client *StorageClient
+	client restclient.Interface
 }
 
 // newStorageClasses returns a StorageClasses
 func newStorageClasses(c *StorageClient) *storageClasses {
 	return &storageClasses{
-		client: c,
+		client: c.RESTClient(),
 	}
 }
 
 // Create takes the representation of a storageClass and creates it.  Returns the server's representation of the storageClass, and an error, if there is any.
 func (c *storageClasses) Create(storageClass *v1beta1.StorageClass) (result *v1beta1.StorageClass, err error) {
 	result = &v1beta1.StorageClass{}
-	err = c.client.GetRESTClient().Post().
+	err = c.client.Post().
 		Resource("storageclasses").
 		Body(storageClass).
 		Do().
@@ -68,7 +69,7 @@ func (c *storageClasses) Create(storageClass *v1beta1.StorageClass) (result *v1b
 // Update takes the representation of a storageClass and updates it. Returns the server's representation of the storageClass, and an error, if there is any.
 func (c *storageClasses) Update(storageClass *v1beta1.StorageClass) (result *v1beta1.StorageClass, err error) {
 	result = &v1beta1.StorageClass{}
-	err = c.client.GetRESTClient().Put().
+	err = c.client.Put().
 		Resource("storageclasses").
 		Name(storageClass.Name).
 		Body(storageClass).
@@ -79,7 +80,7 @@ func (c *storageClasses) Update(storageClass *v1beta1.StorageClass) (result *v1b
 
 // Delete takes name of the storageClass and deletes it. Returns an error if one occurs.
 func (c *storageClasses) Delete(name string, options *v1.DeleteOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Resource("storageclasses").
 		Name(name).
 		Body(options).
@@ -89,7 +90,7 @@ func (c *storageClasses) Delete(name string, options *v1.DeleteOptions) error {
 
 // DeleteCollection deletes a collection of objects.
 func (c *storageClasses) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Resource("storageclasses").
 		VersionedParams(&listOptions, api.ParameterCodec).
 		Body(options).
@@ -100,7 +101,7 @@ func (c *storageClasses) DeleteCollection(options *v1.DeleteOptions, listOptions
 // Get takes name of the storageClass, and returns the corresponding storageClass object, and an error if there is any.
 func (c *storageClasses) Get(name string) (result *v1beta1.StorageClass, err error) {
 	result = &v1beta1.StorageClass{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Resource("storageclasses").
 		Name(name).
 		Do().
@@ -111,7 +112,7 @@ func (c *storageClasses) Get(name string) (result *v1beta1.StorageClass, err err
 // List takes label and field selectors, and returns the list of StorageClasses that match those selectors.
 func (c *storageClasses) List(opts v1.ListOptions) (result *v1beta1.StorageClassList, err error) {
 	result = &v1beta1.StorageClassList{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Resource("storageclasses").
 		VersionedParams(&opts, api.ParameterCodec).
 		Do().
@@ -121,7 +122,7 @@ func (c *storageClasses) List(opts v1.ListOptions) (result *v1beta1.StorageClass
 
 // Watch returns a watch.Interface that watches the requested storageClasses.
 func (c *storageClasses) Watch(opts v1.ListOptions) (watch.Interface, error) {
-	return c.client.GetRESTClient().Get().
+	return c.client.Get().
 		Prefix("watch").
 		Resource("storageclasses").
 		VersionedParams(&opts, api.ParameterCodec).
@@ -131,7 +132,7 @@ func (c *storageClasses) Watch(opts v1.ListOptions) (watch.Interface, error) {
 // Patch applies the patch and returns the patched storageClass.
 func (c *storageClasses) Patch(name string, pt api.PatchType, data []byte, subresources ...string) (result *v1beta1.StorageClass, err error) {
 	result = &v1beta1.StorageClass{}
-	err = c.client.GetRESTClient().Patch(pt).
+	err = c.client.Patch(pt).
 		Resource("storageclasses").
 		SubResource(subresources...).
 		Name(name).

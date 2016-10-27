@@ -153,6 +153,7 @@ function echo-kube-env() {
   echo "MASTER_IP='${MASTER_IP}'"
   echo "NODE_NAMES=(${NODE_NAMES[@]})"
   echo "NODE_IPS=(${NODE_IPS[@]})"
+  echo "DEFAULT_NETWORK_IF_NAME=${DEFAULT_NETWORK_IF_NAME}"
   echo "CONTAINER_SUBNET='${CONTAINER_SUBNET}'"
   echo "CLUSTER_IP_RANGE='${CLUSTER_IP_RANGE}'"
   echo "MASTER_CONTAINER_SUBNET='${MASTER_CONTAINER_SUBNET}'"
@@ -323,7 +324,7 @@ function kube-push {
 # Execute prior to running tests to build a release if required for env
 function test-build-release {
   # Make a release
-  "${KUBE_ROOT}/build/release.sh"
+  "${KUBE_ROOT}/build-tools/release.sh"
 }
 
 # Execute prior to running tests to initialize required structure

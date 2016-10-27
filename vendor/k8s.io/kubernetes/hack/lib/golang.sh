@@ -20,7 +20,7 @@ readonly KUBE_GOPATH="${KUBE_OUTPUT}/go"
 
 # The set of server targets that we are only building for Linux
 # Note: if you are adding something here, you might need to add it to
-# kube::build::source_targets in build/common.sh as well.
+# kube::build::source_targets in build-tools/common.sh as well.
 kube::golang::server_targets() {
   local targets=(
     cmd/kube-dns
@@ -68,7 +68,7 @@ else
   readonly KUBE_SERVER_PLATFORMS
 
   # If we update this we should also update the set of golang compilers we build
-  # in 'build/build-image/cross/Dockerfile'. However, it's only a bit faster since go 1.5, not mandatory
+  # in 'build-tools/build-image/cross/Dockerfile'. However, it's only a bit faster since go 1.5, not mandatory
   KUBE_CLIENT_PLATFORMS=(
     linux/amd64
     linux/386
@@ -238,9 +238,6 @@ kube::golang::set_platform_envs() {
     elif [[ ${platform} == "linux/ppc64le" ]]; then
       export CGO_ENABLED=1
       export CC=powerpc64le-linux-gnu-gcc
-    elif [[ ${platform} == "darwin/"* ]]; then
-      # See https://github.com/kubernetes/kubernetes/issues/32999
-      export GOROOT=${K8S_PATCHED_GOROOT}
     fi
   fi
 }
@@ -386,7 +383,7 @@ kube::golang::place_bins() {
     if [[ -d "${full_binpath_src}" ]]; then
       mkdir -p "${KUBE_OUTPUT_BINPATH}/${platform}"
       find "${full_binpath_src}" -maxdepth 1 -type f -exec \
-        rsync -pt {} "${KUBE_OUTPUT_BINPATH}/${platform}" \;
+        rsync -ptc {} "${KUBE_OUTPUT_BINPATH}/${platform}" \;
     fi
   done
 }

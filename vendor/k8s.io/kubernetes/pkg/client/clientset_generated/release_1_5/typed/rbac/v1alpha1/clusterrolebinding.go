@@ -20,6 +20,7 @@ import (
 	api "k8s.io/kubernetes/pkg/api"
 	v1 "k8s.io/kubernetes/pkg/api/v1"
 	v1alpha1 "k8s.io/kubernetes/pkg/apis/rbac/v1alpha1"
+	restclient "k8s.io/kubernetes/pkg/client/restclient"
 	watch "k8s.io/kubernetes/pkg/watch"
 )
 
@@ -44,20 +45,20 @@ type ClusterRoleBindingInterface interface {
 
 // clusterRoleBindings implements ClusterRoleBindingInterface
 type clusterRoleBindings struct {
-	client *RbacClient
+	client restclient.Interface
 }
 
 // newClusterRoleBindings returns a ClusterRoleBindings
 func newClusterRoleBindings(c *RbacClient) *clusterRoleBindings {
 	return &clusterRoleBindings{
-		client: c,
+		client: c.RESTClient(),
 	}
 }
 
 // Create takes the representation of a clusterRoleBinding and creates it.  Returns the server's representation of the clusterRoleBinding, and an error, if there is any.
 func (c *clusterRoleBindings) Create(clusterRoleBinding *v1alpha1.ClusterRoleBinding) (result *v1alpha1.ClusterRoleBinding, err error) {
 	result = &v1alpha1.ClusterRoleBinding{}
-	err = c.client.GetRESTClient().Post().
+	err = c.client.Post().
 		Resource("clusterrolebindings").
 		Body(clusterRoleBinding).
 		Do().
@@ -68,7 +69,7 @@ func (c *clusterRoleBindings) Create(clusterRoleBinding *v1alpha1.ClusterRoleBin
 // Update takes the representation of a clusterRoleBinding and updates it. Returns the server's representation of the clusterRoleBinding, and an error, if there is any.
 func (c *clusterRoleBindings) Update(clusterRoleBinding *v1alpha1.ClusterRoleBinding) (result *v1alpha1.ClusterRoleBinding, err error) {
 	result = &v1alpha1.ClusterRoleBinding{}
-	err = c.client.GetRESTClient().Put().
+	err = c.client.Put().
 		Resource("clusterrolebindings").
 		Name(clusterRoleBinding.Name).
 		Body(clusterRoleBinding).
@@ -79,7 +80,7 @@ func (c *clusterRoleBindings) Update(clusterRoleBinding *v1alpha1.ClusterRoleBin
 
 // Delete takes name of the clusterRoleBinding and deletes it. Returns an error if one occurs.
 func (c *clusterRoleBindings) Delete(name string, options *v1.DeleteOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Resource("clusterrolebindings").
 		Name(name).
 		Body(options).
@@ -89,7 +90,7 @@ func (c *clusterRoleBindings) Delete(name string, options *v1.DeleteOptions) err
 
 // DeleteCollection deletes a collection of objects.
 func (c *clusterRoleBindings) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Resource("clusterrolebindings").
 		VersionedParams(&listOptions, api.ParameterCodec).
 		Body(options).
@@ -100,7 +101,7 @@ func (c *clusterRoleBindings) DeleteCollection(options *v1.DeleteOptions, listOp
 // Get takes name of the clusterRoleBinding, and returns the corresponding clusterRoleBinding object, and an error if there is any.
 func (c *clusterRoleBindings) Get(name string) (result *v1alpha1.ClusterRoleBinding, err error) {
 	result = &v1alpha1.ClusterRoleBinding{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Resource("clusterrolebindings").
 		Name(name).
 		Do().
@@ -111,7 +112,7 @@ func (c *clusterRoleBindings) Get(name string) (result *v1alpha1.ClusterRoleBind
 // List takes label and field selectors, and returns the list of ClusterRoleBindings that match those selectors.
 func (c *clusterRoleBindings) List(opts v1.ListOptions) (result *v1alpha1.ClusterRoleBindingList, err error) {
 	result = &v1alpha1.ClusterRoleBindingList{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Resource("clusterrolebindings").
 		VersionedParams(&opts, api.ParameterCodec).
 		Do().
@@ -121,7 +122,7 @@ func (c *clusterRoleBindings) List(opts v1.ListOptions) (result *v1alpha1.Cluste
 
 // Watch returns a watch.Interface that watches the requested clusterRoleBindings.
 func (c *clusterRoleBindings) Watch(opts v1.ListOptions) (watch.Interface, error) {
-	return c.client.GetRESTClient().Get().
+	return c.client.Get().
 		Prefix("watch").
 		Resource("clusterrolebindings").
 		VersionedParams(&opts, api.ParameterCodec).
@@ -131,7 +132,7 @@ func (c *clusterRoleBindings) Watch(opts v1.ListOptions) (watch.Interface, error
 // Patch applies the patch and returns the patched clusterRoleBinding.
 func (c *clusterRoleBindings) Patch(name string, pt api.PatchType, data []byte, subresources ...string) (result *v1alpha1.ClusterRoleBinding, err error) {
 	result = &v1alpha1.ClusterRoleBinding{}
-	err = c.client.GetRESTClient().Patch(pt).
+	err = c.client.Patch(pt).
 		Resource("clusterrolebindings").
 		SubResource(subresources...).
 		Name(name).

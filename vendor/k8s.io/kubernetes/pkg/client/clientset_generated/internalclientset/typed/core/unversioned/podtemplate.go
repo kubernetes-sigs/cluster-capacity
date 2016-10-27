@@ -18,6 +18,7 @@ package unversioned
 
 import (
 	api "k8s.io/kubernetes/pkg/api"
+	restclient "k8s.io/kubernetes/pkg/client/restclient"
 	watch "k8s.io/kubernetes/pkg/watch"
 )
 
@@ -42,14 +43,14 @@ type PodTemplateInterface interface {
 
 // podTemplates implements PodTemplateInterface
 type podTemplates struct {
-	client *CoreClient
+	client restclient.Interface
 	ns     string
 }
 
 // newPodTemplates returns a PodTemplates
 func newPodTemplates(c *CoreClient, namespace string) *podTemplates {
 	return &podTemplates{
-		client: c,
+		client: c.RESTClient(),
 		ns:     namespace,
 	}
 }
@@ -57,7 +58,7 @@ func newPodTemplates(c *CoreClient, namespace string) *podTemplates {
 // Create takes the representation of a podTemplate and creates it.  Returns the server's representation of the podTemplate, and an error, if there is any.
 func (c *podTemplates) Create(podTemplate *api.PodTemplate) (result *api.PodTemplate, err error) {
 	result = &api.PodTemplate{}
-	err = c.client.GetRESTClient().Post().
+	err = c.client.Post().
 		Namespace(c.ns).
 		Resource("podtemplates").
 		Body(podTemplate).
@@ -69,7 +70,7 @@ func (c *podTemplates) Create(podTemplate *api.PodTemplate) (result *api.PodTemp
 // Update takes the representation of a podTemplate and updates it. Returns the server's representation of the podTemplate, and an error, if there is any.
 func (c *podTemplates) Update(podTemplate *api.PodTemplate) (result *api.PodTemplate, err error) {
 	result = &api.PodTemplate{}
-	err = c.client.GetRESTClient().Put().
+	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("podtemplates").
 		Name(podTemplate.Name).
@@ -81,7 +82,7 @@ func (c *podTemplates) Update(podTemplate *api.PodTemplate) (result *api.PodTemp
 
 // Delete takes name of the podTemplate and deletes it. Returns an error if one occurs.
 func (c *podTemplates) Delete(name string, options *api.DeleteOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("podtemplates").
 		Name(name).
@@ -92,7 +93,7 @@ func (c *podTemplates) Delete(name string, options *api.DeleteOptions) error {
 
 // DeleteCollection deletes a collection of objects.
 func (c *podTemplates) DeleteCollection(options *api.DeleteOptions, listOptions api.ListOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("podtemplates").
 		VersionedParams(&listOptions, api.ParameterCodec).
@@ -104,7 +105,7 @@ func (c *podTemplates) DeleteCollection(options *api.DeleteOptions, listOptions 
 // Get takes name of the podTemplate, and returns the corresponding podTemplate object, and an error if there is any.
 func (c *podTemplates) Get(name string) (result *api.PodTemplate, err error) {
 	result = &api.PodTemplate{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("podtemplates").
 		Name(name).
@@ -116,7 +117,7 @@ func (c *podTemplates) Get(name string) (result *api.PodTemplate, err error) {
 // List takes label and field selectors, and returns the list of PodTemplates that match those selectors.
 func (c *podTemplates) List(opts api.ListOptions) (result *api.PodTemplateList, err error) {
 	result = &api.PodTemplateList{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("podtemplates").
 		VersionedParams(&opts, api.ParameterCodec).
@@ -127,7 +128,7 @@ func (c *podTemplates) List(opts api.ListOptions) (result *api.PodTemplateList, 
 
 // Watch returns a watch.Interface that watches the requested podTemplates.
 func (c *podTemplates) Watch(opts api.ListOptions) (watch.Interface, error) {
-	return c.client.GetRESTClient().Get().
+	return c.client.Get().
 		Prefix("watch").
 		Namespace(c.ns).
 		Resource("podtemplates").
@@ -138,7 +139,7 @@ func (c *podTemplates) Watch(opts api.ListOptions) (watch.Interface, error) {
 // Patch applies the patch and returns the patched podTemplate.
 func (c *podTemplates) Patch(name string, pt api.PatchType, data []byte, subresources ...string) (result *api.PodTemplate, err error) {
 	result = &api.PodTemplate{}
-	err = c.client.GetRESTClient().Patch(pt).
+	err = c.client.Patch(pt).
 		Namespace(c.ns).
 		Resource("podtemplates").
 		SubResource(subresources...).

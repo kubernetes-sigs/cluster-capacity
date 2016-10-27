@@ -19,6 +19,7 @@ package unversioned
 import (
 	federation "k8s.io/kubernetes/federation/apis/federation"
 	api "k8s.io/kubernetes/pkg/api"
+	restclient "k8s.io/kubernetes/pkg/client/restclient"
 	watch "k8s.io/kubernetes/pkg/watch"
 )
 
@@ -44,20 +45,20 @@ type ClusterInterface interface {
 
 // clusters implements ClusterInterface
 type clusters struct {
-	client *FederationClient
+	client restclient.Interface
 }
 
 // newClusters returns a Clusters
 func newClusters(c *FederationClient) *clusters {
 	return &clusters{
-		client: c,
+		client: c.RESTClient(),
 	}
 }
 
 // Create takes the representation of a cluster and creates it.  Returns the server's representation of the cluster, and an error, if there is any.
 func (c *clusters) Create(cluster *federation.Cluster) (result *federation.Cluster, err error) {
 	result = &federation.Cluster{}
-	err = c.client.GetRESTClient().Post().
+	err = c.client.Post().
 		Resource("clusters").
 		Body(cluster).
 		Do().
@@ -68,7 +69,7 @@ func (c *clusters) Create(cluster *federation.Cluster) (result *federation.Clust
 // Update takes the representation of a cluster and updates it. Returns the server's representation of the cluster, and an error, if there is any.
 func (c *clusters) Update(cluster *federation.Cluster) (result *federation.Cluster, err error) {
 	result = &federation.Cluster{}
-	err = c.client.GetRESTClient().Put().
+	err = c.client.Put().
 		Resource("clusters").
 		Name(cluster.Name).
 		Body(cluster).
@@ -79,7 +80,7 @@ func (c *clusters) Update(cluster *federation.Cluster) (result *federation.Clust
 
 func (c *clusters) UpdateStatus(cluster *federation.Cluster) (result *federation.Cluster, err error) {
 	result = &federation.Cluster{}
-	err = c.client.GetRESTClient().Put().
+	err = c.client.Put().
 		Resource("clusters").
 		Name(cluster.Name).
 		SubResource("status").
@@ -91,7 +92,7 @@ func (c *clusters) UpdateStatus(cluster *federation.Cluster) (result *federation
 
 // Delete takes name of the cluster and deletes it. Returns an error if one occurs.
 func (c *clusters) Delete(name string, options *api.DeleteOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Resource("clusters").
 		Name(name).
 		Body(options).
@@ -101,7 +102,7 @@ func (c *clusters) Delete(name string, options *api.DeleteOptions) error {
 
 // DeleteCollection deletes a collection of objects.
 func (c *clusters) DeleteCollection(options *api.DeleteOptions, listOptions api.ListOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Resource("clusters").
 		VersionedParams(&listOptions, api.ParameterCodec).
 		Body(options).
@@ -112,7 +113,7 @@ func (c *clusters) DeleteCollection(options *api.DeleteOptions, listOptions api.
 // Get takes name of the cluster, and returns the corresponding cluster object, and an error if there is any.
 func (c *clusters) Get(name string) (result *federation.Cluster, err error) {
 	result = &federation.Cluster{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Resource("clusters").
 		Name(name).
 		Do().
@@ -123,7 +124,7 @@ func (c *clusters) Get(name string) (result *federation.Cluster, err error) {
 // List takes label and field selectors, and returns the list of Clusters that match those selectors.
 func (c *clusters) List(opts api.ListOptions) (result *federation.ClusterList, err error) {
 	result = &federation.ClusterList{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Resource("clusters").
 		VersionedParams(&opts, api.ParameterCodec).
 		Do().
@@ -133,7 +134,7 @@ func (c *clusters) List(opts api.ListOptions) (result *federation.ClusterList, e
 
 // Watch returns a watch.Interface that watches the requested clusters.
 func (c *clusters) Watch(opts api.ListOptions) (watch.Interface, error) {
-	return c.client.GetRESTClient().Get().
+	return c.client.Get().
 		Prefix("watch").
 		Resource("clusters").
 		VersionedParams(&opts, api.ParameterCodec).
@@ -143,7 +144,7 @@ func (c *clusters) Watch(opts api.ListOptions) (watch.Interface, error) {
 // Patch applies the patch and returns the patched cluster.
 func (c *clusters) Patch(name string, pt api.PatchType, data []byte, subresources ...string) (result *federation.Cluster, err error) {
 	result = &federation.Cluster{}
-	err = c.client.GetRESTClient().Patch(pt).
+	err = c.client.Patch(pt).
 		Resource("clusters").
 		SubResource(subresources...).
 		Name(name).

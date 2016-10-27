@@ -19,6 +19,7 @@ package v1
 import (
 	api "k8s.io/kubernetes/pkg/api"
 	v1 "k8s.io/kubernetes/pkg/api/v1"
+	restclient "k8s.io/kubernetes/pkg/client/restclient"
 	watch "k8s.io/kubernetes/pkg/watch"
 )
 
@@ -44,14 +45,14 @@ type ServiceInterface interface {
 
 // services implements ServiceInterface
 type services struct {
-	client *CoreClient
+	client restclient.Interface
 	ns     string
 }
 
 // newServices returns a Services
 func newServices(c *CoreClient, namespace string) *services {
 	return &services{
-		client: c,
+		client: c.RESTClient(),
 		ns:     namespace,
 	}
 }
@@ -59,7 +60,7 @@ func newServices(c *CoreClient, namespace string) *services {
 // Create takes the representation of a service and creates it.  Returns the server's representation of the service, and an error, if there is any.
 func (c *services) Create(service *v1.Service) (result *v1.Service, err error) {
 	result = &v1.Service{}
-	err = c.client.GetRESTClient().Post().
+	err = c.client.Post().
 		Namespace(c.ns).
 		Resource("services").
 		Body(service).
@@ -71,7 +72,7 @@ func (c *services) Create(service *v1.Service) (result *v1.Service, err error) {
 // Update takes the representation of a service and updates it. Returns the server's representation of the service, and an error, if there is any.
 func (c *services) Update(service *v1.Service) (result *v1.Service, err error) {
 	result = &v1.Service{}
-	err = c.client.GetRESTClient().Put().
+	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("services").
 		Name(service.Name).
@@ -83,7 +84,7 @@ func (c *services) Update(service *v1.Service) (result *v1.Service, err error) {
 
 func (c *services) UpdateStatus(service *v1.Service) (result *v1.Service, err error) {
 	result = &v1.Service{}
-	err = c.client.GetRESTClient().Put().
+	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("services").
 		Name(service.Name).
@@ -96,7 +97,7 @@ func (c *services) UpdateStatus(service *v1.Service) (result *v1.Service, err er
 
 // Delete takes name of the service and deletes it. Returns an error if one occurs.
 func (c *services) Delete(name string, options *v1.DeleteOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("services").
 		Name(name).
@@ -107,7 +108,7 @@ func (c *services) Delete(name string, options *v1.DeleteOptions) error {
 
 // DeleteCollection deletes a collection of objects.
 func (c *services) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("services").
 		VersionedParams(&listOptions, api.ParameterCodec).
@@ -119,7 +120,7 @@ func (c *services) DeleteCollection(options *v1.DeleteOptions, listOptions v1.Li
 // Get takes name of the service, and returns the corresponding service object, and an error if there is any.
 func (c *services) Get(name string) (result *v1.Service, err error) {
 	result = &v1.Service{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("services").
 		Name(name).
@@ -131,7 +132,7 @@ func (c *services) Get(name string) (result *v1.Service, err error) {
 // List takes label and field selectors, and returns the list of Services that match those selectors.
 func (c *services) List(opts v1.ListOptions) (result *v1.ServiceList, err error) {
 	result = &v1.ServiceList{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("services").
 		VersionedParams(&opts, api.ParameterCodec).
@@ -142,7 +143,7 @@ func (c *services) List(opts v1.ListOptions) (result *v1.ServiceList, err error)
 
 // Watch returns a watch.Interface that watches the requested services.
 func (c *services) Watch(opts v1.ListOptions) (watch.Interface, error) {
-	return c.client.GetRESTClient().Get().
+	return c.client.Get().
 		Prefix("watch").
 		Namespace(c.ns).
 		Resource("services").
@@ -153,7 +154,7 @@ func (c *services) Watch(opts v1.ListOptions) (watch.Interface, error) {
 // Patch applies the patch and returns the patched service.
 func (c *services) Patch(name string, pt api.PatchType, data []byte, subresources ...string) (result *v1.Service, err error) {
 	result = &v1.Service{}
-	err = c.client.GetRESTClient().Patch(pt).
+	err = c.client.Patch(pt).
 		Namespace(c.ns).
 		Resource("services").
 		SubResource(subresources...).

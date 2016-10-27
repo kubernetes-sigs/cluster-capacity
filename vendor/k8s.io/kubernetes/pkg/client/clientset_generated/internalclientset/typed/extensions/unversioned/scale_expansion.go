@@ -36,7 +36,7 @@ func (c *scales) Get(kind string, name string) (result *extensions.Scale, err er
 	fullyQualifiedKind := unversioned.GroupVersionKind{Kind: kind}
 	resource, _ := meta.KindToResource(fullyQualifiedKind)
 
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Namespace(c.ns).
 		Resource(resource.Resource).
 		Name(name).
@@ -53,7 +53,7 @@ func (c *scales) Update(kind string, scale *extensions.Scale) (result *extension
 	fullyQualifiedKind := unversioned.GroupVersionKind{Kind: kind}
 	resource, _ := meta.KindToResource(fullyQualifiedKind)
 
-	err = c.client.GetRESTClient().Put().
+	err = c.client.Put().
 		Namespace(scale.Namespace).
 		Resource(resource.Resource).
 		Name(scale.Name).

@@ -24,7 +24,6 @@ import (
 	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
 	clientcmdapi "k8s.io/kubernetes/pkg/client/unversioned/clientcmd/api"
 	"k8s.io/kubernetes/test/e2e/framework"
-	"k8s.io/kubernetes/pkg/client/restclient"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -35,11 +34,11 @@ var _ = framework.KubeDescribe("[Feature:Federation]", func() {
 
 	var _ = Describe("Federation API server authentication", func() {
 		BeforeEach(func() {
-			framework.SkipUnlessFederated(f.Client)
+			framework.SkipUnlessFederated(f.ClientSet)
 		})
 
 		It("should accept cluster resources when the client has right authentication credentials", func() {
-			framework.SkipUnlessFederated(f.Client)
+			framework.SkipUnlessFederated(f.ClientSet)
 
 			nsName := f.FederationNamespace.Name
 			svc := createServiceOrFail(f.FederationClientset_1_5, nsName, FederatedServiceName)
@@ -47,7 +46,7 @@ var _ = framework.KubeDescribe("[Feature:Federation]", func() {
 		})
 
 		It("should not accept cluster resources when the client has invalid authentication credentials", func() {
-			framework.SkipUnlessFederated(f.Client)
+			framework.SkipUnlessFederated(f.ClientSet)
 
 			contexts := f.GetUnderlyingFederatedContexts()
 
@@ -68,7 +67,7 @@ var _ = framework.KubeDescribe("[Feature:Federation]", func() {
 		})
 
 		It("should not accept cluster resources when the client has no authentication credentials", func() {
-			framework.SkipUnlessFederated(f.Client)
+			framework.SkipUnlessFederated(f.ClientSet)
 
 			fcs, err := invalidAuthFederationClientSet(nil)
 			ExpectNoError(err)
@@ -82,13 +81,6 @@ var _ = framework.KubeDescribe("[Feature:Federation]", func() {
 		})
 	})
 })
-
-func setTimeout(client restclient.RESTClientInterface) {
-	httpClient := client.(*restclient.RESTClient).Client
-	if httpClient.Timeout == 0 {
-		httpClient.Timeout = framework.SingleCallTimeout
-	}
-}
 
 func invalidAuthFederationClientSet(user *framework.KubeUser) (*federation_release_1_5.Clientset, error) {
 	overrides := &clientcmd.ConfigOverrides{}
@@ -117,11 +109,6 @@ func invalidAuthFederationClientSet(user *framework.KubeUser) (*federation_relea
 	if err != nil {
 		return nil, fmt.Errorf("error creating federation clientset: %v", err)
 	}
-	// Set timeout for each client in the set.
-	setTimeout(c.DiscoveryClient.GetRESTClient())
-	setTimeout(c.FederationClient.GetRESTClient())
-	setTimeout(c.CoreClient.GetRESTClient())
-	setTimeout(c.ExtensionsClient.GetRESTClient())
 
 	return c, nil
 }

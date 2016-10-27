@@ -20,6 +20,7 @@ import (
 	api "k8s.io/kubernetes/pkg/api"
 	v1 "k8s.io/kubernetes/pkg/api/v1"
 	v1alpha1 "k8s.io/kubernetes/pkg/apis/rbac/v1alpha1"
+	restclient "k8s.io/kubernetes/pkg/client/restclient"
 	watch "k8s.io/kubernetes/pkg/watch"
 )
 
@@ -44,14 +45,14 @@ type RoleInterface interface {
 
 // roles implements RoleInterface
 type roles struct {
-	client *RbacClient
+	client restclient.Interface
 	ns     string
 }
 
 // newRoles returns a Roles
 func newRoles(c *RbacClient, namespace string) *roles {
 	return &roles{
-		client: c,
+		client: c.RESTClient(),
 		ns:     namespace,
 	}
 }
@@ -59,7 +60,7 @@ func newRoles(c *RbacClient, namespace string) *roles {
 // Create takes the representation of a role and creates it.  Returns the server's representation of the role, and an error, if there is any.
 func (c *roles) Create(role *v1alpha1.Role) (result *v1alpha1.Role, err error) {
 	result = &v1alpha1.Role{}
-	err = c.client.GetRESTClient().Post().
+	err = c.client.Post().
 		Namespace(c.ns).
 		Resource("roles").
 		Body(role).
@@ -71,7 +72,7 @@ func (c *roles) Create(role *v1alpha1.Role) (result *v1alpha1.Role, err error) {
 // Update takes the representation of a role and updates it. Returns the server's representation of the role, and an error, if there is any.
 func (c *roles) Update(role *v1alpha1.Role) (result *v1alpha1.Role, err error) {
 	result = &v1alpha1.Role{}
-	err = c.client.GetRESTClient().Put().
+	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("roles").
 		Name(role.Name).
@@ -83,7 +84,7 @@ func (c *roles) Update(role *v1alpha1.Role) (result *v1alpha1.Role, err error) {
 
 // Delete takes name of the role and deletes it. Returns an error if one occurs.
 func (c *roles) Delete(name string, options *v1.DeleteOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("roles").
 		Name(name).
@@ -94,7 +95,7 @@ func (c *roles) Delete(name string, options *v1.DeleteOptions) error {
 
 // DeleteCollection deletes a collection of objects.
 func (c *roles) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("roles").
 		VersionedParams(&listOptions, api.ParameterCodec).
@@ -106,7 +107,7 @@ func (c *roles) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListO
 // Get takes name of the role, and returns the corresponding role object, and an error if there is any.
 func (c *roles) Get(name string) (result *v1alpha1.Role, err error) {
 	result = &v1alpha1.Role{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("roles").
 		Name(name).
@@ -118,7 +119,7 @@ func (c *roles) Get(name string) (result *v1alpha1.Role, err error) {
 // List takes label and field selectors, and returns the list of Roles that match those selectors.
 func (c *roles) List(opts v1.ListOptions) (result *v1alpha1.RoleList, err error) {
 	result = &v1alpha1.RoleList{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("roles").
 		VersionedParams(&opts, api.ParameterCodec).
@@ -129,7 +130,7 @@ func (c *roles) List(opts v1.ListOptions) (result *v1alpha1.RoleList, err error)
 
 // Watch returns a watch.Interface that watches the requested roles.
 func (c *roles) Watch(opts v1.ListOptions) (watch.Interface, error) {
-	return c.client.GetRESTClient().Get().
+	return c.client.Get().
 		Prefix("watch").
 		Namespace(c.ns).
 		Resource("roles").
@@ -140,7 +141,7 @@ func (c *roles) Watch(opts v1.ListOptions) (watch.Interface, error) {
 // Patch applies the patch and returns the patched role.
 func (c *roles) Patch(name string, pt api.PatchType, data []byte, subresources ...string) (result *v1alpha1.Role, err error) {
 	result = &v1alpha1.Role{}
-	err = c.client.GetRESTClient().Patch(pt).
+	err = c.client.Patch(pt).
 		Namespace(c.ns).
 		Resource("roles").
 		SubResource(subresources...).

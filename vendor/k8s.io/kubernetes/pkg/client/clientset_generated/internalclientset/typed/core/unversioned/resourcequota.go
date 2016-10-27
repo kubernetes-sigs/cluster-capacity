@@ -18,6 +18,7 @@ package unversioned
 
 import (
 	api "k8s.io/kubernetes/pkg/api"
+	restclient "k8s.io/kubernetes/pkg/client/restclient"
 	watch "k8s.io/kubernetes/pkg/watch"
 )
 
@@ -43,14 +44,14 @@ type ResourceQuotaInterface interface {
 
 // resourceQuotas implements ResourceQuotaInterface
 type resourceQuotas struct {
-	client *CoreClient
+	client restclient.Interface
 	ns     string
 }
 
 // newResourceQuotas returns a ResourceQuotas
 func newResourceQuotas(c *CoreClient, namespace string) *resourceQuotas {
 	return &resourceQuotas{
-		client: c,
+		client: c.RESTClient(),
 		ns:     namespace,
 	}
 }
@@ -58,7 +59,7 @@ func newResourceQuotas(c *CoreClient, namespace string) *resourceQuotas {
 // Create takes the representation of a resourceQuota and creates it.  Returns the server's representation of the resourceQuota, and an error, if there is any.
 func (c *resourceQuotas) Create(resourceQuota *api.ResourceQuota) (result *api.ResourceQuota, err error) {
 	result = &api.ResourceQuota{}
-	err = c.client.GetRESTClient().Post().
+	err = c.client.Post().
 		Namespace(c.ns).
 		Resource("resourcequotas").
 		Body(resourceQuota).
@@ -70,7 +71,7 @@ func (c *resourceQuotas) Create(resourceQuota *api.ResourceQuota) (result *api.R
 // Update takes the representation of a resourceQuota and updates it. Returns the server's representation of the resourceQuota, and an error, if there is any.
 func (c *resourceQuotas) Update(resourceQuota *api.ResourceQuota) (result *api.ResourceQuota, err error) {
 	result = &api.ResourceQuota{}
-	err = c.client.GetRESTClient().Put().
+	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("resourcequotas").
 		Name(resourceQuota.Name).
@@ -82,7 +83,7 @@ func (c *resourceQuotas) Update(resourceQuota *api.ResourceQuota) (result *api.R
 
 func (c *resourceQuotas) UpdateStatus(resourceQuota *api.ResourceQuota) (result *api.ResourceQuota, err error) {
 	result = &api.ResourceQuota{}
-	err = c.client.GetRESTClient().Put().
+	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("resourcequotas").
 		Name(resourceQuota.Name).
@@ -95,7 +96,7 @@ func (c *resourceQuotas) UpdateStatus(resourceQuota *api.ResourceQuota) (result 
 
 // Delete takes name of the resourceQuota and deletes it. Returns an error if one occurs.
 func (c *resourceQuotas) Delete(name string, options *api.DeleteOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("resourcequotas").
 		Name(name).
@@ -106,7 +107,7 @@ func (c *resourceQuotas) Delete(name string, options *api.DeleteOptions) error {
 
 // DeleteCollection deletes a collection of objects.
 func (c *resourceQuotas) DeleteCollection(options *api.DeleteOptions, listOptions api.ListOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("resourcequotas").
 		VersionedParams(&listOptions, api.ParameterCodec).
@@ -118,7 +119,7 @@ func (c *resourceQuotas) DeleteCollection(options *api.DeleteOptions, listOption
 // Get takes name of the resourceQuota, and returns the corresponding resourceQuota object, and an error if there is any.
 func (c *resourceQuotas) Get(name string) (result *api.ResourceQuota, err error) {
 	result = &api.ResourceQuota{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("resourcequotas").
 		Name(name).
@@ -130,7 +131,7 @@ func (c *resourceQuotas) Get(name string) (result *api.ResourceQuota, err error)
 // List takes label and field selectors, and returns the list of ResourceQuotas that match those selectors.
 func (c *resourceQuotas) List(opts api.ListOptions) (result *api.ResourceQuotaList, err error) {
 	result = &api.ResourceQuotaList{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("resourcequotas").
 		VersionedParams(&opts, api.ParameterCodec).
@@ -141,7 +142,7 @@ func (c *resourceQuotas) List(opts api.ListOptions) (result *api.ResourceQuotaLi
 
 // Watch returns a watch.Interface that watches the requested resourceQuotas.
 func (c *resourceQuotas) Watch(opts api.ListOptions) (watch.Interface, error) {
-	return c.client.GetRESTClient().Get().
+	return c.client.Get().
 		Prefix("watch").
 		Namespace(c.ns).
 		Resource("resourcequotas").
@@ -152,7 +153,7 @@ func (c *resourceQuotas) Watch(opts api.ListOptions) (watch.Interface, error) {
 // Patch applies the patch and returns the patched resourceQuota.
 func (c *resourceQuotas) Patch(name string, pt api.PatchType, data []byte, subresources ...string) (result *api.ResourceQuota, err error) {
 	result = &api.ResourceQuota{}
-	err = c.client.GetRESTClient().Patch(pt).
+	err = c.client.Patch(pt).
 		Namespace(c.ns).
 		Resource("resourcequotas").
 		SubResource(subresources...).

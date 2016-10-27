@@ -20,6 +20,7 @@ import (
 	api "k8s.io/kubernetes/pkg/api"
 	v1 "k8s.io/kubernetes/pkg/api/v1"
 	v1alpha1 "k8s.io/kubernetes/pkg/apis/apps/v1alpha1"
+	restclient "k8s.io/kubernetes/pkg/client/restclient"
 	watch "k8s.io/kubernetes/pkg/watch"
 )
 
@@ -45,14 +46,14 @@ type PetSetInterface interface {
 
 // petSets implements PetSetInterface
 type petSets struct {
-	client *AppsClient
+	client restclient.Interface
 	ns     string
 }
 
 // newPetSets returns a PetSets
 func newPetSets(c *AppsClient, namespace string) *petSets {
 	return &petSets{
-		client: c,
+		client: c.RESTClient(),
 		ns:     namespace,
 	}
 }
@@ -60,7 +61,7 @@ func newPetSets(c *AppsClient, namespace string) *petSets {
 // Create takes the representation of a petSet and creates it.  Returns the server's representation of the petSet, and an error, if there is any.
 func (c *petSets) Create(petSet *v1alpha1.PetSet) (result *v1alpha1.PetSet, err error) {
 	result = &v1alpha1.PetSet{}
-	err = c.client.GetRESTClient().Post().
+	err = c.client.Post().
 		Namespace(c.ns).
 		Resource("petsets").
 		Body(petSet).
@@ -72,7 +73,7 @@ func (c *petSets) Create(petSet *v1alpha1.PetSet) (result *v1alpha1.PetSet, err 
 // Update takes the representation of a petSet and updates it. Returns the server's representation of the petSet, and an error, if there is any.
 func (c *petSets) Update(petSet *v1alpha1.PetSet) (result *v1alpha1.PetSet, err error) {
 	result = &v1alpha1.PetSet{}
-	err = c.client.GetRESTClient().Put().
+	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("petsets").
 		Name(petSet.Name).
@@ -84,7 +85,7 @@ func (c *petSets) Update(petSet *v1alpha1.PetSet) (result *v1alpha1.PetSet, err 
 
 func (c *petSets) UpdateStatus(petSet *v1alpha1.PetSet) (result *v1alpha1.PetSet, err error) {
 	result = &v1alpha1.PetSet{}
-	err = c.client.GetRESTClient().Put().
+	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("petsets").
 		Name(petSet.Name).
@@ -97,7 +98,7 @@ func (c *petSets) UpdateStatus(petSet *v1alpha1.PetSet) (result *v1alpha1.PetSet
 
 // Delete takes name of the petSet and deletes it. Returns an error if one occurs.
 func (c *petSets) Delete(name string, options *v1.DeleteOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("petsets").
 		Name(name).
@@ -108,7 +109,7 @@ func (c *petSets) Delete(name string, options *v1.DeleteOptions) error {
 
 // DeleteCollection deletes a collection of objects.
 func (c *petSets) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("petsets").
 		VersionedParams(&listOptions, api.ParameterCodec).
@@ -120,7 +121,7 @@ func (c *petSets) DeleteCollection(options *v1.DeleteOptions, listOptions v1.Lis
 // Get takes name of the petSet, and returns the corresponding petSet object, and an error if there is any.
 func (c *petSets) Get(name string) (result *v1alpha1.PetSet, err error) {
 	result = &v1alpha1.PetSet{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("petsets").
 		Name(name).
@@ -132,7 +133,7 @@ func (c *petSets) Get(name string) (result *v1alpha1.PetSet, err error) {
 // List takes label and field selectors, and returns the list of PetSets that match those selectors.
 func (c *petSets) List(opts v1.ListOptions) (result *v1alpha1.PetSetList, err error) {
 	result = &v1alpha1.PetSetList{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("petsets").
 		VersionedParams(&opts, api.ParameterCodec).
@@ -143,7 +144,7 @@ func (c *petSets) List(opts v1.ListOptions) (result *v1alpha1.PetSetList, err er
 
 // Watch returns a watch.Interface that watches the requested petSets.
 func (c *petSets) Watch(opts v1.ListOptions) (watch.Interface, error) {
-	return c.client.GetRESTClient().Get().
+	return c.client.Get().
 		Prefix("watch").
 		Namespace(c.ns).
 		Resource("petsets").
@@ -154,7 +155,7 @@ func (c *petSets) Watch(opts v1.ListOptions) (watch.Interface, error) {
 // Patch applies the patch and returns the patched petSet.
 func (c *petSets) Patch(name string, pt api.PatchType, data []byte, subresources ...string) (result *v1alpha1.PetSet, err error) {
 	result = &v1alpha1.PetSet{}
-	err = c.client.GetRESTClient().Patch(pt).
+	err = c.client.Patch(pt).
 		Namespace(c.ns).
 		Resource("petsets").
 		SubResource(subresources...).

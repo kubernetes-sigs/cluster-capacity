@@ -38,8 +38,8 @@ const (
 	envBackoffDuration = "KUBE_CLIENT_BACKOFF_DURATION"
 )
 
-// RESTClient for Kubernetes API
-type RESTClientInterface interface {
+// Interface captures the set of operations for generically interacting with Kubernetes REST apis.
+type Interface interface {
 	GetRateLimiter() flowcontrol.RateLimiter
 	Verb(verb string) *Request
 	Post() *Request

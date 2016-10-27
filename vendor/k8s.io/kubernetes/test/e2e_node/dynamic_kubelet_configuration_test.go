@@ -142,6 +142,8 @@ func decodeConfigz(resp *http.Response) (*componentconfig.KubeletConfiguration, 
 		return nil, err
 	}
 
+	api.Scheme.Default(&configz.ComponentConfig)
+
 	err = api.Scheme.Convert(&configz.ComponentConfig, &kubeCfg, nil)
 	if err != nil {
 		return nil, err
@@ -158,7 +160,7 @@ func createConfigMap(f *framework.Framework, kubeCfg *componentconfig.KubeletCon
 	bytes, err := json.Marshal(kubeCfgExt)
 	framework.ExpectNoError(err)
 
-	cmap, err := f.Client.ConfigMaps("kube-system").Create(&api.ConfigMap{
+	cmap, err := f.ClientSet.Core().ConfigMaps("kube-system").Create(&api.ConfigMap{
 		ObjectMeta: api.ObjectMeta{
 			Name: fmt.Sprintf("kubelet-%s", framework.TestContext.NodeName),
 		},
@@ -180,7 +182,7 @@ func updateConfigMap(f *framework.Framework, kubeCfg *componentconfig.KubeletCon
 	bytes, err := json.Marshal(kubeCfgExt)
 	framework.ExpectNoError(err)
 
-	cmap, err := f.Client.ConfigMaps("kube-system").Update(&api.ConfigMap{
+	cmap, err := f.ClientSet.Core().ConfigMaps("kube-system").Update(&api.ConfigMap{
 		ObjectMeta: api.ObjectMeta{
 			Name: fmt.Sprintf("kubelet-%s", framework.TestContext.NodeName),
 		},

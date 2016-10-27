@@ -87,49 +87,49 @@ type isSampleOneOf_TestOneof interface {
 }
 
 type SampleOneOf_Field1 struct {
-	Field1 float64 `protobuf:"fixed64,1,opt,name=Field1,json=field1,proto3,oneof"`
+	Field1 float64 `protobuf:"fixed64,1,opt,name=Field1,proto3,oneof"`
 }
 type SampleOneOf_Field2 struct {
-	Field2 float32 `protobuf:"fixed32,2,opt,name=Field2,json=field2,proto3,oneof"`
+	Field2 float32 `protobuf:"fixed32,2,opt,name=Field2,proto3,oneof"`
 }
 type SampleOneOf_Field3 struct {
-	Field3 int32 `protobuf:"varint,3,opt,name=Field3,json=field3,proto3,oneof"`
+	Field3 int32 `protobuf:"varint,3,opt,name=Field3,proto3,oneof"`
 }
 type SampleOneOf_Field4 struct {
-	Field4 int64 `protobuf:"varint,4,opt,name=Field4,json=field4,proto3,oneof"`
+	Field4 int64 `protobuf:"varint,4,opt,name=Field4,proto3,oneof"`
 }
 type SampleOneOf_Field5 struct {
-	Field5 uint32 `protobuf:"varint,5,opt,name=Field5,json=field5,proto3,oneof"`
+	Field5 uint32 `protobuf:"varint,5,opt,name=Field5,proto3,oneof"`
 }
 type SampleOneOf_Field6 struct {
-	Field6 uint64 `protobuf:"varint,6,opt,name=Field6,json=field6,proto3,oneof"`
+	Field6 uint64 `protobuf:"varint,6,opt,name=Field6,proto3,oneof"`
 }
 type SampleOneOf_Field7 struct {
-	Field7 int32 `protobuf:"zigzag32,7,opt,name=Field7,json=field7,proto3,oneof"`
+	Field7 int32 `protobuf:"zigzag32,7,opt,name=Field7,proto3,oneof"`
 }
 type SampleOneOf_Field8 struct {
-	Field8 int64 `protobuf:"zigzag64,8,opt,name=Field8,json=field8,proto3,oneof"`
+	Field8 int64 `protobuf:"zigzag64,8,opt,name=Field8,proto3,oneof"`
 }
 type SampleOneOf_Field9 struct {
-	Field9 uint32 `protobuf:"fixed32,9,opt,name=Field9,json=field9,proto3,oneof"`
+	Field9 uint32 `protobuf:"fixed32,9,opt,name=Field9,proto3,oneof"`
 }
 type SampleOneOf_Field10 struct {
-	Field10 int32 `protobuf:"fixed32,10,opt,name=Field10,json=field10,proto3,oneof"`
+	Field10 int32 `protobuf:"fixed32,10,opt,name=Field10,proto3,oneof"`
 }
 type SampleOneOf_Field11 struct {
-	Field11 uint64 `protobuf:"fixed64,11,opt,name=Field11,json=field11,proto3,oneof"`
+	Field11 uint64 `protobuf:"fixed64,11,opt,name=Field11,proto3,oneof"`
 }
 type SampleOneOf_Field12 struct {
-	Field12 int64 `protobuf:"fixed64,12,opt,name=Field12,json=field12,proto3,oneof"`
+	Field12 int64 `protobuf:"fixed64,12,opt,name=Field12,proto3,oneof"`
 }
 type SampleOneOf_Field13 struct {
-	Field13 bool `protobuf:"varint,13,opt,name=Field13,json=field13,proto3,oneof"`
+	Field13 bool `protobuf:"varint,13,opt,name=Field13,proto3,oneof"`
 }
 type SampleOneOf_Field14 struct {
-	Field14 string `protobuf:"bytes,14,opt,name=Field14,json=field14,proto3,oneof"`
+	Field14 string `protobuf:"bytes,14,opt,name=Field14,proto3,oneof"`
 }
 type SampleOneOf_Field15 struct {
-	Field15 []byte `protobuf:"bytes,15,opt,name=Field15,json=field15,proto3,oneof"`
+	Field15 []byte `protobuf:"bytes,15,opt,name=Field15,proto3,oneof"`
 }
 type SampleOneOf_SubMessage struct {
 	SubMessage *Subby `protobuf:"bytes,16,opt,name=sub_message,json=subMessage,oneof"`
@@ -555,7 +555,7 @@ func (this *SampleOneOf) Description() (desc *github_com_gogo_protobuf_protoc_ge
 func OneDescription() (desc *github_com_gogo_protobuf_protoc_gen_gogo_descriptor.FileDescriptorSet) {
 	d := &github_com_gogo_protobuf_protoc_gen_gogo_descriptor.FileDescriptorSet{}
 	var gzipped = []byte{
-		// 3680 bytes of a gzipped FileDescriptorSet
+		// 3674 bytes of a gzipped FileDescriptorSet
 		0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xcc, 0x5a, 0x5b, 0x6c, 0x23, 0xd7,
 		0x79, 0xd6, 0xf0, 0x26, 0xf2, 0x27, 0x45, 0x8d, 0x8e, 0xe4, 0xf5, 0xac, 0x1c, 0x73, 0xb5, 0x8a,
 		0x5d, 0xcb, 0x76, 0xad, 0xb5, 0x75, 0xd9, 0x0b, 0xb7, 0x89, 0x41, 0x49, 0xb4, 0x56, 0x86, 0x24,
@@ -769,23 +769,23 @@ func OneDescription() (desc *github_com_gogo_protobuf_protoc_gen_gogo_descriptor
 		0xcd, 0x51, 0xd2, 0xb1, 0xf1, 0xfc, 0xf9, 0xee, 0x90, 0x16, 0x2f, 0x42, 0xba, 0xde, 0x6b, 0x34,
 		0x4e, 0x90, 0x0c, 0x49, 0xaf, 0xd7, 0xe0, 0x3f, 0x11, 0x20, 0xff, 0x2e, 0x7e, 0x27, 0x09, 0xf9,
 		0xba, 0xde, 0xe9, 0x5a, 0xb8, 0x66, 0xe3, 0x5a, 0x0b, 0x29, 0x90, 0xa1, 0xcb, 0x78, 0x81, 0x1a,
-		0x49, 0xb7, 0x26, 0xd4, 0x0c, 0xfd, 0xb1, 0xe5, 0x0b, 0x81, 0x66, 0x85, 0xde, 0xad, 0x25, 0x02,
-		0xcd, 0x4a, 0xa0, 0x59, 0x65, 0x57, 0x6b, 0x81, 0x66, 0x35, 0xd0, 0xac, 0xd1, 0x0b, 0xb6, 0x64,
-		0xa0, 0x59, 0x0b, 0x34, 0xeb, 0xf4, 0x02, 0x79, 0x2a, 0xd0, 0xac, 0x07, 0x9a, 0xab, 0xf4, 0xca,
-		0x38, 0x15, 0x68, 0xae, 0x06, 0x9a, 0x6b, 0xf4, 0xa6, 0x78, 0x26, 0xd0, 0x5c, 0x0b, 0x34, 0xd7,
-		0xe9, 0xed, 0x30, 0x0a, 0x34, 0xd7, 0x03, 0xcd, 0x0d, 0xfa, 0x33, 0x80, 0xc9, 0x40, 0x73, 0x03,
-		0xcd, 0xc3, 0x24, 0x5b, 0xe9, 0xf3, 0xf4, 0xeb, 0xdb, 0xf4, 0xad, 0x09, 0x75, 0x92, 0x2d, 0xf5,
-		0xf9, 0x50, 0xf7, 0x02, 0xfd, 0xd4, 0x9f, 0x09, 0x75, 0x2f, 0x84, 0xba, 0x15, 0xfa, 0x9b, 0x57,
-		0x39, 0xd4, 0xad, 0x84, 0xba, 0x55, 0x65, 0x8a, 0xec, 0x7e, 0xa8, 0x5b, 0x0d, 0x75, 0x6b, 0x4a,
-		0x91, 0xf8, 0x3f, 0xd4, 0xad, 0x85, 0xba, 0x75, 0x65, 0x7a, 0x41, 0x5a, 0x2a, 0x84, 0xba, 0x75,
-		0xf4, 0x1c, 0xe4, 0xbd, 0x5e, 0x43, 0xe3, 0x1f, 0x8b, 0xe9, 0x4f, 0x0a, 0xf2, 0x2b, 0xb0, 0x4c,
-		0x22, 0x82, 0x6e, 0xea, 0xad, 0x09, 0x15, 0xbc, 0x5e, 0x83, 0x67, 0xc7, 0x8d, 0x02, 0xd0, 0xb7,
-		0x66, 0x8d, 0xfe, 0x96, 0x6e, 0x63, 0xeb, 0x9b, 0xf7, 0x4b, 0x13, 0xdf, 0xba, 0x5f, 0x9a, 0xf8,
-		0xa7, 0xfb, 0xa5, 0x89, 0xef, 0xde, 0x2f, 0x49, 0xef, 0xdf, 0x2f, 0x49, 0x3f, 0xb8, 0x5f, 0x92,
-		0xee, 0x9d, 0x96, 0xa4, 0xaf, 0x9c, 0x96, 0xa4, 0xaf, 0x9d, 0x96, 0xa4, 0xbf, 0x39, 0x2d, 0x49,
-		0xdf, 0x3c, 0x2d, 0x4d, 0x7c, 0xeb, 0xb4, 0x34, 0xf1, 0xdd, 0xd3, 0x92, 0xf4, 0xbd, 0xd3, 0xd2,
-		0xc4, 0xfb, 0xa7, 0x25, 0xe9, 0x07, 0xa7, 0x25, 0xe9, 0xde, 0x3f, 0x97, 0xa4, 0x46, 0x86, 0x86,
-		0xd1, 0xea, 0xff, 0x07, 0x00, 0x00, 0xff, 0xff, 0x51, 0xd3, 0xe3, 0xa4, 0xc2, 0x2e, 0x00, 0x00,
+		0x49, 0xb7, 0x26, 0x54, 0x3e, 0x0e, 0x34, 0x2b, 0xf4, 0x6e, 0x2d, 0x11, 0x68, 0x56, 0x02, 0xcd,
+		0x2a, 0xbb, 0x5a, 0x0b, 0x34, 0xab, 0x81, 0x66, 0x8d, 0x5e, 0xb0, 0x25, 0x03, 0xcd, 0x5a, 0xa0,
+		0x59, 0xa7, 0x17, 0xc8, 0x53, 0x81, 0x66, 0x3d, 0xd0, 0x5c, 0xa5, 0x57, 0xc6, 0xa9, 0x40, 0x73,
+		0x35, 0xd0, 0x5c, 0xa3, 0x37, 0xc5, 0x33, 0x81, 0xe6, 0x5a, 0xa0, 0xb9, 0x4e, 0x6f, 0x87, 0x51,
+		0xa0, 0xb9, 0x1e, 0x68, 0x6e, 0xd0, 0x9f, 0x01, 0x4c, 0x06, 0x9a, 0x1b, 0x68, 0x1e, 0x26, 0xd9,
+		0xca, 0x9e, 0xa7, 0x5f, 0xdf, 0xa6, 0x6f, 0x4d, 0xa8, 0x42, 0x10, 0xea, 0x5e, 0xa0, 0x9f, 0xfa,
+		0x33, 0xa1, 0xee, 0x85, 0x50, 0xb7, 0x42, 0x7f, 0xf3, 0x2a, 0x87, 0xba, 0x95, 0x50, 0xb7, 0xaa,
+		0x4c, 0x91, 0xdd, 0x0f, 0x75, 0xab, 0xa1, 0x6e, 0x4d, 0x29, 0x12, 0xff, 0x87, 0xba, 0xb5, 0x50,
+		0xb7, 0xae, 0x4c, 0x2f, 0x48, 0x4b, 0x85, 0x50, 0xb7, 0x8e, 0x9e, 0x83, 0xbc, 0xd7, 0x6b, 0x68,
+		0xfc, 0x63, 0x31, 0xfd, 0x49, 0x41, 0x7e, 0x05, 0x96, 0x49, 0x44, 0xd0, 0x4d, 0xbd, 0x35, 0xa1,
+		0x82, 0xd7, 0x6b, 0xf0, 0xec, 0xb8, 0x51, 0x00, 0xfa, 0xd6, 0xac, 0xd1, 0xdf, 0xd2, 0x6d, 0x6c,
+		0x7d, 0xf3, 0x7e, 0x69, 0xe2, 0x5b, 0xf7, 0x4b, 0x13, 0xff, 0x74, 0xbf, 0x34, 0xf1, 0xdd, 0xfb,
+		0x25, 0xe9, 0xfd, 0xfb, 0x25, 0xe9, 0x07, 0xf7, 0x4b, 0xd2, 0xbd, 0xd3, 0x92, 0xf4, 0x95, 0xd3,
+		0x92, 0xf4, 0xb5, 0xd3, 0x92, 0xf4, 0x37, 0xa7, 0x25, 0xe9, 0x9b, 0xa7, 0xa5, 0x89, 0x6f, 0x9d,
+		0x96, 0x26, 0xbe, 0x7b, 0x5a, 0x92, 0xbe, 0x77, 0x5a, 0x9a, 0x78, 0xff, 0xb4, 0x24, 0xfd, 0xe0,
+		0xb4, 0x24, 0xdd, 0xfb, 0xe7, 0x92, 0xd4, 0xc8, 0xd0, 0x30, 0x5a, 0xfd, 0xff, 0x00, 0x00, 0x00,
+		0xff, 0xff, 0x88, 0xa2, 0x87, 0x31, 0xc2, 0x2e, 0x00, 0x00,
 	}
 	r := bytes.NewReader(gzipped)
 	gzipr, err := compress_gzip.NewReader(r)
@@ -2071,7 +2071,7 @@ func extensionToGoStringOne(m github_com_gogo_protobuf_proto.Message) string {
 }
 func NewPopulatedSubby(r randyOne, easy bool) *Subby {
 	this := &Subby{}
-	this.Sub = randStringOne(r)
+	this.Sub = string(randStringOne(r))
 	if !easy && r.Intn(10) != 0 {
 	}
 	return this
@@ -2210,7 +2210,7 @@ func NewPopulatedSampleOneOf_Field13(r randyOne, easy bool) *SampleOneOf_Field13
 }
 func NewPopulatedSampleOneOf_Field14(r randyOne, easy bool) *SampleOneOf_Field14 {
 	this := &SampleOneOf_Field14{}
-	this.Field14 = randStringOne(r)
+	this.Field14 = string(randStringOne(r))
 	return this
 }
 func NewPopulatedSampleOneOf_Field15(r randyOne, easy bool) *SampleOneOf_Field15 {
@@ -2254,7 +2254,7 @@ func randStringOne(r randyOne) string {
 	}
 	return string(tmps)
 }
-func randUnrecognizedOne(r randyOne, maxFieldNumber int) (data []byte) {
+func randUnrecognizedOne(r randyOne, maxFieldNumber int) (dAtA []byte) {
 	l := r.Intn(5)
 	for i := 0; i < l; i++ {
 		wire := r.Intn(4)
@@ -2262,43 +2262,43 @@ func randUnrecognizedOne(r randyOne, maxFieldNumber int) (data []byte) {
 			wire = 5
 		}
 		fieldNumber := maxFieldNumber + r.Intn(100)
-		data = randFieldOne(data, r, fieldNumber, wire)
+		dAtA = randFieldOne(dAtA, r, fieldNumber, wire)
 	}
-	return data
+	return dAtA
 }
-func randFieldOne(data []byte, r randyOne, fieldNumber int, wire int) []byte {
+func randFieldOne(dAtA []byte, r randyOne, fieldNumber int, wire int) []byte {
 	key := uint32(fieldNumber)<<3 | uint32(wire)
 	switch wire {
 	case 0:
-		data = encodeVarintPopulateOne(data, uint64(key))
+		dAtA = encodeVarintPopulateOne(dAtA, uint64(key))
 		v3 := r.Int63()
 		if r.Intn(2) == 0 {
 			v3 *= -1
 		}
-		data = encodeVarintPopulateOne(data, uint64(v3))
+		dAtA = encodeVarintPopulateOne(dAtA, uint64(v3))
 	case 1:
-		data = encodeVarintPopulateOne(data, uint64(key))
-		data = append(data, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
+		dAtA = encodeVarintPopulateOne(dAtA, uint64(key))
+		dAtA = append(dAtA, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
 	case 2:
-		data = encodeVarintPopulateOne(data, uint64(key))
+		dAtA = encodeVarintPopulateOne(dAtA, uint64(key))
 		ll := r.Intn(100)
-		data = encodeVarintPopulateOne(data, uint64(ll))
+		dAtA = encodeVarintPopulateOne(dAtA, uint64(ll))
 		for j := 0; j < ll; j++ {
-			data = append(data, byte(r.Intn(256)))
+			dAtA = append(dAtA, byte(r.Intn(256)))
 		}
 	default:
-		data = encodeVarintPopulateOne(data, uint64(key))
-		data = append(data, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
+		dAtA = encodeVarintPopulateOne(dAtA, uint64(key))
+		dAtA = append(dAtA, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
 	}
-	return data
+	return dAtA
 }
-func encodeVarintPopulateOne(data []byte, v uint64) []byte {
+func encodeVarintPopulateOne(dAtA []byte, v uint64) []byte {
 	for v >= 1<<7 {
-		data = append(data, uint8(uint64(v)&0x7f|0x80))
+		dAtA = append(dAtA, uint8(uint64(v)&0x7f|0x80))
 		v >>= 7
 	}
-	data = append(data, uint8(v))
-	return data
+	dAtA = append(dAtA, uint8(v))
+	return dAtA
 }
 func (m *Subby) Size() (n int) {
 	var l int
@@ -2624,47 +2624,47 @@ func valueToStringOne(v interface{}) string {
 	pv := reflect.Indirect(rv).Interface()
 	return fmt.Sprintf("*%v", pv)
 }
-func (m *Subby) Marshal() (data []byte, err error) {
+func (m *Subby) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
-	data = make([]byte, size)
-	n, err := m.MarshalTo(data)
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
 	if err != nil {
 		return nil, err
 	}
-	return data[:n], nil
+	return dAtA[:n], nil
 }
 
-func (m *Subby) MarshalTo(data []byte) (int, error) {
+func (m *Subby) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
 	_ = l
 	if len(m.Sub) > 0 {
-		data[i] = 0xa
+		dAtA[i] = 0xa
 		i++
-		i = encodeVarintOne(data, i, uint64(len(m.Sub)))
-		i += copy(data[i:], m.Sub)
+		i = encodeVarintOne(dAtA, i, uint64(len(m.Sub)))
+		i += copy(dAtA[i:], m.Sub)
 	}
 	return i, nil
 }
 
-func (m *SampleOneOf) Marshal() (data []byte, err error) {
+func (m *SampleOneOf) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
-	data = make([]byte, size)
-	n, err := m.MarshalTo(data)
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
 	if err != nil {
 		return nil, err
 	}
-	return data[:n], nil
+	return dAtA[:n], nil
 }
 
-func (m *SampleOneOf) MarshalTo(data []byte) (int, error) {
+func (m *SampleOneOf) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
 	_ = l
 	if m.TestOneof != nil {
-		nn1, err := m.TestOneof.MarshalTo(data[i:])
+		nn1, err := m.TestOneof.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
@@ -2673,135 +2673,135 @@ func (m *SampleOneOf) MarshalTo(data []byte) (int, error) {
 	return i, nil
 }
 
-func (m *SampleOneOf_Field1) MarshalTo(data []byte) (int, error) {
+func (m *SampleOneOf_Field1) MarshalTo(dAtA []byte) (int, error) {
 	i := 0
-	data[i] = 0x9
+	dAtA[i] = 0x9
 	i++
-	*(*float64)(unsafe.Pointer(&data[i])) = m.Field1
+	*(*float64)(unsafe.Pointer(&dAtA[i])) = m.Field1
 	i += 8
 	return i, nil
 }
-func (m *SampleOneOf_Field2) MarshalTo(data []byte) (int, error) {
+func (m *SampleOneOf_Field2) MarshalTo(dAtA []byte) (int, error) {
 	i := 0
-	data[i] = 0x15
+	dAtA[i] = 0x15
 	i++
-	*(*float32)(unsafe.Pointer(&data[i])) = m.Field2
+	*(*float32)(unsafe.Pointer(&dAtA[i])) = m.Field2
 	i += 4
 	return i, nil
 }
-func (m *SampleOneOf_Field3) MarshalTo(data []byte) (int, error) {
+func (m *SampleOneOf_Field3) MarshalTo(dAtA []byte) (int, error) {
 	i := 0
-	data[i] = 0x18
+	dAtA[i] = 0x18
 	i++
-	i = encodeVarintOne(data, i, uint64(m.Field3))
+	i = encodeVarintOne(dAtA, i, uint64(m.Field3))
 	return i, nil
 }
-func (m *SampleOneOf_Field4) MarshalTo(data []byte) (int, error) {
+func (m *SampleOneOf_Field4) MarshalTo(dAtA []byte) (int, error) {
 	i := 0
-	data[i] = 0x20
+	dAtA[i] = 0x20
 	i++
-	i = encodeVarintOne(data, i, uint64(m.Field4))
+	i = encodeVarintOne(dAtA, i, uint64(m.Field4))
 	return i, nil
 }
-func (m *SampleOneOf_Field5) MarshalTo(data []byte) (int, error) {
+func (m *SampleOneOf_Field5) MarshalTo(dAtA []byte) (int, error) {
 	i := 0
-	data[i] = 0x28
+	dAtA[i] = 0x28
 	i++
-	i = encodeVarintOne(data, i, uint64(m.Field5))
+	i = encodeVarintOne(dAtA, i, uint64(m.Field5))
 	return i, nil
 }
-func (m *SampleOneOf_Field6) MarshalTo(data []byte) (int, error) {
+func (m *SampleOneOf_Field6) MarshalTo(dAtA []byte) (int, error) {
 	i := 0
-	data[i] = 0x30
+	dAtA[i] = 0x30
 	i++
-	i = encodeVarintOne(data, i, uint64(m.Field6))
+	i = encodeVarintOne(dAtA, i, uint64(m.Field6))
 	return i, nil
 }
-func (m *SampleOneOf_Field7) MarshalTo(data []byte) (int, error) {
+func (m *SampleOneOf_Field7) MarshalTo(dAtA []byte) (int, error) {
 	i := 0
-	data[i] = 0x38
+	dAtA[i] = 0x38
 	i++
-	i = encodeVarintOne(data, i, uint64((uint32(m.Field7)<<1)^uint32((m.Field7>>31))))
+	i = encodeVarintOne(dAtA, i, uint64((uint32(m.Field7)<<1)^uint32((m.Field7>>31))))
 	return i, nil
 }
-func (m *SampleOneOf_Field8) MarshalTo(data []byte) (int, error) {
+func (m *SampleOneOf_Field8) MarshalTo(dAtA []byte) (int, error) {
 	i := 0
-	data[i] = 0x40
+	dAtA[i] = 0x40
 	i++
-	i = encodeVarintOne(data, i, uint64((uint64(m.Field8)<<1)^uint64((m.Field8>>63))))
+	i = encodeVarintOne(dAtA, i, uint64((uint64(m.Field8)<<1)^uint64((m.Field8>>63))))
 	return i, nil
 }
-func (m *SampleOneOf_Field9) MarshalTo(data []byte) (int, error) {
+func (m *SampleOneOf_Field9) MarshalTo(dAtA []byte) (int, error) {
 	i := 0
-	data[i] = 0x4d
+	dAtA[i] = 0x4d
 	i++
-	*(*uint32)(unsafe.Pointer(&data[i])) = m.Field9
+	*(*uint32)(unsafe.Pointer(&dAtA[i])) = m.Field9
 	i += 4
 	return i, nil
 }
-func (m *SampleOneOf_Field10) MarshalTo(data []byte) (int, error) {
+func (m *SampleOneOf_Field10) MarshalTo(dAtA []byte) (int, error) {
 	i := 0
-	data[i] = 0x55
+	dAtA[i] = 0x55
 	i++
-	*(*int32)(unsafe.Pointer(&data[i])) = m.Field10
+	*(*int32)(unsafe.Pointer(&dAtA[i])) = m.Field10
 	i += 4
 	return i, nil
 }
-func (m *SampleOneOf_Field11) MarshalTo(data []byte) (int, error) {
+func (m *SampleOneOf_Field11) MarshalTo(dAtA []byte) (int, error) {
 	i := 0
-	data[i] = 0x59
+	dAtA[i] = 0x59
 	i++
-	*(*uint64)(unsafe.Pointer(&data[i])) = m.Field11
+	*(*uint64)(unsafe.Pointer(&dAtA[i])) = m.Field11
 	i += 8
 	return i, nil
 }
-func (m *SampleOneOf_Field12) MarshalTo(data []byte) (int, error) {
+func (m *SampleOneOf_Field12) MarshalTo(dAtA []byte) (int, error) {
 	i := 0
-	data[i] = 0x61
+	dAtA[i] = 0x61
 	i++
-	*(*int64)(unsafe.Pointer(&data[i])) = m.Field12
+	*(*int64)(unsafe.Pointer(&dAtA[i])) = m.Field12
 	i += 8
 	return i, nil
 }
-func (m *SampleOneOf_Field13) MarshalTo(data []byte) (int, error) {
+func (m *SampleOneOf_Field13) MarshalTo(dAtA []byte) (int, error) {
 	i := 0
-	data[i] = 0x68
+	dAtA[i] = 0x68
 	i++
 	if m.Field13 {
-		data[i] = 1
+		dAtA[i] = 1
 	} else {
-		data[i] = 0
+		dAtA[i] = 0
 	}
 	i++
 	return i, nil
 }
-func (m *SampleOneOf_Field14) MarshalTo(data []byte) (int, error) {
+func (m *SampleOneOf_Field14) MarshalTo(dAtA []byte) (int, error) {
 	i := 0
-	data[i] = 0x72
+	dAtA[i] = 0x72
 	i++
-	i = encodeVarintOne(data, i, uint64(len(m.Field14)))
-	i += copy(data[i:], m.Field14)
+	i = encodeVarintOne(dAtA, i, uint64(len(m.Field14)))
+	i += copy(dAtA[i:], m.Field14)
 	return i, nil
 }
-func (m *SampleOneOf_Field15) MarshalTo(data []byte) (int, error) {
+func (m *SampleOneOf_Field15) MarshalTo(dAtA []byte) (int, error) {
 	i := 0
 	if m.Field15 != nil {
-		data[i] = 0x7a
+		dAtA[i] = 0x7a
 		i++
-		i = encodeVarintOne(data, i, uint64(len(m.Field15)))
-		i += copy(data[i:], m.Field15)
+		i = encodeVarintOne(dAtA, i, uint64(len(m.Field15)))
+		i += copy(dAtA[i:], m.Field15)
 	}
 	return i, nil
 }
-func (m *SampleOneOf_SubMessage) MarshalTo(data []byte) (int, error) {
+func (m *SampleOneOf_SubMessage) MarshalTo(dAtA []byte) (int, error) {
 	i := 0
 	if m.SubMessage != nil {
-		data[i] = 0x82
+		dAtA[i] = 0x82
 		i++
-		data[i] = 0x1
+		dAtA[i] = 0x1
 		i++
-		i = encodeVarintOne(data, i, uint64(m.SubMessage.Size()))
-		n2, err := m.SubMessage.MarshalTo(data[i:])
+		i = encodeVarintOne(dAtA, i, uint64(m.SubMessage.Size()))
+		n2, err := m.SubMessage.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
@@ -2809,35 +2809,35 @@ func (m *SampleOneOf_SubMessage) MarshalTo(data []byte) (int, error) {
 	}
 	return i, nil
 }
-func encodeFixed64One(data []byte, offset int, v uint64) int {
-	data[offset] = uint8(v)
-	data[offset+1] = uint8(v >> 8)
-	data[offset+2] = uint8(v >> 16)
-	data[offset+3] = uint8(v >> 24)
-	data[offset+4] = uint8(v >> 32)
-	data[offset+5] = uint8(v >> 40)
-	data[offset+6] = uint8(v >> 48)
-	data[offset+7] = uint8(v >> 56)
+func encodeFixed64One(dAtA []byte, offset int, v uint64) int {
+	dAtA[offset] = uint8(v)
+	dAtA[offset+1] = uint8(v >> 8)
+	dAtA[offset+2] = uint8(v >> 16)
+	dAtA[offset+3] = uint8(v >> 24)
+	dAtA[offset+4] = uint8(v >> 32)
+	dAtA[offset+5] = uint8(v >> 40)
+	dAtA[offset+6] = uint8(v >> 48)
+	dAtA[offset+7] = uint8(v >> 56)
 	return offset + 8
 }
-func encodeFixed32One(data []byte, offset int, v uint32) int {
-	data[offset] = uint8(v)
-	data[offset+1] = uint8(v >> 8)
-	data[offset+2] = uint8(v >> 16)
-	data[offset+3] = uint8(v >> 24)
+func encodeFixed32One(dAtA []byte, offset int, v uint32) int {
+	dAtA[offset] = uint8(v)
+	dAtA[offset+1] = uint8(v >> 8)
+	dAtA[offset+2] = uint8(v >> 16)
+	dAtA[offset+3] = uint8(v >> 24)
 	return offset + 4
 }
-func encodeVarintOne(data []byte, offset int, v uint64) int {
+func encodeVarintOne(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
-		data[offset] = uint8(v&0x7f | 0x80)
+		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
-	data[offset] = uint8(v)
+	dAtA[offset] = uint8(v)
 	return offset + 1
 }
-func (m *Subby) Unmarshal(data []byte) error {
-	l := len(data)
+func (m *Subby) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
 		preIndex := iNdEx
@@ -2849,7 +2849,7 @@ func (m *Subby) Unmarshal(data []byte) error {
 			if iNdEx >= l {
 				return io.ErrUnexpectedEOF
 			}
-			b := data[iNdEx]
+			b := dAtA[iNdEx]
 			iNdEx++
 			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
@@ -2877,7 +2877,7 @@ func (m *Subby) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				stringLen |= (uint64(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -2892,11 +2892,11 @@ func (m *Subby) Unmarshal(data []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Sub = string(data[iNdEx:postIndex])
+			m.Sub = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
-			skippy, err := skipOneUnsafe(data[iNdEx:])
+			skippy, err := skipOneUnsafe(dAtA[iNdEx:])
 			if err != nil {
 				return err
 			}
@@ -2915,8 +2915,8 @@ func (m *Subby) Unmarshal(data []byte) error {
 	}
 	return nil
 }
-func (m *SampleOneOf) Unmarshal(data []byte) error {
-	l := len(data)
+func (m *SampleOneOf) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
 		preIndex := iNdEx
@@ -2928,7 +2928,7 @@ func (m *SampleOneOf) Unmarshal(data []byte) error {
 			if iNdEx >= l {
 				return io.ErrUnexpectedEOF
 			}
-			b := data[iNdEx]
+			b := dAtA[iNdEx]
 			iNdEx++
 			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
@@ -2952,7 +2952,7 @@ func (m *SampleOneOf) Unmarshal(data []byte) error {
 			if iNdEx+8 > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = *(*float64)(unsafe.Pointer(&data[iNdEx]))
+			v = *(*float64)(unsafe.Pointer(&dAtA[iNdEx]))
 			iNdEx += 8
 			m.TestOneof = &SampleOneOf_Field1{v}
 		case 2:
@@ -2963,7 +2963,7 @@ func (m *SampleOneOf) Unmarshal(data []byte) error {
 			if iNdEx+4 > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = *(*float32)(unsafe.Pointer(&data[iNdEx]))
+			v = *(*float32)(unsafe.Pointer(&dAtA[iNdEx]))
 			iNdEx += 4
 			m.TestOneof = &SampleOneOf_Field2{v}
 		case 3:
@@ -2978,7 +2978,7 @@ func (m *SampleOneOf) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				v |= (int32(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -2998,7 +2998,7 @@ func (m *SampleOneOf) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				v |= (int64(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -3018,7 +3018,7 @@ func (m *SampleOneOf) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				v |= (uint32(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -3038,7 +3038,7 @@ func (m *SampleOneOf) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				v |= (uint64(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -3058,7 +3058,7 @@ func (m *SampleOneOf) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				v |= (int32(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -3079,7 +3079,7 @@ func (m *SampleOneOf) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				v |= (uint64(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -3096,7 +3096,7 @@ func (m *SampleOneOf) Unmarshal(data []byte) error {
 			if iNdEx+4 > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = *(*uint32)(unsafe.Pointer(&data[iNdEx]))
+			v = *(*uint32)(unsafe.Pointer(&dAtA[iNdEx]))
 			iNdEx += 4
 			m.TestOneof = &SampleOneOf_Field9{v}
 		case 10:
@@ -3107,7 +3107,7 @@ func (m *SampleOneOf) Unmarshal(data []byte) error {
 			if iNdEx+4 > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = *(*int32)(unsafe.Pointer(&data[iNdEx]))
+			v = *(*int32)(unsafe.Pointer(&dAtA[iNdEx]))
 			iNdEx += 4
 			m.TestOneof = &SampleOneOf_Field10{v}
 		case 11:
@@ -3118,7 +3118,7 @@ func (m *SampleOneOf) Unmarshal(data []byte) error {
 			if iNdEx+8 > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = *(*uint64)(unsafe.Pointer(&data[iNdEx]))
+			v = *(*uint64)(unsafe.Pointer(&dAtA[iNdEx]))
 			iNdEx += 8
 			m.TestOneof = &SampleOneOf_Field11{v}
 		case 12:
@@ -3129,7 +3129,7 @@ func (m *SampleOneOf) Unmarshal(data []byte) error {
 			if iNdEx+8 > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = *(*int64)(unsafe.Pointer(&data[iNdEx]))
+			v = *(*int64)(unsafe.Pointer(&dAtA[iNdEx]))
 			iNdEx += 8
 			m.TestOneof = &SampleOneOf_Field12{v}
 		case 13:
@@ -3144,7 +3144,7 @@ func (m *SampleOneOf) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				v |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -3165,7 +3165,7 @@ func (m *SampleOneOf) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				stringLen |= (uint64(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -3180,7 +3180,7 @@ func (m *SampleOneOf) Unmarshal(data []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.TestOneof = &SampleOneOf_Field14{string(data[iNdEx:postIndex])}
+			m.TestOneof = &SampleOneOf_Field14{string(dAtA[iNdEx:postIndex])}
 			iNdEx = postIndex
 		case 15:
 			if wireType != 2 {
@@ -3194,7 +3194,7 @@ func (m *SampleOneOf) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				byteLen |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -3209,7 +3209,7 @@ func (m *SampleOneOf) Unmarshal(data []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			v := make([]byte, postIndex-iNdEx)
-			copy(v, data[iNdEx:postIndex])
+			copy(v, dAtA[iNdEx:postIndex])
 			m.TestOneof = &SampleOneOf_Field15{v}
 			iNdEx = postIndex
 		case 16:
@@ -3224,7 +3224,7 @@ func (m *SampleOneOf) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				msglen |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -3239,14 +3239,14 @@ func (m *SampleOneOf) Unmarshal(data []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			v := &Subby{}
-			if err := v.Unmarshal(data[iNdEx:postIndex]); err != nil {
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			m.TestOneof = &SampleOneOf_SubMessage{v}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
-			skippy, err := skipOneUnsafe(data[iNdEx:])
+			skippy, err := skipOneUnsafe(dAtA[iNdEx:])
 			if err != nil {
 				return err
 			}
@@ -3265,8 +3265,8 @@ func (m *SampleOneOf) Unmarshal(data []byte) error {
 	}
 	return nil
 }
-func skipOneUnsafe(data []byte) (n int, err error) {
-	l := len(data)
+func skipOneUnsafe(dAtA []byte) (n int, err error) {
+	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
 		var wire uint64
@@ -3277,7 +3277,7 @@ func skipOneUnsafe(data []byte) (n int, err error) {
 			if iNdEx >= l {
 				return 0, io.ErrUnexpectedEOF
 			}
-			b := data[iNdEx]
+			b := dAtA[iNdEx]
 			iNdEx++
 			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
@@ -3295,7 +3295,7 @@ func skipOneUnsafe(data []byte) (n int, err error) {
 					return 0, io.ErrUnexpectedEOF
 				}
 				iNdEx++
-				if data[iNdEx-1] < 0x80 {
+				if dAtA[iNdEx-1] < 0x80 {
 					break
 				}
 			}
@@ -3312,7 +3312,7 @@ func skipOneUnsafe(data []byte) (n int, err error) {
 				if iNdEx >= l {
 					return 0, io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				length |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -3335,7 +3335,7 @@ func skipOneUnsafe(data []byte) (n int, err error) {
 					if iNdEx >= l {
 						return 0, io.ErrUnexpectedEOF
 					}
-					b := data[iNdEx]
+					b := dAtA[iNdEx]
 					iNdEx++
 					innerWire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
@@ -3346,7 +3346,7 @@ func skipOneUnsafe(data []byte) (n int, err error) {
 				if innerWireType == 4 {
 					break
 				}
-				next, err := skipOneUnsafe(data[start:])
+				next, err := skipOneUnsafe(dAtA[start:])
 				if err != nil {
 					return 0, err
 				}
@@ -3373,31 +3373,31 @@ var (
 func init() { proto.RegisterFile("combos/unsafeboth/one.proto", fileDescriptorOne) }
 
 var fileDescriptorOne = []byte{
-	// 410 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0x44, 0xd2, 0xbf, 0x4e, 0x1b, 0x41,
-	0x10, 0x06, 0xf0, 0x1d, 0x0e, 0x9f, 0x61, 0x6d, 0x82, 0x73, 0xd5, 0x84, 0x48, 0xa3, 0x15, 0xd5,
-	0x36, 0xd8, 0xf8, 0xce, 0xe6, 0x4f, 0x8b, 0xa2, 0xc8, 0x4d, 0x84, 0x64, 0x1e, 0x00, 0x79, 0xc9,
-	0x9e, 0x41, 0xc2, 0xb7, 0x28, 0x77, 0x57, 0xa4, 0xe3, 0x71, 0x52, 0xa6, 0xcc, 0x23, 0x50, 0x52,
-	0xa6, 0x48, 0xc1, 0x6d, 0x9a, 0x94, 0x94, 0x94, 0x91, 0xcf, 0xd2, 0x6c, 0x37, 0x9f, 0x7e, 0xbb,
-	0xc5, 0xec, 0x7e, 0xf2, 0xe3, 0x8d, 0x5b, 0x19, 0x57, 0x8e, 0xea, 0xa2, 0x5c, 0xe4, 0xd6, 0xb8,
-	0xea, 0x76, 0xe4, 0x0a, 0x3b, 0x7c, 0xf8, 0xe6, 0x2a, 0x97, 0x44, 0xae, 0xb0, 0x07, 0x47, 0xcb,
-	0xbb, 0xea, 0xb6, 0x36, 0xc3, 0x1b, 0xb7, 0x1a, 0x2d, 0xdd, 0xd2, 0x8d, 0x5a, 0x33, 0x75, 0xde,
-	0xa6, 0x36, 0xb4, 0xd3, 0xe6, 0xce, 0xe1, 0x07, 0xd9, 0xb9, 0xaa, 0x8d, 0xf9, 0x9e, 0x0c, 0x64,
-	0x54, 0xd6, 0x06, 0x41, 0x81, 0xde, 0x9d, 0xaf, 0xc7, 0xc3, 0x3f, 0x91, 0xec, 0x5d, 0x2d, 0x56,
-	0x0f, 0xf7, 0xf6, 0xb2, 0xb0, 0x97, 0x79, 0x82, 0x32, 0xfe, 0x7c, 0x67, 0xef, 0xbf, 0x8e, 0xdb,
-	0x43, 0x30, 0x13, 0xf3, 0x38, 0x6f, 0x33, 0x4b, 0x8a, 0x5b, 0x0a, 0xf4, 0x16, 0x4b, 0xca, 0x92,
-	0x61, 0xa4, 0x40, 0x77, 0x58, 0x32, 0x96, 0x09, 0x6e, 0x2b, 0xd0, 0x11, 0xcb, 0x84, 0x65, 0x8a,
-	0x1d, 0x05, 0x7a, 0x8f, 0x65, 0xca, 0x72, 0x82, 0xb1, 0x02, 0xbd, 0xcd, 0x72, 0xc2, 0x72, 0x8a,
-	0x5d, 0x05, 0xfa, 0x3d, 0xcb, 0x29, 0xcb, 0x19, 0xee, 0x28, 0xd0, 0x09, 0xcb, 0x19, 0xcb, 0x39,
-	0xee, 0x2a, 0xd0, 0x5d, 0x96, 0xf3, 0xe4, 0x40, 0x76, 0x37, 0x9b, 0x1e, 0xa3, 0x54, 0xa0, 0xf7,
-	0x67, 0x62, 0xde, 0xdd, 0xac, 0x7a, 0x1c, 0x6c, 0x8c, 0x3d, 0x05, 0x3a, 0x0e, 0x36, 0x0e, 0x96,
-	0x62, 0x5f, 0x81, 0x1e, 0x04, 0x4b, 0x83, 0x65, 0xb8, 0xa7, 0x40, 0xef, 0x04, 0xcb, 0x82, 0x4d,
-	0xf0, 0xdd, 0xfa, 0xfd, 0x83, 0x4d, 0x82, 0x4d, 0x71, 0x5f, 0x81, 0xee, 0x07, 0x9b, 0x26, 0x47,
-	0xb2, 0x57, 0xd6, 0xe6, 0x7a, 0x65, 0xcb, 0x72, 0xb1, 0xb4, 0x38, 0x50, 0xa0, 0x7b, 0xa9, 0x1c,
-	0xae, 0x1b, 0xd1, 0x7e, 0xea, 0x4c, 0xcc, 0x65, 0x59, 0x9b, 0x2f, 0x1b, 0xbf, 0xe8, 0x4b, 0x59,
-	0xd9, 0xb2, 0xba, 0x76, 0x85, 0x75, 0xf9, 0xc5, 0xa7, 0xa7, 0x86, 0xc4, 0x73, 0x43, 0xe2, 0x77,
-	0x43, 0xe2, 0xa5, 0x21, 0x78, 0x6d, 0x08, 0xde, 0x1a, 0x82, 0x47, 0x4f, 0xf0, 0xc3, 0x13, 0xfc,
-	0xf4, 0x04, 0xbf, 0x3c, 0xc1, 0x93, 0x27, 0xf1, 0xec, 0x49, 0xbc, 0x78, 0x82, 0x7f, 0x9e, 0xc4,
-	0xab, 0x27, 0x78, 0xf3, 0x04, 0x8f, 0x7f, 0x09, 0x4c, 0xdc, 0xd6, 0x28, 0xfb, 0x1f, 0x00, 0x00,
-	0xff, 0xff, 0x90, 0x60, 0x36, 0x9e, 0x99, 0x02, 0x00, 0x00,
+	// 408 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0x44, 0xd2, 0xbf, 0x4f, 0x1b, 0x31,
+	0x14, 0x07, 0x70, 0x3f, 0x8e, 0x24, 0xe0, 0x84, 0x92, 0xde, 0xf4, 0x4a, 0xa5, 0x27, 0x8b, 0xc9,
+	0x0b, 0x49, 0x73, 0x97, 0xf0, 0x63, 0x45, 0x55, 0x95, 0xa5, 0x42, 0x0a, 0x7f, 0x00, 0x8a, 0xa9,
+	0x13, 0x90, 0xb8, 0x33, 0xea, 0xdd, 0x0d, 0xdd, 0xf8, 0x73, 0x3a, 0x76, 0xec, 0x9f, 0xc0, 0xc8,
+	0xd8, 0xa1, 0x03, 0xe7, 0x2e, 0x1d, 0x19, 0x33, 0x56, 0xb9, 0x94, 0xe7, 0xed, 0x7d, 0xfd, 0xb1,
+	0x07, 0xdb, 0x5f, 0xf9, 0xfe, 0xda, 0x65, 0xc6, 0x15, 0xc3, 0x2a, 0x2f, 0xe6, 0x0b, 0x6b, 0x5c,
+	0x79, 0x33, 0x74, 0xb9, 0x1d, 0xdc, 0x7f, 0x75, 0xa5, 0x8b, 0x23, 0x97, 0xdb, 0x83, 0xa3, 0xe5,
+	0x6d, 0x79, 0x53, 0x99, 0xc1, 0xb5, 0xcb, 0x86, 0x4b, 0xb7, 0x74, 0xc3, 0xc6, 0x4c, 0xb5, 0x68,
+	0x52, 0x13, 0x9a, 0x69, 0x73, 0xe6, 0xf0, 0x9d, 0x6c, 0x5d, 0x56, 0xc6, 0x7c, 0x8b, 0xfb, 0x32,
+	0x2a, 0x2a, 0x83, 0xa0, 0x40, 0xef, 0xce, 0xd6, 0xe3, 0xe1, 0xef, 0x48, 0x76, 0x2f, 0xe7, 0xd9,
+	0xfd, 0x9d, 0xbd, 0xc8, 0xed, 0xc5, 0x22, 0x46, 0xd9, 0xfe, 0x74, 0x6b, 0xef, 0xbe, 0x8c, 0x9a,
+	0x4d, 0x30, 0x15, 0xb3, 0xff, 0x99, 0x25, 0xc1, 0x2d, 0x05, 0x7a, 0x8b, 0x25, 0x61, 0x49, 0x31,
+	0x52, 0xa0, 0x5b, 0x2c, 0x29, 0xcb, 0x18, 0xb7, 0x15, 0xe8, 0x88, 0x65, 0xcc, 0x32, 0xc1, 0x96,
+	0x02, 0xbd, 0xc7, 0x32, 0x61, 0x39, 0xc6, 0xb6, 0x02, 0xbd, 0xcd, 0x72, 0xcc, 0x72, 0x82, 0x1d,
+	0x05, 0xfa, 0x2d, 0xcb, 0x09, 0xcb, 0x29, 0xee, 0x28, 0xd0, 0x31, 0xcb, 0x29, 0xcb, 0x19, 0xee,
+	0x2a, 0xd0, 0x1d, 0x96, 0xb3, 0xf8, 0x40, 0x76, 0x36, 0x37, 0xfb, 0x80, 0x52, 0x81, 0xde, 0x9f,
+	0x8a, 0xd9, 0xeb, 0x42, 0xb0, 0x11, 0x76, 0x15, 0xe8, 0x76, 0xb0, 0x51, 0xb0, 0x04, 0x7b, 0x0a,
+	0x74, 0x3f, 0x58, 0x12, 0x2c, 0xc5, 0x3d, 0x05, 0x7a, 0x27, 0x58, 0x1a, 0x6c, 0x8c, 0x6f, 0xd6,
+	0xef, 0x1f, 0x6c, 0x1c, 0x6c, 0x82, 0xfb, 0x0a, 0x74, 0x2f, 0xd8, 0x24, 0x3e, 0x92, 0xdd, 0xa2,
+	0x32, 0x57, 0x99, 0x2d, 0x8a, 0xf9, 0xd2, 0x62, 0x5f, 0x81, 0xee, 0x26, 0x72, 0xb0, 0x6e, 0x44,
+	0xf3, 0xa9, 0x53, 0x31, 0x93, 0x45, 0x65, 0x3e, 0x6f, 0xfc, 0xbc, 0x27, 0x65, 0x69, 0x8b, 0xf2,
+	0xca, 0xe5, 0xd6, 0x2d, 0xce, 0x3f, 0x3e, 0xd6, 0x24, 0x9e, 0x6a, 0x12, 0xbf, 0x6a, 0x12, 0xcf,
+	0x35, 0xc1, 0x4b, 0x4d, 0xb0, 0xaa, 0x09, 0x1e, 0x3c, 0xc1, 0x77, 0x4f, 0xf0, 0xc3, 0x13, 0xfc,
+	0xf4, 0x04, 0x8f, 0x9e, 0xc4, 0x93, 0x27, 0xf1, 0xec, 0x09, 0xfe, 0x7a, 0x12, 0x2f, 0x9e, 0x60,
+	0xe5, 0x09, 0x1e, 0xfe, 0x10, 0x98, 0x76, 0x53, 0xa3, 0xf4, 0x5f, 0x00, 0x00, 0x00, 0xff, 0xff,
+	0x49, 0x11, 0x52, 0x0b, 0x99, 0x02, 0x00, 0x00,
 }

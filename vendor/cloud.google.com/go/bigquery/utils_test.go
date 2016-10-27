@@ -15,6 +15,8 @@
 package bigquery
 
 import (
+	"io"
+
 	"golang.org/x/net/context"
 	bq "google.golang.org/api/bigquery/v2"
 )
@@ -25,7 +27,7 @@ func defaultGCS() *GCSReference {
 	}
 }
 
-var defaultQuery = &Query{
+var defaultQuery = &QueryConfig{
 	Q:                "query string",
 	DefaultProjectID: "def-project-id",
 	DefaultDatasetID: "def-dataset-id",
@@ -37,7 +39,7 @@ type testService struct {
 	service
 }
 
-func (s *testService) insertJob(ctx context.Context, job *bq.Job, projectID string) (*Job, error) {
+func (s *testService) insertJob(ctx context.Context, job *bq.Job, projectID string, r io.Reader) (*Job, error) {
 	s.Job = job
 	return &Job{}, nil
 }

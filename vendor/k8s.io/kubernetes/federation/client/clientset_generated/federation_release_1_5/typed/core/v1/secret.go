@@ -19,6 +19,7 @@ package v1
 import (
 	api "k8s.io/kubernetes/pkg/api"
 	v1 "k8s.io/kubernetes/pkg/api/v1"
+	restclient "k8s.io/kubernetes/pkg/client/restclient"
 	watch "k8s.io/kubernetes/pkg/watch"
 )
 
@@ -43,14 +44,14 @@ type SecretInterface interface {
 
 // secrets implements SecretInterface
 type secrets struct {
-	client *CoreClient
+	client restclient.Interface
 	ns     string
 }
 
 // newSecrets returns a Secrets
 func newSecrets(c *CoreClient, namespace string) *secrets {
 	return &secrets{
-		client: c,
+		client: c.RESTClient(),
 		ns:     namespace,
 	}
 }
@@ -58,7 +59,7 @@ func newSecrets(c *CoreClient, namespace string) *secrets {
 // Create takes the representation of a secret and creates it.  Returns the server's representation of the secret, and an error, if there is any.
 func (c *secrets) Create(secret *v1.Secret) (result *v1.Secret, err error) {
 	result = &v1.Secret{}
-	err = c.client.GetRESTClient().Post().
+	err = c.client.Post().
 		Namespace(c.ns).
 		Resource("secrets").
 		Body(secret).
@@ -70,7 +71,7 @@ func (c *secrets) Create(secret *v1.Secret) (result *v1.Secret, err error) {
 // Update takes the representation of a secret and updates it. Returns the server's representation of the secret, and an error, if there is any.
 func (c *secrets) Update(secret *v1.Secret) (result *v1.Secret, err error) {
 	result = &v1.Secret{}
-	err = c.client.GetRESTClient().Put().
+	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("secrets").
 		Name(secret.Name).
@@ -82,7 +83,7 @@ func (c *secrets) Update(secret *v1.Secret) (result *v1.Secret, err error) {
 
 // Delete takes name of the secret and deletes it. Returns an error if one occurs.
 func (c *secrets) Delete(name string, options *v1.DeleteOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("secrets").
 		Name(name).
@@ -93,7 +94,7 @@ func (c *secrets) Delete(name string, options *v1.DeleteOptions) error {
 
 // DeleteCollection deletes a collection of objects.
 func (c *secrets) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("secrets").
 		VersionedParams(&listOptions, api.ParameterCodec).
@@ -105,7 +106,7 @@ func (c *secrets) DeleteCollection(options *v1.DeleteOptions, listOptions v1.Lis
 // Get takes name of the secret, and returns the corresponding secret object, and an error if there is any.
 func (c *secrets) Get(name string) (result *v1.Secret, err error) {
 	result = &v1.Secret{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("secrets").
 		Name(name).
@@ -117,7 +118,7 @@ func (c *secrets) Get(name string) (result *v1.Secret, err error) {
 // List takes label and field selectors, and returns the list of Secrets that match those selectors.
 func (c *secrets) List(opts v1.ListOptions) (result *v1.SecretList, err error) {
 	result = &v1.SecretList{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("secrets").
 		VersionedParams(&opts, api.ParameterCodec).
@@ -128,7 +129,7 @@ func (c *secrets) List(opts v1.ListOptions) (result *v1.SecretList, err error) {
 
 // Watch returns a watch.Interface that watches the requested secrets.
 func (c *secrets) Watch(opts v1.ListOptions) (watch.Interface, error) {
-	return c.client.GetRESTClient().Get().
+	return c.client.Get().
 		Prefix("watch").
 		Namespace(c.ns).
 		Resource("secrets").
@@ -139,7 +140,7 @@ func (c *secrets) Watch(opts v1.ListOptions) (watch.Interface, error) {
 // Patch applies the patch and returns the patched secret.
 func (c *secrets) Patch(name string, pt api.PatchType, data []byte, subresources ...string) (result *v1.Secret, err error) {
 	result = &v1.Secret{}
-	err = c.client.GetRESTClient().Patch(pt).
+	err = c.client.Patch(pt).
 		Namespace(c.ns).
 		Resource("secrets").
 		SubResource(subresources...).

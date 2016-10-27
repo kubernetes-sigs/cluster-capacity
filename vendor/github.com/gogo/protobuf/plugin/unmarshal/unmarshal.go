@@ -1,6 +1,4 @@
-// Protocol Buffers for Go with Gadgets
-//
-// Copyright (c) 2013, The GoGo Authors. All rights reserved.
+// Copyright (c) 2013, Vastech SA (PTY) LTD. All rights reserved.
 // http://github.com/gogo/protobuf
 //
 // Redistribution and use in source and binary forms, with or without
@@ -193,7 +191,6 @@ type unmarshal struct {
 	ioPkg      generator.Single
 	mathPkg    generator.Single
 	unsafePkg  generator.Single
-	typesPkg   generator.Single
 	localName  string
 }
 
@@ -291,7 +288,7 @@ func (p *unmarshal) unsafeFixed64(varName string, typeName string) {
 	p.P(`iNdEx += 8`)
 }
 
-func (p *unmarshal) mapField(varName string, customType bool, field *descriptor.FieldDescriptorProto) {
+func (p *unmarshal) mapField(varName string, field *descriptor.FieldDescriptorProto) {
 	switch field.GetType() {
 	case descriptor.FieldDescriptorProto_TYPE_DOUBLE:
 		p.P(`var `, varName, `temp uint64`)
@@ -360,17 +357,8 @@ func (p *unmarshal) mapField(varName string, customType bool, field *descriptor.
 		p.P(`}`)
 		desc := p.ObjectNamed(field.GetTypeName())
 		msgname := p.TypeName(desc)
-		buf := `data[iNdEx:postmsgIndex]`
-		if gogoproto.IsStdTime(field) {
-			p.P(varName, ` := new(time.Time)`)
-			p.P(`if err := `, p.typesPkg.Use(), `.StdTimeUnmarshal(`, varName, `, `, buf, `); err != nil {`)
-		} else if gogoproto.IsStdDuration(field) {
-			p.P(varName, ` := new(time.Duration)`)
-			p.P(`if err := `, p.typesPkg.Use(), `.StdDurationUnmarshal(`, varName, `, `, buf, `); err != nil {`)
-		} else {
-			p.P(varName, ` := &`, msgname, `{}`)
-			p.P(`if err := `, varName, `.Unmarshal(`, buf, `); err != nil {`)
-		}
+		p.P(varName, ` := &`, msgname, `{}`)
+		p.P(`if err := `, varName, `.Unmarshal(data[iNdEx:postmsgIndex]); err != nil {`)
 		p.In()
 		p.P(`return err`)
 		p.Out()
@@ -391,22 +379,8 @@ func (p *unmarshal) mapField(varName string, customType bool, field *descriptor.
 		p.P(`return `, p.ioPkg.Use(), `.ErrUnexpectedEOF`)
 		p.Out()
 		p.P(`}`)
-		if customType {
-			_, ctyp, err := generator.GetCustomType(field)
-			if err != nil {
-				panic(err)
-			}
-			p.P(`var `, varName, `1 `, ctyp)
-			p.P(`var `, varName, ` = &`, varName, `1`)
-			p.P(`if err := `, varName, `.Unmarshal(data[iNdEx:postbytesIndex]); err != nil {`)
-			p.In()
-			p.P(`return err`)
-			p.Out()
-			p.P(`}`)
-		} else {
-			p.P(varName, ` := make([]byte, mapbyteLen)`)
-			p.P(`copy(`, varName, `, data[iNdEx:postbytesIndex])`)
-		}
+		p.P(varName, ` := make([]byte, mapbyteLen)`)
+		p.P(`copy(`, varName, `, data[iNdEx:postbytesIndex])`)
 		p.P(`iNdEx = postbytesIndex`)
 	case descriptor.FieldDescriptorProto_TYPE_UINT32:
 		p.P(`var `, varName, ` uint32`)
@@ -695,27 +669,8 @@ func (p *unmarshal) field(file *generator.FileDescriptor, msg *generator.Descrip
 		p.Out()
 		p.P(`}`)
 		if oneof {
-			buf := `data[iNdEx:postIndex]`
-			if gogoproto.IsStdTime(field) {
-				if nullable {
-					p.P(`v := new(time.Time)`)
-					p.P(`if err := `, p.typesPkg.Use(), `.StdTimeUnmarshal(v, `, buf, `); err != nil {`)
-				} else {
-					p.P(`v := time.Time{}`)
-					p.P(`if err := `, p.typesPkg.Use(), `.StdTimeUnmarshal(&v, `, buf, `); err != nil {`)
-				}
-			} else if gogoproto.IsStdDuration(field) {
-				if nullable {
-					p.P(`v := new(time.Duration)`)
-					p.P(`if err := `, p.typesPkg.Use(), `.StdDurationUnmarshal(v, `, buf, `); err != nil {`)
-				} else {
-					p.P(`v := time.Duration(0)`)
-					p.P(`if err := `, p.typesPkg.Use(), `.StdDurationUnmarshal(&v, `, buf, `); err != nil {`)
-				}
-			} else {
-				p.P(`v := &`, msgname, `{}`)
-				p.P(`if err := v.Unmarshal(`, buf, `); err != nil {`)
-			}
+			p.P(`v := &`, msgname, `{}`)
+			p.P(`if err := v.Unmarshal(data[iNdEx:postIndex]); err != nil {`)
 			p.In()
 			p.P(`return err`)
 			p.Out()
@@ -739,13 +694,13 @@ func (p *unmarshal) field(file *generator.FileDescriptor, msg *generator.Descrip
 			p.RecordTypeUse(m.ValueAliasField.GetTypeName())
 
 			nullable, valuegoTyp, valuegoAliasTyp = generator.GoMapValueTypes(field, m.ValueField, valuegoTyp, valuegoAliasTyp)
-			if gogoproto.IsStdTime(field) || gogoproto.IsStdDuration(field) {
-				valuegoTyp = valuegoAliasTyp
-			}
 
 			p.P(`var keykey uint64`)
 			p.decodeVarint("keykey", "uint64")
-			p.mapField("mapkey", false, m.KeyAliasField)
+			p.mapField("mapkey", m.KeyAliasField)
+			p.P(`var valuekey uint64`)
+			p.decodeVarint("valuekey", "uint64")
+			p.mapField("mapvalue", m.ValueAliasField)
 			p.P(`if m.`, fieldname, ` == nil {`)
 			p.In()
 			p.P(`m.`, fieldname, ` = make(`, m.GoType, `)`)
@@ -758,76 +713,20 @@ func (p *unmarshal) field(file *generator.FileDescriptor, msg *generator.Descrip
 				s += `[` + keygoAliasTyp + `(mapkey)]`
 			}
 			v := `mapvalue`
-			if (m.ValueField.IsMessage() || gogoproto.IsCustomType(field)) && !nullable {
+			if m.ValueField.IsMessage() && !nullable {
 				v = `*` + v
 			}
 			if valuegoTyp != valuegoAliasTyp {
 				v = `((` + valuegoAliasTyp + `)(` + v + `))`
 			}
-			p.P(`if iNdEx < postIndex {`)
-			p.In()
-			p.P(`var valuekey uint64`)
-			p.decodeVarint("valuekey", "uint64")
-			p.mapField("mapvalue", gogoproto.IsCustomType(field), m.ValueAliasField)
 			p.P(s, ` = `, v)
-			p.Out()
-			p.P(`} else {`)
-			p.In()
-			if gogoproto.IsStdTime(field) {
-				p.P(`var mapvalue = new(time.Time)`)
-				if nullable {
-					p.P(s, ` = mapvalue`)
-				} else {
-					p.P(s, ` = *mapvalue`)
-				}
-			} else if gogoproto.IsStdDuration(field) {
-				p.P(`var mapvalue = new(time.Duration)`)
-				if nullable {
-					p.P(s, ` = mapvalue`)
-				} else {
-					p.P(s, ` = *mapvalue`)
-				}
-			} else {
-				p.P(`var mapvalue `, valuegoAliasTyp)
-				p.P(s, ` = mapvalue`)
-			}
-			p.Out()
-			p.P(`}`)
 		} else if repeated {
-			if gogoproto.IsStdTime(field) {
-				if nullable {
-					p.P(`m.`, fieldname, ` = append(m.`, fieldname, `, new(time.Time))`)
-				} else {
-					p.P(`m.`, fieldname, ` = append(m.`, fieldname, `, time.Time{})`)
-				}
-			} else if gogoproto.IsStdDuration(field) {
-				if nullable {
-					p.P(`m.`, fieldname, ` = append(m.`, fieldname, `, new(time.Duration))`)
-				} else {
-					p.P(`m.`, fieldname, ` = append(m.`, fieldname, `, time.Duration(0))`)
-				}
-			} else if nullable {
+			if nullable {
 				p.P(`m.`, fieldname, ` = append(m.`, fieldname, `, &`, msgname, `{})`)
 			} else {
 				p.P(`m.`, fieldname, ` = append(m.`, fieldname, `, `, msgname, `{})`)
 			}
-			varName := `m.` + fieldname + `[len(m.` + fieldname + `)-1]`
-			buf := `data[iNdEx:postIndex]`
-			if gogoproto.IsStdTime(field) {
-				if nullable {
-					p.P(`if err := `, p.typesPkg.Use(), `.StdTimeUnmarshal(`, varName, `,`, buf, `); err != nil {`)
-				} else {
-					p.P(`if err := `, p.typesPkg.Use(), `.StdTimeUnmarshal(&(`, varName, `),`, buf, `); err != nil {`)
-				}
-			} else if gogoproto.IsStdDuration(field) {
-				if nullable {
-					p.P(`if err := `, p.typesPkg.Use(), `.StdDurationUnmarshal(`, varName, `,`, buf, `); err != nil {`)
-				} else {
-					p.P(`if err := `, p.typesPkg.Use(), `.StdDurationUnmarshal(&(`, varName, `),`, buf, `); err != nil {`)
-				}
-			} else {
-				p.P(`if err := `, varName, `.Unmarshal(`, buf, `); err != nil {`)
-			}
+			p.P(`if err := m.`, fieldname, `[len(m.`, fieldname, `)-1].Unmarshal(data[iNdEx:postIndex]); err != nil {`)
 			p.In()
 			p.P(`return err`)
 			p.Out()
@@ -835,34 +734,16 @@ func (p *unmarshal) field(file *generator.FileDescriptor, msg *generator.Descrip
 		} else if nullable {
 			p.P(`if m.`, fieldname, ` == nil {`)
 			p.In()
-			if gogoproto.IsStdTime(field) {
-				p.P(`m.`, fieldname, ` = new(time.Time)`)
-			} else if gogoproto.IsStdDuration(field) {
-				p.P(`m.`, fieldname, ` = new(time.Duration)`)
-			} else {
-				p.P(`m.`, fieldname, ` = &`, msgname, `{}`)
-			}
+			p.P(`m.`, fieldname, ` = &`, msgname, `{}`)
 			p.Out()
 			p.P(`}`)
-			if gogoproto.IsStdTime(field) {
-				p.P(`if err := `, p.typesPkg.Use(), `.StdTimeUnmarshal(m.`, fieldname, `, data[iNdEx:postIndex]); err != nil {`)
-			} else if gogoproto.IsStdDuration(field) {
-				p.P(`if err := `, p.typesPkg.Use(), `.StdDurationUnmarshal(m.`, fieldname, `, data[iNdEx:postIndex]); err != nil {`)
-			} else {
-				p.P(`if err := m.`, fieldname, `.Unmarshal(data[iNdEx:postIndex]); err != nil {`)
-			}
+			p.P(`if err := m.`, fieldname, `.Unmarshal(data[iNdEx:postIndex]); err != nil {`)
 			p.In()
 			p.P(`return err`)
 			p.Out()
 			p.P(`}`)
 		} else {
-			if gogoproto.IsStdTime(field) {
-				p.P(`if err := `, p.typesPkg.Use(), `.StdTimeUnmarshal(&m.`, fieldname, `, data[iNdEx:postIndex]); err != nil {`)
-			} else if gogoproto.IsStdDuration(field) {
-				p.P(`if err := `, p.typesPkg.Use(), `.StdDurationUnmarshal(&m.`, fieldname, `, data[iNdEx:postIndex]); err != nil {`)
-			} else {
-				p.P(`if err := m.`, fieldname, `.Unmarshal(data[iNdEx:postIndex]); err != nil {`)
-			}
+			p.P(`if err := m.`, fieldname, `.Unmarshal(data[iNdEx:postIndex]); err != nil {`)
 			p.In()
 			p.P(`return err`)
 			p.Out()
@@ -1087,7 +968,6 @@ func (p *unmarshal) Generate(file *generator.FileDescriptor) {
 	p.ioPkg = p.NewImport("io")
 	p.mathPkg = p.NewImport("math")
 	p.unsafePkg = p.NewImport("unsafe")
-	p.typesPkg = p.NewImport("github.com/gogo/protobuf/types")
 	fmtPkg := p.NewImport("fmt")
 	protoPkg := p.NewImport("github.com/gogo/protobuf/proto")
 	if !gogoproto.ImportsGoGoProto(file.FileDescriptorProto) {
@@ -1164,7 +1044,7 @@ func (p *unmarshal) Generate(file *generator.FileDescriptor) {
 			if field.OneofIndex != nil {
 				errFieldname = p.GetOneOfFieldName(message, field)
 			}
-			packed := field.IsPacked() || (proto3 && field.IsRepeated() && generator.IsScalar(field))
+			packed := field.IsPacked()
 			p.P(`case `, strconv.Itoa(int(field.GetNumber())), `:`)
 			p.In()
 			wireType := field.WireType()

@@ -25,8 +25,10 @@ import (
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/testapi"
 	"k8s.io/kubernetes/pkg/api/unversioned"
+	"k8s.io/kubernetes/pkg/apimachinery/registered"
 	"k8s.io/kubernetes/pkg/client/restclient"
 	"k8s.io/kubernetes/pkg/runtime"
+	"k8s.io/kubernetes/pkg/util/flowcontrol"
 )
 
 func CreateHTTPClient(roundTripper func(*http.Request) (*http.Response, error)) *http.Client {
@@ -45,6 +47,7 @@ func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 type RESTClient struct {
 	Client               *http.Client
 	NegotiatedSerializer runtime.NegotiatedSerializer
+	GroupName            string
 
 	Req  *http.Request
 	Resp *http.Response
@@ -71,22 +74,40 @@ func (c *RESTClient) Delete() *restclient.Request {
 	return c.request("DELETE")
 }
 
+func (c *RESTClient) Verb(verb string) *restclient.Request {
+	return c.request(verb)
+}
+
+func (c *RESTClient) APIVersion() unversioned.GroupVersion {
+	return *(testapi.Default.GroupVersion())
+}
+
+func (c *RESTClient) GetRateLimiter() flowcontrol.RateLimiter {
+	return nil
+}
+
 func (c *RESTClient) request(verb string) *restclient.Request {
 	config := restclient.ContentConfig{
 		ContentType:          runtime.ContentTypeJSON,
-		GroupVersion:         testapi.Default.GroupVersion(),
+		GroupVersion:         &registered.GroupOrDie(api.GroupName).GroupVersion,
 		NegotiatedSerializer: c.NegotiatedSerializer,
 	}
 	ns := c.NegotiatedSerializer
 	serializer, _ := ns.SerializerForMediaType(runtime.ContentTypeJSON, nil)
 	streamingSerializer, _ := ns.StreamingSerializerForMediaType(runtime.ContentTypeJSON, nil)
+
+	groupName := api.GroupName
+	if c.GroupName != "" {
+		groupName = c.GroupName
+	}
+
 	internalVersion := unversioned.GroupVersion{
-		Group:   testapi.Default.GroupVersion().Group,
+		Group:   registered.GroupOrDie(groupName).GroupVersion.Group,
 		Version: runtime.APIVersionInternal,
 	}
 	internalVersion.Version = runtime.APIVersionInternal
 	serializers := restclient.Serializers{
-		Encoder:             ns.EncoderForVersion(serializer, *testapi.Default.GroupVersion()),
+		Encoder:             ns.EncoderForVersion(serializer, registered.GroupOrDie(api.GroupName).GroupVersion),
 		Decoder:             ns.DecoderToVersion(serializer, internalVersion),
 		StreamingSerializer: streamingSerializer,
 		Framer:              streamingSerializer.Framer,

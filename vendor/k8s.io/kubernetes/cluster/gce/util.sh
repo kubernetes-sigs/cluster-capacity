@@ -696,6 +696,27 @@ function create-network() {
   fi
 }
 
+function delete-firewall-rules() {
+  for fw in $@; do
+    if [[ -n $(gcloud compute firewall-rules --project "${PROJECT}" describe "${fw}" --format='value(name)' 2>/dev/null || true) ]]; then
+      gcloud compute firewall-rules delete --project "${PROJECT}" --quiet "${fw}" &
+    fi
+  done
+  kube::util::wait-for-jobs || {
+    echo -e "${color_red}Failed to delete firewall rules.${color_norm}" >&2
+  }
+}
+
+function delete-network() {
+  if [[ -n $(gcloud compute networks --project "${PROJECT}" describe "${NETWORK}" --format='value(name)' 2>/dev/null || true) ]]; then
+    if ! gcloud compute networks delete --project "${PROJECT}" --quiet "${NETWORK}"; then
+      echo "Failed to delete network '${NETWORK}'. Listing firewall-rules:"
+      gcloud compute firewall-rules --project "${PROJECT}" list --filter="network=${NETWORK}"
+      return 1
+    fi
+  fi
+}
+
 # Assumes:
 #   NUM_NODES
 # Sets:
@@ -755,6 +776,8 @@ function create-master() {
   create-static-ip "${MASTER_NAME}-ip" "${REGION}"
   MASTER_RESERVED_IP=$(gcloud compute addresses describe "${MASTER_NAME}-ip" \
     --project "${PROJECT}" --region "${REGION}" -q --format='value(address)')
+  KUBELET_APISERVER="${MASTER_RESERVED_IP}"
+  KUBERNETES_MASTER_NAME="${MASTER_RESERVED_IP}"
 
   create-certs "${MASTER_RESERVED_IP}"
 
@@ -1144,8 +1167,10 @@ function remove-replica-from-etcd() {
     --project "${PROJECT}" \
     --zone "${EXISTING_MASTER_ZONE}" \
     --command \
-    "curl -s localhost:${port}/v2/members/\$(curl -s localhost:${port}/v2/members -XGET | sed 's/{\\\"id/\n/g' | grep ${REPLICA_NAME} | cut -f 3 -d \\\") -XDELETE -L 2>/dev/null"
-  return $?
+    "curl -s localhost:${port}/v2/members/\$(curl -s localhost:${port}/v2/members -XGET | sed 's/{\\\"id/\n/g' | grep ${REPLICA_NAME}\\\" | cut -f 3 -d \\\") -XDELETE -L 2>/dev/null"
+  local -r res=$?
+  echo "Removing etcd replica, name: ${REPLICA_NAME}, port: ${port}, result: ${res}"
+  return "${res}"
 }
 
 # Delete a kubernetes cluster. This is called from test-teardown.
@@ -1255,14 +1280,15 @@ function kube-down() {
   if [[ "${REMAINING_MASTER_COUNT}" == "1" ]]; then
     if gcloud compute forwarding-rules describe "${MASTER_NAME}" --region "${REGION}" --project "${PROJECT}" &>/dev/null; then
       detect-master
-      local EXISTING_MASTER_ZONE=$(gcloud compute instances list "${MASTER_NAME}" \
+      local REMAINING_REPLICA_NAME="$(get-replica-name)"
+      local REMAINING_REPLICA_ZONE=$(gcloud compute instances list "${REMAINING_REPLICA_NAME}" \
         --project "${PROJECT}" --format="value(zone)")
       gcloud compute forwarding-rules delete \
         --project "${PROJECT}" \
         --region "${REGION}" \
         --quiet \
         "${MASTER_NAME}"
-      attach-external-ip "${MASTER_NAME}" "${EXISTING_MASTER_ZONE}" "${KUBE_MASTER_IP}"
+      attach-external-ip "${REMAINING_REPLICA_NAME}" "${REMAINING_REPLICA_ZONE}" "${KUBE_MASTER_IP}"
       gcloud compute target-pools delete \
         --project "${PROJECT}" \
         --region "${REGION}" \
@@ -1273,13 +1299,8 @@ function kube-down() {
 
   # If there are no more remaining master replicas, we should delete all remaining network resources.
   if [[ "${REMAINING_MASTER_COUNT}" == "0" ]]; then
-    # Delete firewall rule for the master.
-    if gcloud compute firewall-rules describe --project "${PROJECT}" "${MASTER_NAME}-https" &>/dev/null; then
-      gcloud compute firewall-rules delete  \
-        --project "${PROJECT}" \
-        --quiet \
-        "${MASTER_NAME}-https"
-    fi
+    # Delete firewall rule for the master, etcd servers, and nodes.
+    delete-firewall-rules "${MASTER_NAME}-https" "${MASTER_NAME}-etcd" "${NODE_TAG}-all"
     # Delete the master's reserved IP
     if gcloud compute addresses describe "${MASTER_NAME}-ip" --region "${REGION}" --project "${PROJECT}" &>/dev/null; then
       gcloud compute addresses delete \
@@ -1287,20 +1308,6 @@ function kube-down() {
         --region "${REGION}" \
         --quiet \
         "${MASTER_NAME}-ip"
-    fi
-    # Delete firewall rule for minions.
-    if gcloud compute firewall-rules describe --project "${PROJECT}" "${NODE_TAG}-all" &>/dev/null; then
-      gcloud compute firewall-rules delete  \
-        --project "${PROJECT}" \
-        --quiet \
-        "${NODE_TAG}-all"
-    fi
-    # Delete firewall rule for etcd servers.
-    if gcloud compute firewall-rules --project "${PROJECT}" describe "${MASTER_NAME}-etcd" &>/dev/null; then
-      gcloud compute firewall-rules delete  \
-        --project "${PROJECT}" \
-        --quiet \
-        "${MASTER_NAME}-etcd"
     fi
   fi
 
@@ -1324,37 +1331,48 @@ function kube-down() {
     done
   fi
 
-  # Delete routes.
-  local -a routes
-  # Clean up all routes w/ names like "<cluster-name>-<node-GUID>"
-  # e.g. "kubernetes-12345678-90ab-cdef-1234-567890abcdef". The name is
-  # determined by the node controller on the master.
-  # Note that this is currently a noop, as synchronously deleting the node MIG
-  # first allows the master to cleanup routes itself.
-  local TRUNCATED_PREFIX="${INSTANCE_PREFIX:0:26}"
-  routes=( $(gcloud compute routes list --project "${PROJECT}" \
-    --regexp "${TRUNCATED_PREFIX}-.{8}-.{4}-.{4}-.{4}-.{12}"  \
-    --format='value(name)') )
-  while (( "${#routes[@]}" > 0 )); do
-    echo Deleting routes "${routes[*]::${batch}}"
-    gcloud compute routes delete \
-      --project "${PROJECT}" \
-      --quiet \
-      "${routes[@]::${batch}}"
-    routes=( "${routes[@]:${batch}}" )
-  done
-
-  # Delete persistent disk for influx-db.
-  if gcloud compute disks describe "${INSTANCE_PREFIX}"-influxdb-pd --zone "${ZONE}" --project "${PROJECT}" &>/dev/null; then
-    gcloud compute disks delete \
-      --project "${PROJECT}" \
-      --quiet \
-      --zone "${ZONE}" \
-      "${INSTANCE_PREFIX}"-influxdb-pd
-  fi
-
-  # If there are no more remaining master replicas, we should update kubeconfig.
+  # If there are no more remaining master replicas: delete routes, pd for influxdb and update kubeconfig
   if [[ "${REMAINING_MASTER_COUNT}" == "0" ]]; then
+    # Delete routes.
+    local -a routes
+    # Clean up all routes w/ names like "<cluster-name>-<node-GUID>"
+    # e.g. "kubernetes-12345678-90ab-cdef-1234-567890abcdef". The name is
+    # determined by the node controller on the master.
+    # Note that this is currently a noop, as synchronously deleting the node MIG
+    # first allows the master to cleanup routes itself.
+    local TRUNCATED_PREFIX="${INSTANCE_PREFIX:0:26}"
+    routes=( $(gcloud compute routes list --project "${PROJECT}" \
+      --regexp "${TRUNCATED_PREFIX}-.{8}-.{4}-.{4}-.{4}-.{12}"  \
+      --format='value(name)') )
+    while (( "${#routes[@]}" > 0 )); do
+      echo Deleting routes "${routes[*]::${batch}}"
+      gcloud compute routes delete \
+        --project "${PROJECT}" \
+        --quiet \
+        "${routes[@]::${batch}}"
+      routes=( "${routes[@]:${batch}}" )
+    done
+
+    # Delete persistent disk for influx-db.
+    if gcloud compute disks describe "${INSTANCE_PREFIX}"-influxdb-pd --zone "${ZONE}" --project "${PROJECT}" &>/dev/null; then
+      gcloud compute disks delete \
+        --project "${PROJECT}" \
+        --quiet \
+        --zone "${ZONE}" \
+        "${INSTANCE_PREFIX}"-influxdb-pd
+    fi
+
+    # Delete all remaining firewall rules and network.
+    delete-firewall-rules \
+      "${NETWORK}-default-internal-master" \
+      "${NETWORK}-default-internal-node" \
+      "${NETWORK}-default-ssh" \
+      "${NETWORK}-default-internal"  # Pre-1.5 clusters
+    if [[ "${KUBE_DELETE_NETWORK}" == "true" ]]; then
+      delete-network || true  # might fail if there are leaked firewall rules
+    fi
+
+    # If there are no more remaining master replicas, we should update kubeconfig.
     export CONTEXT="${PROJECT}_${INSTANCE_PREFIX}"
     clear-kubeconfig
   fi
@@ -1373,7 +1391,7 @@ function kube-down() {
 function get-replica-name() {
   echo $(gcloud compute instances list \
     --project "${PROJECT}" \
-    --zone "${ZONE}" \
+    --zones "${ZONE}" \
     --regexp "$(get-replica-name-regexp)" \
     --format "value(name)" | head -n1)
 }
@@ -1655,7 +1673,7 @@ function kube-push() {
 #   KUBE_ROOT
 function test-build-release() {
   # Make a release
-  "${KUBE_ROOT}/build/release.sh"
+  "${KUBE_ROOT}/build-tools/release.sh"
 }
 
 # Execute prior to running tests to initialize required structure. This is
@@ -1721,14 +1739,9 @@ function test-setup() {
 function test-teardown() {
   detect-project
   echo "Shutting down test cluster in background."
-  gcloud compute firewall-rules delete  \
-    --project "${PROJECT}" \
-    --quiet \
-    "${NODE_TAG}-${INSTANCE_PREFIX}-http-alt" || true
-  gcloud compute firewall-rules delete  \
-    --project "${PROJECT}" \
-    --quiet \
-    "${NODE_TAG}-${INSTANCE_PREFIX}-nodeports" || true
+  delete-firewall-rules \
+    "${NODE_TAG}-${INSTANCE_PREFIX}-http-alt" \
+    "${NODE_TAG}-${INSTANCE_PREFIX}-nodeports"
   if [[ ${MULTIZONE:-} == "true" ]]; then
       local zones=( ${E2E_ZONES} )
       # tear them down in reverse order, finally tearing down the master too.

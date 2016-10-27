@@ -24,13 +24,13 @@ import (
 )
 
 type BatchInterface interface {
-	GetRESTClient() restclient.RESTClientInterface
+	RESTClient() restclient.Interface
 	JobsGetter
 }
 
 // BatchClient is used to interact with features provided by the Batch group.
 type BatchClient struct {
-	RESTClient restclient.RESTClientInterface
+	restClient restclient.Interface
 }
 
 func (c *BatchClient) Jobs(namespace string) JobInterface {
@@ -61,7 +61,7 @@ func NewForConfigOrDie(c *restclient.Config) *BatchClient {
 }
 
 // New creates a new BatchClient for the given RESTClient.
-func New(c restclient.RESTClientInterface) *BatchClient {
+func New(c restclient.Interface) *BatchClient {
 	return &BatchClient{c}
 }
 
@@ -86,11 +86,11 @@ func setConfigDefaults(config *restclient.Config) error {
 	return nil
 }
 
-// GetRESTClient returns a RESTClient that is used to communicate
+// RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *BatchClient) GetRESTClient() restclient.RESTClientInterface {
+func (c *BatchClient) RESTClient() restclient.Interface {
 	if c == nil {
 		return nil
 	}
-	return c.RESTClient
+	return c.restClient
 }

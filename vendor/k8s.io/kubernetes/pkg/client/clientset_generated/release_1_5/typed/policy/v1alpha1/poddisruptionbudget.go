@@ -20,6 +20,7 @@ import (
 	api "k8s.io/kubernetes/pkg/api"
 	v1 "k8s.io/kubernetes/pkg/api/v1"
 	v1alpha1 "k8s.io/kubernetes/pkg/apis/policy/v1alpha1"
+	restclient "k8s.io/kubernetes/pkg/client/restclient"
 	watch "k8s.io/kubernetes/pkg/watch"
 )
 
@@ -45,14 +46,14 @@ type PodDisruptionBudgetInterface interface {
 
 // podDisruptionBudgets implements PodDisruptionBudgetInterface
 type podDisruptionBudgets struct {
-	client *PolicyClient
+	client restclient.Interface
 	ns     string
 }
 
 // newPodDisruptionBudgets returns a PodDisruptionBudgets
 func newPodDisruptionBudgets(c *PolicyClient, namespace string) *podDisruptionBudgets {
 	return &podDisruptionBudgets{
-		client: c,
+		client: c.RESTClient(),
 		ns:     namespace,
 	}
 }
@@ -60,7 +61,7 @@ func newPodDisruptionBudgets(c *PolicyClient, namespace string) *podDisruptionBu
 // Create takes the representation of a podDisruptionBudget and creates it.  Returns the server's representation of the podDisruptionBudget, and an error, if there is any.
 func (c *podDisruptionBudgets) Create(podDisruptionBudget *v1alpha1.PodDisruptionBudget) (result *v1alpha1.PodDisruptionBudget, err error) {
 	result = &v1alpha1.PodDisruptionBudget{}
-	err = c.client.GetRESTClient().Post().
+	err = c.client.Post().
 		Namespace(c.ns).
 		Resource("poddisruptionbudgets").
 		Body(podDisruptionBudget).
@@ -72,7 +73,7 @@ func (c *podDisruptionBudgets) Create(podDisruptionBudget *v1alpha1.PodDisruptio
 // Update takes the representation of a podDisruptionBudget and updates it. Returns the server's representation of the podDisruptionBudget, and an error, if there is any.
 func (c *podDisruptionBudgets) Update(podDisruptionBudget *v1alpha1.PodDisruptionBudget) (result *v1alpha1.PodDisruptionBudget, err error) {
 	result = &v1alpha1.PodDisruptionBudget{}
-	err = c.client.GetRESTClient().Put().
+	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("poddisruptionbudgets").
 		Name(podDisruptionBudget.Name).
@@ -84,7 +85,7 @@ func (c *podDisruptionBudgets) Update(podDisruptionBudget *v1alpha1.PodDisruptio
 
 func (c *podDisruptionBudgets) UpdateStatus(podDisruptionBudget *v1alpha1.PodDisruptionBudget) (result *v1alpha1.PodDisruptionBudget, err error) {
 	result = &v1alpha1.PodDisruptionBudget{}
-	err = c.client.GetRESTClient().Put().
+	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("poddisruptionbudgets").
 		Name(podDisruptionBudget.Name).
@@ -97,7 +98,7 @@ func (c *podDisruptionBudgets) UpdateStatus(podDisruptionBudget *v1alpha1.PodDis
 
 // Delete takes name of the podDisruptionBudget and deletes it. Returns an error if one occurs.
 func (c *podDisruptionBudgets) Delete(name string, options *v1.DeleteOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("poddisruptionbudgets").
 		Name(name).
@@ -108,7 +109,7 @@ func (c *podDisruptionBudgets) Delete(name string, options *v1.DeleteOptions) er
 
 // DeleteCollection deletes a collection of objects.
 func (c *podDisruptionBudgets) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("poddisruptionbudgets").
 		VersionedParams(&listOptions, api.ParameterCodec).
@@ -120,7 +121,7 @@ func (c *podDisruptionBudgets) DeleteCollection(options *v1.DeleteOptions, listO
 // Get takes name of the podDisruptionBudget, and returns the corresponding podDisruptionBudget object, and an error if there is any.
 func (c *podDisruptionBudgets) Get(name string) (result *v1alpha1.PodDisruptionBudget, err error) {
 	result = &v1alpha1.PodDisruptionBudget{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("poddisruptionbudgets").
 		Name(name).
@@ -132,7 +133,7 @@ func (c *podDisruptionBudgets) Get(name string) (result *v1alpha1.PodDisruptionB
 // List takes label and field selectors, and returns the list of PodDisruptionBudgets that match those selectors.
 func (c *podDisruptionBudgets) List(opts v1.ListOptions) (result *v1alpha1.PodDisruptionBudgetList, err error) {
 	result = &v1alpha1.PodDisruptionBudgetList{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("poddisruptionbudgets").
 		VersionedParams(&opts, api.ParameterCodec).
@@ -143,7 +144,7 @@ func (c *podDisruptionBudgets) List(opts v1.ListOptions) (result *v1alpha1.PodDi
 
 // Watch returns a watch.Interface that watches the requested podDisruptionBudgets.
 func (c *podDisruptionBudgets) Watch(opts v1.ListOptions) (watch.Interface, error) {
-	return c.client.GetRESTClient().Get().
+	return c.client.Get().
 		Prefix("watch").
 		Namespace(c.ns).
 		Resource("poddisruptionbudgets").
@@ -154,7 +155,7 @@ func (c *podDisruptionBudgets) Watch(opts v1.ListOptions) (watch.Interface, erro
 // Patch applies the patch and returns the patched podDisruptionBudget.
 func (c *podDisruptionBudgets) Patch(name string, pt api.PatchType, data []byte, subresources ...string) (result *v1alpha1.PodDisruptionBudget, err error) {
 	result = &v1alpha1.PodDisruptionBudget{}
-	err = c.client.GetRESTClient().Patch(pt).
+	err = c.client.Patch(pt).
 		Namespace(c.ns).
 		Resource("poddisruptionbudgets").
 		SubResource(subresources...).

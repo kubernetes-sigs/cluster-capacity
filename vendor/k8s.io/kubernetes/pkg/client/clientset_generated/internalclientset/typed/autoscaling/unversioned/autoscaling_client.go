@@ -23,13 +23,13 @@ import (
 )
 
 type AutoscalingInterface interface {
-	GetRESTClient() restclient.RESTClientInterface
+	RESTClient() restclient.Interface
 	HorizontalPodAutoscalersGetter
 }
 
 // AutoscalingClient is used to interact with features provided by the Autoscaling group.
 type AutoscalingClient struct {
-	RESTClient restclient.RESTClientInterface
+	restClient restclient.Interface
 }
 
 func (c *AutoscalingClient) HorizontalPodAutoscalers(namespace string) HorizontalPodAutoscalerInterface {
@@ -60,7 +60,7 @@ func NewForConfigOrDie(c *restclient.Config) *AutoscalingClient {
 }
 
 // New creates a new AutoscalingClient for the given RESTClient.
-func New(c restclient.RESTClientInterface) *AutoscalingClient {
+func New(c restclient.Interface) *AutoscalingClient {
 	return &AutoscalingClient{c}
 }
 
@@ -89,11 +89,11 @@ func setConfigDefaults(config *restclient.Config) error {
 	return nil
 }
 
-// GetRESTClient returns a RESTClient that is used to communicate
+// RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *AutoscalingClient) GetRESTClient() restclient.RESTClientInterface {
+func (c *AutoscalingClient) RESTClient() restclient.Interface {
 	if c == nil {
 		return nil
 	}
-	return c.RESTClient
+	return c.restClient
 }

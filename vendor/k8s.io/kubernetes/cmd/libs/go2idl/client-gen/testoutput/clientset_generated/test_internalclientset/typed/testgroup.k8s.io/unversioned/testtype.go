@@ -19,6 +19,7 @@ package unversioned
 import (
 	testgroup_k8s_io "k8s.io/kubernetes/cmd/libs/go2idl/client-gen/test_apis/testgroup.k8s.io"
 	api "k8s.io/kubernetes/pkg/api"
+	restclient "k8s.io/kubernetes/pkg/client/restclient"
 	watch "k8s.io/kubernetes/pkg/watch"
 )
 
@@ -44,14 +45,14 @@ type TestTypeInterface interface {
 
 // testTypes implements TestTypeInterface
 type testTypes struct {
-	client *TestgroupClient
+	client restclient.Interface
 	ns     string
 }
 
 // newTestTypes returns a TestTypes
 func newTestTypes(c *TestgroupClient, namespace string) *testTypes {
 	return &testTypes{
-		client: c,
+		client: c.RESTClient(),
 		ns:     namespace,
 	}
 }
@@ -59,7 +60,7 @@ func newTestTypes(c *TestgroupClient, namespace string) *testTypes {
 // Create takes the representation of a testType and creates it.  Returns the server's representation of the testType, and an error, if there is any.
 func (c *testTypes) Create(testType *testgroup_k8s_io.TestType) (result *testgroup_k8s_io.TestType, err error) {
 	result = &testgroup_k8s_io.TestType{}
-	err = c.client.GetRESTClient().Post().
+	err = c.client.Post().
 		Namespace(c.ns).
 		Resource("testtypes").
 		Body(testType).
@@ -71,7 +72,7 @@ func (c *testTypes) Create(testType *testgroup_k8s_io.TestType) (result *testgro
 // Update takes the representation of a testType and updates it. Returns the server's representation of the testType, and an error, if there is any.
 func (c *testTypes) Update(testType *testgroup_k8s_io.TestType) (result *testgroup_k8s_io.TestType, err error) {
 	result = &testgroup_k8s_io.TestType{}
-	err = c.client.GetRESTClient().Put().
+	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("testtypes").
 		Name(testType.Name).
@@ -83,7 +84,7 @@ func (c *testTypes) Update(testType *testgroup_k8s_io.TestType) (result *testgro
 
 func (c *testTypes) UpdateStatus(testType *testgroup_k8s_io.TestType) (result *testgroup_k8s_io.TestType, err error) {
 	result = &testgroup_k8s_io.TestType{}
-	err = c.client.GetRESTClient().Put().
+	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("testtypes").
 		Name(testType.Name).
@@ -96,7 +97,7 @@ func (c *testTypes) UpdateStatus(testType *testgroup_k8s_io.TestType) (result *t
 
 // Delete takes name of the testType and deletes it. Returns an error if one occurs.
 func (c *testTypes) Delete(name string, options *api.DeleteOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("testtypes").
 		Name(name).
@@ -107,7 +108,7 @@ func (c *testTypes) Delete(name string, options *api.DeleteOptions) error {
 
 // DeleteCollection deletes a collection of objects.
 func (c *testTypes) DeleteCollection(options *api.DeleteOptions, listOptions api.ListOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("testtypes").
 		VersionedParams(&listOptions, api.ParameterCodec).
@@ -119,7 +120,7 @@ func (c *testTypes) DeleteCollection(options *api.DeleteOptions, listOptions api
 // Get takes name of the testType, and returns the corresponding testType object, and an error if there is any.
 func (c *testTypes) Get(name string) (result *testgroup_k8s_io.TestType, err error) {
 	result = &testgroup_k8s_io.TestType{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("testtypes").
 		Name(name).
@@ -131,7 +132,7 @@ func (c *testTypes) Get(name string) (result *testgroup_k8s_io.TestType, err err
 // List takes label and field selectors, and returns the list of TestTypes that match those selectors.
 func (c *testTypes) List(opts api.ListOptions) (result *testgroup_k8s_io.TestTypeList, err error) {
 	result = &testgroup_k8s_io.TestTypeList{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("testtypes").
 		VersionedParams(&opts, api.ParameterCodec).
@@ -142,7 +143,7 @@ func (c *testTypes) List(opts api.ListOptions) (result *testgroup_k8s_io.TestTyp
 
 // Watch returns a watch.Interface that watches the requested testTypes.
 func (c *testTypes) Watch(opts api.ListOptions) (watch.Interface, error) {
-	return c.client.GetRESTClient().Get().
+	return c.client.Get().
 		Prefix("watch").
 		Namespace(c.ns).
 		Resource("testtypes").
@@ -153,7 +154,7 @@ func (c *testTypes) Watch(opts api.ListOptions) (watch.Interface, error) {
 // Patch applies the patch and returns the patched testType.
 func (c *testTypes) Patch(name string, pt api.PatchType, data []byte, subresources ...string) (result *testgroup_k8s_io.TestType, err error) {
 	result = &testgroup_k8s_io.TestType{}
-	err = c.client.GetRESTClient().Patch(pt).
+	err = c.client.Patch(pt).
 		Namespace(c.ns).
 		Resource("testtypes").
 		SubResource(subresources...).

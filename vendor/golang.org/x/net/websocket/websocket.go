@@ -4,7 +4,7 @@
 
 // Package websocket implements a client and server for the WebSocket protocol
 // as specified in RFC 6455.
-package websocket // import "golang.org/x/net/websocket"
+package websocket
 
 import (
 	"bufio"
@@ -85,9 +85,6 @@ type Config struct {
 
 	// Additional header fields to be sent in WebSocket opening handshake.
 	Header http.Header
-
-	// Dialer used when opening websocket connections.
-	Dialer *net.Dialer
 
 	handshakeData map[string]string
 }

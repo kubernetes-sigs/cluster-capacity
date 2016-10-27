@@ -26,6 +26,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"reflect"
 	"sort"
 	"strings"
 	"testing"
@@ -35,6 +36,7 @@ import (
 
 	"cloud.google.com/go/internal/testutil"
 	"google.golang.org/api/googleapi"
+	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 )
 
@@ -50,7 +52,9 @@ func TestMain(m *testing.M) {
 	exit := m.Run()
 	if integrationTest {
 		if err := cleanup(); err != nil {
-			log.Fatalf("Post-test cleanup failed: %v", err)
+			// No need to be loud if cleanup() fails; we'll get
+			// any undeleted buckets next time.
+			log.Printf("Post-test cleanup failed: %v\n", err)
 		}
 	}
 	os.Exit(exit)
@@ -151,16 +155,16 @@ func TestIntegration_ConditionalDelete(t *testing.T) {
 	gen := wc.Attrs().Generation
 	metaGen := wc.Attrs().MetaGeneration
 
-	if err := o.WithConditions(Generation(gen - 1)).Delete(ctx); err == nil {
+	if err := o.Generation(gen - 1).Delete(ctx); err == nil {
 		t.Fatalf("Unexpected successful delete with Generation")
 	}
-	if err := o.WithConditions(IfMetaGenerationMatch(metaGen + 1)).Delete(ctx); err == nil {
+	if err := o.If(Conditions{MetagenerationMatch: metaGen + 1}).Delete(ctx); err == nil {
 		t.Fatalf("Unexpected successful delete with IfMetaGenerationMatch")
 	}
-	if err := o.WithConditions(IfMetaGenerationNotMatch(metaGen)).Delete(ctx); err == nil {
+	if err := o.If(Conditions{MetagenerationNotMatch: metaGen}).Delete(ctx); err == nil {
 		t.Fatalf("Unexpected successful delete with IfMetaGenerationNotMatch")
 	}
-	if err := o.WithConditions(Generation(gen)).Delete(ctx); err != nil {
+	if err := o.Generation(gen).Delete(ctx); err != nil {
 		t.Fatalf("final delete failed: %v", err)
 	}
 }
@@ -189,7 +193,6 @@ func TestObjects(t *testing.T) {
 
 	// Test Writer.
 	for _, obj := range objects {
-		t.Logf("Writing %q", obj)
 		wc := bkt.Object(obj).NewWriter(ctx)
 		wc.ContentType = defaultType
 		c := randomContents()
@@ -202,12 +205,10 @@ func TestObjects(t *testing.T) {
 		contents[obj] = c
 	}
 
-	testBucketList(t, bkt, objects)
 	testObjectIterator(t, bkt, objects)
 
 	// Test Reader.
 	for _, obj := range objects {
-		t.Logf("Creating a reader to read %v", obj)
 		rc, err := bkt.Object(obj).NewReader(ctx)
 		if err != nil {
 			t.Errorf("Can't create a reader for %v, errored with %v", obj, err)
@@ -270,7 +271,6 @@ func TestObjects(t *testing.T) {
 		{objlen / 2, -1, objlen / 2},
 		{0, objlen * 2, objlen},
 	} {
-		t.Logf("%d: bkt.Object(%v).NewRangeReader(ctx, %d, %d)", i, obj, r.offset, r.length)
 		rc, err := bkt.Object(obj).NewRangeReader(ctx, r.offset, r.length)
 		if err != nil {
 			t.Errorf("%d: Can't create a range reader for %v, errored with %v", i, obj, err)
@@ -372,16 +372,7 @@ func TestObjects(t *testing.T) {
 
 	// Test object copy.
 	copyName := "copy-" + objName
-	copyObj, err := bkt.Object(objName).CopyTo(ctx, bkt.Object(copyName), nil)
-	if err != nil {
-		t.Errorf("CopyTo failed with %v", err)
-	} else if !namesEqual(copyObj, bucket, copyName) {
-		t.Errorf("Copy object bucket, name: got %q.%q, want %q.%q",
-			copyObj.Bucket, copyObj.Name, bucket, copyName)
-	}
-
-	// Test copying with Copier.
-	copyObj, err = bkt.Object(copyName).CopierFrom(bkt.Object(objName)).Run(ctx)
+	copyObj, err := bkt.Object(copyName).CopierFrom(bkt.Object(objName)).Run(ctx)
 	if err != nil {
 		t.Errorf("Copier.Run failed with %v", err)
 	} else if !namesEqual(copyObj, bucket, copyName) {
@@ -394,13 +385,6 @@ func TestObjects(t *testing.T) {
 		contentType     = "text/html"
 		contentEncoding = "identity"
 	)
-	_, err = bkt.Object(objName).CopyTo(ctx, bkt.Object(copyName), &ObjectAttrs{
-		ContentEncoding: contentEncoding,
-	})
-	if err == nil {
-		t.Error("copy without ContentType: got nil, want error")
-	}
-
 	copier := bkt.Object(copyName).CopierFrom(bkt.Object(objName))
 	copier.ContentEncoding = contentEncoding
 	_, err = copier.Run(ctx)
@@ -409,25 +393,6 @@ func TestObjects(t *testing.T) {
 	}
 
 	// Copying with attributes.
-	copyObj, err = bkt.Object(objName).CopyTo(ctx, bkt.Object(copyName), &ObjectAttrs{
-		ContentType:     contentType,
-		ContentEncoding: contentEncoding,
-	})
-	if err != nil {
-		t.Errorf("CopyTo failed with %v", err)
-	} else {
-		if !namesEqual(copyObj, bucket, copyName) {
-			t.Errorf("Copy object bucket, name: got %q.%q, want %q.%q",
-				copyObj.Bucket, copyObj.Name, bucket, copyName)
-		}
-		if copyObj.ContentType != contentType {
-			t.Errorf("Copy ContentType: got %q, want %q", copyObj.ContentType, contentType)
-		}
-		if copyObj.ContentEncoding != contentEncoding {
-			t.Errorf("Copy ContentEncoding: got %q, want %q", copyObj.ContentEncoding, contentEncoding)
-		}
-	}
-
 	copier = bkt.Object(copyName).CopierFrom(bkt.Object(objName))
 	copier.ContentType = contentType
 	copier.ContentEncoding = contentEncoding
@@ -448,21 +413,56 @@ func TestObjects(t *testing.T) {
 	}
 
 	// Test UpdateAttrs.
-	updated, err := bkt.Object(objName).Update(ctx, ObjectAttrs{
-		ContentType: "text/html",
-		ACL:         []ACLRule{{Entity: "domain-google.com", Role: RoleReader}},
+	metadata := map[string]string{"key": "value"}
+	updated, err := bkt.Object(objName).Update(ctx, ObjectAttrsToUpdate{
+		ContentType:     "text/html",
+		ContentLanguage: "en",
+		Metadata:        metadata,
+		ACL:             []ACLRule{{Entity: "domain-google.com", Role: RoleReader}},
 	})
 	if err != nil {
 		t.Errorf("UpdateAttrs failed with %v", err)
+	} else {
+		if got, want := updated.ContentType, "text/html"; got != want {
+			t.Errorf("updated.ContentType == %q; want %q", got, want)
+		}
+		if got, want := updated.ContentLanguage, "en"; got != want {
+			t.Errorf("updated.ContentLanguage == %q; want %q", updated.ContentLanguage, want)
+		}
+		if got, want := updated.Metadata, metadata; !reflect.DeepEqual(got, want) {
+			t.Errorf("updated.Metadata == %+v; want %+v", updated.Metadata, want)
+		}
+		if got, want := updated.Created, created; got != want {
+			t.Errorf("updated.Created == %q; want %q", got, want)
+		}
+		if !updated.Created.Before(updated.Updated) {
+			t.Errorf("updated.Updated should be newer than update.Created")
+		}
 	}
-	if want := "text/html"; updated.ContentType != want {
-		t.Errorf("updated.ContentType == %q; want %q", updated.ContentType, want)
-	}
-	if want := created; updated.Created != want {
-		t.Errorf("updated.Created == %q; want %q", updated.Created, want)
-	}
-	if !updated.Created.Before(updated.Updated) {
-		t.Errorf("updated.Updated should be newer than update.Created")
+	// Delete ContentType and ContentLanguage.
+	updated, err = bkt.Object(objName).Update(ctx, ObjectAttrsToUpdate{
+		ContentType:     "",
+		ContentLanguage: "",
+		Metadata:        map[string]string{},
+	})
+	if err != nil {
+		t.Errorf("UpdateAttrs failed with %v", err)
+	} else {
+		if got, want := updated.ContentType, ""; got != want {
+			t.Errorf("updated.ContentType == %q; want %q", got, want)
+		}
+		if got, want := updated.ContentLanguage, ""; got != want {
+			t.Errorf("updated.ContentLanguage == %q; want %q", updated.ContentLanguage, want)
+		}
+		if updated.Metadata != nil {
+			t.Errorf("updated.Metadata == %+v; want nil", updated.Metadata)
+		}
+		if got, want := updated.Created, created; got != want {
+			t.Errorf("updated.Created == %q; want %q", got, want)
+		}
+		if !updated.Created.Before(updated.Updated) {
+			t.Errorf("updated.Updated should be newer than update.Created")
+		}
 	}
 
 	// Test checksums.
@@ -588,32 +588,6 @@ func namesEqual(obj *ObjectAttrs, bucketName, objectName string) bool {
 	return obj.Bucket == bucketName && obj.Name == objectName
 }
 
-func testBucketList(t *testing.T, bkt *BucketHandle, objects []string) {
-	ctx := context.Background()
-	q := &Query{Prefix: "obj"}
-	missing := map[string]bool{}
-	for _, o := range objects {
-		missing[o] = true
-	}
-	for {
-		objs, err := bkt.List(ctx, q)
-		if err != nil {
-			t.Errorf("List: unexpected error: %v", err)
-			break
-		}
-		for _, oa := range objs.Results {
-			delete(missing, oa.Name)
-		}
-		if objs.Next == nil {
-			break
-		}
-		q = objs.Next
-	}
-	if len(missing) > 0 {
-		t.Errorf("bucket.List: missing %v", missing)
-	}
-}
-
 func testObjectIterator(t *testing.T, bkt *BucketHandle, objects []string) {
 	ctx := context.Background()
 	// Collect the list of items we expect: ObjectAttrs in lexical order by name.
@@ -631,7 +605,7 @@ func testObjectIterator(t *testing.T, bkt *BucketHandle, objects []string) {
 	}
 
 	it := bkt.Objects(ctx, &Query{Prefix: "obj"})
-	msg, ok := testutil.TestIteratorNext(attrs, Done, func() (interface{}, error) { return it.Next() })
+	msg, ok := testutil.TestIteratorNext(attrs, iterator.Done, func() (interface{}, error) { return it.Next() })
 	if !ok {
 		t.Errorf("ObjectIterator.Next: %s", msg)
 	}
@@ -660,7 +634,6 @@ func TestACL(t *testing.T) {
 	}
 	aclObjects := []string{"acl1", "acl2"}
 	for _, obj := range aclObjects {
-		t.Logf("Writing %v", obj)
 		wc := bkt.Object(obj).NewWriter(ctx)
 		c := randomContents()
 		if _, err := wc.Write(c); err != nil {
@@ -863,7 +836,7 @@ func cleanup() error {
 	it.Prefix = projectID + testPrefix
 	for {
 		bktAttrs, err := it.Next()
-		if err == Done {
+		if err == iterator.Done {
 			break
 		}
 		if err != nil {
@@ -886,7 +859,7 @@ func killBucket(ctx context.Context, client *Client, bucketName string) error {
 	it := bkt.Objects(ctx, nil)
 	for {
 		objAttrs, err := it.Next()
-		if err == Done {
+		if err == iterator.Done {
 			break
 		}
 		if err != nil {

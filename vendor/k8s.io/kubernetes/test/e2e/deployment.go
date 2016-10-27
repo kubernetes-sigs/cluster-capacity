@@ -50,8 +50,14 @@ const (
 var _ = framework.KubeDescribe("Deployment", func() {
 	f := framework.NewDefaultFramework("deployment")
 
+	// TODO: Add failure traps once we have JustAfterEach
+	// See https://github.com/onsi/ginkgo/issues/303
+
 	It("deployment should create new pods", func() {
 		testNewDeployment(f)
+	})
+	It("deployment reaping should cascade to its replica sets and pods", func() {
+		testDeleteDeployment(f)
 	})
 	It("RollingUpdateDeployment should delete old pods and create new ones", func() {
 		testRollingUpdateDeployment(f)
@@ -90,6 +96,7 @@ var _ = framework.KubeDescribe("Deployment", func() {
 		testOverlappingDeployment(f)
 	})
 	// TODO: add tests that cover deployment.Spec.MinReadySeconds once we solved clock-skew issues
+	// See https://github.com/kubernetes/kubernetes/issues/29229
 })
 
 func newRS(rsName string, replicas int32, rsPodLabels map[string]string, imageName string, image string) *extensions.ReplicaSet {
@@ -181,15 +188,15 @@ func checkDeploymentRevision(c clientset.Interface, ns, deploymentName, revision
 	return deployment, newRS
 }
 
-func stopDeploymentOverlap(c clientset.Interface, oldC client.Interface, ns, deploymentName, overlapWith string) {
-	stopDeploymentMaybeOverlap(c, oldC, ns, deploymentName, overlapWith)
+func stopDeploymentOverlap(c clientset.Interface, ns, deploymentName, overlapWith string) {
+	stopDeploymentMaybeOverlap(c, ns, deploymentName, overlapWith)
 }
 
-func stopDeployment(c clientset.Interface, oldC client.Interface, ns, deploymentName string) {
-	stopDeploymentMaybeOverlap(c, oldC, ns, deploymentName, "")
+func stopDeployment(c clientset.Interface, ns, deploymentName string) {
+	stopDeploymentMaybeOverlap(c, ns, deploymentName, "")
 }
 
-func stopDeploymentMaybeOverlap(c clientset.Interface, oldC client.Interface, ns, deploymentName, overlapWith string) {
+func stopDeploymentMaybeOverlap(c clientset.Interface, ns, deploymentName, overlapWith string) {
 	deployment, err := c.Extensions().Deployments(ns).Get(deploymentName)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -251,8 +258,6 @@ func stopDeploymentMaybeOverlap(c clientset.Interface, oldC client.Interface, ns
 
 func testNewDeployment(f *framework.Framework) {
 	ns := f.Namespace.Name
-	// TODO: remove unversionedClient when the refactoring is done. Currently some
-	// functions like verifyPod still expects a unversioned#Client.
 	c := f.ClientSet
 
 	deploymentName := "test-new-deployment"
@@ -263,7 +268,6 @@ func testNewDeployment(f *framework.Framework) {
 	d.Annotations = map[string]string{"test": "should-copy-to-replica-set", annotations.LastAppliedConfigAnnotation: "should-not-copy-to-replica-set"}
 	deploy, err := c.Extensions().Deployments(ns).Create(d)
 	Expect(err).NotTo(HaveOccurred())
-	defer stopDeployment(c, f.Client, ns, deploymentName)
 
 	// Wait for it to be updated to revision 1
 	err = framework.WaitForDeploymentRevisionAndImage(c, ns, deploymentName, "1", nginxImage)
@@ -283,11 +287,39 @@ func testNewDeployment(f *framework.Framework) {
 	Expect(deployment.Annotations[annotations.LastAppliedConfigAnnotation]).Should(Equal("should-not-copy-to-replica-set"))
 }
 
+func testDeleteDeployment(f *framework.Framework) {
+	ns := f.Namespace.Name
+	c := f.ClientSet
+
+	deploymentName := "test-new-deployment"
+	podLabels := map[string]string{"name": nginxImageName}
+	replicas := int32(1)
+	framework.Logf("Creating simple deployment %s", deploymentName)
+	d := newDeployment(deploymentName, replicas, podLabels, nginxImageName, nginxImage, extensions.RollingUpdateDeploymentStrategyType, nil)
+	d.Annotations = map[string]string{"test": "should-copy-to-replica-set", annotations.LastAppliedConfigAnnotation: "should-not-copy-to-replica-set"}
+	deploy, err := c.Extensions().Deployments(ns).Create(d)
+	Expect(err).NotTo(HaveOccurred())
+
+	// Wait for it to be updated to revision 1
+	err = framework.WaitForDeploymentRevisionAndImage(c, ns, deploymentName, "1", nginxImage)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = framework.WaitForDeploymentStatus(c, deploy)
+	Expect(err).NotTo(HaveOccurred())
+
+	deployment, err := c.Extensions().Deployments(ns).Get(deploymentName)
+	Expect(err).NotTo(HaveOccurred())
+	newRS, err := deploymentutil.GetNewReplicaSet(deployment, c)
+	Expect(err).NotTo(HaveOccurred())
+	if newRS == nil {
+		err = fmt.Errorf("expected a replica set, got nil")
+		Expect(err).NotTo(HaveOccurred())
+	}
+	stopDeployment(c, ns, deploymentName)
+}
+
 func testRollingUpdateDeployment(f *framework.Framework) {
 	ns := f.Namespace.Name
-	// TODO: remove unversionedClient when the refactoring is done. Currently some
-	// functions like verifyPod still expects a unversioned#Client.
-	unversionedClient := f.Client
 	c := f.ClientSet
 	// Create nginx pods.
 	deploymentPodLabels := map[string]string{"name": "sample-pod"}
@@ -301,7 +333,7 @@ func testRollingUpdateDeployment(f *framework.Framework) {
 	_, err := c.Extensions().ReplicaSets(ns).Create(newRS(rsName, replicas, rsPodLabels, nginxImageName, nginxImage))
 	Expect(err).NotTo(HaveOccurred())
 	// Verify that the required pods have come up.
-	err = framework.VerifyPods(unversionedClient, ns, "sample-pod", false, 3)
+	err = framework.VerifyPods(c, ns, "sample-pod", false, 3)
 	if err != nil {
 		framework.Logf("error in waiting for pods to come up: %s", err)
 		Expect(err).NotTo(HaveOccurred())
@@ -312,7 +344,6 @@ func testRollingUpdateDeployment(f *framework.Framework) {
 	framework.Logf("Creating deployment %s", deploymentName)
 	deploy, err := c.Extensions().Deployments(ns).Create(newDeployment(deploymentName, replicas, deploymentPodLabels, redisImageName, redisImage, extensions.RollingUpdateDeploymentStrategyType, nil))
 	Expect(err).NotTo(HaveOccurred())
-	defer stopDeployment(c, f.Client, ns, deploymentName)
 
 	// Wait for it to be updated to revision 1
 	err = framework.WaitForDeploymentRevisionAndImage(c, ns, deploymentName, "1", redisImage)
@@ -335,9 +366,6 @@ func testRollingUpdateDeployment(f *framework.Framework) {
 
 func testRollingUpdateDeploymentEvents(f *framework.Framework) {
 	ns := f.Namespace.Name
-	// TODO: remove unversionedClient when the refactoring is done. Currently some
-	// functions like verifyPod still expects a unversioned#Client.
-	unversionedClient := f.Client
 	c := f.ClientSet
 	// Create nginx pods.
 	deploymentPodLabels := map[string]string{"name": "sample-pod-2"}
@@ -357,7 +385,7 @@ func testRollingUpdateDeploymentEvents(f *framework.Framework) {
 	_, err := c.Extensions().ReplicaSets(ns).Create(rs)
 	Expect(err).NotTo(HaveOccurred())
 	// Verify that the required pods have come up.
-	err = framework.VerifyPods(unversionedClient, ns, "sample-pod-2", false, 1)
+	err = framework.VerifyPods(c, ns, "sample-pod-2", false, 1)
 	if err != nil {
 		framework.Logf("error in waiting for pods to come up: %s", err)
 		Expect(err).NotTo(HaveOccurred())
@@ -368,7 +396,6 @@ func testRollingUpdateDeploymentEvents(f *framework.Framework) {
 	framework.Logf("Creating deployment %s", deploymentName)
 	deploy, err := c.Extensions().Deployments(ns).Create(newDeployment(deploymentName, replicas, deploymentPodLabels, redisImageName, redisImage, extensions.RollingUpdateDeploymentStrategyType, nil))
 	Expect(err).NotTo(HaveOccurred())
-	defer stopDeployment(c, f.Client, ns, deploymentName)
 
 	// Wait for it to be updated to revision 3546343826724305833
 	err = framework.WaitForDeploymentRevisionAndImage(c, ns, deploymentName, "3546343826724305833", redisImage)
@@ -379,7 +406,7 @@ func testRollingUpdateDeploymentEvents(f *framework.Framework) {
 	// Verify that the pods were scaled up and down as expected. We use events to verify that.
 	deployment, err := c.Extensions().Deployments(ns).Get(deploymentName)
 	Expect(err).NotTo(HaveOccurred())
-	framework.WaitForEvents(unversionedClient, ns, deployment, 2)
+	framework.WaitForEvents(c, ns, deployment, 2)
 	events, err := c.Core().Events(ns).Search(deployment)
 	if err != nil {
 		framework.Logf("error in listing events: %s", err)
@@ -397,9 +424,6 @@ func testRollingUpdateDeploymentEvents(f *framework.Framework) {
 
 func testRecreateDeployment(f *framework.Framework) {
 	ns := f.Namespace.Name
-	// TODO: remove unversionedClient when the refactoring is done. Currently some
-	// functions like verifyPod still expects a unversioned#Client.
-	unversionedClient := f.Client
 	c := f.ClientSet
 	// Create nginx pods.
 	deploymentPodLabels := map[string]string{"name": "sample-pod-3"}
@@ -413,7 +437,7 @@ func testRecreateDeployment(f *framework.Framework) {
 	_, err := c.Extensions().ReplicaSets(ns).Create(newRS(rsName, replicas, rsPodLabels, nginxImageName, nginxImage))
 	Expect(err).NotTo(HaveOccurred())
 	// Verify that the required pods have come up.
-	err = framework.VerifyPods(unversionedClient, ns, "sample-pod-3", false, 3)
+	err = framework.VerifyPods(c, ns, "sample-pod-3", false, 3)
 	if err != nil {
 		framework.Logf("error in waiting for pods to come up: %s", err)
 		Expect(err).NotTo(HaveOccurred())
@@ -424,7 +448,6 @@ func testRecreateDeployment(f *framework.Framework) {
 	framework.Logf("Creating deployment %s", deploymentName)
 	deploy, err := c.Extensions().Deployments(ns).Create(newDeployment(deploymentName, replicas, deploymentPodLabels, redisImageName, redisImage, extensions.RecreateDeploymentStrategyType, nil))
 	Expect(err).NotTo(HaveOccurred())
-	defer stopDeployment(c, f.Client, ns, deploymentName)
 
 	// Wait for it to be updated to revision 1
 	err = framework.WaitForDeploymentRevisionAndImage(c, ns, deploymentName, "1", redisImage)
@@ -436,7 +459,7 @@ func testRecreateDeployment(f *framework.Framework) {
 	// Verify that the pods were scaled up and down as expected. We use events to verify that.
 	deployment, err := c.Extensions().Deployments(ns).Get(deploymentName)
 	Expect(err).NotTo(HaveOccurred())
-	framework.WaitForEvents(unversionedClient, ns, deployment, 2)
+	framework.WaitForEvents(c, ns, deployment, 2)
 	events, err := c.Core().Events(ns).Search(deployment)
 	if err != nil {
 		framework.Logf("error in listing events: %s", err)
@@ -454,7 +477,6 @@ func testRecreateDeployment(f *framework.Framework) {
 // testDeploymentCleanUpPolicy tests that deployment supports cleanup policy
 func testDeploymentCleanUpPolicy(f *framework.Framework) {
 	ns := f.Namespace.Name
-	unversionedClient := f.Client
 	c := f.ClientSet
 	// Create nginx pods.
 	deploymentPodLabels := map[string]string{"name": "cleanup-pod"}
@@ -469,7 +491,7 @@ func testDeploymentCleanUpPolicy(f *framework.Framework) {
 	Expect(err).NotTo(HaveOccurred())
 
 	// Verify that the required pods have come up.
-	err = framework.VerifyPods(unversionedClient, ns, "cleanup-pod", false, 1)
+	err = framework.VerifyPods(c, ns, "cleanup-pod", false, 1)
 	if err != nil {
 		framework.Logf("error in waiting for pods to come up: %s", err)
 		Expect(err).NotTo(HaveOccurred())
@@ -516,7 +538,6 @@ func testDeploymentCleanUpPolicy(f *framework.Framework) {
 	}()
 	_, err = c.Extensions().Deployments(ns).Create(newDeployment(deploymentName, replicas, deploymentPodLabels, redisImageName, redisImage, extensions.RollingUpdateDeploymentStrategyType, revisionHistoryLimit))
 	Expect(err).NotTo(HaveOccurred())
-	defer stopDeployment(c, f.Client, ns, deploymentName)
 
 	err = framework.WaitForDeploymentOldRSsNum(c, ns, deploymentName, int(*revisionHistoryLimit))
 	Expect(err).NotTo(HaveOccurred())
@@ -527,9 +548,6 @@ func testDeploymentCleanUpPolicy(f *framework.Framework) {
 // i.e. we can change desired state and kick off rolling update, then change desired state again before it finishes.
 func testRolloverDeployment(f *framework.Framework) {
 	ns := f.Namespace.Name
-	// TODO: remove unversionedClient when the refactoring is done. Currently some
-	// functions like verifyPod still expects a unversioned#Client.
-	unversionedClient := f.Client
 	c := f.ClientSet
 	podName := "rollover-pod"
 	deploymentPodLabels := map[string]string{"name": podName}
@@ -543,7 +561,7 @@ func testRolloverDeployment(f *framework.Framework) {
 	_, err := c.Extensions().ReplicaSets(ns).Create(newRS(rsName, rsReplicas, rsPodLabels, nginxImageName, nginxImage))
 	Expect(err).NotTo(HaveOccurred())
 	// Verify that the required pods have come up.
-	err = framework.VerifyPods(unversionedClient, ns, podName, false, rsReplicas)
+	err = framework.VerifyPods(c, ns, podName, false, rsReplicas)
 	if err != nil {
 		framework.Logf("error in waiting for pods to come up: %s", err)
 		Expect(err).NotTo(HaveOccurred())
@@ -563,7 +581,6 @@ func testRolloverDeployment(f *framework.Framework) {
 	}
 	_, err = c.Extensions().Deployments(ns).Create(newDeployment)
 	Expect(err).NotTo(HaveOccurred())
-	defer stopDeployment(c, f.Client, ns, deploymentName)
 
 	// Verify that the pods were scaled up and down as expected.
 	deployment, err := c.Extensions().Deployments(ns).Get(deploymentName)
@@ -596,8 +613,6 @@ func testRolloverDeployment(f *framework.Framework) {
 
 func testPausedDeployment(f *framework.Framework) {
 	ns := f.Namespace.Name
-	// TODO: remove unversionedClient when the refactoring is done. Currently some
-	// functions like verifyPod still expects a unversioned#Client.
 	c := f.ClientSet
 	deploymentName := "test-paused-deployment"
 	podLabels := map[string]string{"name": nginxImageName}
@@ -608,7 +623,6 @@ func testPausedDeployment(f *framework.Framework) {
 	framework.Logf("Creating paused deployment %s", deploymentName)
 	_, err := c.Extensions().Deployments(ns).Create(d)
 	Expect(err).NotTo(HaveOccurred())
-	defer stopDeployment(c, f.Client, ns, deploymentName)
 	// Check that deployment is created fine.
 	deployment, err := c.Extensions().Deployments(ns).Get(deploymentName)
 	Expect(err).NotTo(HaveOccurred())
@@ -710,7 +724,6 @@ func testRollbackDeployment(f *framework.Framework) {
 	d.Annotations = createAnnotation
 	deploy, err := c.Extensions().Deployments(ns).Create(d)
 	Expect(err).NotTo(HaveOccurred())
-	defer stopDeployment(c, f.Client, ns, deploymentName)
 
 	// Wait for it to be updated to revision 1
 	err = framework.WaitForDeploymentRevisionAndImage(c, ns, deploymentName, "1", deploymentImage)
@@ -829,7 +842,6 @@ func testRollbackDeploymentRSNoRevision(f *framework.Framework) {
 	d := newDeployment(deploymentName, deploymentReplicas, deploymentPodLabels, deploymentImageName, deploymentImage, deploymentStrategyType, nil)
 	deploy, err := c.Extensions().Deployments(ns).Create(d)
 	Expect(err).NotTo(HaveOccurred())
-	defer stopDeployment(c, f.Client, ns, deploymentName)
 
 	// Wait for it to be updated to revision 1
 	err = framework.WaitForDeploymentRevisionAndImage(c, ns, deploymentName, "1", deploymentImage)
@@ -937,9 +949,6 @@ func testRollbackDeploymentRSNoRevision(f *framework.Framework) {
 
 func testDeploymentLabelAdopted(f *framework.Framework) {
 	ns := f.Namespace.Name
-	// TODO: remove unversionedClient when the refactoring is done. Currently some
-	// functions like verifyPod still expects a unversioned#Client.
-	unversionedClient := f.Client
 	c := f.ClientSet
 	// Create nginx pods.
 	podName := "nginx"
@@ -951,7 +960,7 @@ func testDeploymentLabelAdopted(f *framework.Framework) {
 	_, err := c.Extensions().ReplicaSets(ns).Create(newRS(rsName, replicas, podLabels, podName, image))
 	Expect(err).NotTo(HaveOccurred())
 	// Verify that the required pods have come up.
-	err = framework.VerifyPods(unversionedClient, ns, podName, false, 3)
+	err = framework.VerifyPods(c, ns, podName, false, 3)
 	if err != nil {
 		framework.Logf("error in waiting for pods to come up: %s", err)
 		Expect(err).NotTo(HaveOccurred())
@@ -962,7 +971,6 @@ func testDeploymentLabelAdopted(f *framework.Framework) {
 	framework.Logf("Creating deployment %s", deploymentName)
 	deploy, err := c.Extensions().Deployments(ns).Create(newDeployment(deploymentName, replicas, podLabels, podName, image, extensions.RollingUpdateDeploymentStrategyType, nil))
 	Expect(err).NotTo(HaveOccurred())
-	defer stopDeployment(c, f.Client, ns, deploymentName)
 
 	// Wait for it to be updated to revision 1
 	err = framework.WaitForDeploymentRevisionAndImage(c, ns, deploymentName, "1", image)
@@ -1006,7 +1014,6 @@ func testScalePausedDeployment(f *framework.Framework) {
 	framework.Logf("Creating deployment %q", deploymentName)
 	_, err := c.Extensions().Deployments(ns).Create(d)
 	Expect(err).NotTo(HaveOccurred())
-	defer stopDeployment(c, f.Client, ns, deploymentName)
 
 	// Check that deployment is created fine.
 	deployment, err := c.Extensions().Deployments(ns).Get(deploymentName)
@@ -1060,7 +1067,6 @@ func testScaledRolloutDeployment(f *framework.Framework) {
 	By(fmt.Sprintf("Creating deployment %q", deploymentName))
 	_, err := c.Extensions().Deployments(ns).Create(d)
 	Expect(err).NotTo(HaveOccurred())
-	defer stopDeployment(c, f.Client, ns, deploymentName)
 
 	// Check that deployment is created fine.
 	deployment, err := c.Extensions().Deployments(ns).Get(deploymentName)
@@ -1075,7 +1081,7 @@ func testScaledRolloutDeployment(f *framework.Framework) {
 
 	// Verify that the required pods have come up.
 	By("Waiting for all required pods to come up")
-	err = framework.VerifyPods(f.Client, ns, nginxImageName, false, deployment.Spec.Replicas)
+	err = framework.VerifyPods(f.ClientSet, ns, nginxImageName, false, deployment.Spec.Replicas)
 	if err != nil {
 		framework.Logf("error in waiting for pods to come up: %s", err)
 		Expect(err).NotTo(HaveOccurred())
@@ -1112,10 +1118,12 @@ func testScaledRolloutDeployment(f *framework.Framework) {
 	Expect(err).NotTo(HaveOccurred())
 
 	firstCond := client.ReplicaSetHasDesiredReplicas(c.Extensions(), first)
-	wait.PollImmediate(10*time.Millisecond, 1*time.Minute, firstCond)
+	err = wait.PollImmediate(10*time.Millisecond, 1*time.Minute, firstCond)
+	Expect(err).NotTo(HaveOccurred())
 
 	secondCond := client.ReplicaSetHasDesiredReplicas(c.Extensions(), second)
-	wait.PollImmediate(10*time.Millisecond, 1*time.Minute, secondCond)
+	err = wait.PollImmediate(10*time.Millisecond, 1*time.Minute, secondCond)
+	Expect(err).NotTo(HaveOccurred())
 
 	By(fmt.Sprintf("Updating the size (up) and template at the same time for deployment %q", deploymentName))
 	newReplicas := int32(20)
@@ -1144,8 +1152,6 @@ func testScaledRolloutDeployment(f *framework.Framework) {
 	By(fmt.Sprintf("Waiting for deployment status to sync (current available: %d, minimum available: %d)", deployment.Status.AvailableReplicas, deploymentutil.MinAvailable(deployment)))
 	err = framework.WaitForDeploymentStatusValid(c, deployment)
 	Expect(err).NotTo(HaveOccurred())
-	err = framework.WaitForDeploymentStatus(c, deployment)
-	Expect(err).NotTo(HaveOccurred())
 
 	// Update the deployment with a non-existent image so that the new replica set will be blocked.
 	By(fmt.Sprintf("Updating deployment %q with a non-existent image", deploymentName))
@@ -1173,10 +1179,12 @@ func testScaledRolloutDeployment(f *framework.Framework) {
 	Expect(err).NotTo(HaveOccurred())
 
 	oldCond := client.ReplicaSetHasDesiredReplicas(c.Extensions(), oldRs)
-	wait.PollImmediate(10*time.Millisecond, 1*time.Minute, oldCond)
+	err = wait.PollImmediate(10*time.Millisecond, 1*time.Minute, oldCond)
+	Expect(err).NotTo(HaveOccurred())
 
 	newCond := client.ReplicaSetHasDesiredReplicas(c.Extensions(), newRs)
-	wait.PollImmediate(10*time.Millisecond, 1*time.Minute, newCond)
+	err = wait.PollImmediate(10*time.Millisecond, 1*time.Minute, newCond)
+	Expect(err).NotTo(HaveOccurred())
 
 	By(fmt.Sprintf("Updating the size (down) and template at the same time for deployment %q", deploymentName))
 	newReplicas = int32(5)
@@ -1205,14 +1213,10 @@ func testScaledRolloutDeployment(f *framework.Framework) {
 	By(fmt.Sprintf("Waiting for deployment status to sync (current available: %d, minimum available: %d)", deployment.Status.AvailableReplicas, deploymentutil.MinAvailable(deployment)))
 	err = framework.WaitForDeploymentStatusValid(c, deployment)
 	Expect(err).NotTo(HaveOccurred())
-	err = framework.WaitForDeploymentStatus(c, deployment)
-	Expect(err).NotTo(HaveOccurred())
 }
 
 func testOverlappingDeployment(f *framework.Framework) {
 	ns := f.Namespace.Name
-	// TODO: remove unversionedClient when the refactoring is done. Currently some
-	// functions like verifyPod still expects a unversioned#Client.
 	c := f.ClientSet
 
 	deploymentName := "first-deployment"
@@ -1233,7 +1237,6 @@ func testOverlappingDeployment(f *framework.Framework) {
 	d = newDeployment(deploymentName, replicas, podLabels, nginxImageName, nginxImage, extensions.RollingUpdateDeploymentStrategyType, nil)
 	deployOverlapping, err := c.Extensions().Deployments(ns).Create(d)
 	Expect(err).NotTo(HaveOccurred(), "Failed creating the second deployment")
-	defer stopDeployment(c, f.Client, ns, deployOverlapping.Name)
 
 	// Wait for overlapping annotation updated to both deployments
 	By("Waiting for both deployments to have overlapping annotations")
@@ -1252,7 +1255,7 @@ func testOverlappingDeployment(f *framework.Framework) {
 	Expect(rsList.Items[0].Spec.Template.Spec.Containers[0].Image).To(Equal(deploy.Spec.Template.Spec.Containers[0].Image))
 
 	By("Deleting the first deployment")
-	stopDeploymentOverlap(c, f.Client, ns, deploy.Name, deployOverlapping.Name)
+	stopDeploymentOverlap(c, ns, deploy.Name, deployOverlapping.Name)
 
 	// Wait for overlapping annotation cleared
 	By("Waiting for the second deployment to clear overlapping annotation")
@@ -1277,7 +1280,6 @@ func testOverlappingDeployment(f *framework.Framework) {
 	d = newDeployment(deploymentName, replicas, podLabels, nginxImageName, nginxImage, extensions.RollingUpdateDeploymentStrategyType, nil)
 	deployLater, err := c.Extensions().Deployments(ns).Create(d)
 	Expect(err).NotTo(HaveOccurred(), "Failed creating the third deployment")
-	defer stopDeployment(c, f.Client, ns, deployLater.Name)
 
 	// Wait for it to be updated to revision 1
 	err = framework.WaitForDeploymentRevisionAndImage(c, ns, deployLater.Name, "1", nginxImage)

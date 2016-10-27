@@ -18,6 +18,7 @@ package unversioned
 
 import (
 	api "k8s.io/kubernetes/pkg/api"
+	restclient "k8s.io/kubernetes/pkg/client/restclient"
 	watch "k8s.io/kubernetes/pkg/watch"
 )
 
@@ -42,20 +43,20 @@ type ComponentStatusInterface interface {
 
 // componentStatuses implements ComponentStatusInterface
 type componentStatuses struct {
-	client *CoreClient
+	client restclient.Interface
 }
 
 // newComponentStatuses returns a ComponentStatuses
 func newComponentStatuses(c *CoreClient) *componentStatuses {
 	return &componentStatuses{
-		client: c,
+		client: c.RESTClient(),
 	}
 }
 
 // Create takes the representation of a componentStatus and creates it.  Returns the server's representation of the componentStatus, and an error, if there is any.
 func (c *componentStatuses) Create(componentStatus *api.ComponentStatus) (result *api.ComponentStatus, err error) {
 	result = &api.ComponentStatus{}
-	err = c.client.GetRESTClient().Post().
+	err = c.client.Post().
 		Resource("componentstatuses").
 		Body(componentStatus).
 		Do().
@@ -66,7 +67,7 @@ func (c *componentStatuses) Create(componentStatus *api.ComponentStatus) (result
 // Update takes the representation of a componentStatus and updates it. Returns the server's representation of the componentStatus, and an error, if there is any.
 func (c *componentStatuses) Update(componentStatus *api.ComponentStatus) (result *api.ComponentStatus, err error) {
 	result = &api.ComponentStatus{}
-	err = c.client.GetRESTClient().Put().
+	err = c.client.Put().
 		Resource("componentstatuses").
 		Name(componentStatus.Name).
 		Body(componentStatus).
@@ -77,7 +78,7 @@ func (c *componentStatuses) Update(componentStatus *api.ComponentStatus) (result
 
 // Delete takes name of the componentStatus and deletes it. Returns an error if one occurs.
 func (c *componentStatuses) Delete(name string, options *api.DeleteOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Resource("componentstatuses").
 		Name(name).
 		Body(options).
@@ -87,7 +88,7 @@ func (c *componentStatuses) Delete(name string, options *api.DeleteOptions) erro
 
 // DeleteCollection deletes a collection of objects.
 func (c *componentStatuses) DeleteCollection(options *api.DeleteOptions, listOptions api.ListOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Resource("componentstatuses").
 		VersionedParams(&listOptions, api.ParameterCodec).
 		Body(options).
@@ -98,7 +99,7 @@ func (c *componentStatuses) DeleteCollection(options *api.DeleteOptions, listOpt
 // Get takes name of the componentStatus, and returns the corresponding componentStatus object, and an error if there is any.
 func (c *componentStatuses) Get(name string) (result *api.ComponentStatus, err error) {
 	result = &api.ComponentStatus{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Resource("componentstatuses").
 		Name(name).
 		Do().
@@ -109,7 +110,7 @@ func (c *componentStatuses) Get(name string) (result *api.ComponentStatus, err e
 // List takes label and field selectors, and returns the list of ComponentStatuses that match those selectors.
 func (c *componentStatuses) List(opts api.ListOptions) (result *api.ComponentStatusList, err error) {
 	result = &api.ComponentStatusList{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Resource("componentstatuses").
 		VersionedParams(&opts, api.ParameterCodec).
 		Do().
@@ -119,7 +120,7 @@ func (c *componentStatuses) List(opts api.ListOptions) (result *api.ComponentSta
 
 // Watch returns a watch.Interface that watches the requested componentStatuses.
 func (c *componentStatuses) Watch(opts api.ListOptions) (watch.Interface, error) {
-	return c.client.GetRESTClient().Get().
+	return c.client.Get().
 		Prefix("watch").
 		Resource("componentstatuses").
 		VersionedParams(&opts, api.ParameterCodec).
@@ -129,7 +130,7 @@ func (c *componentStatuses) Watch(opts api.ListOptions) (watch.Interface, error)
 // Patch applies the patch and returns the patched componentStatus.
 func (c *componentStatuses) Patch(name string, pt api.PatchType, data []byte, subresources ...string) (result *api.ComponentStatus, err error) {
 	result = &api.ComponentStatus{}
-	err = c.client.GetRESTClient().Patch(pt).
+	err = c.client.Patch(pt).
 		Resource("componentstatuses").
 		SubResource(subresources...).
 		Name(name).

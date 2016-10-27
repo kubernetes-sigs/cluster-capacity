@@ -18,9 +18,12 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"sort"
+	"strings"
 	"testing"
 	"time"
 
+	"cloud.google.com/go/internal/pretty"
 	"cloud.google.com/go/internal/testutil"
 	"golang.org/x/net/context"
 	"google.golang.org/api/googleapi"
@@ -73,22 +76,9 @@ func TestIntegration(t *testing.T) {
 		t.Errorf("metadata.Type: got %v, want %v", got, want)
 	}
 
-	// List tables in the dataset.
-	tables, err := ds.ListTables(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got, want := len(tables), 1; got != want {
-		t.Fatalf("ListTables: got %d, want %d", got, want)
-	}
-	want := *table
-	if got := tables[0]; !reflect.DeepEqual(got, &want) {
-		t.Errorf("ListTables: got %v, want %v", got, &want)
-	}
-
 	// Iterate over tables in the dataset.
 	it := ds.Tables(ctx)
-	tables = nil
+	var tables []*Table
 	for {
 		tbl, err := it.Next()
 		if err == iterator.Done {
@@ -100,11 +90,11 @@ func TestIntegration(t *testing.T) {
 		tables = append(tables, tbl)
 	}
 	if got, want := tables, []*Table{table}; !reflect.DeepEqual(got, want) {
-		t.Errorf("Tables: got %v, want %v", got, want)
+		t.Errorf("Tables: got %v, want %v", pretty.Value(got), pretty.Value(want))
 	}
 
 	// Populate the table.
-	upl := table.NewUploader()
+	upl := table.Uploader()
 	var rows []*ValuesSaver
 	for i, name := range []string{"a", "b", "c"} {
 		rows = append(rows, &ValuesSaver{
@@ -117,35 +107,55 @@ func TestIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	checkRead := func(src ReadSource) {
-		it, err := c.Read(ctx, src)
+	checkRead := func(msg string, it *RowIterator) {
+		gotRows, err := readAll(it)
 		if err != nil {
 			t.Fatal(err)
 		}
-		for i := 0; it.Next(ctx); i++ {
-			var vals ValueList
-			if err := it.Get(&vals); err != nil {
-				t.Fatal(err)
-			}
-			if got, want := vals, rows[i].Row; !reflect.DeepEqual([]Value(got), want) {
-				t.Errorf("got %v, want %v", got, want)
+		if len(gotRows) != len(rows) {
+			t.Errorf("%s: got %d rows, want %d", msg, len(gotRows), len(rows))
+		}
+		sort.Sort(byCol0(gotRows))
+		for i, got := range gotRows {
+			got := []Value(got)
+			want := rows[i].Row
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("%s #%d: got %v, want %v", msg, i, got, want)
 			}
 		}
 	}
+
+	// Wait until the data has been uploaded. This can take a few seconds, according
+	// to https://cloud.google.com/bigquery/streaming-data-into-bigquery.
+	for {
+		it := table.Read(ctx)
+		var v ValueList
+		err := it.Next(&v)
+		if err == nil {
+			break
+		}
+		if err != iterator.Done {
+			t.Fatal(err)
+		}
+		time.Sleep(1 * time.Second)
+	}
+
 	// Read the table.
-	checkRead(table)
+	checkRead("upload", table.Read(ctx))
 
 	// Query the table.
-	q := &Query{
-		Q:                "select name, num from t1",
-		DefaultProjectID: projID,
-		DefaultDatasetID: ds.id,
+	q := c.Query("select name, num from t1")
+	q.DefaultProjectID = projID
+	q.DefaultDatasetID = ds.id
+
+	rit, err := q.Read(ctx)
+	if err != nil {
+		t.Fatal(err)
 	}
-	checkRead(q)
+	checkRead("query", rit)
 
 	// Query the long way.
-	dest := &Table{}
-	job1, err := c.Copy(ctx, dest, q, WriteTruncate)
+	job1, err := q.Run(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,9 +169,66 @@ func TestIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	checkRead(job2)
+	rit, err = job2.Read(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkRead("job.Read", rit)
 
-	// TODO(jba): patch the table
+	// Test Update.
+	tm, err := table.Metadata(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantDescription := tm.Description + "more"
+	wantName := tm.Name + "more"
+	got, err := table.Update(ctx, TableMetadataToUpdate{
+		Description: wantDescription,
+		Name:        wantName,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Description != wantDescription {
+		t.Errorf("Description: got %q, want %q", got.Description, wantDescription)
+	}
+	if got.Name != wantName {
+		t.Errorf("Name: got %q, want %q", got.Name, wantName)
+	}
+
+	// Load the table from a reader.
+	r := strings.NewReader("a,0\nb,1\nc,2\n")
+	rs := NewReaderSource(r)
+	loader := table.LoaderFrom(rs)
+	loader.WriteDisposition = WriteTruncate
+	job, err := loader.Run(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := wait(ctx, job); err != nil {
+		t.Fatal(err)
+	}
+	checkRead("reader load", table.Read(ctx))
+
+	// Use DML to insert.
+	// We can't use WriteDisposition to truncate, and CreateIfNeeded doesn't work.
+	// So delete and re-create the table.
+	if err := table.Delete(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := table.Create(ctx, schema, TableExpiration(time.Now().Add(5*time.Minute))); err != nil {
+		t.Fatal(err)
+	}
+	q = c.Query("INSERT bigquery_integration_test.t1 (name, num) VALUES ('a', 0), ('b', 1), ('c', 2)")
+	q.UseStandardSQL = true // necessary for DML
+	job, err = q.Run(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := wait(ctx, job); err != nil {
+		t.Fatal(err)
+	}
+	checkRead("INSERT", table.Read(ctx))
 }
 
 func hasStatusCode(err error, code int) bool {
@@ -170,3 +237,41 @@ func hasStatusCode(err error, code int) bool {
 	}
 	return false
 }
+
+// wait polls the job until it is complete or an error is returned.
+func wait(ctx context.Context, job *Job) error {
+	for {
+		status, err := job.Status(ctx)
+		if err != nil {
+			return fmt.Errorf("getting job status: %v", err)
+		}
+		if status.Done() {
+			if status.Err() != nil {
+				return fmt.Errorf("job status: %#v", status.Err())
+			}
+			return nil
+		}
+		time.Sleep(1 * time.Second)
+	}
+}
+
+func readAll(it *RowIterator) ([]ValueList, error) {
+	var rows []ValueList
+	for {
+		var vals ValueList
+		err := it.Next(&vals)
+		if err == iterator.Done {
+			return rows, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		rows = append(rows, vals)
+	}
+}
+
+type byCol0 []ValueList
+
+func (b byCol0) Len() int           { return len(b) }
+func (b byCol0) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
+func (b byCol0) Less(i, j int) bool { return b[i][0].(string) < b[j][0].(string) }

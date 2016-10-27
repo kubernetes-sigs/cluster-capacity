@@ -1,37 +1,3 @@
-<!-- BEGIN MUNGE: UNVERSIONED_WARNING -->
-
-<!-- BEGIN STRIP_FOR_RELEASE -->
-
-<img src="http://kubernetes.io/kubernetes/img/warning.png" alt="WARNING"
-     width="25" height="25">
-<img src="http://kubernetes.io/kubernetes/img/warning.png" alt="WARNING"
-     width="25" height="25">
-<img src="http://kubernetes.io/kubernetes/img/warning.png" alt="WARNING"
-     width="25" height="25">
-<img src="http://kubernetes.io/kubernetes/img/warning.png" alt="WARNING"
-     width="25" height="25">
-<img src="http://kubernetes.io/kubernetes/img/warning.png" alt="WARNING"
-     width="25" height="25">
-
-<h2>PLEASE NOTE: This document applies to the HEAD of the source tree</h2>
-
-If you are using a released version of Kubernetes, you should
-refer to the docs that go with that version.
-
-<!-- TAG RELEASE_LINK, added by the munger automatically -->
-<strong>
-The latest release of this document can be found
-[here](http://releases.k8s.io/release-1.4/docs/proposals/image-provenance.md).
-
-Documentation for other releases can be found at
-[releases.k8s.io](http://releases.k8s.io).
-</strong>
---
-
-<!-- END STRIP_FOR_RELEASE -->
-
-<!-- END MUNGE: UNVERSIONED_WARNING -->
-
 
 # Overview
 
@@ -61,7 +27,7 @@ Non-goals include:
   * A third-party implementation of an image policy checker could optionally use ThirdPartyResource to store its policy.
 * Kubernetes core code dealing with concepts of image layers, build processes, source repositories, etc.
   * We expect there will be multiple PaaSes and/or de-facto programming environments, each with different takes on
-    these concepts.  At any rate, Kuberenetes is not ready to be opinionated on these concepts.
+    these concepts.  At any rate, Kubernetes is not ready to be opinionated on these concepts.
 * Sending more information than strictly needed to a third-party service.
   * Information sent by Kubernetes to a third-party service constitutes an API of Kubernetes, and we want to
     avoid making these broader than necessary, as it restricts future evolution of Kubernetes, and makes

@@ -30,6 +30,8 @@ import (
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/testapi"
 	"k8s.io/kubernetes/pkg/api/unversioned"
+	"k8s.io/kubernetes/pkg/api/v1"
+	"k8s.io/kubernetes/pkg/apimachinery/registered"
 	"k8s.io/kubernetes/pkg/apis/apps"
 	"k8s.io/kubernetes/pkg/apis/autoscaling"
 	"k8s.io/kubernetes/pkg/apis/batch"
@@ -44,9 +46,9 @@ import (
 	authorizerunion "k8s.io/kubernetes/pkg/auth/authorizer/union"
 	"k8s.io/kubernetes/pkg/auth/user"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
+	coreclient "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5/typed/core/v1"
 	"k8s.io/kubernetes/pkg/client/record"
 	"k8s.io/kubernetes/pkg/client/restclient"
-	client "k8s.io/kubernetes/pkg/client/unversioned"
 	"k8s.io/kubernetes/pkg/controller"
 	replicationcontroller "k8s.io/kubernetes/pkg/controller/replication"
 	"k8s.io/kubernetes/pkg/generated/openapi"
@@ -57,8 +59,9 @@ import (
 	"k8s.io/kubernetes/pkg/master"
 	"k8s.io/kubernetes/pkg/runtime"
 	"k8s.io/kubernetes/pkg/storage/storagebackend"
-	utilnet "k8s.io/kubernetes/pkg/util/net"
 	"k8s.io/kubernetes/pkg/util/wait"
+	"k8s.io/kubernetes/pkg/version"
+	"k8s.io/kubernetes/pkg/watch"
 	"k8s.io/kubernetes/plugin/pkg/admission/admit"
 	authenticatorunion "k8s.io/kubernetes/plugin/pkg/auth/authenticator/request/union"
 
@@ -86,7 +89,7 @@ type MasterComponents struct {
 	// Kubernetes master, contains an embedded etcd storage
 	KubeMaster *master.Master
 	// Restclient used to talk to the kubernetes master
-	RestClient *client.Client
+	ClientSet clientset.Interface
 	// Replication controller manager
 	ControllerManager *replicationcontroller.ReplicationManager
 	// Channel for stop signals to rc manager
@@ -113,8 +116,7 @@ func NewMasterComponents(c *Config) *MasterComponents {
 	// TODO: Allow callers to pipe through a different master url and create a client/start components using it.
 	glog.Infof("Master %+v", s.URL)
 	// TODO: caesarxuchao: remove this client when the refactoring of client libraray is done.
-	restClient := client.NewOrDie(&restclient.Config{Host: s.URL, ContentConfig: restclient.ContentConfig{GroupVersion: testapi.Default.GroupVersion()}, QPS: c.QPS, Burst: c.Burst})
-	clientset := clientset.NewForConfigOrDie(&restclient.Config{Host: s.URL, ContentConfig: restclient.ContentConfig{GroupVersion: testapi.Default.GroupVersion()}, QPS: c.QPS, Burst: c.Burst})
+	clientset := clientset.NewForConfigOrDie(&restclient.Config{Host: s.URL, ContentConfig: restclient.ContentConfig{GroupVersion: &registered.GroupOrDie(api.GroupName).GroupVersion}, QPS: c.QPS, Burst: c.Burst})
 	rcStopCh := make(chan struct{})
 	controllerManager := replicationcontroller.NewReplicationManagerFromClient(clientset, controller.NoResyncPeriodFunc, c.Burst, 4096)
 
@@ -126,7 +128,7 @@ func NewMasterComponents(c *Config) *MasterComponents {
 	return &MasterComponents{
 		ApiServer:         s,
 		KubeMaster:        m,
-		RestClient:        restClient,
+		ClientSet:         clientset,
 		ControllerManager: controllerManager,
 		rcStopCh:          rcStopCh,
 	}
@@ -171,7 +173,7 @@ func startMasterOrDie(masterConfig *master.Config, incomingServer *httptest.Serv
 		s = incomingServer
 	} else {
 		s = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			m.Handler.ServeHTTP(w, req)
+			m.GenericAPIServer.Handler.ServeHTTP(w, req)
 		}))
 	}
 
@@ -180,17 +182,18 @@ func startMasterOrDie(masterConfig *master.Config, incomingServer *httptest.Serv
 		masterConfig.GenericConfig.EnableProfiling = true
 		masterConfig.GenericConfig.EnableSwaggerSupport = true
 		masterConfig.GenericConfig.EnableOpenAPISupport = true
-		masterConfig.GenericConfig.OpenAPIInfo = spec.Info{
+		masterConfig.GenericConfig.OpenAPIConfig.Info = &spec.Info{
 			InfoProps: spec.InfoProps{
 				Title:   "Kubernetes",
 				Version: "unversioned",
 			},
 		}
-		masterConfig.GenericConfig.OpenAPIDefaultResponse = spec.Response{
+		masterConfig.GenericConfig.OpenAPIConfig.DefaultResponse = &spec.Response{
 			ResponseProps: spec.ResponseProps{
 				Description: "Default Response.",
 			},
 		}
+		masterConfig.GenericConfig.OpenAPIConfig.Definitions = openapi.OpenAPIDefinitions
 	}
 
 	// set the loopback client config
@@ -254,7 +257,30 @@ func startMasterOrDie(masterConfig *master.Config, incomingServer *httptest.Serv
 	// TODO have this start method actually use the normal start sequence for the API server
 	// this method never actually calls the `Run` method for the API server
 	// fire the post hooks ourselves
+	m.GenericAPIServer.PrepareRun()
 	m.GenericAPIServer.RunPostStartHooks()
+
+	// wait for services to be ready
+	if masterConfig.EnableCoreControllers {
+		// TODO Once /healthz is updated for posthooks, we'll wait for good health
+		coreClient := coreclient.NewForConfigOrDie(&cfg)
+		svcWatch, err := coreClient.Services(api.NamespaceDefault).Watch(v1.ListOptions{})
+		if err != nil {
+			glog.Fatal(err)
+		}
+		_, err = watch.Until(30*time.Second, svcWatch, func(event watch.Event) (bool, error) {
+			if event.Type != watch.Added {
+				return false, nil
+			}
+			if event.Object.(*v1.Service).Name == "kubernetes" {
+				return true, nil
+			}
+			return false, nil
+		})
+		if err != nil {
+			glog.Fatal(err)
+		}
+	}
 
 	return m, s
 }
@@ -317,24 +343,19 @@ func NewMasterConfig() *master.Config {
 		"",
 		NewSingleContentTypeSerializer(api.Scheme, testapi.Storage.Codec(), runtime.ContentTypeJSON))
 
+	genericConfig := genericapiserver.NewConfig()
+	kubeVersion := version.Get()
+	genericConfig.Version = &kubeVersion
+	genericConfig.APIResourceConfigSource = master.DefaultAPIResourceConfigSource()
+	genericConfig.Authorizer = authorizer.NewAlwaysAllowAuthorizer()
+	genericConfig.AdmissionControl = admit.NewAlwaysAdmit()
+
 	return &master.Config{
-		GenericConfig: &genericapiserver.Config{
-			APIResourceConfigSource: master.DefaultAPIResourceConfigSource(),
-			APIPrefix:               "/api",
-			APIGroupPrefix:          "/apis",
-			Authorizer:              authorizer.NewAlwaysAllowAuthorizer(),
-			AdmissionControl:        admit.NewAlwaysAdmit(),
-			Serializer:              api.Codecs,
-			// Set those values to avoid annoying warnings in logs.
-			ServiceClusterIPRange: parseCIDROrDie("10.0.0.0/24"),
-			ServiceNodePortRange:  utilnet.PortRange{Base: 30000, Size: 2768},
-			EnableVersion:         true,
-			OpenAPIDefinitions:    openapi.OpenAPIDefinitions,
-			EnableOpenAPISupport:  true,
-		},
-		StorageFactory:   storageFactory,
-		EnableWatchCache: true,
-		KubeletClient:    kubeletclient.FakeKubeletClient{},
+		GenericConfig:         genericConfig,
+		StorageFactory:        storageFactory,
+		EnableCoreControllers: true,
+		EnableWatchCache:      true,
+		KubeletClientConfig:   kubeletclient.KubeletClientConfig{Port: 10250},
 	}
 }
 
@@ -342,8 +363,6 @@ func NewMasterConfig() *master.Config {
 func NewIntegrationTestMasterConfig() *master.Config {
 	masterConfig := NewMasterConfig()
 	masterConfig.EnableCoreControllers = true
-	masterConfig.GenericConfig.EnableIndex = true
-	masterConfig.GenericConfig.EnableVersion = true
 	masterConfig.GenericConfig.PublicAddress = net.ParseIP("192.168.10.4")
 	masterConfig.GenericConfig.APIResourceConfigSource = master.DefaultAPIResourceConfigSource()
 	return masterConfig

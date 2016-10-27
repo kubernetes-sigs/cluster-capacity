@@ -20,6 +20,7 @@ import (
 	api "k8s.io/kubernetes/pkg/api"
 	v1 "k8s.io/kubernetes/pkg/api/v1"
 	v1beta1 "k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
+	restclient "k8s.io/kubernetes/pkg/client/restclient"
 	watch "k8s.io/kubernetes/pkg/watch"
 )
 
@@ -45,14 +46,14 @@ type DeploymentInterface interface {
 
 // deployments implements DeploymentInterface
 type deployments struct {
-	client *ExtensionsClient
+	client restclient.Interface
 	ns     string
 }
 
 // newDeployments returns a Deployments
 func newDeployments(c *ExtensionsClient, namespace string) *deployments {
 	return &deployments{
-		client: c,
+		client: c.RESTClient(),
 		ns:     namespace,
 	}
 }
@@ -60,7 +61,7 @@ func newDeployments(c *ExtensionsClient, namespace string) *deployments {
 // Create takes the representation of a deployment and creates it.  Returns the server's representation of the deployment, and an error, if there is any.
 func (c *deployments) Create(deployment *v1beta1.Deployment) (result *v1beta1.Deployment, err error) {
 	result = &v1beta1.Deployment{}
-	err = c.client.GetRESTClient().Post().
+	err = c.client.Post().
 		Namespace(c.ns).
 		Resource("deployments").
 		Body(deployment).
@@ -72,7 +73,7 @@ func (c *deployments) Create(deployment *v1beta1.Deployment) (result *v1beta1.De
 // Update takes the representation of a deployment and updates it. Returns the server's representation of the deployment, and an error, if there is any.
 func (c *deployments) Update(deployment *v1beta1.Deployment) (result *v1beta1.Deployment, err error) {
 	result = &v1beta1.Deployment{}
-	err = c.client.GetRESTClient().Put().
+	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("deployments").
 		Name(deployment.Name).
@@ -84,7 +85,7 @@ func (c *deployments) Update(deployment *v1beta1.Deployment) (result *v1beta1.De
 
 func (c *deployments) UpdateStatus(deployment *v1beta1.Deployment) (result *v1beta1.Deployment, err error) {
 	result = &v1beta1.Deployment{}
-	err = c.client.GetRESTClient().Put().
+	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("deployments").
 		Name(deployment.Name).
@@ -97,7 +98,7 @@ func (c *deployments) UpdateStatus(deployment *v1beta1.Deployment) (result *v1be
 
 // Delete takes name of the deployment and deletes it. Returns an error if one occurs.
 func (c *deployments) Delete(name string, options *v1.DeleteOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("deployments").
 		Name(name).
@@ -108,7 +109,7 @@ func (c *deployments) Delete(name string, options *v1.DeleteOptions) error {
 
 // DeleteCollection deletes a collection of objects.
 func (c *deployments) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("deployments").
 		VersionedParams(&listOptions, api.ParameterCodec).
@@ -120,7 +121,7 @@ func (c *deployments) DeleteCollection(options *v1.DeleteOptions, listOptions v1
 // Get takes name of the deployment, and returns the corresponding deployment object, and an error if there is any.
 func (c *deployments) Get(name string) (result *v1beta1.Deployment, err error) {
 	result = &v1beta1.Deployment{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("deployments").
 		Name(name).
@@ -132,7 +133,7 @@ func (c *deployments) Get(name string) (result *v1beta1.Deployment, err error) {
 // List takes label and field selectors, and returns the list of Deployments that match those selectors.
 func (c *deployments) List(opts v1.ListOptions) (result *v1beta1.DeploymentList, err error) {
 	result = &v1beta1.DeploymentList{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("deployments").
 		VersionedParams(&opts, api.ParameterCodec).
@@ -143,7 +144,7 @@ func (c *deployments) List(opts v1.ListOptions) (result *v1beta1.DeploymentList,
 
 // Watch returns a watch.Interface that watches the requested deployments.
 func (c *deployments) Watch(opts v1.ListOptions) (watch.Interface, error) {
-	return c.client.GetRESTClient().Get().
+	return c.client.Get().
 		Prefix("watch").
 		Namespace(c.ns).
 		Resource("deployments").
@@ -154,7 +155,7 @@ func (c *deployments) Watch(opts v1.ListOptions) (watch.Interface, error) {
 // Patch applies the patch and returns the patched deployment.
 func (c *deployments) Patch(name string, pt api.PatchType, data []byte, subresources ...string) (result *v1beta1.Deployment, err error) {
 	result = &v1beta1.Deployment{}
-	err = c.client.GetRESTClient().Patch(pt).
+	err = c.client.Patch(pt).
 		Namespace(c.ns).
 		Resource("deployments").
 		SubResource(subresources...).

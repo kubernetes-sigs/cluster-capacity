@@ -20,9 +20,9 @@ import (
 	"github.com/emicklei/go-restful/swagger"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/api/v1"
+	"k8s.io/kubernetes/pkg/client/restclient"
 	"k8s.io/kubernetes/pkg/client/testing/core"
 	"k8s.io/kubernetes/pkg/version"
-	"k8s.io/kubernetes/pkg/client/restclient"
 )
 
 type FakeDiscovery struct {
@@ -82,6 +82,6 @@ func (c *FakeDiscovery) SwaggerSchema(version unversioned.GroupVersion) (*swagge
 	return &swagger.ApiDeclaration{}, nil
 }
 
-func (c *FakeDiscovery) GetRESTClient() restclient.RESTClientInterface {
+func (c *FakeDiscovery) RESTClient() restclient.Interface {
 	return nil
 }

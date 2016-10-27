@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"strings"
 
+	"cloud.google.com/go/iam"
 	"golang.org/x/net/context"
 )
 
@@ -54,25 +55,20 @@ func (c *Client) Topic(id string) *Topic {
 // Topics returns an iterator which returns all of the topics for the client's project.
 func (c *Client) Topics(ctx context.Context) *TopicIterator {
 	return &TopicIterator{
-		s: c.s,
-		stringsIterator: stringsIterator{
-			ctx: ctx,
-			fetch: func(ctx context.Context, tok string) (*stringsPage, error) {
-				return c.s.listProjectTopics(ctx, c.fullyQualifiedProjectName(), tok)
-			},
-		},
+		s:    c.s,
+		next: c.s.listProjectTopics(ctx, c.fullyQualifiedProjectName()),
 	}
 }
 
 // TopicIterator is an iterator that returns a series of topics.
 type TopicIterator struct {
-	s service
-	stringsIterator
+	s    service
+	next nextStringFunc
 }
 
-// Next returns the next topic. If there are no more topics, Done will be returned.
+// Next returns the next topic. If there are no more topics, iterator.Done will be returned.
 func (tps *TopicIterator) Next() (*Topic, error) {
-	topicName, err := tps.stringsIterator.Next()
+	topicName, err := tps.next()
 	if err != nil {
 		return nil, err
 	}
@@ -113,13 +109,8 @@ func (t *Topic) Subscriptions(ctx context.Context) *SubscriptionIterator {
 	// NOTE: zero or more Subscriptions that are ultimately returned by this
 	// Subscriptions iterator may belong to a different project to t.
 	return &SubscriptionIterator{
-		s: t.s,
-		stringsIterator: stringsIterator{
-			ctx: ctx,
-			fetch: func(ctx context.Context, tok string) (*stringsPage, error) {
-				return t.s.listTopicSubscriptions(ctx, t.name, tok)
-			},
-		},
+		s:    t.s,
+		next: t.s.listTopicSubscriptions(ctx, t.name),
 	}
 }
 
@@ -134,4 +125,8 @@ func (t *Topic) Publish(ctx context.Context, msgs ...*Message) ([]string, error)
 		return nil, fmt.Errorf("pubsub: got %d messages, but maximum batch size is %d", len(msgs), MaxPublishBatchSize)
 	}
 	return t.s.publishMessages(ctx, t.name, msgs)
+}
+
+func (t *Topic) IAM() *iam.Handle {
+	return t.s.iamHandle(t.name)
 }

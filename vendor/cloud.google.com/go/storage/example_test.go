@@ -16,8 +16,10 @@ package storage_test
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
+	"os"
 	"time"
 
 	"cloud.google.com/go/storage"
@@ -195,7 +197,7 @@ func ExampleObjectHandle_Attrs_withConditions() {
 	// Do something else for a while.
 	time.Sleep(5 * time.Minute)
 	// Now read the same contents, even if the object has been written since the last read.
-	objAttrs2, err := obj.WithConditions(storage.Generation(objAttrs1.Generation)).Attrs(ctx)
+	objAttrs2, err := obj.Generation(objAttrs1.Generation).Attrs(ctx)
 	if err != nil {
 		// TODO: handle error.
 	}
@@ -209,39 +211,14 @@ func ExampleObjectHandle_Update() {
 		// TODO: handle error.
 	}
 	// Change only the content type of the object.
-	objAttrs, err := client.Bucket("my-bucket").Object("my-object").Update(ctx, storage.ObjectAttrs{
-		ContentType: "text/html",
+	objAttrs, err := client.Bucket("my-bucket").Object("my-object").Update(ctx, storage.ObjectAttrsToUpdate{
+		ContentType:        "text/html",
+		ContentDisposition: "", // delete ContentDisposition
 	})
 	if err != nil {
 		// TODO: handle error.
 	}
 	fmt.Println(objAttrs)
-}
-
-func ExampleBucketHandle_List() {
-	ctx := context.Background()
-	var client *storage.Client // See Example (Auth)
-
-	var query *storage.Query
-	for {
-		// If you are using this package on the App Engine Flex runtime,
-		// you can init a bucket client with your app's default bucket name.
-		// See http://godoc.org/google.golang.org/appengine/file#DefaultBucketName.
-		objects, err := client.Bucket("bucketname").List(ctx, query)
-		if err != nil {
-			log.Fatal(err)
-		}
-		for _, obj := range objects.Results {
-			log.Printf("object name: %s, size: %v", obj.Name, obj.Size)
-		}
-		// If there are more results, objects.Next will be non-nil.
-		if objects.Next == nil {
-			break
-		}
-		query = objects.Next
-	}
-
-	log.Println("paginated through all object items in the bucket you specified.")
 }
 
 func ExampleObjectHandle_NewReader() {
@@ -309,22 +286,6 @@ func ExampleWriter_Write() {
 	fmt.Println("updated object:", wc.Attrs())
 }
 
-func ExampleObjectHandle_CopyTo() {
-	ctx := context.Background()
-	client, err := storage.NewClient(ctx)
-	if err != nil {
-		// TODO: handle error.
-	}
-	src := client.Bucket("bucketname").Object("file1")
-	dst := client.Bucket("another-bucketname").Object("file2")
-
-	o, err := src.CopyTo(ctx, dst, nil)
-	if err != nil {
-		// TODO: handle error.
-	}
-	fmt.Println("copied file:", o)
-}
-
 func ExampleObjectHandle_Delete() {
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx)
@@ -341,10 +302,10 @@ func ExampleObjectHandle_Delete() {
 	it := bucket.Objects(ctx, nil)
 	for {
 		objAttrs, err := it.Next()
-		if err != nil && err != storage.Done {
+		if err != nil && err != iterator.Done {
 			// TODO: Handle error.
 		}
-		if err == storage.Done {
+		if err == iterator.Done {
 			break
 		}
 		if err := bucket.Object(objAttrs.Name).Delete(ctx); err != nil {
@@ -463,4 +424,43 @@ func ExampleComposer_Run() {
 		// TODO: Handle error.
 	}
 	fmt.Println(attrs)
+}
+
+var gen int64
+
+func ExampleObjectHandle_Generation() {
+	// Read an object's contents from generation gen, regardless of the
+	// current generation of the object.
+	ctx := context.Background()
+	client, err := storage.NewClient(ctx)
+	if err != nil {
+		// TODO: handle error.
+	}
+	obj := client.Bucket("my-bucket").Object("my-object")
+	rc, err := obj.Generation(gen).NewReader(ctx)
+	if err != nil {
+		// TODO: handle error.
+	}
+	defer rc.Close()
+	if _, err := io.Copy(os.Stdout, rc); err != nil {
+		// TODO: handle error.
+	}
+}
+
+func ExampleObjectHandle_If() {
+	// Read from an object only if the current generation is gen.
+	ctx := context.Background()
+	client, err := storage.NewClient(ctx)
+	if err != nil {
+		// TODO: handle error.
+	}
+	obj := client.Bucket("my-bucket").Object("my-object")
+	rc, err := obj.If(storage.Conditions{GenerationMatch: gen}).NewReader(ctx)
+	if err != nil {
+		// TODO: handle error.
+	}
+	defer rc.Close()
+	if _, err := io.Copy(os.Stdout, rc); err != nil {
+		// TODO: handle error.
+	}
 }

@@ -20,6 +20,7 @@ import (
 	api "k8s.io/kubernetes/pkg/api"
 	v1 "k8s.io/kubernetes/pkg/api/v1"
 	v1beta1 "k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
+	restclient "k8s.io/kubernetes/pkg/client/restclient"
 	watch "k8s.io/kubernetes/pkg/watch"
 )
 
@@ -44,20 +45,20 @@ type PodSecurityPolicyInterface interface {
 
 // podSecurityPolicies implements PodSecurityPolicyInterface
 type podSecurityPolicies struct {
-	client *ExtensionsClient
+	client restclient.Interface
 }
 
 // newPodSecurityPolicies returns a PodSecurityPolicies
 func newPodSecurityPolicies(c *ExtensionsClient) *podSecurityPolicies {
 	return &podSecurityPolicies{
-		client: c,
+		client: c.RESTClient(),
 	}
 }
 
 // Create takes the representation of a podSecurityPolicy and creates it.  Returns the server's representation of the podSecurityPolicy, and an error, if there is any.
 func (c *podSecurityPolicies) Create(podSecurityPolicy *v1beta1.PodSecurityPolicy) (result *v1beta1.PodSecurityPolicy, err error) {
 	result = &v1beta1.PodSecurityPolicy{}
-	err = c.client.GetRESTClient().Post().
+	err = c.client.Post().
 		Resource("podsecuritypolicies").
 		Body(podSecurityPolicy).
 		Do().
@@ -68,7 +69,7 @@ func (c *podSecurityPolicies) Create(podSecurityPolicy *v1beta1.PodSecurityPolic
 // Update takes the representation of a podSecurityPolicy and updates it. Returns the server's representation of the podSecurityPolicy, and an error, if there is any.
 func (c *podSecurityPolicies) Update(podSecurityPolicy *v1beta1.PodSecurityPolicy) (result *v1beta1.PodSecurityPolicy, err error) {
 	result = &v1beta1.PodSecurityPolicy{}
-	err = c.client.GetRESTClient().Put().
+	err = c.client.Put().
 		Resource("podsecuritypolicies").
 		Name(podSecurityPolicy.Name).
 		Body(podSecurityPolicy).
@@ -79,7 +80,7 @@ func (c *podSecurityPolicies) Update(podSecurityPolicy *v1beta1.PodSecurityPolic
 
 // Delete takes name of the podSecurityPolicy and deletes it. Returns an error if one occurs.
 func (c *podSecurityPolicies) Delete(name string, options *v1.DeleteOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Resource("podsecuritypolicies").
 		Name(name).
 		Body(options).
@@ -89,7 +90,7 @@ func (c *podSecurityPolicies) Delete(name string, options *v1.DeleteOptions) err
 
 // DeleteCollection deletes a collection of objects.
 func (c *podSecurityPolicies) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Resource("podsecuritypolicies").
 		VersionedParams(&listOptions, api.ParameterCodec).
 		Body(options).
@@ -100,7 +101,7 @@ func (c *podSecurityPolicies) DeleteCollection(options *v1.DeleteOptions, listOp
 // Get takes name of the podSecurityPolicy, and returns the corresponding podSecurityPolicy object, and an error if there is any.
 func (c *podSecurityPolicies) Get(name string) (result *v1beta1.PodSecurityPolicy, err error) {
 	result = &v1beta1.PodSecurityPolicy{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Resource("podsecuritypolicies").
 		Name(name).
 		Do().
@@ -111,7 +112,7 @@ func (c *podSecurityPolicies) Get(name string) (result *v1beta1.PodSecurityPolic
 // List takes label and field selectors, and returns the list of PodSecurityPolicies that match those selectors.
 func (c *podSecurityPolicies) List(opts v1.ListOptions) (result *v1beta1.PodSecurityPolicyList, err error) {
 	result = &v1beta1.PodSecurityPolicyList{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Resource("podsecuritypolicies").
 		VersionedParams(&opts, api.ParameterCodec).
 		Do().
@@ -121,7 +122,7 @@ func (c *podSecurityPolicies) List(opts v1.ListOptions) (result *v1beta1.PodSecu
 
 // Watch returns a watch.Interface that watches the requested podSecurityPolicies.
 func (c *podSecurityPolicies) Watch(opts v1.ListOptions) (watch.Interface, error) {
-	return c.client.GetRESTClient().Get().
+	return c.client.Get().
 		Prefix("watch").
 		Resource("podsecuritypolicies").
 		VersionedParams(&opts, api.ParameterCodec).
@@ -131,7 +132,7 @@ func (c *podSecurityPolicies) Watch(opts v1.ListOptions) (watch.Interface, error
 // Patch applies the patch and returns the patched podSecurityPolicy.
 func (c *podSecurityPolicies) Patch(name string, pt api.PatchType, data []byte, subresources ...string) (result *v1beta1.PodSecurityPolicy, err error) {
 	result = &v1beta1.PodSecurityPolicy{}
-	err = c.client.GetRESTClient().Patch(pt).
+	err = c.client.Patch(pt).
 		Resource("podsecuritypolicies").
 		SubResource(subresources...).
 		Name(name).

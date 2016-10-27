@@ -1,0 +1,48 @@
+package: .
+import:
+- package: github.com/emicklei/go-restful
+- package: github.com/ghodss/yaml
+- package: github.com/ingvagabund/cluster-capacity
+  subpackages:
+  - cmd
+  - cmd/options
+  - pkg/api
+  - pkg/apiserver
+  - pkg/client/emulator
+  - pkg/client/emulator/record
+  - pkg/client/emulator/restclient
+  - pkg/client/emulator/store
+  - pkg/client/emulator/strategy
+  - pkg/client/emulator/watch
+- package: github.com/renstrom/dedent
+- package: github.com/spf13/cobra
+- package: github.com/spf13/pflag
+- package: k8s.io/kubernetes
+  subpackages:
+  - pkg/api
+  - pkg/api/meta
+  - pkg/api/resource
+  - pkg/api/testapi
+  - pkg/api/testing
+  - pkg/api/unversioned
+  - pkg/api/validation
+  - pkg/apis/extensions
+  - pkg/client/cache
+  - pkg/client/clientset_generated/internalclientset
+  - pkg/client/clientset_generated/internalclientset/typed/extensions/unversioned
+  - pkg/client/record
+  - pkg/client/restclient
+  - pkg/client/unversioned
+  - pkg/client/unversioned/clientcmd
+  - pkg/fields
+  - pkg/runtime
+  - pkg/util/flowcontrol
+  - pkg/util/yaml
+  - pkg/watch
+  - plugin/cmd/kube-scheduler/app/options
+  - plugin/pkg/scheduler
+  - plugin/pkg/scheduler/algorithmprovider
+  - plugin/pkg/scheduler/api
+  - plugin/pkg/scheduler/api/latest
+  - plugin/pkg/scheduler/factory
+  - plugin/pkg/scheduler/schedulercache

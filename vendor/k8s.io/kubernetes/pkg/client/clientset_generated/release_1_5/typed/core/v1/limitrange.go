@@ -19,6 +19,7 @@ package v1
 import (
 	api "k8s.io/kubernetes/pkg/api"
 	v1 "k8s.io/kubernetes/pkg/api/v1"
+	restclient "k8s.io/kubernetes/pkg/client/restclient"
 	watch "k8s.io/kubernetes/pkg/watch"
 )
 
@@ -43,14 +44,14 @@ type LimitRangeInterface interface {
 
 // limitRanges implements LimitRangeInterface
 type limitRanges struct {
-	client *CoreClient
+	client restclient.Interface
 	ns     string
 }
 
 // newLimitRanges returns a LimitRanges
 func newLimitRanges(c *CoreClient, namespace string) *limitRanges {
 	return &limitRanges{
-		client: c,
+		client: c.RESTClient(),
 		ns:     namespace,
 	}
 }
@@ -58,7 +59,7 @@ func newLimitRanges(c *CoreClient, namespace string) *limitRanges {
 // Create takes the representation of a limitRange and creates it.  Returns the server's representation of the limitRange, and an error, if there is any.
 func (c *limitRanges) Create(limitRange *v1.LimitRange) (result *v1.LimitRange, err error) {
 	result = &v1.LimitRange{}
-	err = c.client.GetRESTClient().Post().
+	err = c.client.Post().
 		Namespace(c.ns).
 		Resource("limitranges").
 		Body(limitRange).
@@ -70,7 +71,7 @@ func (c *limitRanges) Create(limitRange *v1.LimitRange) (result *v1.LimitRange, 
 // Update takes the representation of a limitRange and updates it. Returns the server's representation of the limitRange, and an error, if there is any.
 func (c *limitRanges) Update(limitRange *v1.LimitRange) (result *v1.LimitRange, err error) {
 	result = &v1.LimitRange{}
-	err = c.client.GetRESTClient().Put().
+	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("limitranges").
 		Name(limitRange.Name).
@@ -82,7 +83,7 @@ func (c *limitRanges) Update(limitRange *v1.LimitRange) (result *v1.LimitRange, 
 
 // Delete takes name of the limitRange and deletes it. Returns an error if one occurs.
 func (c *limitRanges) Delete(name string, options *v1.DeleteOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("limitranges").
 		Name(name).
@@ -93,7 +94,7 @@ func (c *limitRanges) Delete(name string, options *v1.DeleteOptions) error {
 
 // DeleteCollection deletes a collection of objects.
 func (c *limitRanges) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("limitranges").
 		VersionedParams(&listOptions, api.ParameterCodec).
@@ -105,7 +106,7 @@ func (c *limitRanges) DeleteCollection(options *v1.DeleteOptions, listOptions v1
 // Get takes name of the limitRange, and returns the corresponding limitRange object, and an error if there is any.
 func (c *limitRanges) Get(name string) (result *v1.LimitRange, err error) {
 	result = &v1.LimitRange{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("limitranges").
 		Name(name).
@@ -117,7 +118,7 @@ func (c *limitRanges) Get(name string) (result *v1.LimitRange, err error) {
 // List takes label and field selectors, and returns the list of LimitRanges that match those selectors.
 func (c *limitRanges) List(opts v1.ListOptions) (result *v1.LimitRangeList, err error) {
 	result = &v1.LimitRangeList{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("limitranges").
 		VersionedParams(&opts, api.ParameterCodec).
@@ -128,7 +129,7 @@ func (c *limitRanges) List(opts v1.ListOptions) (result *v1.LimitRangeList, err 
 
 // Watch returns a watch.Interface that watches the requested limitRanges.
 func (c *limitRanges) Watch(opts v1.ListOptions) (watch.Interface, error) {
-	return c.client.GetRESTClient().Get().
+	return c.client.Get().
 		Prefix("watch").
 		Namespace(c.ns).
 		Resource("limitranges").
@@ -139,7 +140,7 @@ func (c *limitRanges) Watch(opts v1.ListOptions) (watch.Interface, error) {
 // Patch applies the patch and returns the patched limitRange.
 func (c *limitRanges) Patch(name string, pt api.PatchType, data []byte, subresources ...string) (result *v1.LimitRange, err error) {
 	result = &v1.LimitRange{}
-	err = c.client.GetRESTClient().Patch(pt).
+	err = c.client.Patch(pt).
 		Namespace(c.ns).
 		Resource("limitranges").
 		SubResource(subresources...).

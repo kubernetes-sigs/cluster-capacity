@@ -284,7 +284,7 @@ func testCoreResourceList(t *testing.T) {
 	assert.Equal(t, "", apiResourceList.APIVersion)
 	assert.Equal(t, v1.SchemeGroupVersion.String(), apiResourceList.GroupVersion)
 	// Assert that there are exactly 7 resources.
-	assert.Equal(t, 7, len(apiResourceList.APIResources))
+	assert.Equal(t, 8, len(apiResourceList.APIResources))
 
 	// Verify services.
 	found := findResource(apiResourceList.APIResources, "services")
@@ -314,6 +314,11 @@ func testCoreResourceList(t *testing.T) {
 	found = findResource(apiResourceList.APIResources, "secrets")
 	assert.NotNil(t, found)
 	assert.True(t, found.Namespaced)
+
+	// Verify config maps.
+	found = findResource(apiResourceList.APIResources, "configmaps")
+	assert.NotNil(t, found)
+	assert.True(t, found.Namespaced)
 }
 
 func testExtensionsResourceList(t *testing.T) {
@@ -330,8 +335,8 @@ func testExtensionsResourceList(t *testing.T) {
 	// empty APIVersion for extensions group
 	assert.Equal(t, "", apiResourceList.APIVersion)
 	assert.Equal(t, ext_v1b1.SchemeGroupVersion.String(), apiResourceList.GroupVersion)
-	// Assert that there are exactly 5 resources.
-	assert.Equal(t, 5, len(apiResourceList.APIResources))
+	// Assert that there are exactly 11 resources.
+	assert.Equal(t, 11, len(apiResourceList.APIResources))
 
 	// Verify replicasets.
 	found := findResource(apiResourceList.APIResources, "replicasets")
@@ -351,4 +356,24 @@ func testExtensionsResourceList(t *testing.T) {
 	found = findResource(apiResourceList.APIResources, "ingresses/status")
 	assert.NotNil(t, found)
 	assert.True(t, found.Namespaced)
+
+	// Verify daemonsets.
+	found = findResource(apiResourceList.APIResources, "daemonsets")
+	assert.NotNil(t, found)
+	assert.True(t, found.Namespaced)
+	found = findResource(apiResourceList.APIResources, "daemonsets/status")
+	assert.NotNil(t, found)
+	assert.True(t, found.Namespaced)
+
+	// Verify deployments.
+	found = findResource(apiResourceList.APIResources, "deployments")
+	assert.NotNil(t, found)
+	assert.True(t, found.Namespaced)
+	found = findResource(apiResourceList.APIResources, "deployments/status")
+	assert.NotNil(t, found)
+	assert.True(t, found.Namespaced)
+	found = findResource(apiResourceList.APIResources, "deployments/scale")
+	assert.NotNil(t, found)
+	assert.True(t, found.Namespaced)
+	found = findResource(apiResourceList.APIResources, "deployments/rollback")
 }

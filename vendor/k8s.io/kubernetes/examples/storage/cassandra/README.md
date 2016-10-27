@@ -1,45 +1,11 @@
 
-<!-- BEGIN MUNGE: UNVERSIONED_WARNING -->
-
-<!-- BEGIN STRIP_FOR_RELEASE -->
-
-<img src="http://kubernetes.io/kubernetes/img/warning.png" alt="WARNING"
-     width="25" height="25">
-<img src="http://kubernetes.io/kubernetes/img/warning.png" alt="WARNING"
-     width="25" height="25">
-<img src="http://kubernetes.io/kubernetes/img/warning.png" alt="WARNING"
-     width="25" height="25">
-<img src="http://kubernetes.io/kubernetes/img/warning.png" alt="WARNING"
-     width="25" height="25">
-<img src="http://kubernetes.io/kubernetes/img/warning.png" alt="WARNING"
-     width="25" height="25">
-
-<h2>PLEASE NOTE: This document applies to the HEAD of the source tree</h2>
-
-If you are using a released version of Kubernetes, you should
-refer to the docs that go with that version.
-
-<!-- TAG RELEASE_LINK, added by the munger automatically -->
-<strong>
-The latest release of this document can be found
-[here](http://releases.k8s.io/release-1.4/examples/storage/cassandra/README.md).
-
-Documentation for other releases can be found at
-[releases.k8s.io](http://releases.k8s.io).
-</strong>
---
-
-<!-- END STRIP_FOR_RELEASE -->
-
-<!-- END MUNGE: UNVERSIONED_WARNING -->
-
 # Cloud Native Deployments of Cassandra using Kubernetes
 
 ## Table of Contents
 
   - [Prerequisites](#prerequisites)
   - [Cassandra Docker](#cassandra-docker)
-  - [tl;dr Quickstart](#tldr-quickstart)
+  - [Quickstart](#quickstart)
   - [Step 1: Create a Cassandra Headless Service](#step-1-create-a-cassandra-headless-service)
   - [Step 2: Use a Pet Set to create Cassandra Ring](#step-2-create-a-cassandra-petset)
   - [Step 3: Validate and Modify The Cassandra Pet Set](#step-3-validate-and-modify-the-cassandra-pet-set)
@@ -92,7 +58,7 @@ includes a standard Cassandra installation from the Apache Debian repo.  Through
 | CASSANDRA_NUM_TOKENS  | 32               |
 | CASSANDRA_RPC_ADDRESS | 0.0.0.0          |
 
-## tl;dr Quickstart
+## Quickstart
 
 If you want to jump straight to the commands we will run,
 here are the steps:
@@ -242,10 +208,10 @@ spec:
           name: cql
         resources:
           limits:
-            cpu: "1"
+            cpu: "500m"
             memory: 1Gi
           requests:
-           cpu: "1"
+           cpu: "500m"
            memory: 1Gi
         securityContext:
           capabilities:

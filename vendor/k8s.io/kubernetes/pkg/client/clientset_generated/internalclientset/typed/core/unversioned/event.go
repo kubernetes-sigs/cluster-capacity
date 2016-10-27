@@ -18,6 +18,7 @@ package unversioned
 
 import (
 	api "k8s.io/kubernetes/pkg/api"
+	restclient "k8s.io/kubernetes/pkg/client/restclient"
 	watch "k8s.io/kubernetes/pkg/watch"
 )
 
@@ -42,14 +43,14 @@ type EventInterface interface {
 
 // events implements EventInterface
 type events struct {
-	client *CoreClient
+	client restclient.Interface
 	ns     string
 }
 
 // newEvents returns a Events
 func newEvents(c *CoreClient, namespace string) *events {
 	return &events{
-		client: c,
+		client: c.RESTClient(),
 		ns:     namespace,
 	}
 }
@@ -57,7 +58,7 @@ func newEvents(c *CoreClient, namespace string) *events {
 // Create takes the representation of a event and creates it.  Returns the server's representation of the event, and an error, if there is any.
 func (c *events) Create(event *api.Event) (result *api.Event, err error) {
 	result = &api.Event{}
-	err = c.client.GetRESTClient().Post().
+	err = c.client.Post().
 		Namespace(c.ns).
 		Resource("events").
 		Body(event).
@@ -69,7 +70,7 @@ func (c *events) Create(event *api.Event) (result *api.Event, err error) {
 // Update takes the representation of a event and updates it. Returns the server's representation of the event, and an error, if there is any.
 func (c *events) Update(event *api.Event) (result *api.Event, err error) {
 	result = &api.Event{}
-	err = c.client.GetRESTClient().Put().
+	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("events").
 		Name(event.Name).
@@ -81,7 +82,7 @@ func (c *events) Update(event *api.Event) (result *api.Event, err error) {
 
 // Delete takes name of the event and deletes it. Returns an error if one occurs.
 func (c *events) Delete(name string, options *api.DeleteOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("events").
 		Name(name).
@@ -92,7 +93,7 @@ func (c *events) Delete(name string, options *api.DeleteOptions) error {
 
 // DeleteCollection deletes a collection of objects.
 func (c *events) DeleteCollection(options *api.DeleteOptions, listOptions api.ListOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("events").
 		VersionedParams(&listOptions, api.ParameterCodec).
@@ -104,7 +105,7 @@ func (c *events) DeleteCollection(options *api.DeleteOptions, listOptions api.Li
 // Get takes name of the event, and returns the corresponding event object, and an error if there is any.
 func (c *events) Get(name string) (result *api.Event, err error) {
 	result = &api.Event{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("events").
 		Name(name).
@@ -116,7 +117,7 @@ func (c *events) Get(name string) (result *api.Event, err error) {
 // List takes label and field selectors, and returns the list of Events that match those selectors.
 func (c *events) List(opts api.ListOptions) (result *api.EventList, err error) {
 	result = &api.EventList{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("events").
 		VersionedParams(&opts, api.ParameterCodec).
@@ -127,7 +128,7 @@ func (c *events) List(opts api.ListOptions) (result *api.EventList, err error) {
 
 // Watch returns a watch.Interface that watches the requested events.
 func (c *events) Watch(opts api.ListOptions) (watch.Interface, error) {
-	return c.client.GetRESTClient().Get().
+	return c.client.Get().
 		Prefix("watch").
 		Namespace(c.ns).
 		Resource("events").
@@ -138,7 +139,7 @@ func (c *events) Watch(opts api.ListOptions) (watch.Interface, error) {
 // Patch applies the patch and returns the patched event.
 func (c *events) Patch(name string, pt api.PatchType, data []byte, subresources ...string) (result *api.Event, err error) {
 	result = &api.Event{}
-	err = c.client.GetRESTClient().Patch(pt).
+	err = c.client.Patch(pt).
 		Namespace(c.ns).
 		Resource("events").
 		SubResource(subresources...).

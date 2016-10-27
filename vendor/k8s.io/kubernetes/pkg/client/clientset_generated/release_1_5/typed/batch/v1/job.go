@@ -20,6 +20,7 @@ import (
 	api "k8s.io/kubernetes/pkg/api"
 	api_v1 "k8s.io/kubernetes/pkg/api/v1"
 	v1 "k8s.io/kubernetes/pkg/apis/batch/v1"
+	restclient "k8s.io/kubernetes/pkg/client/restclient"
 	watch "k8s.io/kubernetes/pkg/watch"
 )
 
@@ -45,14 +46,14 @@ type JobInterface interface {
 
 // jobs implements JobInterface
 type jobs struct {
-	client *BatchClient
+	client restclient.Interface
 	ns     string
 }
 
 // newJobs returns a Jobs
 func newJobs(c *BatchClient, namespace string) *jobs {
 	return &jobs{
-		client: c,
+		client: c.RESTClient(),
 		ns:     namespace,
 	}
 }
@@ -60,7 +61,7 @@ func newJobs(c *BatchClient, namespace string) *jobs {
 // Create takes the representation of a job and creates it.  Returns the server's representation of the job, and an error, if there is any.
 func (c *jobs) Create(job *v1.Job) (result *v1.Job, err error) {
 	result = &v1.Job{}
-	err = c.client.GetRESTClient().Post().
+	err = c.client.Post().
 		Namespace(c.ns).
 		Resource("jobs").
 		Body(job).
@@ -72,7 +73,7 @@ func (c *jobs) Create(job *v1.Job) (result *v1.Job, err error) {
 // Update takes the representation of a job and updates it. Returns the server's representation of the job, and an error, if there is any.
 func (c *jobs) Update(job *v1.Job) (result *v1.Job, err error) {
 	result = &v1.Job{}
-	err = c.client.GetRESTClient().Put().
+	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("jobs").
 		Name(job.Name).
@@ -84,7 +85,7 @@ func (c *jobs) Update(job *v1.Job) (result *v1.Job, err error) {
 
 func (c *jobs) UpdateStatus(job *v1.Job) (result *v1.Job, err error) {
 	result = &v1.Job{}
-	err = c.client.GetRESTClient().Put().
+	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("jobs").
 		Name(job.Name).
@@ -97,7 +98,7 @@ func (c *jobs) UpdateStatus(job *v1.Job) (result *v1.Job, err error) {
 
 // Delete takes name of the job and deletes it. Returns an error if one occurs.
 func (c *jobs) Delete(name string, options *api_v1.DeleteOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("jobs").
 		Name(name).
@@ -108,7 +109,7 @@ func (c *jobs) Delete(name string, options *api_v1.DeleteOptions) error {
 
 // DeleteCollection deletes a collection of objects.
 func (c *jobs) DeleteCollection(options *api_v1.DeleteOptions, listOptions api_v1.ListOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("jobs").
 		VersionedParams(&listOptions, api.ParameterCodec).
@@ -120,7 +121,7 @@ func (c *jobs) DeleteCollection(options *api_v1.DeleteOptions, listOptions api_v
 // Get takes name of the job, and returns the corresponding job object, and an error if there is any.
 func (c *jobs) Get(name string) (result *v1.Job, err error) {
 	result = &v1.Job{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("jobs").
 		Name(name).
@@ -132,7 +133,7 @@ func (c *jobs) Get(name string) (result *v1.Job, err error) {
 // List takes label and field selectors, and returns the list of Jobs that match those selectors.
 func (c *jobs) List(opts api_v1.ListOptions) (result *v1.JobList, err error) {
 	result = &v1.JobList{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("jobs").
 		VersionedParams(&opts, api.ParameterCodec).
@@ -143,7 +144,7 @@ func (c *jobs) List(opts api_v1.ListOptions) (result *v1.JobList, err error) {
 
 // Watch returns a watch.Interface that watches the requested jobs.
 func (c *jobs) Watch(opts api_v1.ListOptions) (watch.Interface, error) {
-	return c.client.GetRESTClient().Get().
+	return c.client.Get().
 		Prefix("watch").
 		Namespace(c.ns).
 		Resource("jobs").
@@ -154,7 +155,7 @@ func (c *jobs) Watch(opts api_v1.ListOptions) (watch.Interface, error) {
 // Patch applies the patch and returns the patched job.
 func (c *jobs) Patch(name string, pt api.PatchType, data []byte, subresources ...string) (result *v1.Job, err error) {
 	result = &v1.Job{}
-	err = c.client.GetRESTClient().Patch(pt).
+	err = c.client.Patch(pt).
 		Namespace(c.ns).
 		Resource("jobs").
 		SubResource(subresources...).

@@ -31,7 +31,7 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-// CallOptions contains the retry settings for each method of this client.
+// CallOptions contains the retry settings for each method of Client.
 type CallOptions struct {
 	AnalyzeSentiment []gax.CallOption
 	AnalyzeEntities  []gax.CallOption
@@ -62,7 +62,6 @@ func defaultCallOptions() *CallOptions {
 			}),
 		},
 	}
-
 	return &CallOptions{
 		AnalyzeSentiment: retry[[2]string{"default", "idempotent"}],
 		AnalyzeEntities:  retry[[2]string{"default", "idempotent"}],
@@ -70,7 +69,7 @@ func defaultCallOptions() *CallOptions {
 	}
 }
 
-// Client is a client for interacting with LanguageService.
+// Client is a client for interacting with Google Cloud Natural Language API.
 type Client struct {
 	// The connection to the service.
 	conn *grpc.ClientConn
@@ -82,7 +81,7 @@ type Client struct {
 	CallOptions *CallOptions
 
 	// The metadata to be sent with each request.
-	metadata map[string][]string
+	metadata metadata.MD
 }
 
 // NewClient creates a new language service client.
@@ -96,8 +95,9 @@ func NewClient(ctx context.Context, opts ...option.ClientOption) (*Client, error
 	}
 	c := &Client{
 		conn:        conn,
-		client:      languagepb.NewLanguageServiceClient(conn),
 		CallOptions: defaultCallOptions(),
+
+		client: languagepb.NewLanguageServiceClient(conn),
 	}
 	c.SetGoogleClientInfo("gax", gax.Version)
 	return c, nil
@@ -118,14 +118,14 @@ func (c *Client) Close() error {
 // the `x-goog-api-client` header passed on each request. Intended for
 // use by Google-written clients.
 func (c *Client) SetGoogleClientInfo(name, version string) {
-	c.metadata = map[string][]string{
-		"x-goog-api-client": {fmt.Sprintf("%s/%s %s gax/%s go/%s", name, version, gapicNameVersion, gax.Version, runtime.Version())},
-	}
+	v := fmt.Sprintf("%s/%s %s gax/%s go/%s", name, version, gapicNameVersion, gax.Version, runtime.Version())
+	c.metadata = metadata.Pairs("x-goog-api-client", v)
 }
 
 // AnalyzeSentiment analyzes the sentiment of the provided text.
 func (c *Client) AnalyzeSentiment(ctx context.Context, req *languagepb.AnalyzeSentimentRequest) (*languagepb.AnalyzeSentimentResponse, error) {
-	ctx = metadata.NewContext(ctx, c.metadata)
+	md, _ := metadata.FromContext(ctx)
+	ctx = metadata.NewContext(ctx, metadata.Join(md, c.metadata))
 	var resp *languagepb.AnalyzeSentimentResponse
 	err := gax.Invoke(ctx, func(ctx context.Context) error {
 		var err error
@@ -141,7 +141,8 @@ func (c *Client) AnalyzeSentiment(ctx context.Context, req *languagepb.AnalyzeSe
 // AnalyzeEntities finds named entities (currently finds proper names) in the text,
 // entity types, salience, mentions for each entity, and other properties.
 func (c *Client) AnalyzeEntities(ctx context.Context, req *languagepb.AnalyzeEntitiesRequest) (*languagepb.AnalyzeEntitiesResponse, error) {
-	ctx = metadata.NewContext(ctx, c.metadata)
+	md, _ := metadata.FromContext(ctx)
+	ctx = metadata.NewContext(ctx, metadata.Join(md, c.metadata))
 	var resp *languagepb.AnalyzeEntitiesResponse
 	err := gax.Invoke(ctx, func(ctx context.Context) error {
 		var err error
@@ -159,7 +160,8 @@ func (c *Client) AnalyzeEntities(ctx context.Context, req *languagepb.AnalyzeEnt
 // API is intended for users who are familiar with machine learning and need
 // in-depth text features to build upon.
 func (c *Client) AnnotateText(ctx context.Context, req *languagepb.AnnotateTextRequest) (*languagepb.AnnotateTextResponse, error) {
-	ctx = metadata.NewContext(ctx, c.metadata)
+	md, _ := metadata.FromContext(ctx)
+	ctx = metadata.NewContext(ctx, metadata.Join(md, c.metadata))
 	var resp *languagepb.AnnotateTextResponse
 	err := gax.Invoke(ctx, func(ctx context.Context) error {
 		var err error

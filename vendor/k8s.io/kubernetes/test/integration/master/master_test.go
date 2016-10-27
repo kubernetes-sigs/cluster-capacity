@@ -34,9 +34,10 @@ import (
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/errors"
 	"k8s.io/kubernetes/pkg/api/testapi"
+	"k8s.io/kubernetes/pkg/apimachinery/registered"
 	"k8s.io/kubernetes/pkg/apis/batch/v2alpha1"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 	"k8s.io/kubernetes/pkg/client/restclient"
-	client "k8s.io/kubernetes/pkg/client/unversioned"
 	"k8s.io/kubernetes/pkg/util/wait"
 	"k8s.io/kubernetes/test/integration"
 	"k8s.io/kubernetes/test/integration/framework"
@@ -267,12 +268,12 @@ func TestBatchGroupBackwardCompatibility(t *testing.T) {
 		{"POST", batchPath("jobs", api.NamespaceDefault, ""), jobV1, integration.Code201, ""},
 		{"GET", batchPath("jobs", api.NamespaceDefault, "pi"), "", integration.Code200, testapi.Batch.GroupVersion().String()},
 		{"GET", extensionsPath("jobs", api.NamespaceDefault, "pi"), "", integration.Code200, testapi.Extensions.GroupVersion().String()},
-		{"DELETE", batchPath("jobs", api.NamespaceDefault, "pi"), "", integration.Code200, testapi.Default.GroupVersion().String()}, // status response
+		{"DELETE", batchPath("jobs", api.NamespaceDefault, "pi"), "", integration.Code200, registered.GroupOrDie(api.GroupName).GroupVersion.String()}, // status response
 		// Post a v1beta1 and get back both as v1beta1 and as v1.
 		{"POST", extensionsPath("jobs", api.NamespaceDefault, ""), jobV1beta1, integration.Code201, ""},
 		{"GET", batchPath("jobs", api.NamespaceDefault, "pi"), "", integration.Code200, testapi.Batch.GroupVersion().String()},
 		{"GET", extensionsPath("jobs", api.NamespaceDefault, "pi"), "", integration.Code200, testapi.Extensions.GroupVersion().String()},
-		{"DELETE", extensionsPath("jobs", api.NamespaceDefault, "pi"), "", integration.Code200, testapi.Default.GroupVersion().String()}, //status response
+		{"DELETE", extensionsPath("jobs", api.NamespaceDefault, "pi"), "", integration.Code200, registered.GroupOrDie(api.GroupName).GroupVersion.String()}, //status response
 	}
 
 	for _, r := range requests {
@@ -386,10 +387,10 @@ func TestMasterService(t *testing.T) {
 	_, s := framework.RunAMaster(framework.NewIntegrationTestMasterConfig())
 	defer s.Close()
 
-	client := client.NewOrDie(&restclient.Config{Host: s.URL, ContentConfig: restclient.ContentConfig{GroupVersion: testapi.Default.GroupVersion()}})
+	client := clientset.NewForConfigOrDie(&restclient.Config{Host: s.URL, ContentConfig: restclient.ContentConfig{GroupVersion: &registered.GroupOrDie(api.GroupName).GroupVersion}})
 
 	err := wait.Poll(time.Second, time.Minute, func() (bool, error) {
-		svcList, err := client.Services(api.NamespaceDefault).List(api.ListOptions{})
+		svcList, err := client.Core().Services(api.NamespaceDefault).List(api.ListOptions{})
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 			return false, nil
@@ -402,7 +403,7 @@ func TestMasterService(t *testing.T) {
 			}
 		}
 		if found {
-			ep, err := client.Endpoints(api.NamespaceDefault).Get("kubernetes")
+			ep, err := client.Core().Endpoints(api.NamespaceDefault).Get("kubernetes")
 			if err != nil {
 				return false, nil
 			}
@@ -428,7 +429,7 @@ func TestServiceAlloc(t *testing.T) {
 	_, s := framework.RunAMaster(cfg)
 	defer s.Close()
 
-	client := client.NewOrDie(&restclient.Config{Host: s.URL, ContentConfig: restclient.ContentConfig{GroupVersion: testapi.Default.GroupVersion()}})
+	client := clientset.NewForConfigOrDie(&restclient.Config{Host: s.URL, ContentConfig: restclient.ContentConfig{GroupVersion: &registered.GroupOrDie(api.GroupName).GroupVersion}})
 
 	svc := func(i int) *api.Service {
 		return &api.Service{
@@ -446,7 +447,7 @@ func TestServiceAlloc(t *testing.T) {
 
 	// Wait until the default "kubernetes" service is created.
 	if err = wait.Poll(250*time.Millisecond, time.Minute, func() (bool, error) {
-		_, err := client.Services(api.NamespaceDefault).Get("kubernetes")
+		_, err := client.Core().Services(api.NamespaceDefault).Get("kubernetes")
 		if err != nil && !errors.IsNotFound(err) {
 			return false, err
 		}
@@ -456,17 +457,17 @@ func TestServiceAlloc(t *testing.T) {
 	}
 
 	// Make a service.
-	if _, err := client.Services(api.NamespaceDefault).Create(svc(1)); err != nil {
+	if _, err := client.Core().Services(api.NamespaceDefault).Create(svc(1)); err != nil {
 		t.Fatalf("got unexpected error: %v", err)
 	}
 
 	// Make a second service. It will fail because we're out of cluster IPs
-	if _, err := client.Services(api.NamespaceDefault).Create(svc(2)); err != nil {
+	if _, err := client.Core().Services(api.NamespaceDefault).Create(svc(2)); err != nil {
 		if !strings.Contains(err.Error(), "range is full") {
 			t.Errorf("unexpected error text: %v", err)
 		}
 	} else {
-		svcs, err := client.Services(api.NamespaceAll).List(api.ListOptions{})
+		svcs, err := client.Core().Services(api.NamespaceAll).List(api.ListOptions{})
 		if err != nil {
 			t.Fatalf("unexpected success, and error getting the services: %v", err)
 		}
@@ -478,12 +479,12 @@ func TestServiceAlloc(t *testing.T) {
 	}
 
 	// Delete the first service.
-	if err := client.Services(api.NamespaceDefault).Delete(svc(1).ObjectMeta.Name); err != nil {
+	if err := client.Core().Services(api.NamespaceDefault).Delete(svc(1).ObjectMeta.Name, nil); err != nil {
 		t.Fatalf("got unexpected error: %v", err)
 	}
 
 	// This time creating the second service should work.
-	if _, err := client.Services(api.NamespaceDefault).Create(svc(2)); err != nil {
+	if _, err := client.Core().Services(api.NamespaceDefault).Create(svc(2)); err != nil {
 		t.Fatalf("got unexpected error: %v", err)
 	}
 }

@@ -60,7 +60,7 @@ The /debug/events HTTP endpoint organizes the event logs by family and
 by time since the last error.  The expanded view displays recent log
 entries and the log's call stack.
 */
-package trace // import "golang.org/x/net/trace"
+package trace
 
 import (
 	"bytes"
@@ -91,7 +91,7 @@ var DebugUseAfterFinish = false
 // It returns two bools; the first indicates whether the page may be viewed at all,
 // and the second indicates whether sensitive events will be shown.
 //
-// AuthRequest may be replaced by a program to customize its authorization requirements.
+// AuthRequest may be replaced by a program to customise its authorisation requirements.
 //
 // The default AuthRequest function returns (true, true) if and only if the request
 // comes from localhost/127.0.0.1/[::1].

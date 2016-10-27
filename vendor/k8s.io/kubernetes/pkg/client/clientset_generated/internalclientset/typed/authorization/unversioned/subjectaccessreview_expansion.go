@@ -26,7 +26,7 @@ type SubjectAccessReviewExpansion interface {
 
 func (c *subjectAccessReviews) Create(sar *authorizationapi.SubjectAccessReview) (result *authorizationapi.SubjectAccessReview, err error) {
 	result = &authorizationapi.SubjectAccessReview{}
-	err = c.client.GetRESTClient().Post().
+	err = c.client.Post().
 		Resource("subjectaccessreviews").
 		Body(sar).
 		Do().

@@ -18,6 +18,7 @@ package unversioned
 
 import (
 	api "k8s.io/kubernetes/pkg/api"
+	restclient "k8s.io/kubernetes/pkg/client/restclient"
 	watch "k8s.io/kubernetes/pkg/watch"
 )
 
@@ -42,14 +43,14 @@ type ServiceAccountInterface interface {
 
 // serviceAccounts implements ServiceAccountInterface
 type serviceAccounts struct {
-	client *CoreClient
+	client restclient.Interface
 	ns     string
 }
 
 // newServiceAccounts returns a ServiceAccounts
 func newServiceAccounts(c *CoreClient, namespace string) *serviceAccounts {
 	return &serviceAccounts{
-		client: c,
+		client: c.RESTClient(),
 		ns:     namespace,
 	}
 }
@@ -57,7 +58,7 @@ func newServiceAccounts(c *CoreClient, namespace string) *serviceAccounts {
 // Create takes the representation of a serviceAccount and creates it.  Returns the server's representation of the serviceAccount, and an error, if there is any.
 func (c *serviceAccounts) Create(serviceAccount *api.ServiceAccount) (result *api.ServiceAccount, err error) {
 	result = &api.ServiceAccount{}
-	err = c.client.GetRESTClient().Post().
+	err = c.client.Post().
 		Namespace(c.ns).
 		Resource("serviceaccounts").
 		Body(serviceAccount).
@@ -69,7 +70,7 @@ func (c *serviceAccounts) Create(serviceAccount *api.ServiceAccount) (result *ap
 // Update takes the representation of a serviceAccount and updates it. Returns the server's representation of the serviceAccount, and an error, if there is any.
 func (c *serviceAccounts) Update(serviceAccount *api.ServiceAccount) (result *api.ServiceAccount, err error) {
 	result = &api.ServiceAccount{}
-	err = c.client.GetRESTClient().Put().
+	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("serviceaccounts").
 		Name(serviceAccount.Name).
@@ -81,7 +82,7 @@ func (c *serviceAccounts) Update(serviceAccount *api.ServiceAccount) (result *ap
 
 // Delete takes name of the serviceAccount and deletes it. Returns an error if one occurs.
 func (c *serviceAccounts) Delete(name string, options *api.DeleteOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("serviceaccounts").
 		Name(name).
@@ -92,7 +93,7 @@ func (c *serviceAccounts) Delete(name string, options *api.DeleteOptions) error 
 
 // DeleteCollection deletes a collection of objects.
 func (c *serviceAccounts) DeleteCollection(options *api.DeleteOptions, listOptions api.ListOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("serviceaccounts").
 		VersionedParams(&listOptions, api.ParameterCodec).
@@ -104,7 +105,7 @@ func (c *serviceAccounts) DeleteCollection(options *api.DeleteOptions, listOptio
 // Get takes name of the serviceAccount, and returns the corresponding serviceAccount object, and an error if there is any.
 func (c *serviceAccounts) Get(name string) (result *api.ServiceAccount, err error) {
 	result = &api.ServiceAccount{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("serviceaccounts").
 		Name(name).
@@ -116,7 +117,7 @@ func (c *serviceAccounts) Get(name string) (result *api.ServiceAccount, err erro
 // List takes label and field selectors, and returns the list of ServiceAccounts that match those selectors.
 func (c *serviceAccounts) List(opts api.ListOptions) (result *api.ServiceAccountList, err error) {
 	result = &api.ServiceAccountList{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("serviceaccounts").
 		VersionedParams(&opts, api.ParameterCodec).
@@ -127,7 +128,7 @@ func (c *serviceAccounts) List(opts api.ListOptions) (result *api.ServiceAccount
 
 // Watch returns a watch.Interface that watches the requested serviceAccounts.
 func (c *serviceAccounts) Watch(opts api.ListOptions) (watch.Interface, error) {
-	return c.client.GetRESTClient().Get().
+	return c.client.Get().
 		Prefix("watch").
 		Namespace(c.ns).
 		Resource("serviceaccounts").
@@ -138,7 +139,7 @@ func (c *serviceAccounts) Watch(opts api.ListOptions) (watch.Interface, error) {
 // Patch applies the patch and returns the patched serviceAccount.
 func (c *serviceAccounts) Patch(name string, pt api.PatchType, data []byte, subresources ...string) (result *api.ServiceAccount, err error) {
 	result = &api.ServiceAccount{}
-	err = c.client.GetRESTClient().Patch(pt).
+	err = c.client.Patch(pt).
 		Namespace(c.ns).
 		Resource("serviceaccounts").
 		SubResource(subresources...).

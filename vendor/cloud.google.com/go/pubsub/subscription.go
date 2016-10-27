@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"cloud.google.com/go/iam"
 	"golang.org/x/net/context"
 )
 
@@ -63,25 +64,20 @@ func (s *Subscription) ID() string {
 // Subscriptions returns an iterator which returns all of the subscriptions for the client's project.
 func (c *Client) Subscriptions(ctx context.Context) *SubscriptionIterator {
 	return &SubscriptionIterator{
-		s: c.s,
-		stringsIterator: stringsIterator{
-			ctx: ctx,
-			fetch: func(ctx context.Context, tok string) (*stringsPage, error) {
-				return c.s.listProjectSubscriptions(ctx, c.fullyQualifiedProjectName(), tok)
-			},
-		},
+		s:    c.s,
+		next: c.s.listProjectSubscriptions(ctx, c.fullyQualifiedProjectName()),
 	}
 }
 
 // SubscriptionIterator is an iterator that returns a series of subscriptions.
 type SubscriptionIterator struct {
-	s service
-	stringsIterator
+	s    service
+	next nextStringFunc
 }
 
-// Next returns the next subscription. If there are no more subscriptions, Done will be returned.
+// Next returns the next subscription. If there are no more subscriptions, iterator.Done will be returned.
 func (subs *SubscriptionIterator) Next() (*Subscription, error) {
-	subName, err := subs.stringsIterator.Next()
+	subName, err := subs.next()
 	if err != nil {
 		return nil, err
 	}
@@ -160,6 +156,10 @@ func (s *Subscription) ModifyPushConfig(ctx context.Context, conf *PushConfig) e
 	return s.s.modifyPushConfig(ctx, s.name, conf)
 }
 
+func (s *Subscription) IAM() *iam.Handle {
+	return s.s.iamHandle(s.name)
+}
+
 // A PullOption is an optional argument to Subscription.Pull.
 type PullOption interface {
 	setOptions(o *pullOptions)
@@ -172,7 +172,7 @@ type pullOptions struct {
 
 	// maxPrefetch is the maximum number of Messages to have in flight, to
 	// be returned by MessageIterator.Next.
-	maxPrefetch int
+	maxPrefetch int32
 
 	// ackDeadline is the default ack deadline for the subscription.  Not
 	// configurable via a PullOption.
@@ -192,10 +192,10 @@ func processPullOptions(opts []PullOption) *pullOptions {
 	return po
 }
 
-type maxPrefetch int
+type maxPrefetch int32
 
 func (max maxPrefetch) setOptions(o *pullOptions) {
-	if o.maxPrefetch = int(max); o.maxPrefetch < 1 {
+	if o.maxPrefetch = int32(max); o.maxPrefetch < 1 {
 		o.maxPrefetch = 1
 	}
 }
@@ -208,7 +208,7 @@ func (max maxPrefetch) setOptions(o *pullOptions) {
 //
 // If num is less than 1, it will be treated as if it were 1.
 func MaxPrefetch(num int) PullOption {
-	return maxPrefetch(num)
+	return maxPrefetch(trunc32(int64(num)))
 }
 
 type maxExtension time.Duration

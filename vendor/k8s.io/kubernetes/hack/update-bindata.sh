@@ -32,6 +32,7 @@ fi
 if ! which go-bindata &>/dev/null ; then
 	echo "Cannot find go-bindata. Install with"
 	echo "  go get -u github.com/jteeuwen/go-bindata/go-bindata"
+	echo "  and make sure GOBIN is in the system PATH"
 	exit 5
 fi
 
@@ -39,7 +40,6 @@ BINDATA_OUTPUT="${KUBE_ROOT}/test/e2e/generated/bindata.go"
 go-bindata -nometadata -prefix "${KUBE_ROOT}" -o "${BINDATA_OUTPUT}.tmp" -pkg generated \
 	-ignore .jpg -ignore .png -ignore .md \
 	"${KUBE_ROOT}/examples/..." \
-	"${KUBE_ROOT}/docs/user-guide/..." \
 	"${KUBE_ROOT}/test/e2e/testing-manifests/..." \
 	"${KUBE_ROOT}/test/images/..." \
 	"${KUBE_ROOT}/test/fixtures/..."

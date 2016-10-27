@@ -19,6 +19,7 @@ package unversioned
 import (
 	api "k8s.io/kubernetes/pkg/api"
 	autoscaling "k8s.io/kubernetes/pkg/apis/autoscaling"
+	restclient "k8s.io/kubernetes/pkg/client/restclient"
 	watch "k8s.io/kubernetes/pkg/watch"
 )
 
@@ -44,14 +45,14 @@ type HorizontalPodAutoscalerInterface interface {
 
 // horizontalPodAutoscalers implements HorizontalPodAutoscalerInterface
 type horizontalPodAutoscalers struct {
-	client *AutoscalingClient
+	client restclient.Interface
 	ns     string
 }
 
 // newHorizontalPodAutoscalers returns a HorizontalPodAutoscalers
 func newHorizontalPodAutoscalers(c *AutoscalingClient, namespace string) *horizontalPodAutoscalers {
 	return &horizontalPodAutoscalers{
-		client: c,
+		client: c.RESTClient(),
 		ns:     namespace,
 	}
 }
@@ -59,7 +60,7 @@ func newHorizontalPodAutoscalers(c *AutoscalingClient, namespace string) *horizo
 // Create takes the representation of a horizontalPodAutoscaler and creates it.  Returns the server's representation of the horizontalPodAutoscaler, and an error, if there is any.
 func (c *horizontalPodAutoscalers) Create(horizontalPodAutoscaler *autoscaling.HorizontalPodAutoscaler) (result *autoscaling.HorizontalPodAutoscaler, err error) {
 	result = &autoscaling.HorizontalPodAutoscaler{}
-	err = c.client.GetRESTClient().Post().
+	err = c.client.Post().
 		Namespace(c.ns).
 		Resource("horizontalpodautoscalers").
 		Body(horizontalPodAutoscaler).
@@ -71,7 +72,7 @@ func (c *horizontalPodAutoscalers) Create(horizontalPodAutoscaler *autoscaling.H
 // Update takes the representation of a horizontalPodAutoscaler and updates it. Returns the server's representation of the horizontalPodAutoscaler, and an error, if there is any.
 func (c *horizontalPodAutoscalers) Update(horizontalPodAutoscaler *autoscaling.HorizontalPodAutoscaler) (result *autoscaling.HorizontalPodAutoscaler, err error) {
 	result = &autoscaling.HorizontalPodAutoscaler{}
-	err = c.client.GetRESTClient().Put().
+	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("horizontalpodautoscalers").
 		Name(horizontalPodAutoscaler.Name).
@@ -83,7 +84,7 @@ func (c *horizontalPodAutoscalers) Update(horizontalPodAutoscaler *autoscaling.H
 
 func (c *horizontalPodAutoscalers) UpdateStatus(horizontalPodAutoscaler *autoscaling.HorizontalPodAutoscaler) (result *autoscaling.HorizontalPodAutoscaler, err error) {
 	result = &autoscaling.HorizontalPodAutoscaler{}
-	err = c.client.GetRESTClient().Put().
+	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("horizontalpodautoscalers").
 		Name(horizontalPodAutoscaler.Name).
@@ -96,7 +97,7 @@ func (c *horizontalPodAutoscalers) UpdateStatus(horizontalPodAutoscaler *autosca
 
 // Delete takes name of the horizontalPodAutoscaler and deletes it. Returns an error if one occurs.
 func (c *horizontalPodAutoscalers) Delete(name string, options *api.DeleteOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("horizontalpodautoscalers").
 		Name(name).
@@ -107,7 +108,7 @@ func (c *horizontalPodAutoscalers) Delete(name string, options *api.DeleteOption
 
 // DeleteCollection deletes a collection of objects.
 func (c *horizontalPodAutoscalers) DeleteCollection(options *api.DeleteOptions, listOptions api.ListOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("horizontalpodautoscalers").
 		VersionedParams(&listOptions, api.ParameterCodec).
@@ -119,7 +120,7 @@ func (c *horizontalPodAutoscalers) DeleteCollection(options *api.DeleteOptions, 
 // Get takes name of the horizontalPodAutoscaler, and returns the corresponding horizontalPodAutoscaler object, and an error if there is any.
 func (c *horizontalPodAutoscalers) Get(name string) (result *autoscaling.HorizontalPodAutoscaler, err error) {
 	result = &autoscaling.HorizontalPodAutoscaler{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("horizontalpodautoscalers").
 		Name(name).
@@ -131,7 +132,7 @@ func (c *horizontalPodAutoscalers) Get(name string) (result *autoscaling.Horizon
 // List takes label and field selectors, and returns the list of HorizontalPodAutoscalers that match those selectors.
 func (c *horizontalPodAutoscalers) List(opts api.ListOptions) (result *autoscaling.HorizontalPodAutoscalerList, err error) {
 	result = &autoscaling.HorizontalPodAutoscalerList{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("horizontalpodautoscalers").
 		VersionedParams(&opts, api.ParameterCodec).
@@ -142,7 +143,7 @@ func (c *horizontalPodAutoscalers) List(opts api.ListOptions) (result *autoscali
 
 // Watch returns a watch.Interface that watches the requested horizontalPodAutoscalers.
 func (c *horizontalPodAutoscalers) Watch(opts api.ListOptions) (watch.Interface, error) {
-	return c.client.GetRESTClient().Get().
+	return c.client.Get().
 		Prefix("watch").
 		Namespace(c.ns).
 		Resource("horizontalpodautoscalers").
@@ -153,7 +154,7 @@ func (c *horizontalPodAutoscalers) Watch(opts api.ListOptions) (watch.Interface,
 // Patch applies the patch and returns the patched horizontalPodAutoscaler.
 func (c *horizontalPodAutoscalers) Patch(name string, pt api.PatchType, data []byte, subresources ...string) (result *autoscaling.HorizontalPodAutoscaler, err error) {
 	result = &autoscaling.HorizontalPodAutoscaler{}
-	err = c.client.GetRESTClient().Patch(pt).
+	err = c.client.Patch(pt).
 		Namespace(c.ns).
 		Resource("horizontalpodautoscalers").
 		SubResource(subresources...).

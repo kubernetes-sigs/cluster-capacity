@@ -19,6 +19,7 @@ package v1
 import (
 	api "k8s.io/kubernetes/pkg/api"
 	v1 "k8s.io/kubernetes/pkg/api/v1"
+	restclient "k8s.io/kubernetes/pkg/client/restclient"
 	watch "k8s.io/kubernetes/pkg/watch"
 )
 
@@ -44,14 +45,14 @@ type PodInterface interface {
 
 // pods implements PodInterface
 type pods struct {
-	client *CoreClient
+	client restclient.Interface
 	ns     string
 }
 
 // newPods returns a Pods
 func newPods(c *CoreClient, namespace string) *pods {
 	return &pods{
-		client: c,
+		client: c.RESTClient(),
 		ns:     namespace,
 	}
 }
@@ -59,7 +60,7 @@ func newPods(c *CoreClient, namespace string) *pods {
 // Create takes the representation of a pod and creates it.  Returns the server's representation of the pod, and an error, if there is any.
 func (c *pods) Create(pod *v1.Pod) (result *v1.Pod, err error) {
 	result = &v1.Pod{}
-	err = c.client.GetRESTClient().Post().
+	err = c.client.Post().
 		Namespace(c.ns).
 		Resource("pods").
 		Body(pod).
@@ -71,7 +72,7 @@ func (c *pods) Create(pod *v1.Pod) (result *v1.Pod, err error) {
 // Update takes the representation of a pod and updates it. Returns the server's representation of the pod, and an error, if there is any.
 func (c *pods) Update(pod *v1.Pod) (result *v1.Pod, err error) {
 	result = &v1.Pod{}
-	err = c.client.GetRESTClient().Put().
+	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("pods").
 		Name(pod.Name).
@@ -83,7 +84,7 @@ func (c *pods) Update(pod *v1.Pod) (result *v1.Pod, err error) {
 
 func (c *pods) UpdateStatus(pod *v1.Pod) (result *v1.Pod, err error) {
 	result = &v1.Pod{}
-	err = c.client.GetRESTClient().Put().
+	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("pods").
 		Name(pod.Name).
@@ -96,7 +97,7 @@ func (c *pods) UpdateStatus(pod *v1.Pod) (result *v1.Pod, err error) {
 
 // Delete takes name of the pod and deletes it. Returns an error if one occurs.
 func (c *pods) Delete(name string, options *v1.DeleteOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("pods").
 		Name(name).
@@ -107,7 +108,7 @@ func (c *pods) Delete(name string, options *v1.DeleteOptions) error {
 
 // DeleteCollection deletes a collection of objects.
 func (c *pods) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	return c.client.GetRESTClient().Delete().
+	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("pods").
 		VersionedParams(&listOptions, api.ParameterCodec).
@@ -119,7 +120,7 @@ func (c *pods) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOp
 // Get takes name of the pod, and returns the corresponding pod object, and an error if there is any.
 func (c *pods) Get(name string) (result *v1.Pod, err error) {
 	result = &v1.Pod{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("pods").
 		Name(name).
@@ -131,7 +132,7 @@ func (c *pods) Get(name string) (result *v1.Pod, err error) {
 // List takes label and field selectors, and returns the list of Pods that match those selectors.
 func (c *pods) List(opts v1.ListOptions) (result *v1.PodList, err error) {
 	result = &v1.PodList{}
-	err = c.client.GetRESTClient().Get().
+	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("pods").
 		VersionedParams(&opts, api.ParameterCodec).
@@ -142,7 +143,7 @@ func (c *pods) List(opts v1.ListOptions) (result *v1.PodList, err error) {
 
 // Watch returns a watch.Interface that watches the requested pods.
 func (c *pods) Watch(opts v1.ListOptions) (watch.Interface, error) {
-	return c.client.GetRESTClient().Get().
+	return c.client.Get().
 		Prefix("watch").
 		Namespace(c.ns).
 		Resource("pods").
@@ -153,7 +154,7 @@ func (c *pods) Watch(opts v1.ListOptions) (watch.Interface, error) {
 // Patch applies the patch and returns the patched pod.
 func (c *pods) Patch(name string, pt api.PatchType, data []byte, subresources ...string) (result *v1.Pod, err error) {
 	result = &v1.Pod{}
-	err = c.client.GetRESTClient().Patch(pt).
+	err = c.client.Patch(pt).
 		Namespace(c.ns).
 		Resource("pods").
 		SubResource(subresources...).
