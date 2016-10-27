@@ -14,6 +14,7 @@ import (
 	"k8s.io/kubernetes/plugin/pkg/scheduler/schedulercache"
 	"log"
 	"time"
+	"strings"
 )
 
 var (
@@ -163,25 +164,46 @@ func createFullReport(s *options.ClusterCapacityConfig, status emulator.Status) 
 	if len(status.Pods) == 0 {
 		return report
 	}
-	nodes := make(map[string]int)
+	report.NodesNumInstances = make(map[string]int)
 	for _, pod := range status.Pods {
-		_, ok := nodes[pod.Spec.NodeName]
+		_, ok := report.NodesNumInstances[pod.Spec.NodeName]
 		if !ok {
-			nodes[pod.Spec.NodeName] = 1
+			report.NodesNumInstances[pod.Spec.NodeName] = 1
 		} else {
-			nodes[pod.Spec.NodeName]++
+			report.NodesNumInstances[pod.Spec.NodeName]++
 		}
 	}
 
-	report.Nodes = make([]apiserver.ReportNode, 0)
-	for name, count := range nodes {
-		nodereport := apiserver.ReportNode{
-			NodeName:  name,
-			Instances: count,
-		}
-		report.Nodes = append(report.Nodes, nodereport)
-	}
 	return report
+}
+
+func getReason(s *options.ClusterCapacityConfig, message string) apiserver.FailReason {
+	slicedMessage := strings.Split(message, "\n")
+	colon := strings.Index(slicedMessage[0], ":")
+	if s.Options.MaxLimit != 0 {
+		return apiserver.FailReason{
+			FailMessage: slicedMessage[0],
+			FailType: "Limit reached",
+	}
+	}
+	fail := apiserver.FailReason{
+		FailType: slicedMessage[0][:colon],
+		FailMessage: slicedMessage[0][colon:],
+
+	}
+
+	if len(slicedMessage) == 1 {
+		return fail
+	}
+
+	fail.NodeFailures = make(map[string]string)
+	for _, nodeReason := range slicedMessage[1:len(slicedMessage)-1] {
+		nameStart := strings.Index(nodeReason, "(")
+		nameEnd := strings.Index(nodeReason, ")")
+		name := nodeReason[nameStart+1:nameEnd]
+		fail.NodeFailures[name] = nodeReason[nameEnd+3:]
+	}
+	return fail
 }
 
 func createReport(s *options.ClusterCapacityConfig, status emulator.Status) *apiserver.Report {
@@ -193,9 +215,7 @@ func createReport(s *options.ClusterCapacityConfig, status emulator.Status) *api
 			Cpu:    float64(info.RequestedResource().MilliCPU) * 0.001,
 			Memory: info.RequestedResource().Memory,
 		},
-		Total: apiserver.ReportTotal{
-			Instances: len(status.Pods),
-			Reason:    status.StopReason,
-		},
+		TotalInstances: len(status.Pods),
+		FailReasons: getReason(s, status.StopReason),
 	}
 }

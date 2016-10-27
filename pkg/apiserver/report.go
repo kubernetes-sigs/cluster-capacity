@@ -22,22 +22,19 @@ type PodResources struct {
 	Memory int64
 }
 
-type ReportTotal struct {
-	Instances int
-	Reason    string
-}
+type FailReason struct {
+	FailType string
+	FailMessage string
+	NodeFailures map[string]string
 
-type ReportNode struct {
-	NodeName  string
-	Instances int
-	Reason    string
 }
 
 type Report struct {
-	Timestamp       time.Time
-	PodRequirements PodResources
-	Total           ReportTotal
-	Nodes           []ReportNode
+	Timestamp         time.Time
+	PodRequirements   PodResources
+	TotalInstances    int
+	NodesNumInstances map[string]int
+	FailReasons    	  FailReason
 }
 
 func (r *Report) prettyPrint(verbose bool) {
@@ -48,13 +45,16 @@ func (r *Report) prettyPrint(verbose bool) {
 		fmt.Printf("\n")
 	}
 
-	fmt.Printf("The cluster can schedule %v%v%v instance(s) of the pod.\n", CLR_W, r.Total.Instances, CLR_N)
-	fmt.Printf("%vTermination reason%v: %v\n", CLR_G, CLR_N, r.Total.Reason)
+	fmt.Printf("The cluster can schedule %v%v%v instance(s) of the pod.\n", CLR_W, r.TotalInstances, CLR_N)
+	fmt.Printf("%vTermination reason%v: %v: %v\n", CLR_G, CLR_N, r.FailReasons.FailType, r.FailReasons.FailMessage)
 
-	if verbose && r.Total.Instances > 0 {
+	if verbose && r.TotalInstances > 0 {
+		for node, fail := range r.FailReasons.NodeFailures {
+			fmt.Printf("fit failure on node (%v): %v\n", node, fail)
+		}
 		fmt.Printf("\nPod distribution among nodes:\n")
-		for _, node := range r.Nodes {
-			fmt.Printf("\t- %v: %v instance(s)\n", node.NodeName, node.Instances)
+		for node, instances := range r.NodesNumInstances {
+			fmt.Printf("\t- %v: %v instance(s)\n", node, instances)
 		}
 	}
 }
