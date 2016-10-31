@@ -61,6 +61,9 @@ func ListenAndServe(r *RestResource) error {
 
 func (r *RestResource) getLastStatus(request *restful.Request, response *restful.Response) {
 	numStr := request.QueryParameter("num")
+	if numStr == "" {
+		numStr = "1"
+	}
 	num, err := strconv.Atoi(numStr)
 	if err != nil {
 		response.AddHeader("Content-Type", "text/plain")
