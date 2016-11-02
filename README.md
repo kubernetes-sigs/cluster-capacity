@@ -19,7 +19,7 @@ in terms of how many instances of a pod with given requirements can be scheduled
 
 ```
 go build .
-$ ./cluster-capacity --kubeconfig <path to kubeconfig> --master <API server address > --podspec=pod.yaml
+$ ./cluster-capacity --kubeconfig <path to kubeconfig> --master <API server address > --podspec=examples/pod.yaml
 ```
 
 For more information run:
@@ -61,16 +61,16 @@ Pod distribution among nodes:
 	- kube-node-3: 13 instance(s)
 ```
 
-To decrease available resources you can use provided RC (`rc.yml`):
+To decrease available resources you can use provided RC (`examples/rc.yml`):
 
 ```sh
-$ kubectl create -f rc.yml
+$ kubectl create -f examples/rc.yml
 ```
 
 E.g. to change a number of replicas to `6`, you can run:
 
 ```sh
-$ kubectl patch -f rc.yml -p '{"spec":{"replicas":6}}
+$ kubectl patch -f examples/rc.yml -p '{"spec":{"replicas":6}}
 ```
 
 ## Continuous cluster capacity analysis
@@ -81,7 +81,7 @@ The provided analysis can be run in loop to provide continuous stream of actual 
 To start the continuous analysis providing the capacity each second you can run:
 
 ```sh
-$ ./cluster-capacity --kubeconfig <path to kubeconfig> --master <API server address > --podspec=pod.yaml --period 1
+$ ./cluster-capacity --kubeconfig <path to kubeconfig> --master <API server address > --podspec=examples/pod.yaml --period 1
 ```
 
 With the ``period`` set to non-zero value, the ``cluster-capacity`` binary publishes the current capacity
