@@ -2,6 +2,7 @@ package client
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 
@@ -17,6 +18,7 @@ func (cli *Client) ImageSearch(ctx context.Context, term string, options types.I
 	var results []registry.SearchResult
 	query := url.Values{}
 	query.Set("term", term)
+	query.Set("limit", fmt.Sprintf("%d", options.Limit))
 
 	if options.Filters.Len() > 0 {
 		filterJSON, err := filters.ToParam(options.Filters)
@@ -27,7 +29,7 @@ func (cli *Client) ImageSearch(ctx context.Context, term string, options types.I
 	}
 
 	resp, err := cli.tryImageSearch(ctx, query, options.RegistryAuth)
-	if resp.statusCode == http.StatusUnauthorized {
+	if resp.statusCode == http.StatusUnauthorized && options.PrivilegeFunc != nil {
 		newAuthHeader, privilegeErr := options.PrivilegeFunc()
 		if privilegeErr != nil {
 			return results, privilegeErr
@@ -43,7 +45,7 @@ func (cli *Client) ImageSearch(ctx context.Context, term string, options types.I
 	return results, err
 }
 
-func (cli *Client) tryImageSearch(ctx context.Context, query url.Values, registryAuth string) (*serverResponse, error) {
+func (cli *Client) tryImageSearch(ctx context.Context, query url.Values, registryAuth string) (serverResponse, error) {
 	headers := map[string][]string{"X-Registry-Auth": {registryAuth}}
 	return cli.get(ctx, "/images/search", query, headers)
 }

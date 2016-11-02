@@ -43,8 +43,8 @@ import (
 	"k8s.io/kubernetes/pkg/apis/storage"
 	storageutil "k8s.io/kubernetes/pkg/apis/storage/util"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
-	coreclient "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/typed/core/unversioned"
-	extensionsclient "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/typed/extensions/unversioned"
+	coreclient "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/typed/core/internalversion"
+	extensionsclient "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/typed/extensions/internalversion"
 	deploymentutil "k8s.io/kubernetes/pkg/controller/deployment/util"
 	"k8s.io/kubernetes/pkg/fieldpath"
 	"k8s.io/kubernetes/pkg/fields"
@@ -117,7 +117,7 @@ func describerMap(c clientset.Interface) map[unversioned.GroupKind]Describer {
 		extensions.Kind("Ingress"):                     &IngressDescriber{c},
 		batch.Kind("Job"):                              &JobDescriber{c},
 		batch.Kind("ScheduledJob"):                     &ScheduledJobDescriber{c},
-		apps.Kind("PetSet"):                            &PetSetDescriber{c},
+		apps.Kind("StatefulSet"):                       &StatefulSetDescriber{c},
 		certificates.Kind("CertificateSigningRequest"): &CertificateSigningRequestDescriber{c},
 		storage.Kind("StorageClass"):                   &StorageClassDescriber{c},
 	}
@@ -770,6 +770,8 @@ func (d *PersistentVolumeDescriber) Describe(namespace, name string, describerSe
 			printVsphereVolumeSource(pv.Spec.VsphereVolume, out)
 		case pv.Spec.Cinder != nil:
 			printCinderVolumeSource(pv.Spec.Cinder, out)
+		case pv.Spec.AzureDisk != nil:
+			printAzureDiskVolumeSource(pv.Spec.AzureDisk, out)
 		}
 
 		if events != nil {
@@ -1863,12 +1865,12 @@ func describeNode(node *api.Node, nodeNonTerminatedPodsList *api.PodList, events
 	})
 }
 
-type PetSetDescriber struct {
+type StatefulSetDescriber struct {
 	client clientset.Interface
 }
 
-func (p *PetSetDescriber) Describe(namespace, name string, describerSettings DescriberSettings) (string, error) {
-	ps, err := p.client.Apps().PetSets(namespace).Get(name)
+func (p *StatefulSetDescriber) Describe(namespace, name string, describerSettings DescriberSettings) (string, error) {
+	ps, err := p.client.Apps().StatefulSets(namespace).Get(name)
 	if err != nil {
 		return "", err
 	}

@@ -47,6 +47,7 @@ import (
 	apierrs "k8s.io/kubernetes/pkg/api/errors"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/api/v1"
+	"k8s.io/kubernetes/pkg/apimachinery/registered"
 	"k8s.io/kubernetes/pkg/apis/extensions"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 	"k8s.io/kubernetes/pkg/client/clientset_generated/release_1_5"
@@ -76,6 +77,8 @@ import (
 	utilyaml "k8s.io/kubernetes/pkg/util/yaml"
 	"k8s.io/kubernetes/pkg/version"
 	"k8s.io/kubernetes/pkg/watch"
+	"k8s.io/kubernetes/plugin/pkg/scheduler/algorithm/predicates"
+	"k8s.io/kubernetes/plugin/pkg/scheduler/schedulercache"
 	testutils "k8s.io/kubernetes/test/utils"
 
 	"github.com/blang/semver"
@@ -164,6 +167,9 @@ const (
 	// Number of objects that gc can delete in a second.
 	// GC issues 2 requestes for single delete.
 	gcThroughput = 10
+
+	// TODO(justinsb): Avoid hardcoding this.
+	awsMasterIP = "172.20.0.9"
 )
 
 var (
@@ -181,6 +187,12 @@ var (
 		regexp.MustCompile(".*node-problem-detector.*"),
 	}
 )
+
+type Address struct {
+	internalIP string
+	externalIP string
+	hostname   string
+}
 
 // GetServerArchitecture fetches the architecture of the cluster's apiserver.
 func GetServerArchitecture(c clientset.Interface) string {
@@ -1392,6 +1404,27 @@ func WaitForRCToStabilize(c clientset.Interface, ns, name string, timeout time.D
 	return err
 }
 
+// WaitForPodAddition waits for pods to be added within the timeout.
+func WaitForPodAddition(c clientset.Interface, ns string, timeout time.Duration) error {
+	options := api.ListOptions{FieldSelector: fields.Set{
+		"metadata.namespace": ns,
+	}.AsSelector()}
+
+	w, err := c.Core().Pods(ns).Watch(options)
+	if err != nil {
+		return err
+	}
+	_, err = watch.Until(timeout, w, func(event watch.Event) (bool, error) {
+		switch event.Type {
+		case watch.Added:
+			return true, nil
+		}
+		Logf("Waiting for pod(s) to be added in namespace %v", ns)
+		return false, nil
+	})
+	return err
+}
+
 func WaitForPodToDisappear(c clientset.Interface, ns, podName string, label labels.Selector, interval, timeout time.Duration) error {
 	return wait.PollImmediate(interval, timeout, func() (bool, error) {
 		Logf("Waiting for pod %s to disappear", podName)
@@ -1420,9 +1453,9 @@ func WaitForPodToDisappear(c clientset.Interface, ns, podName string, label labe
 // In case of failure or too long waiting time, an error is returned.
 func WaitForRCPodToDisappear(c clientset.Interface, ns, rcName, podName string) error {
 	label := labels.SelectorFromSet(labels.Set(map[string]string{"name": rcName}))
-	// NodeController evicts pod after 5 minutes, so we need timeout greater than that.
-	// Additionally, there can be non-zero grace period, so we are setting 10 minutes
-	// to be on the safe size.
+	// NodeController evicts pod after 5 minutes, so we need timeout greater than that to observe effects.
+	// The grace period must be set to 0 on the pod for it to be deleted during the partition.
+	// Otherwise, it goes to the 'Terminating' state till the kubelet confirms deletion.
 	return WaitForPodToDisappear(c, ns, podName, label, 20*time.Second, 10*time.Minute)
 }
 
@@ -1653,11 +1686,16 @@ func PodsResponding(c clientset.Interface, ns, name string, wantName bool, pods 
 }
 
 func PodsCreated(c clientset.Interface, ns, name string, replicas int32) (*api.PodList, error) {
-	timeout := 2 * time.Minute
-	// List the pods, making sure we observe all the replicas.
 	label := labels.SelectorFromSet(labels.Set(map[string]string{"name": name}))
+	return PodsCreatedByLabel(c, ns, name, replicas, label)
+}
+
+func PodsCreatedByLabel(c clientset.Interface, ns, name string, replicas int32, label labels.Selector) (*api.PodList, error) {
+	timeout := 2 * time.Minute
 	for start := time.Now(); time.Since(start) < timeout; time.Sleep(5 * time.Second) {
 		options := api.ListOptions{LabelSelector: label}
+
+		// List the pods, making sure we observe all the replicas.
 		pods, err := c.Core().Pods(ns).List(options)
 		if err != nil {
 			return nil, err
@@ -2355,6 +2393,36 @@ func isNodeSchedulable(node *api.Node) bool {
 	return !node.Spec.Unschedulable && nodeReady && networkReady
 }
 
+// Test whether a fake pod can be scheduled on "node", given its current taints.
+func isNodeUntainted(node *api.Node) bool {
+	fakePod := &api.Pod{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "Pod",
+			APIVersion: registered.GroupOrDie(api.GroupName).GroupVersion.String(),
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:      "fake-not-scheduled",
+			Namespace: "fake-not-scheduled",
+		},
+		Spec: api.PodSpec{
+			Containers: []api.Container{
+				{
+					Name:  "fake-not-scheduled",
+					Image: "fake-not-scheduled",
+				},
+			},
+		},
+	}
+	nodeInfo := schedulercache.NewNodeInfo()
+	nodeInfo.SetNode(node)
+	fit, _, err := predicates.PodToleratesNodeTaints(fakePod, nil, nodeInfo)
+	if err != nil {
+		Failf("Can't test predicates for node %s: %v", node.Name, err)
+		return false
+	}
+	return fit
+}
+
 // GetReadySchedulableNodesOrDie addresses the common use case of getting nodes you can do work on.
 // 1) Needs to be schedulable.
 // 2) Needs to be ready.
@@ -2364,7 +2432,7 @@ func GetReadySchedulableNodesOrDie(c clientset.Interface) (nodes *api.NodeList) 
 	// previous tests may have cause failures of some nodes. Let's skip
 	// 'Not Ready' nodes, just in case (there is no need to fail the test).
 	FilterNodes(nodes, func(node api.Node) bool {
-		return isNodeSchedulable(&node)
+		return isNodeSchedulable(&node) && isNodeUntainted(&node)
 	})
 	return nodes
 }
@@ -4447,7 +4515,7 @@ func GetMasterAndWorkerNodesOrDie(c clientset.Interface) (sets.String, *api.Node
 	for _, n := range all.Items {
 		if system.IsMasterNode(&n) {
 			masters.Insert(n.Name)
-		} else if isNodeSchedulable(&n) {
+		} else if isNodeSchedulable(&n) && isNodeUntainted(&n) {
 			nodes.Items = append(nodes.Items, n)
 		}
 	}
@@ -4553,4 +4621,66 @@ func CleanupGCEResources(loadBalancerName string) (err error) {
 	hc, _ := gceCloud.GetHttpHealthCheck(loadBalancerName)
 	gceCloud.DeleteTargetPool(loadBalancerName, hc)
 	return nil
+}
+
+// getMaster populates the externalIP, internalIP and hostname fields of the master.
+// If any of these is unavailable, it is set to "".
+func getMaster(c clientset.Interface) Address {
+	master := Address{}
+
+	// Populate the internal IP.
+	eps, err := c.Core().Endpoints(api.NamespaceDefault).Get("kubernetes")
+	if err != nil {
+		Failf("Failed to get kubernetes endpoints: %v", err)
+	}
+	if len(eps.Subsets) != 1 || len(eps.Subsets[0].Addresses) != 1 {
+		Failf("There are more than 1 endpoints for kubernetes service: %+v", eps)
+	}
+	master.internalIP = eps.Subsets[0].Addresses[0].IP
+
+	// Populate the external IP/hostname.
+	url, err := url.Parse(TestContext.Host)
+	if err != nil {
+		Failf("Failed to parse hostname: %v", err)
+	}
+	if net.ParseIP(url.Host) != nil {
+		// TODO: Check that it is external IP (not having a reserved IP address as per RFC1918).
+		master.externalIP = url.Host
+	} else {
+		master.hostname = url.Host
+	}
+
+	return master
+}
+
+// GetMasterAddress returns the hostname/external IP/internal IP as appropriate for e2e tests on a particular provider
+// which is the address of the interface used for communication with the kubelet.
+func GetMasterAddress(c clientset.Interface) string {
+	master := getMaster(c)
+	switch TestContext.Provider {
+	case "gce", "gke":
+		return master.externalIP
+	case "aws":
+		return awsMasterIP
+	default:
+		Failf("This test is not supported for provider %s and should be disabled", TestContext.Provider)
+	}
+	return ""
+}
+
+// GetNodeExternalIP returns node external IP concatenated with port 22 for ssh
+// e.g. 1.2.3.4:22
+func GetNodeExternalIP(node *api.Node) string {
+	Logf("Getting external IP address for %s", node.Name)
+	host := ""
+	for _, a := range node.Status.Addresses {
+		if a.Type == api.NodeExternalIP {
+			host = a.Address + ":22"
+			break
+		}
+	}
+	if host == "" {
+		Failf("Couldn't get the external IP of host %s with addresses %v", node.Name, node.Status.Addresses)
+	}
+	return host
 }

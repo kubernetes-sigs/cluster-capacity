@@ -34,11 +34,10 @@ func NewReaderSource(r io.Reader) *ReaderSource {
 	return &ReaderSource{r: r}
 }
 
-func (r *ReaderSource) populateLoadConfig(conf *bq.JobConfigurationLoad) {
-	r.FileConfig.populateLoadConfig(conf)
+func (r *ReaderSource) populateInsertJobConfForLoad(conf *insertJobConf) {
+	conf.media = r.r
+	r.FileConfig.populateLoadConfig(conf.job.Configuration.Load)
 }
-
-func (r *ReaderSource) reader() io.Reader { return r.r }
 
 // FileConfig contains configuration options that pertain to files, typically
 // text files that require interpretation to be used as a BigQuery table. A
@@ -88,7 +87,7 @@ type FileConfig struct {
 	// default quotation character is the double quote ("), which is used if
 	// both Quote and ForceZeroQuote are unset.
 	// To specify that no character should be interpreted as a quotation
-	// character, set ForceZeroQuote to true and leave Quote unset.
+	// character, set ForceZeroQuote to true.
 	// Only used when reading data.
 	Quote          string
 	ForceZeroQuote bool
@@ -96,7 +95,11 @@ type FileConfig struct {
 
 // quote returns the CSV quote character, or nil if unset.
 func (fc *FileConfig) quote() *string {
-	if !fc.ForceZeroQuote && fc.Quote == "" {
+	if fc.ForceZeroQuote {
+		quote := ""
+		return &quote
+	}
+	if fc.Quote == "" {
 		return nil
 	}
 	return &fc.Quote

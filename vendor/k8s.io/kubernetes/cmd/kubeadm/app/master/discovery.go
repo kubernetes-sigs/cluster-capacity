@@ -23,6 +23,7 @@ import (
 	"time"
 
 	kubeadmapi "k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm"
+	kubeadmapiext "k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm/v1alpha1"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/apis/extensions"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
@@ -61,7 +62,6 @@ func encodeKubeDiscoverySecretData(cfg *kubeadmapi.MasterConfiguration, caCert *
 }
 
 func newKubeDiscoveryPodSpec(cfg *kubeadmapi.MasterConfiguration) api.PodSpec {
-	envParams := kubeadmapi.GetEnvParams()
 	return api.PodSpec{
 		// We have to use host network namespace, as `HostPort`/`HostIP` are Docker's
 		// buisness and CNI support isn't quite there yet (except for kubenet)
@@ -70,7 +70,7 @@ func newKubeDiscoveryPodSpec(cfg *kubeadmapi.MasterConfiguration) api.PodSpec {
 		SecurityContext: &api.PodSecurityContext{HostNetwork: true},
 		Containers: []api.Container{{
 			Name:    kubeDiscoveryName,
-			Image:   envParams["discovery_image"],
+			Image:   kubeadmapi.GlobalEnvParams.DiscoveryImage,
 			Command: []string{"/usr/local/bin/kube-discovery"},
 			VolumeMounts: []api.VolumeMount{{
 				Name:      kubeDiscoverySecretName,
@@ -80,7 +80,7 @@ func newKubeDiscoveryPodSpec(cfg *kubeadmapi.MasterConfiguration) api.PodSpec {
 			Ports: []api.ContainerPort{
 				// TODO when CNI issue (#31307) is resolved, we should consider adding
 				// `HostIP: s.API.AdvertiseAddrs[0]`, if there is only one address`
-				{Name: "http", ContainerPort: kubeadmapi.DefaultDiscoveryBindPort, HostPort: cfg.Discovery.BindPort},
+				{Name: "http", ContainerPort: kubeadmapiext.DefaultDiscoveryBindPort, HostPort: cfg.Discovery.BindPort},
 			},
 			SecurityContext: &api.SecurityContext{
 				SELinuxOptions: &api.SELinuxOptions{

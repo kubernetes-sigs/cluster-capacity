@@ -1,19 +1,7 @@
-package: .
+package: github.com/ingvagabund/cluster-capacity
 import:
 - package: github.com/emicklei/go-restful
 - package: github.com/ghodss/yaml
-- package: github.com/ingvagabund/cluster-capacity
-  subpackages:
-  - cmd
-  - cmd/options
-  - pkg/api
-  - pkg/apiserver
-  - pkg/client/emulator
-  - pkg/client/emulator/record
-  - pkg/client/emulator/restclient
-  - pkg/client/emulator/store
-  - pkg/client/emulator/strategy
-  - pkg/client/emulator/watch
 - package: github.com/renstrom/dedent
 - package: github.com/spf13/cobra
 - package: github.com/spf13/pflag
@@ -35,6 +23,7 @@ import:
   - pkg/client/unversioned
   - pkg/client/unversioned/clientcmd
   - pkg/fields
+  - pkg/labels
   - pkg/runtime
   - pkg/util/flowcontrol
   - pkg/util/yaml

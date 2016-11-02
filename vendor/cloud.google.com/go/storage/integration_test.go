@@ -519,18 +519,13 @@ func TestObjects(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rc, err := publicClient.Bucket(bucket).Object(publicObj).NewReader(ctx)
+
+	slurp, err := readObject(ctx, publicClient.Bucket(bucket).Object(publicObj))
 	if err != nil {
-		t.Error(err)
-	}
-	slurp, err := ioutil.ReadAll(rc)
-	if err != nil {
-		t.Errorf("ReadAll failed with %v", err)
-	}
-	if !bytes.Equal(slurp, contents[publicObj]) {
+		t.Errorf("readObject failed with %v", err)
+	} else if !bytes.Equal(slurp, contents[publicObj]) {
 		t.Errorf("Public object's content: got %q, want %q", slurp, contents[publicObj])
 	}
-	rc.Close()
 
 	// Test writer error handling.
 	wc := publicClient.Bucket(bucket).Object(publicObj).NewWriter(ctx)
@@ -555,33 +550,46 @@ func TestObjects(t *testing.T) {
 	}
 
 	// Test object composition.
-	compDst := bkt.Object("composed")
 	var compSrcs []*ObjectHandle
 	var wantContents []byte
 	for _, obj := range objects {
 		compSrcs = append(compSrcs, bkt.Object(obj))
 		wantContents = append(wantContents, contents[obj]...)
 	}
+	checkCompose := func(obj *ObjectHandle, wantContentType string) {
+		rc, err := obj.NewReader(ctx)
+		if err != nil {
+			t.Fatalf("NewReader: %v", err)
+		}
+		slurp, err = ioutil.ReadAll(rc)
+		if err != nil {
+			t.Fatalf("ioutil.ReadAll: %v", err)
+		}
+		defer rc.Close()
+		if !bytes.Equal(slurp, wantContents) {
+			t.Errorf("Composed object contents\ngot:  %q\nwant: %q", slurp, wantContents)
+		}
+		if got := rc.ContentType(); got != wantContentType {
+			t.Errorf("Composed object content-type = %q, want %q", got, wantContentType)
+		}
+	}
+
+	// Compose should work even if the user sets no destination attributes.
+	compDst := bkt.Object("composed1")
 	c := compDst.ComposerFrom(compSrcs...)
+	if _, err := c.Run(ctx); err != nil {
+		t.Fatalf("ComposeFrom error: %v", err)
+	}
+	checkCompose(compDst, "application/octet-stream")
+
+	// It should also work if we do.
+	compDst = bkt.Object("composed2")
+	c = compDst.ComposerFrom(compSrcs...)
 	c.ContentType = "text/json"
 	if _, err := c.Run(ctx); err != nil {
 		t.Fatalf("ComposeFrom error: %v", err)
 	}
-	rc, err = compDst.NewReader(ctx)
-	if err != nil {
-		t.Fatalf("compDst.NewReader: %v", err)
-	}
-	slurp, err = ioutil.ReadAll(rc)
-	if err != nil {
-		t.Fatalf("compDst ioutil.ReadAll: %v", err)
-	}
-	defer rc.Close()
-	if !bytes.Equal(slurp, wantContents) {
-		t.Errorf("Composed object contents\ngot:  %q\nwant: %q", slurp, wantContents)
-	}
-	if got, want := rc.ContentType(), "text/json"; got != want {
-		t.Errorf("Composed object content-type = %q, want %q", got, want)
-	}
+	checkCompose(compDst, "text/json")
 }
 
 func namesEqual(obj *ObjectAttrs, bucketName, objectName string) bool {
@@ -797,18 +805,22 @@ func TestZeroSizedObject(t *testing.T) {
 	defer obj.Delete(ctx)
 
 	// Check we can read it too.
-	r, err := obj.NewReader(ctx)
+	body, err := readObject(ctx, obj)
 	if err != nil {
-		t.Fatalf("NewReader: %v", err)
-	}
-	defer r.Close()
-	body, err := ioutil.ReadAll(r)
-	if err != nil {
-		t.Fatalf("ioutil.ReadAll: %v", err)
+		t.Fatalf("readObject: %v", err)
 	}
 	if len(body) != 0 {
 		t.Errorf("Body is %v, want empty []byte{}", body)
 	}
+}
+
+func readObject(ctx context.Context, obj *ObjectHandle) ([]byte, error) {
+	r, err := obj.NewReader(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	return ioutil.ReadAll(r)
 }
 
 // cleanup deletes the bucket used for testing, as well as old

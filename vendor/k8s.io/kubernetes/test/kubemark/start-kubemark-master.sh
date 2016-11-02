@@ -16,13 +16,26 @@
 
 # TODO: figure out how to get etcd tag from some real configuration and put it here.
 
+function write_supervisor_conf() {
+	local name=$1
+	local exec_command=$2
+	cat >>"/etc/supervisor/conf.d/${name}.conf" <<EOF
+[program:${name}]
+command=${exec_command}
+stderr_logfile=/var/log/${name}.log
+stdout_logfile=/var/log/${name}.log
+autorestart=true
+startretries=1000000
+EOF
+}
+
 EVENT_STORE_IP=$1
 EVENT_STORE_URL="http://${EVENT_STORE_IP}:4002"
 NUM_NODES=$2
-TEST_ETCD_VERSION=$3
-if [[ -z "${TEST_ETCD_VERSION}" ]]; then
+KUBEMARK_ETCD_VERSION=$3
+if [[ -z "${KUBEMARK_ETCD_VERSION}" ]]; then
   # Default etcd version.
-  TEST_ETCD_VERSION="2.2.1"
+  KUBEMARK_ETCD_VERSION="2.2.1"
 fi
 
 function retry() {
@@ -76,35 +89,42 @@ function mount-master-pd() {
 
 mount-master-pd
 
+ETCD_QUOTA_BYTES=""
+if [ "${KUBEMARK_ETCD_VERSION:0:2}" == "3." ]; then
+  # TODO: Set larger quota to see if that helps with
+  # 'mvcc: database space exceeded' errors. If so, pipe
+  # though our setup scripts.
+  ETCD_QUOTA_BYTES="--quota-backend-bytes=4294967296 "
+fi
+
 if [ "${EVENT_STORE_IP}" == "127.0.0.1" ]; then
 	# Retry starting etcd to avoid pulling image errors.
 	retry sudo docker run --net=host \
 		-v /var/etcd/data-events:/var/etcd/data -v /var/log:/var/log -d \
-		gcr.io/google_containers/etcd:${TEST_ETCD_VERSION} /bin/sh -c "/usr/local/bin/etcd \
+		gcr.io/google_containers/etcd:${KUBEMARK_ETCD_VERSION} /bin/sh -c "/usr/local/bin/etcd \
 		--listen-peer-urls http://127.0.0.1:2381 \
 		--advertise-client-urls=http://127.0.0.1:4002 \
 		--listen-client-urls=http://0.0.0.0:4002 \
-		--data-dir=/var/etcd/data 1>> /var/log/etcd-events.log 2>&1"
+		--data-dir=/var/etcd/data ${ETCD_QUOTA_BYTES} 1>> /var/log/etcd-events.log 2>&1"
 fi
 
 # Retry starting etcd to avoid pulling image errors.
 retry sudo docker run --net=host \
 	-v /var/etcd/data:/var/etcd/data -v /var/log:/var/log -d \
-	gcr.io/google_containers/etcd:${TEST_ETCD_VERSION} /bin/sh -c "/usr/local/bin/etcd \
+	gcr.io/google_containers/etcd:${KUBEMARK_ETCD_VERSION} /bin/sh -c "/usr/local/bin/etcd \
 	--listen-peer-urls http://127.0.0.1:2380 \
 	--advertise-client-urls=http://127.0.0.1:2379 \
 	--listen-client-urls=http://0.0.0.0:2379 \
-	--data-dir=/var/etcd/data 1>> /var/log/etcd.log 2>&1"
+	--data-dir=/var/etcd/data ${ETCD_QUOTA_BYTES} 1>> /var/log/etcd.log 2>&1"
 
 # Increase the allowed number of open file descriptors
 ulimit -n 65536
 
+cd /
 tar xzf kubernetes-server-linux-amd64.tar.gz
 
-kubernetes/server/bin/kube-scheduler --master=127.0.0.1:8080 $(cat scheduler_flags) &> /var/log/kube-scheduler.log &
-
-kubernetes/server/bin/kube-apiserver \
-	--insecure-bind-address=0.0.0.0 \
+write_supervisor_conf "kube-scheduler" "/kubernetes/server/bin/kube-scheduler --master=127.0.0.1:8080 $(cat /scheduler_flags | tr '\n' ' ')"
+write_supervisor_conf "kube-apiserver" "/kubernetes/server/bin/kube-apiserver --insecure-bind-address=0.0.0.0 \
 	--etcd-servers=http://127.0.0.1:2379 \
 	--etcd-servers-overrides=/events#${EVENT_STORE_URL} \
 	--tls-cert-file=/srv/kubernetes/server.cert \
@@ -114,14 +134,17 @@ kubernetes/server/bin/kube-apiserver \
 	--secure-port=443 \
 	--basic-auth-file=/srv/kubernetes/basic_auth.csv \
 	--target-ram-mb=$((${NUM_NODES} * 60)) \
-	$(cat apiserver_flags) &> /var/log/kube-apiserver.log &
-
-# kube-contoller-manager now needs running kube-api server to actually start
-until [ "$(curl 127.0.0.1:8080/healthz 2> /dev/null)" == "ok" ]; do
-	sleep 1
-done
-kubernetes/server/bin/kube-controller-manager \
+	$(cat /apiserver_flags | tr '\n' ' ')"
+write_supervisor_conf "kube-contoller-manager" "/kubernetes/server/bin/kube-controller-manager \
   --master=127.0.0.1:8080 \
   --service-account-private-key-file=/srv/kubernetes/server.key \
   --root-ca-file=/srv/kubernetes/ca.crt \
-  $(cat controllers_flags) &> /var/log/kube-controller-manager.log &
+  $(cat /controllers_flags | tr '\n' ' ')"
+
+supervisorctl reread
+supervisorctl update
+
+until [ "$(curl 127.0.0.1:8080/healthz 2> /dev/null)" == "ok" ]; do
+	sleep 1
+done
+
