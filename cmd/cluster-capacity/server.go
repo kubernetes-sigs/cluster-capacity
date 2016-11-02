@@ -1,4 +1,4 @@
-package cmd
+package main
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ingvagabund/cluster-capacity/cmd/options"
+	"github.com/ingvagabund/cluster-capacity/cmd/cluster-capacity/options"
 	"github.com/ingvagabund/cluster-capacity/pkg/apiserver"
 	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator"
 	"github.com/renstrom/dedent"

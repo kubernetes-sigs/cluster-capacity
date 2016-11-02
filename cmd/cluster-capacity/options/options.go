@@ -2,12 +2,12 @@ package options
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"path"
-	"runtime"
 
 	"github.com/ingvagabund/cluster-capacity/pkg/apiserver"
 	"github.com/spf13/pflag"
@@ -28,14 +28,15 @@ type ClusterCapacityConfig struct {
 }
 
 type ClusterCapacityOptions struct {
-	Master              string
-	Kubeconfig          string
-	SchedulerConfigFile []string
-	MaxLimit            int
-	Verbose             bool
-	PodSpecFile         string
-	Period              int
-	OutputFormat        string
+	Master                     string
+	Kubeconfig                 string
+	SchedulerConfigFile        []string
+	DefaultSchedulerConfigFile string
+	MaxLimit                   int
+	Verbose                    bool
+	PodSpecFile                string
+	Period                     int
+	OutputFormat               string
 }
 
 func NewClusterCapacityConfig(opt *ClusterCapacityOptions) *ClusterCapacityConfig {
@@ -56,6 +57,15 @@ func (s *ClusterCapacityOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&s.PodSpecFile, "podspec", s.PodSpecFile, "Path to JSON or YAML file containing pod definition.")
 	fs.IntVar(&s.MaxLimit, "maxLimit", 0, "Number of pods to be scheduled.")
 	fs.StringArrayVar(&s.SchedulerConfigFile, "config", s.SchedulerConfigFile, "Paths to files containing scheduler configuration in JSON or YAML format")
+
+	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	if err != nil {
+		log.Fatalf("Unable to get current directory: %v", err)
+	}
+
+	filepath := path.Join(dir, "config/default-scheduler.yaml")
+
+	fs.StringVar(&s.DefaultSchedulerConfigFile, "default-config", filepath, "Path to JSON or YAML file containing pod definition.")
 	fs.BoolVar(&s.Verbose, "verbose", s.Verbose, "Verbose mode")
 	fs.IntVar(&s.Period, "period", 0, "Number of seconds between cluster capacity checks, if period=0 cluster-capacity will be checked just once")
 	fs.StringVarP(&s.OutputFormat, "output", "o", s.OutputFormat, "Output format. One of: json|yaml")
@@ -75,8 +85,11 @@ func parseSchedulerConfig(path string) (*schedopt.SchedulerServer, error) {
 }
 
 func (s *ClusterCapacityConfig) ParseAdditionalSchedulerConfigs() error {
-	for i := 0; i < len(s.Options.SchedulerConfigFile); i++ {
-		newScheduler, err := parseSchedulerConfig(s.Options.SchedulerConfigFile[i])
+	for _, config := range s.Options.SchedulerConfigFile {
+		if config == "default-scheduler.yaml" {
+			continue
+		}
+		newScheduler, err := parseSchedulerConfig(config)
 		if err != nil {
 			return err //s.Options.SchedulerConfigFile = append(s.Options.SchedulerConfigFile, filepath)
 		}
@@ -111,13 +124,12 @@ func (s *ClusterCapacityConfig) ParseAPISpec() error {
 }
 
 func (s *ClusterCapacityConfig) SetDefaultScheduler() error {
-	_, filename, _, _ := runtime.Caller(1)
-	filepath := path.Join(path.Dir(filename), "../config/default-scheduler.yaml")
 	var err error
-	s.DefaultScheduler, err = parseSchedulerConfig(filepath)
+	s.DefaultScheduler, err = parseSchedulerConfig(s.Options.DefaultSchedulerConfigFile)
 	if err != nil {
 		return err
 	}
+
 	s.DefaultScheduler.Master = s.Options.Master
 	s.DefaultScheduler.Kubeconfig = s.Options.Kubeconfig
 	return nil
