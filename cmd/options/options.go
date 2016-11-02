@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/pflag"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/validation"
-	"k8s.io/kubernetes/pkg/client/unversioned"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 	"k8s.io/kubernetes/pkg/util/yaml"
 	schedopt "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app/options"
 )
@@ -21,7 +21,7 @@ import (
 type ClusterCapacityConfig struct {
 	Schedulers       []*schedopt.SchedulerServer
 	Pod              *api.Pod
-	KubeClient       *unversioned.Client
+	KubeClient       clientset.Interface
 	Options          *ClusterCapacityOptions
 	DefaultScheduler *schedopt.SchedulerServer
 	Reports          *apiserver.Cache
@@ -35,7 +35,7 @@ type ClusterCapacityOptions struct {
 	Verbose             bool
 	PodSpecFile         string
 	Period              int
-	OutputFormat          string
+	OutputFormat        string
 }
 
 func NewClusterCapacityConfig(opt *ClusterCapacityOptions) *ClusterCapacityConfig {

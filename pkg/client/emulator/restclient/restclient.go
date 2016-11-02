@@ -288,8 +288,7 @@ func (c *RESTClient) request(verb string) *restclient.Request {
 		NegotiatedSerializer: c.NegotiatedSerializer,
 	}
 	ns := c.NegotiatedSerializer
-	serializer, _ := ns.SerializerForMediaType(runtime.ContentTypeJSON, nil)
-	streamingSerializer, _ := ns.StreamingSerializerForMediaType(runtime.ContentTypeJSON, nil)
+	info, _ := runtime.SerializerInfoForMediaType(ns.SupportedMediaTypes(), runtime.ContentTypeJSON)
 
 	var targetVersion unversioned.GroupVersion
 	if c.name == "extensions" {
@@ -303,10 +302,13 @@ func (c *RESTClient) request(verb string) *restclient.Request {
 	}
 
 	serializers := restclient.Serializers{
-		Encoder:             ns.EncoderForVersion(serializer, *testapi.Default.GroupVersion()),
-		Decoder:             ns.DecoderToVersion(serializer, targetVersion),
-		StreamingSerializer: streamingSerializer,
-		Framer:              streamingSerializer.Framer,
+		Encoder: ns.EncoderForVersion(info.Serializer, *testapi.Default.GroupVersion()),
+		Decoder: ns.DecoderToVersion(info.Serializer, targetVersion),
+	}
+
+	if info.StreamSerializer != nil {
+		serializers.StreamingSerializer = info.StreamSerializer.Serializer
+		serializers.Framer = info.StreamSerializer.Framer
 	}
 
 	return restclient.NewRequest(c, verb, &url.URL{Host: "localhost"}, "", config, serializers, nil, nil)
@@ -343,11 +345,10 @@ func (c *RESTClient) createListReadCloser(resource string, fieldsSelector fields
 	}
 
 	if resource == ccapi.ReplicaSets {
-		contentType := "application/json"
 		gvr := unversioned.GroupVersionResource{Group: "extensions", Version: "v1beta1", Resource: "replicasets"}
-		info, ok := api.Codecs.SerializerForMediaType(contentType, nil)
+		info, ok := runtime.SerializerInfoForMediaType(c.NegotiatedSerializer.SupportedMediaTypes(), runtime.ContentTypeJSON)
 		if !ok {
-			return nil, fmt.Errorf("serializer for %s not registered", contentType)
+			return nil, fmt.Errorf("serializer for %s not registered", runtime.ContentTypeJSON)
 		}
 
 		encoder := api.Codecs.EncoderForVersion(info.Serializer, gvr.GroupVersion())

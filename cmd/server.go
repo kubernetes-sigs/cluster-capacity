@@ -3,18 +3,19 @@ package cmd
 import (
 	"fmt"
 
+	"log"
+	"strings"
+	"time"
+
 	"github.com/ingvagabund/cluster-capacity/cmd/options"
 	"github.com/ingvagabund/cluster-capacity/pkg/apiserver"
 	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator"
 	"github.com/renstrom/dedent"
 	"github.com/spf13/cobra"
-	"k8s.io/kubernetes/pkg/client/unversioned"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
 	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
 	"k8s.io/kubernetes/plugin/pkg/scheduler/schedulercache"
-	"log"
-	"time"
-	"strings"
 )
 
 var (
@@ -107,16 +108,15 @@ func Run(opt *options.ClusterCapacityOptions) error {
 		watch <- report
 		time.Sleep(time.Duration(opt.Period) * time.Second)
 	}
-	return nil
 }
 
-func getKubeClient(master string, config string) (*unversioned.Client, error) {
+func getKubeClient(master string, config string) (clientset.Interface, error) {
 	kubeconfig, err := clientcmd.BuildConfigFromFlags(master, config)
 	if err != nil {
 		return nil, fmt.Errorf("unable to build config from flags: %v", err)
 	}
 
-	kubeClient, err := unversioned.New(kubeconfig)
+	kubeClient, err := clientset.NewForConfig(kubeconfig)
 	if err != nil {
 		return nil, fmt.Errorf("Invalid API configuration: %v", err)
 	}
@@ -141,6 +141,7 @@ func runSimulator(s *options.ClusterCapacityConfig) (*apiserver.Report, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	err = cc.Run()
 	if err != nil {
 		return nil, err
@@ -183,13 +184,12 @@ func getReason(s *options.ClusterCapacityConfig, message string) apiserver.FailR
 	if s.Options.MaxLimit != 0 {
 		return apiserver.FailReason{
 			FailMessage: slicedMessage[0],
-			FailType: "Limit reached",
-	}
+			FailType:    "Limit reached",
+		}
 	}
 	fail := apiserver.FailReason{
-		FailType: slicedMessage[0][:colon],
+		FailType:    slicedMessage[0][:colon],
 		FailMessage: slicedMessage[0][colon:],
-
 	}
 
 	if len(slicedMessage) == 1 {
@@ -197,10 +197,10 @@ func getReason(s *options.ClusterCapacityConfig, message string) apiserver.FailR
 	}
 
 	fail.NodeFailures = make(map[string]string)
-	for _, nodeReason := range slicedMessage[1:len(slicedMessage)-1] {
+	for _, nodeReason := range slicedMessage[1 : len(slicedMessage)-1] {
 		nameStart := strings.Index(nodeReason, "(")
 		nameEnd := strings.Index(nodeReason, ")")
-		name := nodeReason[nameStart+1:nameEnd]
+		name := nodeReason[nameStart+1 : nameEnd]
 		fail.NodeFailures[name] = nodeReason[nameEnd+3:]
 	}
 	return fail
@@ -216,6 +216,6 @@ func createReport(s *options.ClusterCapacityConfig, status emulator.Status) *api
 			Memory: info.RequestedResource().Memory,
 		},
 		TotalInstances: len(status.Pods),
-		FailReasons: getReason(s, status.StopReason),
+		FailReasons:    getReason(s, status.StopReason),
 	}
 }

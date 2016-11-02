@@ -16,8 +16,7 @@ import (
 	"k8s.io/kubernetes/pkg/apis/extensions"
 	"k8s.io/kubernetes/pkg/client/cache"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
-	unversionedextensions "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/typed/extensions/unversioned"
-	"k8s.io/kubernetes/pkg/client/unversioned"
+	clientsetextensions "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/typed/extensions/internalversion"
 	"k8s.io/kubernetes/pkg/fields"
 	"k8s.io/kubernetes/pkg/watch"
 	soptions "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app/options"
@@ -73,13 +72,13 @@ func (c *ClusterCapacity) Status() Status {
 	return c.status
 }
 
-func (c *ClusterCapacity) SyncWithClient(client *unversioned.Client) error {
+func (c *ClusterCapacity) SyncWithClient(client clientset.Interface) error {
 	for _, resource := range c.resourceStore.Resources() {
 		var listWatcher *cache.ListWatch
 		if resource == ccapi.ReplicaSets {
-			listWatcher = cache.NewListWatchFromClient(client.ExtensionsClient, resource, api.NamespaceAll, fields.ParseSelectorOrDie(""))
+			listWatcher = cache.NewListWatchFromClient(client.Extensions().RESTClient(), resource, api.NamespaceAll, fields.ParseSelectorOrDie(""))
 		} else {
-			listWatcher = cache.NewListWatchFromClient(client, resource, api.NamespaceAll, fields.ParseSelectorOrDie(""))
+			listWatcher = cache.NewListWatchFromClient(client.Core().RESTClient(), resource, api.NamespaceAll, fields.ParseSelectorOrDie(""))
 		}
 
 		options := api.ListOptions{ResourceVersion: "0"}
@@ -326,7 +325,7 @@ func New(s *soptions.SchedulerServer, simulatedPod *api.Pod, maxPods int) (*Clus
 		maxSimulated:  maxPods,
 	}
 
-	cc.kubeclient.ExtensionsClient = unversionedextensions.New(extensionsRestClient)
+	cc.kubeclient.ExtensionsClient = clientsetextensions.New(extensionsRestClient)
 
 	resourceStore.RegisterEventHandler(ccapi.Pods, cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
