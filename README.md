@@ -19,7 +19,7 @@ in terms of how many instances of a pod with given requirements can be scheduled
 
 ```
 go build .
-$ ./cluster-capacity --kubeconfig <path to kubeconfig> --master <API server address > --podspec=examples/pod.yaml
+$ ./cluster-capacity --kubeconfig <path to kubeconfig> --master <API server address> --podspec=examples/pod.yaml
 ```
 
 For more information run:
@@ -71,6 +71,66 @@ E.g. to change a number of replicas to `6`, you can run:
 
 ```sh
 $ kubectl patch -f examples/rc.yml -p '{"spec":{"replicas":6}}
+```
+
+## Pod generator
+
+As pods are part of a namespace with resource limits and additional constraints (e.g. node selector forced by namespace annotation),
+it is natural to analyse how many instances of a pod with maximal resource requirements can be scheduled.
+In order to generate the pod, you can run:
+
+```sh
+$ genpod --kubeconfig <path to kubeconfig> --master <API server address> --namespace <namespace>
+```
+
+Assuming at least one resource limits object is available with at least one maximum resource type per pod.
+If multiple resource limits objects per namespace are available, minimum of all maximum resources per type is taken.
+If a namespace is annotated with `openshift.io/node-selector`, the selector is set as pod's node selector.
+
+**Example**:
+
+Assuming `cluster-capacity` namespace is created with `openshift.io/node-selector: "region=hpc,load=high"` annotation
+and resource limits are created (see `examples/namespace.yml` and `examples/limits.yml`)
+
+```sh
+$ kubectl describe limits hpclimits --namespace cluster-capacity
+Name:           hpclimits
+Namespace:      cluster-capacity
+Type            Resource        Min     Max     Default Request Default Limit   Max Limit/Request Ratio
+----            --------        ---     ---     --------------- -------------   -----------------------
+Pod             cpu             10m     200m    -               -               -
+Pod             memory          6Mi     100Mi   -               -               -
+Container       memory          6Mi     20Mi    6Mi             6Mi             -
+Container       cpu             10m     50m     10m             10m             -
+
+```
+
+```sh
+$ genpod --kubeconfig <path to kubeconfig> --master <API server address> --namespace cluster-capacity
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  name: cluster-capacity-stub-container
+  namespace: cluster-capacity
+spec:
+  containers:
+  - image: gcr.io/google_containers/pause:2.0
+    imagePullPolicy: Always
+    name: cluster-capacity-stub-container
+    resources:
+      limits:
+        cpu: 200m
+        memory: 100Mi
+      requests:
+        cpu: 200m
+        memory: 100Mi
+  dnsPolicy: Default
+  nodeSelector:
+    load: high
+    region: hpc
+  restartPolicy: OnFailure
+status: {}
 ```
 
 ## Continuous cluster capacity analysis
