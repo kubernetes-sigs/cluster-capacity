@@ -1,11 +1,8 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
-
-	"github.com/ghodss/yaml"
 
 	"github.com/ingvagabund/cluster-capacity/cmd/genpod/options"
 	nspod "github.com/ingvagabund/cluster-capacity/pkg/client"
@@ -13,6 +10,11 @@ import (
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
 	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
+
+	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api/testapi"
+	"k8s.io/kubernetes/pkg/api/unversioned"
+	"k8s.io/kubernetes/pkg/runtime"
 )
 
 func NewGenPodCommand() *cobra.Command {
@@ -68,16 +70,23 @@ func Run(opt *options.GenPodOptions) error {
 	if err != nil {
 		log.Fatalf("Error: %v\n", err)
 	} else {
-		//fmt.Printf("Pod: %v\n", *pod)
-		var stream []byte
-		var err error
+		var contentType string
 		switch opt.Format {
 		case "json":
-			stream, err = json.Marshal(*pod)
+			contentType = runtime.ContentTypeJSON
 		case "yaml":
+			contentType = "application/yaml"
 		default:
-			stream, err = yaml.Marshal(*pod)
+			contentType = "application/yaml"
 		}
+
+		info, ok := runtime.SerializerInfoForMediaType(testapi.Default.NegotiatedSerializer().SupportedMediaTypes(), contentType)
+		if !ok {
+			return fmt.Errorf("serializer for %s not registered", contentType)
+		}
+		gvr := unversioned.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
+		encoder := api.Codecs.EncoderForVersion(info.Serializer, gvr.GroupVersion())
+		stream, err := runtime.Encode(encoder, pod)
 
 		if err != nil {
 			return fmt.Errorf("Failed to create pod: %v", err)

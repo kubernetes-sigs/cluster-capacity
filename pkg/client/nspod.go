@@ -50,6 +50,10 @@ func RetrieveNamespacePod(client clientset.Interface, namespace string) (*api.Po
 
 	nonzero := false
 	for _, quantity := range resources {
+		if quantity == nil {
+			continue
+		}
+
 		if !quantity.IsZero() {
 			nonzero = true
 			break
