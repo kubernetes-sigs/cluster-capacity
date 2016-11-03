@@ -91,7 +91,7 @@ func (s *ClusterCapacityConfig) ParseAdditionalSchedulerConfigs() error {
 		}
 		newScheduler, err := parseSchedulerConfig(config)
 		if err != nil {
-			return err //s.Options.SchedulerConfigFile = append(s.Options.SchedulerConfigFile, filepath)
+			return err
 		}
 		newScheduler.Master = s.Options.Master
 		newScheduler.Kubeconfig = s.Options.Kubeconfig

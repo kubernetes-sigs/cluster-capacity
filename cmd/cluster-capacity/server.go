@@ -16,6 +16,7 @@ import (
 	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
 	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
 	"k8s.io/kubernetes/plugin/pkg/scheduler/schedulercache"
+	"k8s.io/kubernetes/pkg/client/restclient"
 )
 
 var (
@@ -53,12 +54,6 @@ func NewClusterCapacityCommand() *cobra.Command {
 }
 
 func Validate(opt *options.ClusterCapacityOptions) error {
-	if len(opt.Kubeconfig) == 0 {
-		return fmt.Errorf("Path to Kubernetes config file missing")
-	}
-	if len(opt.Master) == 0 {
-		return fmt.Errorf("Adress of Kubernetes API server missing")
-	}
 	if len(opt.PodSpecFile) == 0 {
 		return fmt.Errorf("Pod spec file is missing")
 	}
@@ -111,12 +106,20 @@ func Run(opt *options.ClusterCapacityOptions) error {
 }
 
 func getKubeClient(master string, config string) (clientset.Interface, error) {
-	kubeconfig, err := clientcmd.BuildConfigFromFlags(master, config)
-	if err != nil {
-		return nil, fmt.Errorf("unable to build config from flags: %v", err)
+	var cfg *restclient.Config
+	var err error
+	if master != "" && config != "" {
+		cfg, err = clientcmd.BuildConfigFromFlags(master, config)
+		if err != nil {
+			return nil, fmt.Errorf("unable to build config from flags: %v", err)
+		}
+	} else {
+		cfg, err = restclient.InClusterConfig()
+		if err != nil {
+			return nil, err
+		}
 	}
-
-	kubeClient, err := clientset.NewForConfig(kubeconfig)
+	kubeClient, err := clientset.NewForConfig(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("Invalid API configuration: %v", err)
 	}
@@ -124,6 +127,7 @@ func getKubeClient(master string, config string) (clientset.Interface, error) {
 	if _, err = kubeClient.Discovery().ServerVersion(); err != nil {
 		return nil, fmt.Errorf("Unable to get server version: %v\n", err)
 	}
+
 	return kubeClient, nil
 }
 
