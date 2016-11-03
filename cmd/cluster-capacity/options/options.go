@@ -56,7 +56,9 @@ func (s *ClusterCapacityOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&s.Kubeconfig, "kubeconfig", s.Kubeconfig, "Path to kubeconfig file with authorization and master location information.")
 	fs.StringVar(&s.PodSpecFile, "podspec", s.PodSpecFile, "Path to JSON or YAML file containing pod definition.")
 	fs.IntVar(&s.MaxLimit, "maxLimit", 0, "Number of pods to be scheduled.")
-	fs.StringArrayVar(&s.SchedulerConfigFile, "config", s.SchedulerConfigFile, "Paths to files containing scheduler configuration in JSON or YAML format")
+
+	//TODO(jchaloup): uncomment this line once the multi-schedulers are fully implemented
+	//fs.StringArrayVar(&s.SchedulerConfigFile, "config", s.SchedulerConfigFile, "Paths to files containing scheduler configuration in JSON or YAML format")
 
 	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	if err != nil {
