@@ -78,7 +78,8 @@ type RESTClient struct {
 
 	resourceStore store.ResourceStore
 
-	watcherReadGetters    map[string]map[string]*ewatch.WatchBuffer
+	// resource:selector
+	watcherReadGetters    map[string]map[string][]*ewatch.WatchBuffer
 	watcherReadGettersMux sync.RWMutex
 	// name the rest client
 	name string
@@ -201,13 +202,15 @@ func (c *RESTClient) EmitObjectWatchEvent(resource string, eType watch.EventType
 		return fmt.Errorf("Watch buffer for pods not initialized")
 	}
 
-	for fieldsSelector, w := range rg {
+	for fieldsSelector, watchers := range rg {
 		if !fields.ParseSelectorOrDie(fieldsSelector).Matches(NewObjectFieldsAccessor(object)) {
 			continue
 		}
-		err := w.EmitWatchEvent(eType, object)
-		if err != nil {
-			return err
+		for _, w := range watchers {
+			err := w.EmitWatchEvent(eType, object)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -243,8 +246,10 @@ func (c *RESTClient) EmitReplicaSetWatchEvent(eType watch.EventType, object *ext
 
 func (c *RESTClient) Close() {
 	for _, rg := range c.watcherReadGetters {
-		for _, w := range rg {
-			w.Close()
+		for _, watchers := range rg {
+			for _, w := range watchers {
+				w.Close()
+			}
 		}
 	}
 }
@@ -403,20 +408,15 @@ func (c *RESTClient) createWatchReadCloser(resource string, fieldsSelector field
 		return nil, fmt.Errorf("Resource %s not recognized", resource)
 	}
 
-	// This will not work when one scheduler creates more watch channels with the same field Selector
-	// At the same time, this will cause failures when multiple schedulers share the same watch channel.
-	// Most likely, the map should be changed to list. If a watch fails' its corresponding watch buffer
-	// is closed by decoder so the close does not have to be called.
-	// However, the Close must be called for all watchbuffers.
-	// Thus, the watch buffer must ignore multiple invocations of the Close method.
-	rg, exists := resourceWatcherReadGetter[fieldsSelector.String()]
-	if exists {
-		rg.Close()
+	// multi-schedulers environment may require multiple instances of a watcher
+	// for the same resource and fields selector.
+	watchers, exists := resourceWatcherReadGetter[fieldsSelector.String()]
+	if !exists {
+		watchers = make([]*ewatch.WatchBuffer, 0)
 	}
 
-	rg = ewatch.NewWatchBuffer(resource)
-
-	c.watcherReadGetters[resource][fieldsSelector.String()] = rg
+	rg := ewatch.NewWatchBuffer(resource)
+	c.watcherReadGetters[resource][fieldsSelector.String()] = append(watchers, rg)
 
 	// list all objects of the given resource to the wormhole
 	switch resource {
@@ -544,17 +544,17 @@ func NewRESTClient(resourceStore store.ResourceStore, name string) *RESTClient {
 	client := &RESTClient{
 		NegotiatedSerializer: testapi.Default.NegotiatedSerializer(),
 		resourceStore:        resourceStore,
-		watcherReadGetters:   make(map[string]map[string]*ewatch.WatchBuffer),
+		watcherReadGetters:   make(map[string]map[string][]*ewatch.WatchBuffer),
 		name:                 name,
 	}
 
-	client.watcherReadGetters[ccapi.Pods] = make(map[string]*ewatch.WatchBuffer)
-	client.watcherReadGetters[ccapi.Nodes] = make(map[string]*ewatch.WatchBuffer)
-	client.watcherReadGetters[ccapi.PersistentVolumes] = make(map[string]*ewatch.WatchBuffer)
-	client.watcherReadGetters[ccapi.PersistentVolumeClaims] = make(map[string]*ewatch.WatchBuffer)
-	client.watcherReadGetters[ccapi.Services] = make(map[string]*ewatch.WatchBuffer)
-	client.watcherReadGetters[ccapi.ReplicationControllers] = make(map[string]*ewatch.WatchBuffer)
-	client.watcherReadGetters[ccapi.ReplicaSets] = make(map[string]*ewatch.WatchBuffer)
+	client.watcherReadGetters[ccapi.Pods] = make(map[string][]*ewatch.WatchBuffer)
+	client.watcherReadGetters[ccapi.Nodes] = make(map[string][]*ewatch.WatchBuffer)
+	client.watcherReadGetters[ccapi.PersistentVolumes] = make(map[string][]*ewatch.WatchBuffer)
+	client.watcherReadGetters[ccapi.PersistentVolumeClaims] = make(map[string][]*ewatch.WatchBuffer)
+	client.watcherReadGetters[ccapi.Services] = make(map[string][]*ewatch.WatchBuffer)
+	client.watcherReadGetters[ccapi.ReplicationControllers] = make(map[string][]*ewatch.WatchBuffer)
+	client.watcherReadGetters[ccapi.ReplicaSets] = make(map[string][]*ewatch.WatchBuffer)
 
 	return client
 }

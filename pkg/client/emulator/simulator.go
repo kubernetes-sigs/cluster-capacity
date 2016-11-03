@@ -43,6 +43,10 @@ type ClusterCapacity struct {
 	// fake kube client
 	kubeclient *clientset.Clientset
 
+	// fake rest clients
+	coreRestClient       *restclient.RESTClient
+	extensionsRestClient *restclient.RESTClient
+
 	// schedulers
 	schedulers       map[string]*scheduler.Scheduler
 	schedulerConfigs map[string]*scheduler.Config
@@ -175,6 +179,10 @@ func (c *ClusterCapacity) Close() {
 	for _, name := range c.schedulerConfigs {
 		close(name.StopEverything)
 	}
+
+	c.coreRestClient.Close()
+	c.extensionsRestClient.Close()
+
 	c.closed = true
 }
 
@@ -317,12 +325,14 @@ func New(s *soptions.SchedulerServer, simulatedPod *api.Pod, maxPods int) (*Clus
 	extensionsRestClient := restclient.NewRESTClient(resourceStore, "extensions")
 
 	cc := &ClusterCapacity{
-		resourceStore: resourceStore,
-		strategy:      strategy.NewPredictiveStrategy(resourceStore),
-		kubeclient:    clientset.New(restClient),
-		simulatedPod:  simulatedPod,
-		simulated:     0,
-		maxSimulated:  maxPods,
+		resourceStore:        resourceStore,
+		strategy:             strategy.NewPredictiveStrategy(resourceStore),
+		kubeclient:           clientset.New(restClient),
+		simulatedPod:         simulatedPod,
+		simulated:            0,
+		maxSimulated:         maxPods,
+		coreRestClient:       restClient,
+		extensionsRestClient: extensionsRestClient,
 	}
 
 	cc.kubeclient.ExtensionsClient = clientsetextensions.New(extensionsRestClient)
