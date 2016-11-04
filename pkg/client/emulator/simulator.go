@@ -81,6 +81,30 @@ const (
 	ResourceSpacePartial ResourceSpaceMode = "ResourceSpacePartial"
 )
 
+func StringToResourceSpaceMode(mode string) (ResourceSpaceMode, error) {
+	switch mode {
+	case "ResourceSpaceFull":
+		return ResourceSpaceFull, nil
+	case "ResourceSpacePartial":
+		return ResourceSpacePartial, nil
+	default:
+		return "", fmt.Errorf("Resource space mode not recognized")
+	}
+}
+
+type ApiServerOptions struct {
+	AdmissionControl           string
+	AdmissionControlConfigFile string
+
+	// Authorization mode and associated flags.
+	AuthorizationMode                        string
+	AuthorizationPolicyFile                  string
+	AuthorizationWebhookConfigFile           string
+	AuthorizationWebhookCacheAuthorizedTTL   unversioned.Duration
+	AuthorizationWebhookCacheUnauthorizedTTL unversioned.Duration
+	AuthorizationRBACSuperUser               string
+}
+
 type ClusterCapacity struct {
 	// caches modified by emulation strategy
 	resourceStore store.ResourceStore
@@ -278,16 +302,17 @@ func (c *ClusterCapacity) nextPod() error {
 	// use simulated pod name with an index to construct the name
 	pod.ObjectMeta.Name = fmt.Sprintf("%v-%v", c.simulatedPod.Name, c.simulated)
 
-	gv := unversioned.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}.GroupVersion()
-	userInfo, _ := api.UserFrom(api.WithUserAgent(api.NewContext(), "Cluster-Capacity-Agent"))
+	if c.admissionController != nil {
+		gv := unversioned.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}.GroupVersion()
+		userInfo, _ := api.UserFrom(api.WithUserAgent(api.NewContext(), "Cluster-Capacity-Agent"))
 
-	attr := admission.NewAttributesRecord(runtime.Object(&pod), nil, unversioned.FromAPIVersionAndKind("v1", "pods"), pod.Namespace, pod.Name, gv.WithResource("pods"), "", admission.Create, userInfo)
+		attr := admission.NewAttributesRecord(runtime.Object(&pod), nil, unversioned.FromAPIVersionAndKind("v1", "pods"), pod.Namespace, pod.Name, gv.WithResource("pods"), "", admission.Create, userInfo)
 
-	err := c.admissionController.Admit(attr)
-	if err != nil {
-		return fmt.Errorf("Admission controller error: %v", err)
+		err := c.admissionController.Admit(attr)
+		if err != nil {
+			return fmt.Errorf("Admission controller error: %v", err)
+		}
 	}
-
 	c.simulated++
 	return c.resourceStore.Add(ccapi.Pods, runtime.Object(&pod))
 }
@@ -382,7 +407,7 @@ func createConfig(s *soptions.SchedulerServer, configFactory *factory.ConfigFact
 // Create new cluster capacity analysis
 // The analysis is completely independent of apiserver so no need
 // for kubeconfig nor for apiserver url
-func New(s *soptions.SchedulerServer, simulatedPod *api.Pod, maxPods int) (*ClusterCapacity, error) {
+func New(s *soptions.SchedulerServer, simulatedPod *api.Pod, maxPods int, resourceSpaceMode ResourceSpaceMode, apiserverConfig *ApiServerOptions) (*ClusterCapacity, error) {
 	resourceStore := store.NewResourceStore()
 	restClient := restclient.NewRESTClient(resourceStore, "core")
 	extensionsRestClient := restclient.NewRESTClient(resourceStore, "extensions")
@@ -396,7 +421,7 @@ func New(s *soptions.SchedulerServer, simulatedPod *api.Pod, maxPods int) (*Clus
 		maxSimulated:         maxPods,
 		coreRestClient:       restClient,
 		extensionsRestClient: extensionsRestClient,
-		resourceSpaceMode:    ResourceSpaceFull,
+		resourceSpaceMode:    resourceSpaceMode,
 	}
 
 	cc.kubeclient.ExtensionsClient = clientsetextensions.New(extensionsRestClient)
@@ -438,41 +463,49 @@ func New(s *soptions.SchedulerServer, simulatedPod *api.Pod, maxPods int) (*Clus
 	// Binder is redirected to cluster capacity's counter.
 
 	// initialize admission controllers if specified
-	sharedInformers := informers.NewSharedInformerFactory(cc.kubeclient, 10*time.Minute)
-	authorizationConfig := authorizer.AuthorizationConfig{
-		PolicyFile:                  "",
-		WebhookConfigFile:           "",
-		WebhookCacheAuthorizedTTL:   5 * time.Minute,
-		WebhookCacheUnauthorizedTTL: 30 * time.Second,
-		RBACSuperUser:               "",
-		InformerFactory:             sharedInformers,
+	if len(apiserverConfig.AdmissionControl) > 0 {
+		admissionsNames := strings.Split(apiserverConfig.AdmissionControl, ",")
+
+		// filter out limitations that forbid the analysis to expand to entire resource space
+		var admissionControlPluginNames []string
+		if cc.resourceSpaceMode == ResourceSpaceFull {
+			// filter out ResourceQuota admission
+			for _, item := range admissionsNames {
+				if item == "ResourceQuota" {
+					continue
+				}
+				admissionControlPluginNames = append(admissionControlPluginNames, item)
+			}
+		} else {
+			admissionControlPluginNames = admissionsNames
+		}
+
+		sharedInformers := informers.NewSharedInformerFactory(cc.kubeclient, 10*time.Minute)
+		authorizationConfig := authorizer.AuthorizationConfig{
+			PolicyFile:                  "",
+			WebhookConfigFile:           "",
+			WebhookCacheAuthorizedTTL:   5 * time.Minute,
+			WebhookCacheUnauthorizedTTL: 30 * time.Second,
+			RBACSuperUser:               "",
+			InformerFactory:             sharedInformers,
+		}
+
+		authorizationModeNames := strings.Split("AlwaysAllow", ",")
+		apiAuthorizer, err := authorizer.NewAuthorizerFromAuthorizationConfig(authorizationModeNames, authorizationConfig)
+		if err != nil {
+			log.Fatalf("Invalid Authorization Config: %v", err)
+		}
+
+		pluginInitializer := admission.NewPluginInitializer(sharedInformers, apiAuthorizer)
+		admissionController, err := admission.NewFromPlugins(cc.kubeclient, admissionControlPluginNames, "", pluginInitializer)
+		if err != nil {
+			log.Fatalf("Failed to initialize plugins: %v", err)
+		}
+
+		cc.admissionController = admissionController
+
+		sharedInformers.Start(wait.NeverStop)
 	}
-
-	authorizationModeNames := strings.Split("AlwaysAllow", ",")
-	apiAuthorizer, err := authorizer.NewAuthorizerFromAuthorizationConfig(authorizationModeNames, authorizationConfig)
-	if err != nil {
-		log.Fatalf("Invalid Authorization Config: %v", err)
-	}
-
-	// filter out limitations that forbid the analysis to expand to entire resource space
-	var admissionControlPluginNames []string
-	// TODO(jchaloup): get the list of admission from config file and filter them out based on the mode
-	if cc.resourceSpaceMode == ResourceSpaceFull {
-		// filter out ResourceQuota admission
-		admissionControlPluginNames = strings.Split("NamespaceLifecycle,LimitRanger,SecurityContextDeny,ServiceAccount,AlwaysPullImages", ",")
-	} else {
-		admissionControlPluginNames = strings.Split("NamespaceLifecycle,LimitRanger,SecurityContextDeny,ServiceAccount,ResourceQuota,AlwaysPullImages", ",")
-	}
-
-	pluginInitializer := admission.NewPluginInitializer(sharedInformers, apiAuthorizer)
-	admissionController, err := admission.NewFromPlugins(cc.kubeclient, admissionControlPluginNames, "", pluginInitializer)
-	if err != nil {
-		log.Fatalf("Failed to initialize plugins: %v", err)
-	}
-
-	cc.admissionController = admissionController
-
-	sharedInformers.Start(wait.NeverStop)
 
 	return cc, nil
 }

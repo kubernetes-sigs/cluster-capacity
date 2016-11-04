@@ -13,10 +13,10 @@ import (
 	"github.com/renstrom/dedent"
 	"github.com/spf13/cobra"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
+	"k8s.io/kubernetes/pkg/client/restclient"
 	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
 	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
 	"k8s.io/kubernetes/plugin/pkg/scheduler/schedulercache"
-	"k8s.io/kubernetes/pkg/client/restclient"
 )
 
 var (
@@ -57,6 +57,11 @@ func Validate(opt *options.ClusterCapacityOptions) error {
 	if len(opt.PodSpecFile) == 0 {
 		return fmt.Errorf("Pod spec file is missing")
 	}
+
+	if opt.ResourceSpaceMode != "" && opt.ResourceSpaceMode != "ResourceSpaceFull" && opt.ResourceSpaceMode != "ResourceSpacePartial" {
+		return fmt.Errorf("Resource space mode not recognized. Valid values are: ResourceSpaceFull, ResourceSpacePartial")
+	}
+
 	return nil
 }
 
@@ -74,6 +79,12 @@ func Run(opt *options.ClusterCapacityOptions) error {
 	err = conf.ParseAdditionalSchedulerConfigs()
 	if err != nil {
 		return fmt.Errorf("Failed to parse config file: %v ", err)
+	}
+
+	// only of the apiserver config file is set
+	err = conf.ParseApiServerConfig()
+	if err != nil {
+		return fmt.Errorf("Failed to parse apiserver config file: %v ", err)
 	}
 
 	conf.KubeClient, err = getKubeClient(conf.Options.Master, conf.Options.Kubeconfig)
@@ -132,15 +143,22 @@ func getKubeClient(master string, config string) (clientset.Interface, error) {
 }
 
 func runSimulator(s *options.ClusterCapacityConfig) (*apiserver.Report, error) {
-	cc, err := emulator.New(s.DefaultScheduler, s.Pod, s.Options.MaxLimit)
+	mode, err := emulator.StringToResourceSpaceMode(s.Options.ResourceSpaceMode)
 	if err != nil {
 		return nil, err
 	}
+
+	cc, err := emulator.New(s.DefaultScheduler, s.Pod, s.Options.MaxLimit, mode, s.ApiServerOptions)
+	if err != nil {
+		return nil, err
+	}
+
 	for i := 0; i < len(s.Schedulers); i++ {
 		if err = cc.AddScheduler(s.Schedulers[i]); err != nil {
 			return nil, err
 		}
 	}
+
 	err = cc.SyncWithClient(s.KubeClient)
 	if err != nil {
 		return nil, err
@@ -161,6 +179,7 @@ func runSimulator(s *options.ClusterCapacityConfig) (*apiserver.Report, error) {
 	} else {
 		s.Reports.Add(report)
 	}
+
 	return report, nil
 }
 

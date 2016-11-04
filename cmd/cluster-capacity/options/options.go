@@ -10,6 +10,7 @@ import (
 	"path"
 
 	"github.com/ingvagabund/cluster-capacity/pkg/apiserver"
+	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator"
 	"github.com/spf13/pflag"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/validation"
@@ -25,6 +26,7 @@ type ClusterCapacityConfig struct {
 	Options          *ClusterCapacityOptions
 	DefaultScheduler *schedopt.SchedulerServer
 	Reports          *apiserver.Cache
+	ApiServerOptions *emulator.ApiServerOptions
 }
 
 type ClusterCapacityOptions struct {
@@ -37,6 +39,8 @@ type ClusterCapacityOptions struct {
 	PodSpecFile                string
 	Period                     int
 	OutputFormat               string
+	ApiserverConfigFile        string
+	ResourceSpaceMode          string
 }
 
 func NewClusterCapacityConfig(opt *ClusterCapacityOptions) *ClusterCapacityConfig {
@@ -68,9 +72,29 @@ func (s *ClusterCapacityOptions) AddFlags(fs *pflag.FlagSet) {
 	filepath := path.Join(dir, "config/default-scheduler.yaml")
 
 	fs.StringVar(&s.DefaultSchedulerConfigFile, "default-config", filepath, "Path to JSON or YAML file containing pod definition.")
+	fs.StringVar(&s.ApiserverConfigFile, "apiserver-config", s.ApiserverConfigFile, "Path to JSON or YAML file containing Apiserver configuration.")
+	fs.StringVar(&s.ResourceSpaceMode, "resource-space-mode", "ResourceSpaceFull", "Resource space limitation. Defaults to ResourceSpaceFull. If set to ResourceSpacePartial, ResourceQuota admission is applied.")
+
 	fs.BoolVar(&s.Verbose, "verbose", s.Verbose, "Verbose mode")
 	fs.IntVar(&s.Period, "period", 0, "Number of seconds between cluster capacity checks, if period=0 cluster-capacity will be checked just once")
 	fs.StringVarP(&s.OutputFormat, "output", "o", s.OutputFormat, "Output format. One of: json|yaml")
+}
+
+func parseApiServerOptions(path string) (*emulator.ApiServerOptions, error) {
+	filename, _ := filepath.Abs(path)
+	config, err := os.Open(filename)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to open config file: %v", err)
+	}
+
+	apiServerRunOptions := &emulator.ApiServerOptions{}
+	decoder := yaml.NewYAMLOrJSONDecoder(config, 4096)
+	err = decoder.Decode(apiServerRunOptions)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+	}
+
+	return apiServerRunOptions, nil
 }
 
 func parseSchedulerConfig(path string) (*schedopt.SchedulerServer, error) {
@@ -134,5 +158,18 @@ func (s *ClusterCapacityConfig) SetDefaultScheduler() error {
 
 	s.DefaultScheduler.Master = s.Options.Master
 	s.DefaultScheduler.Kubeconfig = s.Options.Kubeconfig
+	return nil
+}
+
+func (s *ClusterCapacityConfig) ParseApiServerConfig() error {
+	if len(s.Options.ApiserverConfigFile) == 0 {
+		s.ApiServerOptions = &emulator.ApiServerOptions{}
+		return nil
+	}
+	options, err := parseApiServerOptions(s.Options.ApiserverConfigFile)
+	if err != nil {
+		return err
+	}
+	s.ApiServerOptions = options
 	return nil
 }
