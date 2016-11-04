@@ -1,10 +1,10 @@
-package main
+package app
 
 import (
 	"fmt"
 	"log"
 
-	"github.com/ingvagabund/cluster-capacity/cmd/genpod/options"
+	"github.com/ingvagabund/cluster-capacity/cmd/genpod/app/options"
 	nspod "github.com/ingvagabund/cluster-capacity/pkg/client"
 	"github.com/spf13/cobra"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
