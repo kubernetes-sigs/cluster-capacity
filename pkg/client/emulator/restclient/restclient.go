@@ -51,11 +51,12 @@ func (o *ObjectFieldsAccessor) Get(field string) (value string) {
 	field = strings.Replace(field, "status", "Status", -1)
 	field = strings.Replace(field, "nodeName", "NodeName", -1)
 	field = strings.Replace(field, "phase", "Phase", -1)
+	field = strings.Replace(field, "type", "Type", -1)
 	fieldPath := fmt.Sprintf("{{.%v}}", field)
 	t := template.Must(template.New("fieldPath").Parse(fieldPath))
 	err := t.Execute(o, o.obj)
 	if err != nil {
-		fmt.Printf("Error during accessing object fields: %v\n", err)
+		fmt.Printf("Error during accessing object field %v: %v\n", fieldPath, err)
 	}
 	return string(o.buf)
 }
@@ -79,7 +80,7 @@ type RESTClient struct {
 	resourceStore store.ResourceStore
 
 	// resource:selector
-	watcherReadGetters    map[string]map[string][]*ewatch.WatchBuffer
+	watcherReadGetters    map[ccapi.ResourceType]map[string][]*ewatch.WatchBuffer
 	watcherReadGettersMux sync.RWMutex
 	// name the rest client
 	name string
@@ -87,12 +88,12 @@ type RESTClient struct {
 
 func (c *RESTClient) Pods(fieldsSelector fields.Selector) *api.PodList {
 	items := c.resourceStore.List(ccapi.Pods)
-	podItems := make([](api.Pod), 0, len(items))
+	typedItems := make([](api.Pod), 0, len(items))
 	for _, item := range items {
-		if !fieldsSelector.Matches(NewObjectFieldsAccessor(item.(*api.Pod))) {
+		if !fieldsSelector.Matches(NewObjectFieldsAccessor(item)) {
 			continue
 		}
-		podItems = append(podItems, *item.(*api.Pod))
+		typedItems = append(typedItems, *item.(*api.Pod))
 	}
 
 	return &api.PodList{
@@ -100,15 +101,18 @@ func (c *RESTClient) Pods(fieldsSelector fields.Selector) *api.PodList {
 			// choose arbitrary value as the cache does not store the ResourceVersion
 			ResourceVersion: "0",
 		},
-		Items: podItems,
+		Items: typedItems,
 	}
 }
 
 func (c *RESTClient) Services(fieldsSelector fields.Selector) *api.ServiceList {
 	items := c.resourceStore.List(ccapi.Services)
-	serviceItems := make([]api.Service, 0, len(items))
+	typedItems := make([]api.Service, 0, len(items))
 	for _, item := range items {
-		serviceItems = append(serviceItems, *item.(*api.Service))
+		if !fieldsSelector.Matches(NewObjectFieldsAccessor(item)) {
+			continue
+		}
+		typedItems = append(typedItems, *item.(*api.Service))
 	}
 
 	return &api.ServiceList{
@@ -116,15 +120,18 @@ func (c *RESTClient) Services(fieldsSelector fields.Selector) *api.ServiceList {
 			// choose arbitrary value as the cache does not store the ResourceVersion
 			ResourceVersion: "0",
 		},
-		Items: serviceItems,
+		Items: typedItems,
 	}
 }
 
 func (c *RESTClient) ReplicationControllers(fieldsSelector fields.Selector) *api.ReplicationControllerList {
 	items := c.resourceStore.List(ccapi.ReplicationControllers)
-	rcItems := make([]api.ReplicationController, 0, len(items))
+	typedItems := make([]api.ReplicationController, 0, len(items))
 	for _, item := range items {
-		rcItems = append(rcItems, *item.(*api.ReplicationController))
+		if !fieldsSelector.Matches(NewObjectFieldsAccessor(item)) {
+			continue
+		}
+		typedItems = append(typedItems, *item.(*api.ReplicationController))
 	}
 
 	return &api.ReplicationControllerList{
@@ -132,71 +139,164 @@ func (c *RESTClient) ReplicationControllers(fieldsSelector fields.Selector) *api
 			// choose arbitrary value as the cache does not store the ResourceVersion
 			ResourceVersion: "0",
 		},
-		Items: rcItems,
+		Items: typedItems,
 	}
 }
 
 func (c *RESTClient) PersistentVolumes(fieldsSelector fields.Selector) *api.PersistentVolumeList {
 	items := c.resourceStore.List(ccapi.PersistentVolumes)
-	pvItems := make([]api.PersistentVolume, 0, len(items))
+	typedItems := make([]api.PersistentVolume, 0, len(items))
 	for _, item := range items {
-		pvItems = append(pvItems, *item.(*api.PersistentVolume))
+		if !fieldsSelector.Matches(NewObjectFieldsAccessor(item)) {
+			continue
+		}
+		typedItems = append(typedItems, *item.(*api.PersistentVolume))
 	}
 
 	return &api.PersistentVolumeList{
 		ListMeta: unversioned.ListMeta{
 			ResourceVersion: "0",
 		},
-		Items: pvItems,
+		Items: typedItems,
 	}
 }
 
 func (c *RESTClient) PersistentVolumeClaims(fieldsSelector fields.Selector) *api.PersistentVolumeClaimList {
 	items := c.resourceStore.List(ccapi.PersistentVolumeClaims)
-	pvcItems := make([]api.PersistentVolumeClaim, 0, len(items))
+	typedItems := make([]api.PersistentVolumeClaim, 0, len(items))
 	for _, item := range items {
-		pvcItems = append(pvcItems, *item.(*api.PersistentVolumeClaim))
+		if !fieldsSelector.Matches(NewObjectFieldsAccessor(item)) {
+			continue
+		}
+		typedItems = append(typedItems, *item.(*api.PersistentVolumeClaim))
 	}
 
 	return &api.PersistentVolumeClaimList{
 		ListMeta: unversioned.ListMeta{
 			ResourceVersion: "0",
 		},
-		Items: pvcItems,
+		Items: typedItems,
 	}
 }
 
 func (c *RESTClient) Nodes(fieldsSelector fields.Selector) *api.NodeList {
 	items := c.resourceStore.List(ccapi.Nodes)
-	nodeItems := make([]api.Node, 0, len(items))
+	typedItems := make([]api.Node, 0, len(items))
 	for _, item := range items {
-		nodeItems = append(nodeItems, *item.(*api.Node))
+		if !fieldsSelector.Matches(NewObjectFieldsAccessor(item)) {
+			continue
+		}
+		typedItems = append(typedItems, *item.(*api.Node))
 	}
 
 	return &api.NodeList{
 		ListMeta: unversioned.ListMeta{
 			ResourceVersion: "0",
 		},
-		Items: nodeItems,
+		Items: typedItems,
 	}
 }
 
 func (c *RESTClient) ReplicaSets(fieldsSelector fields.Selector) *extensions.ReplicaSetList {
 	items := c.resourceStore.List(ccapi.ReplicaSets)
-	RSItems := make([]extensions.ReplicaSet, 0, len(items))
+	typedItems := make([]extensions.ReplicaSet, 0, len(items))
 	for _, item := range items {
-		RSItems = append(RSItems, *item.(*extensions.ReplicaSet))
+		if !fieldsSelector.Matches(NewObjectFieldsAccessor(item)) {
+			continue
+		}
+		typedItems = append(typedItems, *item.(*extensions.ReplicaSet))
 	}
 
 	return &extensions.ReplicaSetList{
 		ListMeta: unversioned.ListMeta{
 			ResourceVersion: "0",
 		},
-		Items: RSItems,
+		Items: typedItems,
 	}
 }
 
-func (c *RESTClient) EmitObjectWatchEvent(resource string, eType watch.EventType, object runtime.Object) error {
+func (c *RESTClient) ResourceQouta(fieldsSelector fields.Selector) *api.ResourceQuotaList {
+	items := c.resourceStore.List(ccapi.ResourceQuota)
+	typedItems := make([]api.ResourceQuota, 0, len(items))
+	for _, item := range items {
+		if !fieldsSelector.Matches(NewObjectFieldsAccessor(item)) {
+			continue
+		}
+		typedItems = append(typedItems, *item.(*api.ResourceQuota))
+	}
+
+	return &api.ResourceQuotaList{
+		ListMeta: unversioned.ListMeta{
+			ResourceVersion: "0",
+		},
+		Items: typedItems,
+	}
+}
+
+func (c *RESTClient) Secrets(fieldsSelector fields.Selector) *api.SecretList {
+	items := c.resourceStore.List(ccapi.Secrets)
+	typedItems := make([]api.Secret, 0, len(items))
+	for _, item := range items {
+		if !fieldsSelector.Matches(NewObjectFieldsAccessor(item)) {
+			continue
+		}
+		typedItems = append(typedItems, *item.(*api.Secret))
+	}
+
+	return &api.SecretList{
+		ListMeta: unversioned.ListMeta{
+			ResourceVersion: "0",
+		},
+		Items: typedItems,
+	}
+}
+
+func (c *RESTClient) ServiceAccounts(fieldsSelector fields.Selector) *api.ServiceAccountList {
+	items := c.resourceStore.List(ccapi.ServiceAccounts)
+	typedItems := make([]api.ServiceAccount, 0, len(items))
+	for _, item := range items {
+		if !fieldsSelector.Matches(NewObjectFieldsAccessor(item)) {
+			continue
+		}
+		typedItems = append(typedItems, *item.(*api.ServiceAccount))
+	}
+
+	return &api.ServiceAccountList{
+		ListMeta: unversioned.ListMeta{
+			ResourceVersion: "0",
+		},
+		Items: typedItems,
+	}
+}
+
+func (c *RESTClient) List(resource ccapi.ResourceType, fieldsSelector fields.Selector) (runtime.Object, error) {
+	switch resource {
+	case ccapi.Pods:
+		return c.Pods(fieldsSelector), nil
+	case ccapi.Services:
+		return c.Services(fieldsSelector), nil
+	case ccapi.ReplicationControllers:
+		return c.ReplicationControllers(fieldsSelector), nil
+	case ccapi.PersistentVolumes:
+		return c.PersistentVolumes(fieldsSelector), nil
+	case ccapi.PersistentVolumeClaims:
+		return c.PersistentVolumeClaims(fieldsSelector), nil
+	case ccapi.Nodes:
+		return c.Nodes(fieldsSelector), nil
+	case ccapi.ReplicaSets:
+		return c.ReplicaSets(fieldsSelector), nil
+	case ccapi.ResourceQuota:
+		return c.ResourceQouta(fieldsSelector), nil
+	case ccapi.Secrets:
+		return c.Secrets(fieldsSelector), nil
+	case ccapi.ServiceAccounts:
+		return c.ServiceAccounts(fieldsSelector), nil
+	default:
+		return nil, fmt.Errorf("Resource %s not recognized", resource)
+	}
+}
+
+func (c *RESTClient) EmitObjectWatchEvent(resource ccapi.ResourceType, eType watch.EventType, object runtime.Object) error {
 	rg, exists := c.watcherReadGetters[resource]
 	if !exists {
 		return fmt.Errorf("Watch buffer for pods not initialized")
@@ -214,34 +314,6 @@ func (c *RESTClient) EmitObjectWatchEvent(resource string, eType watch.EventType
 		}
 	}
 	return nil
-}
-
-func (c *RESTClient) EmitPodWatchEvent(eType watch.EventType, object *api.Pod) error {
-	return c.EmitObjectWatchEvent(ccapi.Pods, eType, object)
-}
-
-func (c *RESTClient) EmitServiceWatchEvent(eType watch.EventType, object *api.Service) error {
-	return c.EmitObjectWatchEvent(ccapi.Services, eType, object)
-}
-
-func (c *RESTClient) EmitReplicationControllerWatchEvent(eType watch.EventType, object *api.ReplicationController) error {
-	return c.EmitObjectWatchEvent(ccapi.ReplicationControllers, eType, object)
-}
-
-func (c *RESTClient) EmitPersistentVolumeWatchEvent(eType watch.EventType, object *api.PersistentVolume) error {
-	return c.EmitObjectWatchEvent(ccapi.PersistentVolumes, eType, object)
-}
-
-func (c *RESTClient) EmitPersistentVolumeClaimWatchEvent(eType watch.EventType, object *api.PersistentVolumeClaim) error {
-	return c.EmitObjectWatchEvent(ccapi.PersistentVolumeClaims, eType, object)
-}
-
-func (c *RESTClient) EmitNodeWatchEvent(eType watch.EventType, object *api.Node) error {
-	return c.EmitObjectWatchEvent(ccapi.Nodes, eType, object)
-}
-
-func (c *RESTClient) EmitReplicaSetWatchEvent(eType watch.EventType, object *extensions.ReplicaSet) error {
-	return c.EmitObjectWatchEvent(ccapi.ReplicaSets, eType, object)
 }
 
 func (c *RESTClient) Close() {
@@ -328,25 +400,10 @@ func splitPath(path string) []string {
 	return strings.Split(path, "/")
 }
 
-func (c *RESTClient) createListReadCloser(resource string, fieldsSelector fields.Selector) (rc *io.ReadCloser, err error) {
-	var obj runtime.Object
-	switch resource {
-	case ccapi.Pods:
-		obj = c.Pods(fieldsSelector)
-	case ccapi.Services:
-		obj = c.Services(fieldsSelector)
-	case ccapi.ReplicationControllers:
-		obj = c.ReplicationControllers(fieldsSelector)
-	case ccapi.PersistentVolumes:
-		obj = c.PersistentVolumes(fieldsSelector)
-	case ccapi.PersistentVolumeClaims:
-		obj = c.PersistentVolumeClaims(fieldsSelector)
-	case ccapi.Nodes:
-		obj = c.Nodes(fieldsSelector)
-	case ccapi.ReplicaSets:
-		obj = c.ReplicaSets(fieldsSelector)
-	default:
-		return nil, fmt.Errorf("Resource %s not recognized", resource)
+func (c *RESTClient) createListReadCloser(resource ccapi.ResourceType, fieldsSelector fields.Selector) (rc *io.ReadCloser, err error) {
+	obj, err := c.List(resource, fieldsSelector)
+	if err != nil {
+		return nil, err
 	}
 
 	if resource == ccapi.ReplicaSets {
@@ -365,7 +422,7 @@ func (c *RESTClient) createListReadCloser(resource string, fieldsSelector fields
 	}
 }
 
-func (c *RESTClient) createGetReadCloser(resource string, resourceName string, namespace string) (rc *io.ReadCloser, err error) {
+func (c *RESTClient) createGetReadCloser(resource ccapi.ResourceType, resourceName string, namespace string) (rc *io.ReadCloser, err error) {
 	key := &api.ObjectMeta{Name: resourceName, Namespace: namespace}
 	item, exists, err := c.resourceStore.Get(resource, key)
 	if err != nil {
@@ -376,30 +433,54 @@ func (c *RESTClient) createGetReadCloser(resource string, resourceName string, n
 	}
 
 	var obj runtime.Object
+	var ns string
+
 	switch resource {
 	case ccapi.Pods:
-		if namespace != "" {
-			if item.(*api.Pod).Namespace != namespace {
-				return nil, fmt.Errorf("Requested %v resource %v not found. Namespace does not match", resource, resourceName)
-			}
-		}
 		obj = runtime.Object(item.(*api.Pod))
+		ns = item.(*api.Pod).Namespace
+	case ccapi.Services:
+		obj = runtime.Object(item.(*api.Service))
+		ns = item.(*api.Service).Namespace
+	case ccapi.ReplicationControllers:
+		obj = runtime.Object(item.(*api.ReplicationController))
+		ns = item.(*api.ReplicationController).Namespace
+	case ccapi.PersistentVolumes:
+		obj = runtime.Object(item.(*api.PersistentVolume))
+		ns = item.(*api.PersistentVolume).Namespace
+	case ccapi.PersistentVolumeClaims:
+		obj = runtime.Object(item.(*api.PersistentVolumeClaim))
+		ns = item.(*api.PersistentVolumeClaim).Namespace
 	case ccapi.Nodes:
-		if namespace != "" {
-			if item.(*api.Pod).Namespace != namespace {
-				return nil, fmt.Errorf("Requested %v resource %v not found. Namespace does not match", resource, resourceName)
-			}
-		}
 		obj = runtime.Object(item.(*api.Node))
+		ns = item.(*api.Node).Namespace
+	case ccapi.ReplicaSets:
+		obj = runtime.Object(item.(*extensions.ReplicaSet))
+		ns = item.(*extensions.ReplicaSet).Namespace
+	case ccapi.ResourceQuota:
+		obj = runtime.Object(item.(*api.ResourceQuota))
+		ns = item.(*api.ResourceQuota).Namespace
+	case ccapi.Secrets:
+		obj = runtime.Object(item.(*api.Secret))
+		ns = item.(*api.Secret).Namespace
+	case ccapi.ServiceAccounts:
+		obj = runtime.Object(item.(*api.ServiceAccount))
+		ns = item.(*api.ServiceAccount).Namespace
 	default:
 		return nil, fmt.Errorf("Resource %v not recognized", resource)
+	}
+
+	if namespace != "" {
+		if ns != namespace {
+			return nil, fmt.Errorf("Requested %v resource %v not found. Namespace does not match", resource, resourceName)
+		}
 	}
 
 	nopCloser := ioutil.NopCloser(bytes.NewReader([]byte(runtime.EncodeOrDie(testapi.Default.Codec(), obj))))
 	return &nopCloser, nil
 }
 
-func (c *RESTClient) createWatchReadCloser(resource string, fieldsSelector fields.Selector) (rc *ewatch.WatchBuffer, err error) {
+func (c *RESTClient) createWatchReadCloser(resource ccapi.ResourceType, fieldsSelector fields.Selector) (rc *ewatch.WatchBuffer, err error) {
 	c.watcherReadGettersMux.Lock()
 	defer c.watcherReadGettersMux.Unlock()
 
@@ -448,6 +529,18 @@ func (c *RESTClient) createWatchReadCloser(resource string, fieldsSelector field
 		for _, item := range c.ReplicaSets(fieldsSelector).Items {
 			rg.EmitWatchEvent(watch.Added, runtime.Object(&item))
 		}
+	case ccapi.ResourceQuota:
+		for _, item := range c.ResourceQouta(fieldsSelector).Items {
+			rg.EmitWatchEvent(watch.Added, runtime.Object(&item))
+		}
+	case ccapi.Secrets:
+		for _, item := range c.Secrets(fieldsSelector).Items {
+			rg.EmitWatchEvent(watch.Added, runtime.Object(&item))
+		}
+	case ccapi.ServiceAccounts:
+		for _, item := range c.ServiceAccounts(fieldsSelector).Items {
+			rg.EmitWatchEvent(watch.Added, runtime.Object(&item))
+		}
 	default:
 		return nil, fmt.Errorf("Resource %s not recognized", resource)
 	}
@@ -489,7 +582,11 @@ func (c *RESTClient) Do(req *http.Request) (*http.Response, error) {
 		if len(parts) < 2 {
 			return nil, fmt.Errorf("Missing resource in REST client request url")
 		}
-		body, err := c.createWatchReadCloser(parts[1], fieldsSelector)
+		resource, err := ccapi.StringToResourceType(parts[1])
+		if err != nil {
+			return nil, fmt.Errorf("Unable to process request: %v", err)
+		}
+		body, err := c.createWatchReadCloser(resource, fieldsSelector)
 		if err != nil {
 			return nil, fmt.Errorf("Unable to create watcher for %s\n", parts[1])
 		}
@@ -503,15 +600,22 @@ func (c *RESTClient) Do(req *http.Request) (*http.Response, error) {
 		// if l == 3 => list objects of a given resource from a given namespace
 		// if l == 4 => list one object of a given resource from a given namespace
 		var body *io.ReadCloser
-		var err error
 		switch len(parts) {
 		case 1:
-			body, err = c.createListReadCloser(parts[0], fieldsSelector)
+			resource, err := ccapi.StringToResourceType(parts[0])
+			if err != nil {
+				return nil, fmt.Errorf("Unable to process request: %v", err)
+			}
+			body, err = c.createListReadCloser(resource, fieldsSelector)
 			if err != nil {
 				return nil, fmt.Errorf("Unable to create lister for %s\n", parts[0])
 			}
 		case 2:
-			body, err = c.createGetReadCloser(parts[0], parts[1], "")
+			resource, err := ccapi.StringToResourceType(parts[0])
+			if err != nil {
+				return nil, fmt.Errorf("Unable to process request: %v", err)
+			}
+			body, err = c.createGetReadCloser(resource, parts[1], "")
 			if err != nil {
 				return nil, fmt.Errorf("Unable to create getter for %s: %v\n", parts[0], err)
 			}
@@ -519,7 +623,11 @@ func (c *RESTClient) Do(req *http.Request) (*http.Response, error) {
 			if parts[0] != "namespaces" {
 				return nil, fmt.Errorf("Unable to decode query url: %v. Expected namespaces, got %v", req.URL.Path, parts[0])
 			}
-			body, err = c.createListReadCloser(parts[2], fields.ParseSelectorOrDie(fmt.Sprintf("Namespace=%v", parts[1])))
+			resource, err := ccapi.StringToResourceType(parts[2])
+			if err != nil {
+				return nil, fmt.Errorf("Unable to process request: %v", err)
+			}
+			body, err = c.createListReadCloser(resource, fields.ParseSelectorOrDie(fmt.Sprintf("Namespace=%v", parts[1])))
 			if err != nil {
 				return nil, fmt.Errorf("Unable to create lister for %s\n", parts[0])
 			}
@@ -527,7 +635,11 @@ func (c *RESTClient) Do(req *http.Request) (*http.Response, error) {
 			if parts[0] != "namespaces" {
 				return nil, fmt.Errorf("Unable to decode query url: %v. Expected namespaces, got %v", req.URL.Path, parts[0])
 			}
-			body, err = c.createGetReadCloser(parts[2], parts[3], parts[1])
+			resource, err := ccapi.StringToResourceType(parts[2])
+			if err != nil {
+				return nil, fmt.Errorf("Unable to process request: %v", err)
+			}
+			body, err = c.createGetReadCloser(resource, parts[3], parts[1])
 			if err != nil {
 				return nil, fmt.Errorf("Unable to create getter for %s: %v\n", parts[0], err)
 			}
@@ -544,17 +656,13 @@ func NewRESTClient(resourceStore store.ResourceStore, name string) *RESTClient {
 	client := &RESTClient{
 		NegotiatedSerializer: testapi.Default.NegotiatedSerializer(),
 		resourceStore:        resourceStore,
-		watcherReadGetters:   make(map[string]map[string][]*ewatch.WatchBuffer),
+		watcherReadGetters:   make(map[ccapi.ResourceType]map[string][]*ewatch.WatchBuffer),
 		name:                 name,
 	}
 
-	client.watcherReadGetters[ccapi.Pods] = make(map[string][]*ewatch.WatchBuffer)
-	client.watcherReadGetters[ccapi.Nodes] = make(map[string][]*ewatch.WatchBuffer)
-	client.watcherReadGetters[ccapi.PersistentVolumes] = make(map[string][]*ewatch.WatchBuffer)
-	client.watcherReadGetters[ccapi.PersistentVolumeClaims] = make(map[string][]*ewatch.WatchBuffer)
-	client.watcherReadGetters[ccapi.Services] = make(map[string][]*ewatch.WatchBuffer)
-	client.watcherReadGetters[ccapi.ReplicationControllers] = make(map[string][]*ewatch.WatchBuffer)
-	client.watcherReadGetters[ccapi.ReplicaSets] = make(map[string][]*ewatch.WatchBuffer)
+	for _, resource := range resourceStore.Resources() {
+		client.watcherReadGetters[resource] = make(map[string][]*ewatch.WatchBuffer)
+	}
 
 	return client
 }

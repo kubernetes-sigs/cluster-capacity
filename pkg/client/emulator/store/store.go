@@ -8,51 +8,42 @@ import (
 )
 
 type ResourceStore interface {
-	Add(resource string, obj interface{}) error
-	Update(resource string, obj interface{}) error
-	Delete(resource string, obj interface{}) error
-	List(resource string) []interface{}
-	Get(resource string, obj interface{}) (item interface{}, exists bool, err error)
+	Add(resource ccapi.ResourceType, obj interface{}) error
+	Update(resource ccapi.ResourceType, obj interface{}) error
+	Delete(resource ccapi.ResourceType, obj interface{}) error
+	List(resource ccapi.ResourceType) []interface{}
+	Get(resource ccapi.ResourceType, obj interface{}) (item interface{}, exists bool, err error)
 	GetByKey(key string) (item interface{}, exists bool, err error)
-	RegisterEventHandler(resource string, handler cache.ResourceEventHandler) error
+	RegisterEventHandler(resource ccapi.ResourceType, handler cache.ResourceEventHandler) error
 	// Replace will delete the contents of the store, using instead the
 	// given list. Store takes ownership of the list, you should not reference
 	// it after calling this function.
-	Replace(resource string, items []interface{}, resourceVersion string) error
+	Replace(resource ccapi.ResourceType, items []interface{}, resourceVersion string) error
 
-	Resources() []string
+	Resources() []ccapi.ResourceType
 }
 
 // TODO(jchaloup,hodovska): currently, only scheduler caches are considered.
 // Later, include cache for each object.
 type resourceStore struct {
-	// Pod cache modifed by emulation strategy
-	PodCache cache.Store
-
-	// Node cache modifed by emulation strategy
-	NodeCache cache.Store
-
-	// PVC cache modifed by emulation strategy
-	PVCCache cache.Store
-
-	// PV cache modifed by emulation strategy
-	PVCache cache.Store
-
-	// Service cache modifed by emulation strategy
-	ServiceCache cache.Store
-
-	// RC cache modifed by emulation strategy
+	// Caches modifed by emulation strategy
+	PodCache                   cache.Store
+	NodeCache                  cache.Store
+	PVCCache                   cache.Store
+	PVCache                    cache.Store
+	ServiceCache               cache.Store
 	ReplicationControllerCache cache.Store
+	ReplicaSetCache            cache.Store
+	ResourceQuotaCache         cache.Store
+	SecretCache                cache.Store
+	ServiceAccountCache        cache.Store
 
-	// RS cache modifed by emulation strategy
-	ReplicaSetCache cache.Store
-
-	resourceToCache map[string]cache.Store
-	eventHandler    map[string]cache.ResourceEventHandler
+	resourceToCache map[ccapi.ResourceType]cache.Store
+	eventHandler    map[ccapi.ResourceType]cache.ResourceEventHandler
 }
 
 // Add resource obj to store and emit event handler if set
-func (s *resourceStore) Add(resource string, obj interface{}) error {
+func (s *resourceStore) Add(resource ccapi.ResourceType, obj interface{}) error {
 	cache, exists := s.resourceToCache[resource]
 	if !exists {
 		return fmt.Errorf("Resource %s not recognized", resource)
@@ -72,7 +63,7 @@ func (s *resourceStore) Add(resource string, obj interface{}) error {
 }
 
 // Update resource obj to store and emit event handler if set
-func (s *resourceStore) Update(resource string, obj interface{}) error {
+func (s *resourceStore) Update(resource ccapi.ResourceType, obj interface{}) error {
 	cache, exists := s.resourceToCache[resource]
 	if !exists {
 		return fmt.Errorf("Resource %s not recognized", resource)
@@ -92,7 +83,7 @@ func (s *resourceStore) Update(resource string, obj interface{}) error {
 }
 
 // Delete resource obj to store and emit event handler if set
-func (s *resourceStore) Delete(resource string, obj interface{}) error {
+func (s *resourceStore) Delete(resource ccapi.ResourceType, obj interface{}) error {
 	cache, exists := s.resourceToCache[resource]
 	if !exists {
 		return fmt.Errorf("Resource %s not recognized", resource)
@@ -111,14 +102,14 @@ func (s *resourceStore) Delete(resource string, obj interface{}) error {
 	return nil
 }
 
-func (s *resourceStore) List(resource string) []interface{} {
+func (s *resourceStore) List(resource ccapi.ResourceType) []interface{} {
 	if cache, exists := s.resourceToCache[resource]; exists {
 		return cache.List()
 	}
 	return nil
 }
 
-func (s *resourceStore) Get(resource string, obj interface{}) (item interface{}, exists bool, err error) {
+func (s *resourceStore) Get(resource ccapi.ResourceType, obj interface{}) (item interface{}, exists bool, err error) {
 	cache, exists := s.resourceToCache[resource]
 	if !exists {
 		return nil, false, fmt.Errorf("Resource %s not recognized", resource)
@@ -131,7 +122,7 @@ func (s *resourceStore) GetByKey(key string) (item interface{}, exists bool, err
 	return nil, false, nil
 }
 
-func (s *resourceStore) RegisterEventHandler(resource string, handler cache.ResourceEventHandler) error {
+func (s *resourceStore) RegisterEventHandler(resource ccapi.ResourceType, handler cache.ResourceEventHandler) error {
 	s.eventHandler[resource] = handler
 	return nil
 }
@@ -139,7 +130,7 @@ func (s *resourceStore) RegisterEventHandler(resource string, handler cache.Reso
 // Replace will delete the contents of the store, using instead the
 // given list. Store takes ownership of the list, you should not reference
 // it after calling this function.
-func (s *resourceStore) Replace(resource string, items []interface{}, resourceVersion string) error {
+func (s *resourceStore) Replace(resource ccapi.ResourceType, items []interface{}, resourceVersion string) error {
 	if cache, exists := s.resourceToCache[resource]; exists {
 		err := cache.Replace(items, resourceVersion)
 		if err != nil {
@@ -183,8 +174,8 @@ type caches struct {
 	ReplicaSetCache cache.Store
 }
 
-func (s *resourceStore) Resources() []string {
-	keys := make([]string, 0, len(s.resourceToCache))
+func (s *resourceStore) Resources() []ccapi.ResourceType {
+	keys := make([]ccapi.ResourceType, 0, len(s.resourceToCache))
 	for key := range s.resourceToCache {
 		keys = append(keys, key)
 	}
@@ -201,17 +192,23 @@ func NewResourceStore() *resourceStore {
 		ServiceCache:               cache.NewStore(cache.MetaNamespaceKeyFunc),
 		ReplicaSetCache:            cache.NewStore(cache.MetaNamespaceKeyFunc),
 		ReplicationControllerCache: cache.NewStore(cache.MetaNamespaceKeyFunc),
-		eventHandler:               make(map[string]cache.ResourceEventHandler),
+		ResourceQuotaCache:         cache.NewStore(cache.MetaNamespaceKeyFunc),
+		SecretCache:                cache.NewStore(cache.MetaNamespaceKeyFunc),
+		ServiceAccountCache:        cache.NewStore(cache.MetaNamespaceKeyFunc),
+		eventHandler:               make(map[ccapi.ResourceType]cache.ResourceEventHandler),
 	}
 
-	resourceToCache := map[string]cache.Store{
+	resourceToCache := map[ccapi.ResourceType]cache.Store{
 		ccapi.Pods:                   resourceStore.PodCache,
+		ccapi.PersistentVolumeClaims: resourceStore.PVCCache,
 		ccapi.Nodes:                  resourceStore.NodeCache,
 		ccapi.PersistentVolumes:      resourceStore.PVCache,
-		ccapi.PersistentVolumeClaims: resourceStore.PVCCache,
 		ccapi.Services:               resourceStore.ServiceCache,
 		ccapi.ReplicaSets:            resourceStore.ReplicaSetCache,
 		ccapi.ReplicationControllers: resourceStore.ReplicationControllerCache,
+		ccapi.ResourceQuota:          resourceStore.ResourceQuotaCache,
+		ccapi.Secrets:                resourceStore.SecretCache,
+		ccapi.ServiceAccounts:        resourceStore.ServiceAccountCache,
 	}
 
 	resourceStore.resourceToCache = resourceToCache

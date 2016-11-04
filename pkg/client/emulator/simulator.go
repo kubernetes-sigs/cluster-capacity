@@ -2,7 +2,9 @@ package emulator
 
 import (
 	"fmt"
+	"log"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -11,13 +13,15 @@ import (
 	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/restclient"
 	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/store"
 	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/strategy"
+	"k8s.io/kubernetes/pkg/admission"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/meta"
-	"k8s.io/kubernetes/pkg/apis/extensions"
 	"k8s.io/kubernetes/pkg/client/cache"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 	clientsetextensions "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/typed/extensions/internalversion"
+	"k8s.io/kubernetes/pkg/controller/informers"
 	"k8s.io/kubernetes/pkg/fields"
+	"k8s.io/kubernetes/pkg/genericapiserver/authorizer"
 	"k8s.io/kubernetes/pkg/watch"
 	soptions "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app/options"
 	"k8s.io/kubernetes/plugin/pkg/scheduler"
@@ -31,6 +35,48 @@ import (
 	"k8s.io/kubernetes/pkg/runtime"
 	// register algorithm providers
 	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
+
+	// Admission policies
+	_ "k8s.io/kubernetes/plugin/pkg/admission/admit"
+	_ "k8s.io/kubernetes/plugin/pkg/admission/alwayspullimages"
+	_ "k8s.io/kubernetes/plugin/pkg/admission/antiaffinity"
+	_ "k8s.io/kubernetes/plugin/pkg/admission/deny"
+	_ "k8s.io/kubernetes/plugin/pkg/admission/exec"
+	_ "k8s.io/kubernetes/plugin/pkg/admission/gc"
+	_ "k8s.io/kubernetes/plugin/pkg/admission/imagepolicy"
+	_ "k8s.io/kubernetes/plugin/pkg/admission/initialresources"
+	_ "k8s.io/kubernetes/plugin/pkg/admission/limitranger"
+	_ "k8s.io/kubernetes/plugin/pkg/admission/namespace/autoprovision"
+	_ "k8s.io/kubernetes/plugin/pkg/admission/namespace/exists"
+	_ "k8s.io/kubernetes/plugin/pkg/admission/namespace/lifecycle"
+	_ "k8s.io/kubernetes/plugin/pkg/admission/persistentvolume/label"
+	_ "k8s.io/kubernetes/plugin/pkg/admission/podnodeselector"
+	_ "k8s.io/kubernetes/plugin/pkg/admission/resourcequota"
+	_ "k8s.io/kubernetes/plugin/pkg/admission/security/podsecuritypolicy"
+	_ "k8s.io/kubernetes/plugin/pkg/admission/securitycontext/scdeny"
+	_ "k8s.io/kubernetes/plugin/pkg/admission/serviceaccount"
+	_ "k8s.io/kubernetes/plugin/pkg/admission/storageclass/default"
+)
+
+// Main goal: given a pod with non-zero requested resources how many times the pod can be scheduled in the cluster
+// Constraints to consider:
+// - resource quota for memory/cpu: limit the cluster space to explore
+// - namespace node selector: limit the cluster space to explore
+//
+// Due to the constraints the CC framework operates in two modes:
+// - full resource space
+// - partial resource space
+//
+// The full resource space mode explores the entire cluster resource space
+// with emphasis to schedule as much instances of pods as possible.
+// The partial resource space is limited artificialy and the analysis
+// is bounded.
+
+type ResourceSpaceMode string
+
+const (
+	ResourceSpaceFull    ResourceSpaceMode = "ResourceSpaceFull"
+	ResourceSpacePartial ResourceSpaceMode = "ResourceSpacePartial"
 )
 
 type ClusterCapacity struct {
@@ -58,6 +104,10 @@ type ClusterCapacity struct {
 	simulated    int
 	status       Status
 
+	// analysis limitation
+	resourceSpaceMode   ResourceSpaceMode
+	admissionController admission.Interface
+
 	// stop the analysis
 	stop      chan struct{}
 	stopMux   sync.RWMutex
@@ -80,9 +130,9 @@ func (c *ClusterCapacity) SyncWithClient(client clientset.Interface) error {
 	for _, resource := range c.resourceStore.Resources() {
 		var listWatcher *cache.ListWatch
 		if resource == ccapi.ReplicaSets {
-			listWatcher = cache.NewListWatchFromClient(client.Extensions().RESTClient(), resource, api.NamespaceAll, fields.ParseSelectorOrDie(""))
+			listWatcher = cache.NewListWatchFromClient(client.Extensions().RESTClient(), resource.String(), api.NamespaceAll, fields.ParseSelectorOrDie(""))
 		} else {
-			listWatcher = cache.NewListWatchFromClient(client.Core().RESTClient(), resource, api.NamespaceAll, fields.ParseSelectorOrDie(""))
+			listWatcher = cache.NewListWatchFromClient(client.Core().RESTClient(), resource.String(), api.NamespaceAll, fields.ParseSelectorOrDie(""))
 		}
 
 		options := api.ListOptions{ResourceVersion: "0"}
@@ -225,6 +275,12 @@ func (c *ClusterCapacity) nextPod() error {
 	pod := *c.simulatedPod
 	// use simulated pod name with an index to construct the name
 	pod.ObjectMeta.Name = fmt.Sprintf("%v-%v", c.simulatedPod.Name, c.simulated)
+
+	// filter out limitations that forbid the analysis to expand to entire resource space
+	if c.resourceSpaceMode == ResourceSpaceFull {
+		//
+	}
+
 	c.simulated++
 	return c.resourceStore.Add(ccapi.Pods, runtime.Object(&pod))
 }
@@ -333,93 +389,28 @@ func New(s *soptions.SchedulerServer, simulatedPod *api.Pod, maxPods int) (*Clus
 		maxSimulated:         maxPods,
 		coreRestClient:       restClient,
 		extensionsRestClient: extensionsRestClient,
+		resourceSpaceMode:    ResourceSpaceFull,
 	}
 
 	cc.kubeclient.ExtensionsClient = clientsetextensions.New(extensionsRestClient)
 
-	resourceStore.RegisterEventHandler(ccapi.Pods, cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			restClient.EmitPodWatchEvent(watch.Added, obj.(*api.Pod))
-		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
-			restClient.EmitPodWatchEvent(watch.Modified, newObj.(*api.Pod))
-		},
-		DeleteFunc: func(obj interface{}) {
-			restClient.EmitPodWatchEvent(watch.Deleted, obj.(*api.Pod))
-		},
-	})
-
-	resourceStore.RegisterEventHandler(ccapi.Services, cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			restClient.EmitServiceWatchEvent(watch.Added, obj.(*api.Service))
-		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
-			restClient.EmitServiceWatchEvent(watch.Modified, newObj.(*api.Service))
-		},
-		DeleteFunc: func(obj interface{}) {
-			restClient.EmitServiceWatchEvent(watch.Deleted, obj.(*api.Service))
-		},
-	})
-
-	resourceStore.RegisterEventHandler(ccapi.ReplicationControllers, cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			restClient.EmitReplicationControllerWatchEvent(watch.Added, obj.(*api.ReplicationController))
-		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
-			restClient.EmitReplicationControllerWatchEvent(watch.Modified, newObj.(*api.ReplicationController))
-		},
-		DeleteFunc: func(obj interface{}) {
-			restClient.EmitReplicationControllerWatchEvent(watch.Deleted, obj.(*api.ReplicationController))
-		},
-	})
-
-	resourceStore.RegisterEventHandler(ccapi.PersistentVolumes, cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			restClient.EmitPersistentVolumeWatchEvent(watch.Added, obj.(*api.PersistentVolume))
-		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
-			restClient.EmitPersistentVolumeWatchEvent(watch.Modified, newObj.(*api.PersistentVolume))
-		},
-		DeleteFunc: func(obj interface{}) {
-			restClient.EmitPersistentVolumeWatchEvent(watch.Deleted, obj.(*api.PersistentVolume))
-		},
-	})
-
-	resourceStore.RegisterEventHandler(ccapi.Nodes, cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			restClient.EmitNodeWatchEvent(watch.Added, obj.(*api.Node))
-		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
-			restClient.EmitNodeWatchEvent(watch.Modified, newObj.(*api.Node))
-		},
-		DeleteFunc: func(obj interface{}) {
-			restClient.EmitNodeWatchEvent(watch.Deleted, obj.(*api.Node))
-		},
-	})
-
-	resourceStore.RegisterEventHandler(ccapi.PersistentVolumeClaims, cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			restClient.EmitPersistentVolumeClaimWatchEvent(watch.Added, obj.(*api.PersistentVolumeClaim))
-		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
-			restClient.EmitPersistentVolumeClaimWatchEvent(watch.Modified, newObj.(*api.PersistentVolumeClaim))
-		},
-		DeleteFunc: func(obj interface{}) {
-			restClient.EmitPersistentVolumeClaimWatchEvent(watch.Deleted, obj.(*api.PersistentVolumeClaim))
-		},
-	})
-
-	resourceStore.RegisterEventHandler(ccapi.ReplicaSets, cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			restClient.EmitReplicaSetWatchEvent(watch.Added, obj.(*extensions.ReplicaSet))
-		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
-			restClient.EmitReplicaSetWatchEvent(watch.Modified, newObj.(*extensions.ReplicaSet))
-		},
-		DeleteFunc: func(obj interface{}) {
-			restClient.EmitReplicaSetWatchEvent(watch.Deleted, obj.(*extensions.ReplicaSet))
-		},
-	})
+	for _, resource := range resourceStore.Resources() {
+		// The resource variable would be shared among all [Add|Update|Delete]Func functions
+		// and resource would be set to the last item in resources list.
+		// Thus, it needs to be stored to a local variable in each iteration.
+		rt := resource
+		resourceStore.RegisterEventHandler(rt, cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				restClient.EmitObjectWatchEvent(rt, watch.Added, obj.(runtime.Object))
+			},
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				restClient.EmitObjectWatchEvent(rt, watch.Modified, newObj.(runtime.Object))
+			},
+			DeleteFunc: func(obj interface{}) {
+				restClient.EmitObjectWatchEvent(rt, watch.Deleted, obj.(runtime.Object))
+			},
+		})
+	}
 
 	cc.schedulers = make(map[string]*scheduler.Scheduler)
 	cc.schedulerConfigs = make(map[string]*scheduler.Config)
@@ -438,6 +429,32 @@ func New(s *soptions.SchedulerServer, simulatedPod *api.Pod, maxPods int) (*Clus
 
 	// Create empty event recorder, broadcaster, metrics and everything up to binder.
 	// Binder is redirected to cluster capacity's counter.
+
+	// initialize admission controllers if specified
+	sharedInformers := informers.NewSharedInformerFactory(cc.kubeclient, 10*time.Minute)
+	authorizationConfig := authorizer.AuthorizationConfig{
+		PolicyFile:                  "",
+		WebhookConfigFile:           "",
+		WebhookCacheAuthorizedTTL:   5 * time.Minute,
+		WebhookCacheUnauthorizedTTL: 30 * time.Second,
+		RBACSuperUser:               "",
+		InformerFactory:             sharedInformers,
+	}
+
+	authorizationModeNames := strings.Split("AlwaysAllow", ",")
+	apiAuthorizer, err := authorizer.NewAuthorizerFromAuthorizationConfig(authorizationModeNames, authorizationConfig)
+	if err != nil {
+		log.Fatalf("Invalid Authorization Config: %v", err)
+	}
+	admissionControlPluginNames := strings.Split("NamespaceLifecycle,LimitRanger,SecurityContextDeny,ServiceAccount,ResourceQuota", ",")
+
+	pluginInitializer := admission.NewPluginInitializer(sharedInformers, apiAuthorizer)
+	admissionController, err := admission.NewFromPlugins(cc.kubeclient, admissionControlPluginNames, "", pluginInitializer)
+	if err != nil {
+		log.Fatalf("Failed to initialize plugins: %v", err)
+	}
+
+	cc.admissionController = admissionController
 
 	return cc, nil
 }

@@ -152,9 +152,9 @@ func compareItems(expected, actual interface{}) bool {
 	return reflect.DeepEqual(expectedMap, actualMap)
 }
 
-func getResourceList(client cache.Getter, resource string) runtime.Object {
+func getResourceList(client cache.Getter, resource ccapi.ResourceType) runtime.Object {
 	// client listerWatcher
-	listerWatcher := cache.NewListWatchFromClient(client, resource, api.NamespaceAll, fields.ParseSelectorOrDie(""))
+	listerWatcher := cache.NewListWatchFromClient(client, resource.String(), api.NamespaceAll, fields.ParseSelectorOrDie(""))
 	options := api.ListOptions{ResourceVersion: "0"}
 	l, _ := listerWatcher.List(options)
 	return l

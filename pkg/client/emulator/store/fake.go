@@ -22,15 +22,15 @@ type FakeResourceStore struct {
 	// TODO(jchaloup): fill missing resource functions
 }
 
-func (s *FakeResourceStore) Add(resource string, obj interface{}) error {
+func (s *FakeResourceStore) Add(resource ccapi.ResourceType, obj interface{}) error {
 	return nil
 }
 
-func (s *FakeResourceStore) Update(resource string, obj interface{}) error {
+func (s *FakeResourceStore) Update(resource ccapi.ResourceType, obj interface{}) error {
 	return nil
 }
 
-func (s *FakeResourceStore) Delete(resource string, obj interface{}) error {
+func (s *FakeResourceStore) Delete(resource ccapi.ResourceType, obj interface{}) error {
 	return nil
 }
 
@@ -85,7 +85,7 @@ func findResource(obj interface{}, objs interface{}) (item interface{}, exists b
 	return nil, false, fmt.Errorf("Resource obj not found")
 }
 
-func (s *FakeResourceStore) List(resource string) []interface{} {
+func (s *FakeResourceStore) List(resource ccapi.ResourceType) []interface{} {
 	switch resource {
 	case ccapi.Pods:
 		if s.PodsData == nil {
@@ -126,7 +126,7 @@ func (s *FakeResourceStore) List(resource string) []interface{} {
 	return make([]interface{}, 0, 0)
 }
 
-func (s *FakeResourceStore) Get(resource string, obj interface{}) (item interface{}, exists bool, err error) {
+func (s *FakeResourceStore) Get(resource ccapi.ResourceType, obj interface{}) (item interface{}, exists bool, err error) {
 	switch resource {
 	case ccapi.Pods:
 		return findResource(obj, s.PodsData())
@@ -150,14 +150,14 @@ func (s *FakeResourceStore) GetByKey(key string) (item interface{}, exists bool,
 	return nil, false, nil
 }
 
-func (s *FakeResourceStore) RegisterEventHandler(resource string, handler cache.ResourceEventHandler) error {
+func (s *FakeResourceStore) RegisterEventHandler(resource ccapi.ResourceType, handler cache.ResourceEventHandler) error {
 	return nil
 }
 
-func (s *FakeResourceStore) Replace(resource string, items []interface{}, resourceVersion string) error {
+func (s *FakeResourceStore) Replace(resource ccapi.ResourceType, items []interface{}, resourceVersion string) error {
 	return nil
 }
 
-func (s *FakeResourceStore) Resources() []string {
-	return []string{ccapi.Pods, ccapi.Services, ccapi.ReplicationControllers, ccapi.Nodes, ccapi.PersistentVolumes, ccapi.PersistentVolumeClaims}
+func (s *FakeResourceStore) Resources() []ccapi.ResourceType {
+	return []ccapi.ResourceType{ccapi.Pods, ccapi.Services, ccapi.ReplicationControllers, ccapi.Nodes, ccapi.PersistentVolumes, ccapi.PersistentVolumeClaims}
 }

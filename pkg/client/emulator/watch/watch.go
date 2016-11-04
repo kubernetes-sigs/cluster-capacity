@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	ccapi "github.com/ingvagabund/cluster-capacity/pkg/api"
 	"k8s.io/kubernetes/pkg/api/testapi"
 	"k8s.io/kubernetes/pkg/runtime"
 	"k8s.io/kubernetes/pkg/watch"
@@ -23,7 +24,7 @@ type WatchBuffer struct {
 	read     chan []byte
 	write    chan []byte
 	retc     chan retc
-	Resource string
+	Resource ccapi.ResourceType
 
 	closed   bool
 	closeMux sync.RWMutex
@@ -129,7 +130,7 @@ func (w *WatchBuffer) loop() {
 	}
 }
 
-func NewWatchBuffer(resource string) *WatchBuffer {
+func NewWatchBuffer(resource ccapi.ResourceType) *WatchBuffer {
 	wb := &WatchBuffer{
 		buf:      bytes.NewBuffer(nil),
 		read:     make(chan []byte),

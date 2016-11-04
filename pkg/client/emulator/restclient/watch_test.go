@@ -19,9 +19,9 @@ func newTestWatchRestClient() *RESTClient {
 	return NewRESTClient(&store.FakeResourceStore{}, "")
 }
 
-func getResourceWatcher(client cache.Getter, resource string) watch.Interface {
+func getResourceWatcher(client cache.Getter, resource ccapi.ResourceType) watch.Interface {
 	// client listerWatcher
-	listerWatcher := cache.NewListWatchFromClient(client, resource, api.NamespaceAll, fields.ParseSelectorOrDie(""))
+	listerWatcher := cache.NewListWatchFromClient(client, resource.String(), api.NamespaceAll, fields.ParseSelectorOrDie(""))
 	// ask for watcher data
 	timemoutseconds := int64(10)
 
@@ -36,20 +36,20 @@ func getResourceWatcher(client cache.Getter, resource string) watch.Interface {
 	return w
 }
 
-func emitEvent(client *RESTClient, resource string, test eventTest) {
+func emitEvent(client *RESTClient, resource ccapi.ResourceType, test eventTest) {
 	switch resource {
 	case ccapi.Pods:
-		client.EmitPodWatchEvent(test.event, test.item.(*api.Pod))
+		client.EmitObjectWatchEvent(resource, test.event, test.item.(*api.Pod))
 	case ccapi.Services:
-		client.EmitServiceWatchEvent(test.event, test.item.(*api.Service))
+		client.EmitObjectWatchEvent(resource, test.event, test.item.(*api.Service))
 	case ccapi.ReplicationControllers:
-		client.EmitReplicationControllerWatchEvent(test.event, test.item.(*api.ReplicationController))
+		client.EmitObjectWatchEvent(resource, test.event, test.item.(*api.ReplicationController))
 	case ccapi.PersistentVolumes:
-		client.EmitPersistentVolumeWatchEvent(test.event, test.item.(*api.PersistentVolume))
+		client.EmitObjectWatchEvent(resource, test.event, test.item.(*api.PersistentVolume))
 	case ccapi.Nodes:
-		client.EmitNodeWatchEvent(test.event, test.item.(*api.Node))
+		client.EmitObjectWatchEvent(resource, test.event, test.item.(*api.Node))
 	case ccapi.PersistentVolumeClaims:
-		client.EmitPersistentVolumeClaimWatchEvent(test.event, test.item.(*api.PersistentVolumeClaim))
+		client.EmitObjectWatchEvent(resource, test.event, test.item.(*api.PersistentVolumeClaim))
 	default:
 		fmt.Printf("Unsupported resource %s", resource)
 		// TODO(jchaloup): log the error
@@ -61,7 +61,7 @@ type eventTest struct {
 	item  interface{}
 }
 
-func testWatch(tests []eventTest, resource string, t *testing.T) {
+func testWatch(tests []eventTest, resource ccapi.ResourceType, t *testing.T) {
 
 	client := newTestWatchRestClient()
 	w := getResourceWatcher(client, resource)
