@@ -16,12 +16,14 @@ import (
 	"k8s.io/kubernetes/pkg/admission"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/meta"
+	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/client/cache"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 	clientsetextensions "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/typed/extensions/internalversion"
 	"k8s.io/kubernetes/pkg/controller/informers"
 	"k8s.io/kubernetes/pkg/fields"
 	"k8s.io/kubernetes/pkg/genericapiserver/authorizer"
+	"k8s.io/kubernetes/pkg/util/wait"
 	"k8s.io/kubernetes/pkg/watch"
 	soptions "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app/options"
 	"k8s.io/kubernetes/plugin/pkg/scheduler"
@@ -276,9 +278,14 @@ func (c *ClusterCapacity) nextPod() error {
 	// use simulated pod name with an index to construct the name
 	pod.ObjectMeta.Name = fmt.Sprintf("%v-%v", c.simulatedPod.Name, c.simulated)
 
-	// filter out limitations that forbid the analysis to expand to entire resource space
-	if c.resourceSpaceMode == ResourceSpaceFull {
-		//
+	gv := unversioned.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}.GroupVersion()
+	userInfo, _ := api.UserFrom(api.WithUserAgent(api.NewContext(), "Cluster-Capacity-Agent"))
+
+	attr := admission.NewAttributesRecord(runtime.Object(&pod), nil, unversioned.FromAPIVersionAndKind("v1", "pods"), pod.Namespace, pod.Name, gv.WithResource("pods"), "", admission.Create, userInfo)
+
+	err := c.admissionController.Admit(attr)
+	if err != nil {
+		return fmt.Errorf("Admission controller error: %v", err)
 	}
 
 	c.simulated++
@@ -446,7 +453,16 @@ func New(s *soptions.SchedulerServer, simulatedPod *api.Pod, maxPods int) (*Clus
 	if err != nil {
 		log.Fatalf("Invalid Authorization Config: %v", err)
 	}
-	admissionControlPluginNames := strings.Split("NamespaceLifecycle,LimitRanger,SecurityContextDeny,ServiceAccount,ResourceQuota", ",")
+
+	// filter out limitations that forbid the analysis to expand to entire resource space
+	var admissionControlPluginNames []string
+	// TODO(jchaloup): get the list of admission from config file and filter them out based on the mode
+	if cc.resourceSpaceMode == ResourceSpaceFull {
+		// filter out ResourceQuota admission
+		admissionControlPluginNames = strings.Split("NamespaceLifecycle,LimitRanger,SecurityContextDeny,ServiceAccount,AlwaysPullImages", ",")
+	} else {
+		admissionControlPluginNames = strings.Split("NamespaceLifecycle,LimitRanger,SecurityContextDeny,ServiceAccount,ResourceQuota,AlwaysPullImages", ",")
+	}
 
 	pluginInitializer := admission.NewPluginInitializer(sharedInformers, apiAuthorizer)
 	admissionController, err := admission.NewFromPlugins(cc.kubeclient, admissionControlPluginNames, "", pluginInitializer)
@@ -455,6 +471,8 @@ func New(s *soptions.SchedulerServer, simulatedPod *api.Pod, maxPods int) (*Clus
 	}
 
 	cc.admissionController = admissionController
+
+	sharedInformers.Start(wait.NeverStop)
 
 	return cc, nil
 }

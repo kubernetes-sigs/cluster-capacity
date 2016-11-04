@@ -269,6 +269,42 @@ func (c *RESTClient) ServiceAccounts(fieldsSelector fields.Selector) *api.Servic
 	}
 }
 
+func (c *RESTClient) LimitRanges(fieldsSelector fields.Selector) *api.LimitRangeList {
+	items := c.resourceStore.List(ccapi.LimitRanges)
+	typedItems := make([]api.LimitRange, 0, len(items))
+	for _, item := range items {
+		if !fieldsSelector.Matches(NewObjectFieldsAccessor(item)) {
+			continue
+		}
+		typedItems = append(typedItems, *item.(*api.LimitRange))
+	}
+
+	return &api.LimitRangeList{
+		ListMeta: unversioned.ListMeta{
+			ResourceVersion: "0",
+		},
+		Items: typedItems,
+	}
+}
+
+func (c *RESTClient) Namespaces(fieldsSelector fields.Selector) *api.NamespaceList {
+	items := c.resourceStore.List(ccapi.Namespaces)
+	typedItems := make([]api.Namespace, 0, len(items))
+	for _, item := range items {
+		if !fieldsSelector.Matches(NewObjectFieldsAccessor(item)) {
+			continue
+		}
+		typedItems = append(typedItems, *item.(*api.Namespace))
+	}
+
+	return &api.NamespaceList{
+		ListMeta: unversioned.ListMeta{
+			ResourceVersion: "0",
+		},
+		Items: typedItems,
+	}
+}
+
 func (c *RESTClient) List(resource ccapi.ResourceType, fieldsSelector fields.Selector) (runtime.Object, error) {
 	switch resource {
 	case ccapi.Pods:
@@ -291,6 +327,10 @@ func (c *RESTClient) List(resource ccapi.ResourceType, fieldsSelector fields.Sel
 		return c.Secrets(fieldsSelector), nil
 	case ccapi.ServiceAccounts:
 		return c.ServiceAccounts(fieldsSelector), nil
+	case ccapi.LimitRanges:
+		return c.LimitRanges(fieldsSelector), nil
+	case ccapi.Namespaces:
+		return c.Namespaces(fieldsSelector), nil
 	default:
 		return nil, fmt.Errorf("Resource %s not recognized", resource)
 	}
@@ -453,7 +493,6 @@ func (c *RESTClient) createGetReadCloser(resource ccapi.ResourceType, resourceNa
 		ns = item.(*api.PersistentVolumeClaim).Namespace
 	case ccapi.Nodes:
 		obj = runtime.Object(item.(*api.Node))
-		ns = item.(*api.Node).Namespace
 	case ccapi.ReplicaSets:
 		obj = runtime.Object(item.(*extensions.ReplicaSet))
 		ns = item.(*extensions.ReplicaSet).Namespace
@@ -466,6 +505,11 @@ func (c *RESTClient) createGetReadCloser(resource ccapi.ResourceType, resourceNa
 	case ccapi.ServiceAccounts:
 		obj = runtime.Object(item.(*api.ServiceAccount))
 		ns = item.(*api.ServiceAccount).Namespace
+	case ccapi.LimitRanges:
+		obj = runtime.Object(item.(*api.LimitRange))
+		ns = item.(*api.LimitRange).Namespace
+	case ccapi.Namespaces:
+		obj = runtime.Object(item.(*api.Namespace))
 	default:
 		return nil, fmt.Errorf("Resource %v not recognized", resource)
 	}
@@ -539,6 +583,14 @@ func (c *RESTClient) createWatchReadCloser(resource ccapi.ResourceType, fieldsSe
 		}
 	case ccapi.ServiceAccounts:
 		for _, item := range c.ServiceAccounts(fieldsSelector).Items {
+			rg.EmitWatchEvent(watch.Added, runtime.Object(&item))
+		}
+	case ccapi.LimitRanges:
+		for _, item := range c.LimitRanges(fieldsSelector).Items {
+			rg.EmitWatchEvent(watch.Added, runtime.Object(&item))
+		}
+	case ccapi.Namespaces:
+		for _, item := range c.Namespaces(fieldsSelector).Items {
 			rg.EmitWatchEvent(watch.Added, runtime.Object(&item))
 		}
 	default:

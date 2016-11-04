@@ -15,6 +15,8 @@ const (
 	ResourceQuota          ResourceType = "resourcequotas"
 	Secrets                ResourceType = "secrets"
 	ServiceAccounts        ResourceType = "serviceaccounts"
+	LimitRanges            ResourceType = "limitranges"
+	Namespaces             ResourceType = "namespaces"
 )
 
 func (r ResourceType) String() string {
@@ -43,6 +45,10 @@ func StringToResourceType(resource string) (ResourceType, error) {
 		return Secrets, nil
 	case "serviceaccounts":
 		return ServiceAccounts, nil
+	case "limitranges":
+		return LimitRanges, nil
+	case "namespaces":
+		return Namespaces, nil
 	default:
 		return "", fmt.Errorf("Resource type %v not recognized", resource)
 	}

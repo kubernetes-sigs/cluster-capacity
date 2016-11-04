@@ -37,6 +37,8 @@ type resourceStore struct {
 	ResourceQuotaCache         cache.Store
 	SecretCache                cache.Store
 	ServiceAccountCache        cache.Store
+	LimitRangeCache            cache.Store
+	NamespaceCache             cache.Store
 
 	resourceToCache map[ccapi.ResourceType]cache.Store
 	eventHandler    map[ccapi.ResourceType]cache.ResourceEventHandler
@@ -149,31 +151,6 @@ func (s *resourceStore) Replace(resource ccapi.ResourceType, items []interface{}
 	return fmt.Errorf("Resource %s not recognized", resource)
 }
 
-// TODO(jchaloup,hodovska): currently, only scheduler caches are considered.
-// Later, include cache for each object.
-type caches struct {
-	// Pod cache modifed by emulation strategy
-	PodCache cache.Store
-
-	// Node cache modifed by emulation strategy
-	NodeCache cache.Store
-
-	// PVC cache modifed by emulation strategy
-	PVCCache cache.Store
-
-	// PV cache modifed by emulation strategy
-	PVCache cache.Store
-
-	// Service cache modifed by emulation strategy
-	ServiceCache cache.Store
-
-	// RC cache modifed by emulation strategy
-	ReplicationControllerCache cache.Store
-
-	// RS cache modifed by emulation strategy
-	ReplicaSetCache cache.Store
-}
-
 func (s *resourceStore) Resources() []ccapi.ResourceType {
 	keys := make([]ccapi.ResourceType, 0, len(s.resourceToCache))
 	for key := range s.resourceToCache {
@@ -195,6 +172,8 @@ func NewResourceStore() *resourceStore {
 		ResourceQuotaCache:         cache.NewStore(cache.MetaNamespaceKeyFunc),
 		SecretCache:                cache.NewStore(cache.MetaNamespaceKeyFunc),
 		ServiceAccountCache:        cache.NewStore(cache.MetaNamespaceKeyFunc),
+		LimitRangeCache:            cache.NewStore(cache.MetaNamespaceKeyFunc),
+		NamespaceCache:             cache.NewStore(cache.MetaNamespaceKeyFunc),
 		eventHandler:               make(map[ccapi.ResourceType]cache.ResourceEventHandler),
 	}
 
@@ -209,6 +188,8 @@ func NewResourceStore() *resourceStore {
 		ccapi.ResourceQuota:          resourceStore.ResourceQuotaCache,
 		ccapi.Secrets:                resourceStore.SecretCache,
 		ccapi.ServiceAccounts:        resourceStore.ServiceAccountCache,
+		ccapi.LimitRanges:            resourceStore.LimitRangeCache,
+		ccapi.Namespaces:             resourceStore.NamespaceCache,
 	}
 
 	resourceStore.resourceToCache = resourceToCache
