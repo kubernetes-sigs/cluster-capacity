@@ -482,15 +482,15 @@ func New(s *soptions.SchedulerServer, simulatedPod *api.Pod, maxPods int, resour
 
 		sharedInformers := informers.NewSharedInformerFactory(cc.kubeclient, 10*time.Minute)
 		authorizationConfig := authorizer.AuthorizationConfig{
-			PolicyFile:                  "",
-			WebhookConfigFile:           "",
-			WebhookCacheAuthorizedTTL:   5 * time.Minute,
-			WebhookCacheUnauthorizedTTL: 30 * time.Second,
-			RBACSuperUser:               "",
+			PolicyFile:                  apiserverConfig.AuthorizationPolicyFile,
+			WebhookConfigFile:           apiserverConfig.AuthorizationWebhookConfigFile,
+			WebhookCacheAuthorizedTTL:   apiserverConfig.AuthorizationWebhookCacheAuthorizedTTL.Duration,
+			WebhookCacheUnauthorizedTTL: apiserverConfig.AuthorizationWebhookCacheUnauthorizedTTL.Duration,
+			RBACSuperUser:               apiserverConfig.AuthorizationRBACSuperUser,
 			InformerFactory:             sharedInformers,
 		}
 
-		authorizationModeNames := strings.Split("AlwaysAllow", ",")
+		authorizationModeNames := strings.Split(apiserverConfig.AuthorizationMode, ",")
 		apiAuthorizer, err := authorizer.NewAuthorizerFromAuthorizationConfig(authorizationModeNames, authorizationConfig)
 		if err != nil {
 			log.Fatalf("Invalid Authorization Config: %v", err)
