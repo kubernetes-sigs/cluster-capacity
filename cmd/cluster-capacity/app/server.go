@@ -167,7 +167,8 @@ func runSimulator(s *options.ClusterCapacityConfig) (*framework.Report, error) {
 		return nil, err
 	}
 
-	report := cc.Report()
+	// report the updated pod if the simulator is run only once
+	report := cc.Report(s.Options.Period == 0)
 
 	if s.Options.Period == 0 {
 		err := report.Print(s.Options.Verbose, s.Options.OutputFormat)

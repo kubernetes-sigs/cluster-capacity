@@ -12,10 +12,9 @@ spec:
     image: gcr.io/google-samples/gb-frontend:v4
     imagePullPolicy: Always
     resources:
-      requests:
+      limits:
         cpu: 150m
         memory: 100Mi
   imagePullPolicy: Always
   restartPolicy: "OnFailure"
   dnsPolicy: "Default"
-

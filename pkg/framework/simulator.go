@@ -125,11 +125,12 @@ type ClusterCapacity struct {
 	defaultScheduler string
 
 	// pod to schedule
-	simulatedPod *api.Pod
-	maxSimulated int
-	simulated    int
-	status       Status
-	report       *Report
+	simulatedPod     *api.Pod
+	lastSimulatedPod *api.Pod
+	maxSimulated     int
+	simulated        int
+	status           Status
+	report           *Report
 
 	// analysis limitation
 	resourceSpaceMode   ResourceSpaceMode
@@ -149,7 +150,7 @@ type Status struct {
 	StopReason string
 }
 
-func (c *ClusterCapacity) Report() *Report {
+func (c *ClusterCapacity) Report(updatedPod bool) *Report {
 	if c.report == nil {
 		c.report = CreateFullReport(c.simulatedPod, c.status)
 	}
@@ -318,6 +319,7 @@ func (c *ClusterCapacity) nextPod() error {
 		}
 	}
 	c.simulated++
+	c.lastSimulatedPod = &pod
 	return c.resourceStore.Add(ccapi.Pods, runtime.Object(&pod))
 }
 
