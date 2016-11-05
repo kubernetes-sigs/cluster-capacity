@@ -18,7 +18,7 @@ in terms of how many instances of a pod with given requirements can be scheduled
 ## Example use:
 
 ```
-go build .
+go build -o cluster-capacity github.com/ingvagabund/cluster-capacity/cmd/cluster-capacity
 $ ./cluster-capacity --kubeconfig <path to kubeconfig> --master <API server address> --podspec=examples/pod.yaml
 ```
 
@@ -36,15 +36,15 @@ $ ./cluster-capacity --help
 
 **Pod requirements**:
 
-* 0.15 CPU
+* 150m
 * 100Mi
 
 **Output**:
 
 ```sh
 Pod requirements:
-	- cpu: 0.15
-	- memory: 104857600
+	- cpu: 150m
+	- memory: 100Mi
 
 The cluster can schedule 52 instance(s) of the pod.
 Termination reason: FailedScheduling: pod (small-pod-52) failed to fit in any node
@@ -153,8 +153,8 @@ $ curl http://localhost:8081/capacity/status/watch
 {
   "Timestamp": "2016-10-24T22:27:52.67211714+02:00",
   "PodRequirements": {
-   "Cpu": 0.15,
-   "Memory": 104857600
+    "Cpu": "150m",
+    "Memory": "100Mi"
   },
   "Total": {
    "Instances": 23,
@@ -170,8 +170,8 @@ $ curl http://localhost:8081/capacity/status/watch
  }{
   "Timestamp": "2016-10-24T22:27:53.872736917+02:00",
   "PodRequirements": {
-   "Cpu": 0.15,
-   "Memory": 104857600
+    "Cpu": "150m",
+    "Memory": "100Mi"
   },
   "Total": {
    "Instances": 23,
@@ -186,5 +186,3 @@ $ curl http://localhost:8081/capacity/status/watch
   ]
 ...
 ```
-
-
