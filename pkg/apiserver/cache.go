@@ -3,11 +3,13 @@ package apiserver
 import (
 	"sync"
 	"time"
+
+	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator"
 )
 
 type Cache struct {
 	position int
-	reports  []*Report
+	reports  []*emulator.Report
 	size     int
 	mux      sync.Mutex
 }
@@ -15,12 +17,12 @@ type Cache struct {
 func NewCache(size int) *Cache {
 	return &Cache{
 		position: 0,
-		reports:  make([]*Report, 0),
+		reports:  make([]*emulator.Report, 0),
 		size:     size,
 	}
 }
 
-func (c *Cache) Add(r *Report) {
+func (c *Cache) Add(r *emulator.Report) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 	if len(c.reports) < c.size {
@@ -35,7 +37,7 @@ func (c *Cache) Add(r *Report) {
 	}
 }
 
-func (c *Cache) GetLast(num int) []*Report {
+func (c *Cache) GetLast(num int) []*emulator.Report {
 	if len(c.reports) == 0 {
 		return nil
 	}
@@ -48,10 +50,10 @@ func (c *Cache) GetLast(num int) []*Report {
 	return sorted[len(sorted)-num:]
 }
 
-func (c *Cache) All() []*Report {
+func (c *Cache) All() []*emulator.Report {
 	c.mux.Lock()
 	defer c.mux.Unlock()
-	sorted := make([]*Report, 0)
+	sorted := make([]*emulator.Report, 0)
 
 	for i := c.position; i < len(c.reports); i++ {
 		sorted = append(sorted, c.reports[i])
@@ -61,13 +63,13 @@ func (c *Cache) All() []*Report {
 	}
 	return sorted
 }
-func (c *Cache) List(since time.Time, to time.Time) []*Report {
+func (c *Cache) List(since time.Time, to time.Time) []*emulator.Report {
 	all := c.All()
 	if len(all) == 0 {
 		return nil
 	}
 
-	list := make([]*Report, 0)
+	list := make([]*emulator.Report, 0)
 	for i := 0; i < len(all); i++ {
 		if all[i].Timestamp.After(since) && all[i].Timestamp.Before(to) {
 			list = append(list, all[i])

@@ -3,10 +3,12 @@ package apiserver
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/emicklei/go-restful"
 	"net/http"
-	"time"
 	"strconv"
+	"time"
+
+	"github.com/emicklei/go-restful"
+	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator"
 )
 
 var TIMELAYOUT = "2006-01-02T15:04:05Z07:00"
@@ -28,7 +30,7 @@ func (r *RestResource) Register(container *restful.Container) {
 		Doc("Get most recent cluster capacity report").
 		Operation("getStatus").
 		Param(ws.QueryParameter("num", "number of last records to be listed").DataType("string")).
-		Writes(Report{}))
+		Writes(emulator.Report{}))
 
 	ws.Route(ws.GET("/status/watch").To(r.watchStatus).
 		Doc("Watch for following statuses").
@@ -39,11 +41,11 @@ func (r *RestResource) Register(container *restful.Container) {
 		Operation("listRange").
 		Param(ws.QueryParameter("since", "RFC3339 standard").DataType("string")).
 		Param(ws.QueryParameter("to", "RFC3339 standard").DataType("string")).
-		Writes([]Report{}))
+		Writes([]emulator.Report{}))
 	container.Add(ws)
 }
 
-func NewResource(c *Cache, watch chan *Report) *RestResource {
+func NewResource(c *Cache, watch chan *emulator.Report) *RestResource {
 	return &RestResource{
 		cache:   c,
 		watcher: NewWatchChannelDistributor(watch),
@@ -81,7 +83,7 @@ func (r *RestResource) getLastStatus(request *restful.Request, response *restful
 }
 
 // use this to avoid multiple response.WriteHeader calls
-func writeJson(resp *restful.Response, r *Report) error {
+func writeJson(resp *restful.Response, r *emulator.Report) error {
 	output, err := json.MarshalIndent(r, " ", " ")
 	if err != nil {
 		return err
@@ -94,7 +96,7 @@ func (r *RestResource) watchStatus(request *restful.Request, response *restful.R
 	w := response.ResponseWriter
 
 	//receive read channel
-	ch := make(chan *Report)
+	ch := make(chan *emulator.Report)
 	chpos, err := r.watcher.AddChannel(ch)
 	if err != nil {
 		w.Header().Set("Content-Type", "text/plain")

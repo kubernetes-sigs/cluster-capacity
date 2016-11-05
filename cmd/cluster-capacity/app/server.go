@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"log"
-	"strings"
 	"time"
 
 	"github.com/ingvagabund/cluster-capacity/cmd/cluster-capacity/app/options"
@@ -16,7 +15,6 @@ import (
 	"k8s.io/kubernetes/pkg/client/restclient"
 	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
 	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
-	"k8s.io/kubernetes/plugin/pkg/scheduler/schedulercache"
 )
 
 var (
@@ -100,7 +98,7 @@ func Run(opt *options.ClusterCapacityOptions) error {
 
 	conf.Reports = apiserver.NewCache(MAXREPORTS)
 
-	watch := make(chan *apiserver.Report)
+	watch := make(chan *emulator.Report)
 	go func() {
 		r := apiserver.NewResource(conf.Reports, watch)
 		log.Fatal(apiserver.ListenAndServe(r))
@@ -142,7 +140,7 @@ func getKubeClient(master string, config string) (clientset.Interface, error) {
 	return kubeClient, nil
 }
 
-func runSimulator(s *options.ClusterCapacityConfig) (*apiserver.Report, error) {
+func runSimulator(s *options.ClusterCapacityConfig) (*emulator.Report, error) {
 	mode, err := emulator.StringToResourceSpaceMode(s.Options.ResourceSpaceMode)
 	if err != nil {
 		return nil, err
@@ -169,7 +167,7 @@ func runSimulator(s *options.ClusterCapacityConfig) (*apiserver.Report, error) {
 		return nil, err
 	}
 
-	report := createFullReport(s, cc.Status())
+	report := cc.Report()
 
 	if s.Options.Period == 0 {
 		err := report.Print(s.Options.Verbose, s.Options.OutputFormat)
@@ -181,64 +179,4 @@ func runSimulator(s *options.ClusterCapacityConfig) (*apiserver.Report, error) {
 	}
 
 	return report, nil
-}
-
-func createFullReport(s *options.ClusterCapacityConfig, status emulator.Status) *apiserver.Report {
-	report := createReport(s, status)
-	if len(status.Pods) == 0 {
-		return report
-	}
-	report.NodesNumInstances = make(map[string]int)
-	for _, pod := range status.Pods {
-		_, ok := report.NodesNumInstances[pod.Spec.NodeName]
-		if !ok {
-			report.NodesNumInstances[pod.Spec.NodeName] = 1
-		} else {
-			report.NodesNumInstances[pod.Spec.NodeName]++
-		}
-	}
-
-	return report
-}
-
-func getReason(s *options.ClusterCapacityConfig, message string) apiserver.FailReason {
-	slicedMessage := strings.Split(message, "\n")
-	colon := strings.Index(slicedMessage[0], ":")
-	if s.Options.MaxLimit != 0 {
-		return apiserver.FailReason{
-			FailMessage: slicedMessage[0],
-			FailType:    "Limit reached",
-		}
-	}
-	fail := apiserver.FailReason{
-		FailType:    slicedMessage[0][:colon],
-		FailMessage: slicedMessage[0][colon:],
-	}
-
-	if len(slicedMessage) == 1 {
-		return fail
-	}
-
-	fail.NodeFailures = make(map[string]string)
-	for _, nodeReason := range slicedMessage[1 : len(slicedMessage)-1] {
-		nameStart := strings.Index(nodeReason, "(")
-		nameEnd := strings.Index(nodeReason, ")")
-		name := nodeReason[nameStart+1 : nameEnd]
-		fail.NodeFailures[name] = nodeReason[nameEnd+3:]
-	}
-	return fail
-}
-
-func createReport(s *options.ClusterCapacityConfig, status emulator.Status) *apiserver.Report {
-	info := schedulercache.NewNodeInfo(s.Pod)
-	return &apiserver.Report{
-		//TODO: set this sooner(right after the check is done)
-		Timestamp: time.Now(),
-		PodRequirements: apiserver.PodResources{
-			Cpu:    float64(info.RequestedResource().MilliCPU) * 0.001,
-			Memory: info.RequestedResource().Memory,
-		},
-		TotalInstances: len(status.Pods),
-		FailReasons:    getReason(s, status.StopReason),
-	}
 }

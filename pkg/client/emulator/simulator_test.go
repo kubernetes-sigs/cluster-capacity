@@ -201,14 +201,14 @@ func TestPrediction(t *testing.T) {
 		t.Errorf("Unable to run analysis: %v", err)
 	}
 
-	for _, pod := range cc.Status().Pods {
-		t.Logf("Pod: %v, node: %v\n", pod.Name, pod.Spec.NodeName)
+	for node, inst := range cc.Report().NodesNumInstances {
+		t.Logf("Node: %v, instances: %v\n", node, inst)
 	}
 
-	t.Logf("Stop reason: %v\n", cc.Status().StopReason)
+	t.Logf("Stop reason: %v\n", cc.Report().FailReasons)
 
 	// 4. check expected number of pods is scheduled and reflected in the resource storage
-	if cc.Status().StopReason != "Maximal number 6 of pods simulated" {
-		t.Errorf("Unexpected stop reason occured: %v, expecting: Maximal number 6 of pods simulated", cc.Status().StopReason)
+	if cc.Report().FailReasons.FailType != "LimitReached" {
+		t.Errorf("Unexpected stop reason occured: %v, expecting: LimitReached", cc.Report().FailReasons.FailType)
 	}
 }

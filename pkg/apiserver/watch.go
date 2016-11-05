@@ -3,20 +3,22 @@ package apiserver
 import (
 	"fmt"
 	"sync"
+
+	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator"
 )
 
 var MAXWATCHERS = 10
 
 type WatchChannelDistributor struct {
-	inputChannel   chan *Report
-	outputChannels []chan *Report
+	inputChannel   chan *emulator.Report
+	outputChannels []chan *emulator.Report
 	mux            sync.Mutex
 }
 
-func NewWatchChannelDistributor(input chan *Report) *WatchChannelDistributor {
+func NewWatchChannelDistributor(input chan *emulator.Report) *WatchChannelDistributor {
 	return &WatchChannelDistributor{
 		inputChannel:   input,
-		outputChannels: make([]chan *Report, 0),
+		outputChannels: make([]chan *emulator.Report, 0),
 	}
 }
 
@@ -35,7 +37,7 @@ func (w *WatchChannelDistributor) Run() {
 	}
 }
 
-func (w *WatchChannelDistributor) AddChannel(ch chan *Report) (int, error) {
+func (w *WatchChannelDistributor) AddChannel(ch chan *emulator.Report) (int, error) {
 	w.mux.Lock()
 	defer w.mux.Unlock()
 

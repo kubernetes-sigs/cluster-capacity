@@ -129,6 +129,7 @@ type ClusterCapacity struct {
 	maxSimulated int
 	simulated    int
 	status       Status
+	report       *Report
 
 	// analysis limitation
 	resourceSpaceMode   ResourceSpaceMode
@@ -148,8 +149,11 @@ type Status struct {
 	StopReason string
 }
 
-func (c *ClusterCapacity) Status() Status {
-	return c.status
+func (c *ClusterCapacity) Report() *Report {
+	if c.report == nil {
+		c.report = CreateFullReport(c.simulatedPod, c.status)
+	}
+	return c.report
 }
 
 func (c *ClusterCapacity) SyncWithClient(client clientset.Interface) error {
@@ -230,7 +234,7 @@ func (c *ClusterCapacity) Bind(binding *api.Binding, schedulerName string) error
 	}()
 
 	if c.maxSimulated > 0 && c.simulated >= c.maxSimulated {
-		c.status.StopReason = fmt.Sprintf("Maximal number %v of pods simulated", c.maxSimulated)
+		c.status.StopReason = fmt.Sprintf("LimitReached: Maximal number %v of pods simulated", c.maxSimulated)
 		c.Close()
 
 		c.stop <- struct{}{}
