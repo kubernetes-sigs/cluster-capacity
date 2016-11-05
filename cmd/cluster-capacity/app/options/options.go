@@ -10,7 +10,7 @@ import (
 	"path"
 
 	"github.com/ingvagabund/cluster-capacity/pkg/apiserver"
-	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator"
+	"github.com/ingvagabund/cluster-capacity/pkg/framework"
 	"github.com/spf13/pflag"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/validation"
@@ -26,7 +26,7 @@ type ClusterCapacityConfig struct {
 	Options          *ClusterCapacityOptions
 	DefaultScheduler *schedopt.SchedulerServer
 	Reports          *apiserver.Cache
-	ApiServerOptions *emulator.ApiServerOptions
+	ApiServerOptions *framework.ApiServerOptions
 }
 
 type ClusterCapacityOptions struct {
@@ -80,14 +80,14 @@ func (s *ClusterCapacityOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVarP(&s.OutputFormat, "output", "o", s.OutputFormat, "Output format. One of: json|yaml")
 }
 
-func parseApiServerOptions(path string) (*emulator.ApiServerOptions, error) {
+func parseApiServerOptions(path string) (*framework.ApiServerOptions, error) {
 	filename, _ := filepath.Abs(path)
 	config, err := os.Open(filename)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to open config file: %v", err)
 	}
 
-	apiServerRunOptions := &emulator.ApiServerOptions{}
+	apiServerRunOptions := &framework.ApiServerOptions{}
 	decoder := yaml.NewYAMLOrJSONDecoder(config, 4096)
 	err = decoder.Decode(apiServerRunOptions)
 	if err != nil {
@@ -163,7 +163,7 @@ func (s *ClusterCapacityConfig) SetDefaultScheduler() error {
 
 func (s *ClusterCapacityConfig) ParseApiServerConfig() error {
 	if len(s.Options.ApiserverConfigFile) == 0 {
-		s.ApiServerOptions = &emulator.ApiServerOptions{}
+		s.ApiServerOptions = &framework.ApiServerOptions{}
 		return nil
 	}
 	options, err := parseApiServerOptions(s.Options.ApiserverConfigFile)

@@ -3,7 +3,7 @@ package strategy
 import (
 	"fmt"
 
-	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/store"
+	"github.com/ingvagabund/cluster-capacity/pkg/framework/store"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/meta"
 	"k8s.io/kubernetes/plugin/pkg/scheduler/schedulercache"

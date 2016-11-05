@@ -8,7 +8,7 @@ import (
 
 	"github.com/ingvagabund/cluster-capacity/cmd/cluster-capacity/app/options"
 	"github.com/ingvagabund/cluster-capacity/pkg/apiserver"
-	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator"
+	"github.com/ingvagabund/cluster-capacity/pkg/framework"
 	"github.com/renstrom/dedent"
 	"github.com/spf13/cobra"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
@@ -98,7 +98,7 @@ func Run(opt *options.ClusterCapacityOptions) error {
 
 	conf.Reports = apiserver.NewCache(MAXREPORTS)
 
-	watch := make(chan *emulator.Report)
+	watch := make(chan *framework.Report)
 	go func() {
 		r := apiserver.NewResource(conf.Reports, watch)
 		log.Fatal(apiserver.ListenAndServe(r))
@@ -140,13 +140,13 @@ func getKubeClient(master string, config string) (clientset.Interface, error) {
 	return kubeClient, nil
 }
 
-func runSimulator(s *options.ClusterCapacityConfig) (*emulator.Report, error) {
-	mode, err := emulator.StringToResourceSpaceMode(s.Options.ResourceSpaceMode)
+func runSimulator(s *options.ClusterCapacityConfig) (*framework.Report, error) {
+	mode, err := framework.StringToResourceSpaceMode(s.Options.ResourceSpaceMode)
 	if err != nil {
 		return nil, err
 	}
 
-	cc, err := emulator.New(s.DefaultScheduler, s.Pod, s.Options.MaxLimit, mode, s.ApiServerOptions)
+	cc, err := framework.New(s.DefaultScheduler, s.Pod, s.Options.MaxLimit, mode, s.ApiServerOptions)
 	if err != nil {
 		return nil, err
 	}

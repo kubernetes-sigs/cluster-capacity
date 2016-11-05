@@ -12,8 +12,8 @@ import (
 	"sync"
 
 	ccapi "github.com/ingvagabund/cluster-capacity/pkg/api"
-	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/store"
-	ewatch "github.com/ingvagabund/cluster-capacity/pkg/client/emulator/watch"
+	"github.com/ingvagabund/cluster-capacity/pkg/framework/store"
+	ewatch "github.com/ingvagabund/cluster-capacity/pkg/framework/watch"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/testapi"
 	"k8s.io/kubernetes/pkg/api/unversioned"

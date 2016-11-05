@@ -4,12 +4,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator"
+	"github.com/ingvagabund/cluster-capacity/pkg/framework"
 )
 
 type Cache struct {
 	position int
-	reports  []*emulator.Report
+	reports  []*framework.Report
 	size     int
 	mux      sync.Mutex
 }
@@ -17,12 +17,12 @@ type Cache struct {
 func NewCache(size int) *Cache {
 	return &Cache{
 		position: 0,
-		reports:  make([]*emulator.Report, 0),
+		reports:  make([]*framework.Report, 0),
 		size:     size,
 	}
 }
 
-func (c *Cache) Add(r *emulator.Report) {
+func (c *Cache) Add(r *framework.Report) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 	if len(c.reports) < c.size {
@@ -37,7 +37,7 @@ func (c *Cache) Add(r *emulator.Report) {
 	}
 }
 
-func (c *Cache) GetLast(num int) []*emulator.Report {
+func (c *Cache) GetLast(num int) []*framework.Report {
 	if len(c.reports) == 0 {
 		return nil
 	}
@@ -50,10 +50,10 @@ func (c *Cache) GetLast(num int) []*emulator.Report {
 	return sorted[len(sorted)-num:]
 }
 
-func (c *Cache) All() []*emulator.Report {
+func (c *Cache) All() []*framework.Report {
 	c.mux.Lock()
 	defer c.mux.Unlock()
-	sorted := make([]*emulator.Report, 0)
+	sorted := make([]*framework.Report, 0)
 
 	for i := c.position; i < len(c.reports); i++ {
 		sorted = append(sorted, c.reports[i])
@@ -63,13 +63,13 @@ func (c *Cache) All() []*emulator.Report {
 	}
 	return sorted
 }
-func (c *Cache) List(since time.Time, to time.Time) []*emulator.Report {
+func (c *Cache) List(since time.Time, to time.Time) []*framework.Report {
 	all := c.All()
 	if len(all) == 0 {
 		return nil
 	}
 
-	list := make([]*emulator.Report, 0)
+	list := make([]*framework.Report, 0)
 	for i := 0; i < len(all); i++ {
 		if all[i].Timestamp.After(since) && all[i].Timestamp.Before(to) {
 			list = append(list, all[i])

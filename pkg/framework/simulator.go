@@ -1,4 +1,4 @@
-package emulator
+package framework
 
 import (
 	"fmt"
@@ -9,10 +9,10 @@ import (
 	"time"
 
 	ccapi "github.com/ingvagabund/cluster-capacity/pkg/api"
-	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/record"
-	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/restclient"
-	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/store"
-	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator/strategy"
+	"github.com/ingvagabund/cluster-capacity/pkg/framework/record"
+	"github.com/ingvagabund/cluster-capacity/pkg/framework/restclient"
+	"github.com/ingvagabund/cluster-capacity/pkg/framework/store"
+	"github.com/ingvagabund/cluster-capacity/pkg/framework/strategy"
 	"k8s.io/kubernetes/pkg/admission"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/meta"

@@ -4,21 +4,21 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/ingvagabund/cluster-capacity/pkg/client/emulator"
+	"github.com/ingvagabund/cluster-capacity/pkg/framework"
 )
 
 var MAXWATCHERS = 10
 
 type WatchChannelDistributor struct {
-	inputChannel   chan *emulator.Report
-	outputChannels []chan *emulator.Report
+	inputChannel   chan *framework.Report
+	outputChannels []chan *framework.Report
 	mux            sync.Mutex
 }
 
-func NewWatchChannelDistributor(input chan *emulator.Report) *WatchChannelDistributor {
+func NewWatchChannelDistributor(input chan *framework.Report) *WatchChannelDistributor {
 	return &WatchChannelDistributor{
 		inputChannel:   input,
-		outputChannels: make([]chan *emulator.Report, 0),
+		outputChannels: make([]chan *framework.Report, 0),
 	}
 }
 
@@ -37,7 +37,7 @@ func (w *WatchChannelDistributor) Run() {
 	}
 }
 
-func (w *WatchChannelDistributor) AddChannel(ch chan *emulator.Report) (int, error) {
+func (w *WatchChannelDistributor) AddChannel(ch chan *framework.Report) (int, error) {
 	w.mux.Lock()
 	defer w.mux.Unlock()
 
