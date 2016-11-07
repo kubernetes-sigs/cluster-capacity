@@ -15,6 +15,7 @@ import (
 	"k8s.io/kubernetes/pkg/api/testapi"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/runtime"
+	"k8s.io/kubernetes/pkg/client/restclient"
 )
 
 func NewGenPodCommand() *cobra.Command {
@@ -41,14 +42,6 @@ func NewGenPodCommand() *cobra.Command {
 }
 
 func Validate(opt *options.GenPodOptions) error {
-	if len(opt.Kubeconfig) == 0 {
-		return fmt.Errorf("Path to Kubernetes config file missing")
-	}
-
-	if len(opt.Master) == 0 {
-		return fmt.Errorf("Adress of Kubernetes API server missing")
-	}
-
 	if len(opt.Namespace) == 0 {
 		return fmt.Errorf("Cluster namespace missing")
 	}
@@ -98,12 +91,20 @@ func Run(opt *options.GenPodOptions) error {
 }
 
 func getKubeClient(master string, config string) (clientset.Interface, error) {
-	kubeconfig, err := clientcmd.BuildConfigFromFlags(master, config)
-	if err != nil {
-		return nil, fmt.Errorf("unable to build config from flags: %v", err)
+	var cfg *restclient.Config
+	var err error
+	if master != "" && config != "" {
+		cfg, err = clientcmd.BuildConfigFromFlags(master, config)
+		if err != nil {
+			return nil, fmt.Errorf("unable to build config from flags: %v", err)
+		}
+	} else {
+		cfg, err = restclient.InClusterConfig()
+		if err != nil {
+			return nil, err
+		}
 	}
-
-	kubeClient, err := clientset.NewForConfig(kubeconfig)
+	kubeClient, err := clientset.NewForConfig(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("Invalid API configuration: %v", err)
 	}
