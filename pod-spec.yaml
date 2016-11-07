@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cluster-capacity
+  labels:
+    name: cluster-capacity
+spec:
+  serviceAccountName: cluster-capacity
+  containers:
+  - name: cluster-capacity
+    image: docker.io/dhodovsk/cluster-capacity
+    command:
+    - "/bin/sh"
+    - "-c"
+    - |
+      /bin/genpod --namespace=default >> /pod.yaml
+      /bin/cluster-capacity --period=10 --podspec=/pod.yaml
+    ports:
+    - containerPort: 8081
