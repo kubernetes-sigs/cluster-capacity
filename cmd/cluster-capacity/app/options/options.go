@@ -69,7 +69,7 @@ func (s *ClusterCapacityOptions) AddFlags(fs *pflag.FlagSet) {
 		log.Fatalf("Unable to get current directory: %v", err)
 	}
 
-	filepath := path.Join(dir, "config/default-scheduler.yaml")
+	filepath := path.Join(dir, "../config/default-scheduler.yaml")
 
 	fs.StringVar(&s.DefaultSchedulerConfigFile, "default-config", filepath, "Path to JSON or YAML file containing pod definition.")
 	fs.StringVar(&s.ApiserverConfigFile, "apiserver-config", s.ApiserverConfigFile, "Path to JSON or YAML file containing Apiserver configuration.")
