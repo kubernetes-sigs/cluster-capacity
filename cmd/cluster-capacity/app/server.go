@@ -15,6 +15,7 @@ import (
 	"k8s.io/kubernetes/pkg/client/restclient"
 	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
 	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
+	"github.com/ingvagabund/cluster-capacity/pkg/utils"
 )
 
 var (
@@ -25,7 +26,7 @@ var (
 		the simulated API server runs out of resources.
 	`)
 
-	MAXREPORTS = 5
+	MAXREPORTS = 100
 )
 
 func NewClusterCapacityCommand() *cobra.Command {
@@ -96,11 +97,11 @@ func Run(opt *options.ClusterCapacityOptions) error {
 		return err
 	}
 
-	conf.Reports = apiserver.NewCache(MAXREPORTS)
+	conf.Reports = utils.NewCache(MAXREPORTS)
 
 	watch := make(chan *framework.Report)
 	go func() {
-		r := apiserver.NewResource(conf.Reports, watch)
+		r := apiserver.NewResource(watch, conf)
 		log.Fatal(apiserver.ListenAndServe(r))
 	}()
 

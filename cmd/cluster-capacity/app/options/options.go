@@ -9,7 +9,7 @@ import (
 
 	"path"
 
-	"github.com/ingvagabund/cluster-capacity/pkg/apiserver"
+	"github.com/ingvagabund/cluster-capacity/pkg/utils"
 	"github.com/ingvagabund/cluster-capacity/pkg/framework"
 	"github.com/spf13/pflag"
 	"k8s.io/kubernetes/pkg/api"
@@ -25,7 +25,7 @@ type ClusterCapacityConfig struct {
 	KubeClient       clientset.Interface
 	Options          *ClusterCapacityOptions
 	DefaultScheduler *schedopt.SchedulerServer
-	Reports          *apiserver.Cache
+	Reports          *utils.Cache
 	ApiServerOptions *framework.ApiServerOptions
 }
 
@@ -134,7 +134,7 @@ func (s *ClusterCapacityConfig) ParseAPISpec() error {
 	}
 
 	decoder := yaml.NewYAMLOrJSONDecoder(spec, 4096)
-	decoder.Decode(&(s.Pod))
+	err = decoder.Decode(&(s.Pod))
 	if err != nil {
 		return fmt.Errorf("Failed to decode config file: %v", err)
 	}

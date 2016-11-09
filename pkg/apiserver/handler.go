@@ -8,35 +8,59 @@ import (
 	"time"
 
 	"github.com/emicklei/go-restful"
+	"github.com/ingvagabund/cluster-capacity/cmd/cluster-capacity/app/options"
 	"github.com/ingvagabund/cluster-capacity/pkg/framework"
+	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api/validation"
+	"k8s.io/kubernetes/pkg/util/yaml"
+	"strings"
+	"text/template"
 )
 
 var TIMELAYOUT = "2006-01-02T15:04:05Z07:00"
 
 type RestResource struct {
-	cache   *Cache
 	watcher *WatchChannelDistributor
+	cconf   *options.ClusterCapacityConfig
 }
 
 func (r *RestResource) Register(container *restful.Container) {
 	ws := new(restful.WebService)
 	ws.
-		Path("/capacity").
+		Path("/").
 		Doc("Manage cluster capacity checker").
 		Consumes(restful.MIME_XML, restful.MIME_JSON).
 		Produces(restful.MIME_JSON, restful.MIME_XML)
 
-	ws.Route(ws.GET("/status/last").To(r.getLastStatus).
+	ws.Route(ws.GET("/").To(r.introduce))
+
+	ws.Route(ws.GET("/capacity").To(r.introduce))
+
+	ws.Route(ws.GET("/capacity/pod").To(r.getPod).
+		Doc("Get pod used for counting cluster capacity").
+		Operation("getPod").
+		Writes(restful.MIME_JSON))
+
+	ws.Route(ws.PUT("/capacity/pod").To(r.putPod).
+		Doc("Update pod used for counting cluster capacity").
+		Operation("putPod"))
+
+	ws.Route(ws.GET("/capacity/status").To(r.getLastStatus).
+		Doc("Get most recent cluster capacity report").
+		Operation("getStatus").
+		Writes(framework.Report{}))
+
+	ws.Route(ws.GET("/capacity/status/last").To(r.getLastStatus).
 		Doc("Get most recent cluster capacity report").
 		Operation("getStatus").
 		Param(ws.QueryParameter("num", "number of last records to be listed").DataType("string")).
 		Writes(framework.Report{}))
 
-	ws.Route(ws.GET("/status/watch").To(r.watchStatus).
-		Doc("Watch for following statuses").
+	ws.Route(ws.GET("/capacity/status/watch").To(r.watchStatus).
+		Doc("Watch for statuses").
 		Operation("watchStatus"))
 
-	ws.Route(ws.GET("/status/list").To(r.listStatus).
+	ws.Route(ws.GET("/capacity/status/list").To(r.listStatus).
 		Doc("List all reports since and to specified date.").
 		Operation("listRange").
 		Param(ws.QueryParameter("since", "RFC3339 standard").DataType("string")).
@@ -45,10 +69,10 @@ func (r *RestResource) Register(container *restful.Container) {
 	container.Add(ws)
 }
 
-func NewResource(c *Cache, watch chan *framework.Report) *RestResource {
+func NewResource(watch chan *framework.Report, conf *options.ClusterCapacityConfig) *RestResource {
 	return &RestResource{
-		cache:   c,
 		watcher: NewWatchChannelDistributor(watch),
+		cconf:   conf,
 	}
 }
 
@@ -59,6 +83,25 @@ func ListenAndServe(r *RestResource) error {
 	go r.watcher.Run()
 	server := &http.Server{Addr: ":8081", Handler: wsContainer}
 	return server.ListenAndServe()
+}
+
+type ccBasicInfo struct {
+	CacheSize int
+	Period    int
+}
+
+func (r *RestResource) introduce(request *restful.Request, response *restful.Response) {
+	response.AddHeader("Content-Type", "text/html")
+
+	info := &ccBasicInfo{
+		CacheSize: r.cconf.Reports.GetSize(),
+		Period:    r.cconf.Options.Period,
+	}
+	t, err := template.ParseFiles("home.html")
+	if err != nil {
+		fmt.Printf("Template gave: %s", err)
+	}
+	t.Execute(response.ResponseWriter, info)
 }
 
 func (r *RestResource) getLastStatus(request *restful.Request, response *restful.Response) {
@@ -73,7 +116,7 @@ func (r *RestResource) getLastStatus(request *restful.Request, response *restful
 		response.WriteErrorString(http.StatusBadRequest, str)
 		return
 	}
-	report := r.cache.GetLast(num)
+	report := r.cconf.Reports.GetLast(num)
 	if report == nil {
 		response.AddHeader("Content-Type", "text/plain")
 		response.WriteErrorString(http.StatusNotFound, "404: No reports found.")
@@ -107,7 +150,7 @@ func (r *RestResource) watchStatus(request *restful.Request, response *restful.R
 	defer r.watcher.RemoveChannel(chpos)
 
 	//list all
-	response.WriteAsJson(r.cache.All())
+	response.WriteAsJson(r.cconf.Reports.All())
 	w.Header().Set("Transfer-Encoding", "chunked")
 	w.(http.Flusher).Flush()
 
@@ -157,11 +200,47 @@ func (r *RestResource) listStatus(request *restful.Request, response *restful.Re
 		}
 	}
 
-	reports := r.cache.List(since, to)
+	reports := r.cconf.Reports.List(since, to)
 	if reports == nil {
 		response.AddHeader("Content-Type", "text/plain")
 		response.WriteErrorString(http.StatusNotFound, "404: No reports found.")
 		return
 	}
 	response.WriteAsJson(reports)
+}
+
+func (r *RestResource) getPod(request *restful.Request, response *restful.Response) {
+	response.WriteAsJson(r.cconf.Pod)
+}
+
+func (r *RestResource) putPod(request *restful.Request, response *restful.Response) {
+	if r.cconf.Pod != nil {
+		r.cconf.Pod = &api.Pod{}
+	}
+	decoder := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 4096)
+	err := decoder.Decode(r.cconf.Pod)
+	if err != nil {
+		response.AddHeader("Content-Type", "text/plain")
+		msg := fmt.Sprintf("Failed to decode pod: %v\n", err)
+		response.WriteErrorString(http.StatusInternalServerError, msg)
+		return
+	}
+
+	if errs := validation.ValidatePod(r.cconf.Pod); len(errs) > 0 {
+		var errStrs []string
+		for _, err := range errs {
+			errStrs = append(errStrs, fmt.Sprintf("%v: %v", err.Type, err.Field))
+		}
+		msg := fmt.Sprintf("Invalid pod: %#v", strings.Join(errStrs, ", "))
+		response.AddHeader("Content-Type", "text/plain")
+		response.WriteErrorString(http.StatusInternalServerError, msg)
+		return
+	}
+
+	if err != nil {
+		response.AddHeader("Content-Type", "text/plain")
+		response.WriteErrorString(http.StatusInternalServerError, err.Error())
+		return
+	}
+	response.WriteHeaderAndEntity(http.StatusCreated, r.cconf.Pod)
 }

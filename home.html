@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+
+<html>
+<body>
+	<p><strong>Welcome to cluster capacity!</strong></p>
+    <p>We are couting cluster-capacity for you and generating new report in every {{.Period}}
+        seconds. We always remember last {{.CacheSize}} records. You can see what we found out using following paths:</p>
+
+    <p>Get most recent result:</p>
+    <p style="padding-left: 30px;">/capacity/status/last</p>
+
+    <p>List last x results:</p>
+    <p style="padding-left: 30px;">/capacity/status/last?num=x</p>
+
+
+    <p>See all saved results and continue with getting new ones when they are created:</p>
+    <p style="padding-left: 30px;">/capacity/status/watch</p>
+
+
+    <p>List all results we have saved:</p>
+    <p style="padding-left: 30px;">/capacity/status/list</p>
+
+</body>
+</html>

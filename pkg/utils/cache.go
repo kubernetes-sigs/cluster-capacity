@@ -1,4 +1,4 @@
-package apiserver
+package utils
 
 import (
 	"sync"
@@ -20,6 +20,10 @@ func NewCache(size int) *Cache {
 		reports:  make([]*framework.Report, 0),
 		size:     size,
 	}
+}
+
+func (c *Cache) GetSize() int {
+	return c.size
 }
 
 func (c *Cache) Add(r *framework.Report) {
