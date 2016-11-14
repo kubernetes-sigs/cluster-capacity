@@ -14,7 +14,7 @@ import (
 	"k8s.io/kubernetes/pkg/api/validation"
 	"k8s.io/kubernetes/pkg/util/yaml"
 	"strings"
-	"text/template"
+	"html/template"
 )
 
 var TIMELAYOUT = "2006-01-02T15:04:05Z07:00"
@@ -39,6 +39,7 @@ func (r *RestResource) Register(container *restful.Container) {
 	ws.Route(ws.GET("/capacity/pod").To(r.getPod).
 		Doc("Get pod used for counting cluster capacity").
 		Operation("getPod").
+		Param(ws.QueryParameter("pretty", "pretty print pod").DataType("boolean")).
 		Writes(restful.MIME_JSON))
 
 	ws.Route(ws.PUT("/capacity/pod").To(r.putPod).
@@ -47,24 +48,11 @@ func (r *RestResource) Register(container *restful.Container) {
 
 	ws.Route(ws.GET("/capacity/status").To(r.getLastStatus).
 		Doc("Get most recent cluster capacity report").
-		Operation("getStatus").
-		Writes(framework.Report{}))
-
-	ws.Route(ws.GET("/capacity/status/last").To(r.getLastStatus).
-		Doc("Get most recent cluster capacity report").
-		Operation("getStatus").
 		Param(ws.QueryParameter("num", "number of last records to be listed").DataType("string")).
-		Writes(framework.Report{}))
-
-	ws.Route(ws.GET("/capacity/status/watch").To(r.watchStatus).
-		Doc("Watch for statuses").
-		Operation("watchStatus"))
-
-	ws.Route(ws.GET("/capacity/status/list").To(r.listStatus).
-		Doc("List all reports since and to specified date.").
-		Operation("listRange").
 		Param(ws.QueryParameter("since", "RFC3339 standard").DataType("string")).
 		Param(ws.QueryParameter("to", "RFC3339 standard").DataType("string")).
+		Param(ws.QueryParameter("watch", "get notification for new ones").DataType("boolean")).
+		Operation("getStatus").
 		Writes([]framework.Report{}))
 	container.Add(ws)
 }
@@ -97,82 +85,24 @@ func (r *RestResource) introduce(request *restful.Request, response *restful.Res
 		CacheSize: r.cconf.Reports.GetSize(),
 		Period:    r.cconf.Options.Period,
 	}
-	t, err := template.ParseFiles("home.html")
+	t, err := template.ParseFiles("/doc/html/home.html")
 	if err != nil {
 		fmt.Printf("Template gave: %s", err)
 	}
-	t.Execute(response.ResponseWriter, info)
+	if err != nil {
+		t.Execute(response.ResponseWriter, info)
+	}
 }
 
 func (r *RestResource) getLastStatus(request *restful.Request, response *restful.Response) {
+	// parse parameters
 	numStr := request.QueryParameter("num")
 	if numStr == "" {
-		numStr = "1"
+		numStr = "-1"
 	}
 	num, err := strconv.Atoi(numStr)
-	if err != nil {
-		response.AddHeader("Content-Type", "text/plain")
-		str := fmt.Sprintf("400: Failed to parse parameter \"num\": %v\n", err)
-		response.WriteErrorString(http.StatusBadRequest, str)
-		return
-	}
-	report := r.cconf.Reports.GetLast(num)
-	if report == nil {
-		response.AddHeader("Content-Type", "text/plain")
-		response.WriteErrorString(http.StatusNotFound, "404: No reports found.")
-		return
-	}
-	response.WriteAsJson(report)
-}
 
-// use this to avoid multiple response.WriteHeader calls
-func writeJson(resp *restful.Response, r *framework.Report) error {
-	output, err := json.MarshalIndent(r, " ", " ")
-	if err != nil {
-		return err
-	}
-	_, err = resp.Write(output)
-	return err
-}
-
-func (r *RestResource) watchStatus(request *restful.Request, response *restful.Response) {
-	w := response.ResponseWriter
-
-	//receive read channel
-	ch := make(chan *framework.Report)
-	chpos, err := r.watcher.AddChannel(ch)
-	if err != nil {
-		w.Header().Set("Content-Type", "text/plain")
-		errmsg := fmt.Sprintf("Can't start watching: %v", err)
-		response.WriteErrorString(http.StatusForbidden, errmsg)
-		return
-	}
-	defer r.watcher.RemoveChannel(chpos)
-
-	//list all
-	response.WriteAsJson(r.cconf.Reports.All())
-	w.Header().Set("Transfer-Encoding", "chunked")
-	w.(http.Flusher).Flush()
-
-	//listen read channel
-	for {
-		select {
-		case <-w.(http.CloseNotifier).CloseNotify():
-			return
-		case report, ok := <-ch:
-			if !ok {
-				return
-			}
-			if err := writeJson(response, report); err != nil {
-				continue
-
-			}
-			w.(http.Flusher).Flush()
-		}
-	}
-}
-
-func (r *RestResource) listStatus(request *restful.Request, response *restful.Response) {
+	watch := request.QueryParameter("watch")
 
 	//if since is not defined set is as start of epoch
 	sinceStr := request.QueryParameter("since")
@@ -200,16 +130,76 @@ func (r *RestResource) listStatus(request *restful.Request, response *restful.Re
 		}
 	}
 
-	reports := r.cconf.Reports.List(since, to)
-	if reports == nil {
+	if err != nil {
+		response.AddHeader("Content-Type", "text/plain")
+		str := fmt.Sprintf("400: Failed to parse parameter \"num\": %v\n", err)
+		response.WriteErrorString(http.StatusBadRequest, str)
+		return
+	}
+
+	report := r.cconf.Reports.List(since, to, num)
+	if report == nil {
 		response.AddHeader("Content-Type", "text/plain")
 		response.WriteErrorString(http.StatusNotFound, "404: No reports found.")
 		return
 	}
-	response.WriteAsJson(reports)
+	response.WriteAsJson(report)
+	if watch == "true" {
+		r.watchStatus(request, response)
+	}
+}
+
+// use this to avoid multiple response.WriteHeader calls
+func writeJson(resp *restful.Response, r *framework.Report) error {
+	output, err := json.MarshalIndent(r, " ", " ")
+	if err != nil {
+		return err
+	}
+	_, err = resp.Write(output)
+	return err
+}
+
+func (r *RestResource) watchStatus(request *restful.Request, response *restful.Response) {
+	w := response.ResponseWriter
+
+	//receive read channel
+	ch := make(chan *framework.Report)
+	chpos, err := r.watcher.AddChannel(ch)
+	if err != nil {
+		w.Header().Set("Content-Type", "text/plain")
+		errmsg := fmt.Sprintf("Can't start watching: %v", err)
+		response.WriteErrorString(http.StatusForbidden, errmsg)
+		return
+	}
+	defer r.watcher.RemoveChannel(chpos)
+
+
+	w.Header().Set("Transfer-Encoding", "chunked")
+	w.(http.Flusher).Flush()
+
+	//listen read channel
+	for {
+		select {
+		case <-w.(http.CloseNotifier).CloseNotify():
+			return
+		case report, ok := <-ch:
+			if !ok {
+				return
+			}
+			if err := writeJson(response, report); err != nil {
+				continue
+
+			}
+			w.(http.Flusher).Flush()
+		}
+	}
 }
 
 func (r *RestResource) getPod(request *restful.Request, response *restful.Response) {
+	if request.QueryParameter("pretty") == "true" {
+		response.AddHeader("Content-Type", "text/plain")
+		response.WriteErrorString(http.StatusInternalServerError, "Pretty print not implemented yet\n")
+	}
 	response.WriteAsJson(r.cconf.Pod)
 }
 

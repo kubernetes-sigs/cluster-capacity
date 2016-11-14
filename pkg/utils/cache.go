@@ -67,7 +67,7 @@ func (c *Cache) All() []*framework.Report {
 	}
 	return sorted
 }
-func (c *Cache) List(since time.Time, to time.Time) []*framework.Report {
+func (c *Cache) List(since time.Time, to time.Time, num int) []*framework.Report {
 	all := c.All()
 	if len(all) == 0 {
 		return nil
@@ -79,6 +79,11 @@ func (c *Cache) List(since time.Time, to time.Time) []*framework.Report {
 			list = append(list, all[i])
 		}
 	}
-	return list
+
+	if num >= len(list) || num == -1 {
+		num = len(list)
+	}
+
+	return list[len(list)-num:]
 
 }
