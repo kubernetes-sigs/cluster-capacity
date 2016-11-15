@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: small-pod
-  namespace: default
+  namespace: cluster-capacity
   labels:
     app: guestbook
     tier: frontend

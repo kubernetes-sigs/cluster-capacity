@@ -605,7 +605,6 @@ func (c *RESTClient) Do(req *http.Request) (*http.Response, error) {
 		return nil, c.Err
 	}
 	c.Req = req
-
 	// //localhost/pods?resourceVersion=0
 	parts := splitPath(req.URL.Path)
 	if len(parts) < 1 {
@@ -683,7 +682,32 @@ func (c *RESTClient) Do(req *http.Request) (*http.Response, error) {
 			if err != nil {
 				return nil, fmt.Errorf("Unable to create lister for %s\n", parts[0])
 			}
-		case 4:
+		case 4, 5:
+			if len(parts) == 5 {
+				if !strings.EqualFold(parts[4], "status") {
+					return nil, fmt.Errorf("Cluster capacity RESTClient not implemented: query url does not end with status: %v", req.URL.Path)
+				}
+
+				if parts[2] != "resourcequotas" {
+					return nil, fmt.Errorf("Cluster capacity RESTClient not implemented: status can be queried only for resourcequotas: %v", req.URL.Path)
+				}
+
+				// decode and update resource quota in the local cache
+				var buffer bytes.Buffer
+				buff := make([]byte, 100, 100)
+				for {
+					n, err := req.Body.Read(buff)
+					buffer.WriteString(string(buff[:n]))
+					if err != nil {
+						break
+					}
+				}
+
+				obj := &api.ResourceQuota{}
+				runtime.DecodeInto(testapi.Default.Codec(), buffer.Bytes(), runtime.Object(obj))
+				c.resourceStore.Add(ccapi.ResourceQuota, obj)
+			}
+
 			if parts[0] != "namespaces" {
 				return nil, fmt.Errorf("Unable to decode query url: %v. Expected namespaces, got %v", req.URL.Path, parts[0])
 			}
@@ -696,7 +720,7 @@ func (c *RESTClient) Do(req *http.Request) (*http.Response, error) {
 				return nil, fmt.Errorf("Unable to create getter for %s: %v\n", parts[0], err)
 			}
 		default:
-			return nil, fmt.Errorf("Unable to decode query url: %v", req.URL.Path)
+			return nil, fmt.Errorf("Cluster capacity RESTClient not implemented: unable to decode query url: %v", req.URL.Path)
 		}
 		c.Resp = &http.Response{StatusCode: 200, Header: header, Body: *body}
 	}

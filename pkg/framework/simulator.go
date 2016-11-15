@@ -221,6 +221,7 @@ func (c *ClusterCapacity) Bind(binding *api.Binding, schedulerName string) error
 	}
 	updatedPod := *pod.(*api.Pod)
 	updatedPod.Spec.NodeName = binding.Target.Name
+	updatedPod.Status.Phase = api.PodRunning
 	// fmt.Printf("Pod binding: %v\n", updatedPod)
 
 	// TODO(jchaloup): rename Add to Update as this actually updates the scheduled pod
@@ -237,13 +238,17 @@ func (c *ClusterCapacity) Bind(binding *api.Binding, schedulerName string) error
 	if c.maxSimulated > 0 && c.simulated >= c.maxSimulated {
 		c.status.StopReason = fmt.Sprintf("LimitReached: Maximal number %v of pods simulated", c.maxSimulated)
 		c.Close()
-
 		c.stop <- struct{}{}
 		return nil
 	}
 
 	// all good, create another pod
 	if err := c.nextPod(); err != nil {
+		if strings.HasPrefix(c.status.StopReason, "AdmissionControllerError") {
+			c.Close()
+			c.stop <- struct{}{}
+			return nil
+		}
 		return fmt.Errorf("Unable to create next pod to schedule: %v", err)
 	}
 	return nil
@@ -310,11 +315,11 @@ func (c *ClusterCapacity) nextPod() error {
 	if c.admissionController != nil {
 		gv := unversioned.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}.GroupVersion()
 		userInfo, _ := api.UserFrom(api.WithUserAgent(api.NewContext(), "Cluster-Capacity-Agent"))
-
-		attr := admission.NewAttributesRecord(runtime.Object(&pod), nil, unversioned.FromAPIVersionAndKind("v1", "pods"), pod.Namespace, pod.Name, gv.WithResource("pods"), "", admission.Create, userInfo)
+		attr := admission.NewAttributesRecord(runtime.Object(&pod), nil, unversioned.FromAPIVersionAndKind("v1", "Pod"), pod.Namespace, pod.Name, gv.WithResource("pods"), "", admission.Create, userInfo)
 
 		err := c.admissionController.Admit(attr)
 		if err != nil {
+			c.status.StopReason = fmt.Sprintf("AdmissionControllerError: %v", err)
 			return fmt.Errorf("Admission controller error: %v", err)
 		}
 	}
@@ -486,7 +491,6 @@ func New(s *soptions.SchedulerServer, simulatedPod *api.Pod, maxPods int, resour
 		} else {
 			admissionControlPluginNames = admissionsNames
 		}
-
 		sharedInformers := informers.NewSharedInformerFactory(cc.kubeclient, 10*time.Minute)
 		authorizationConfig := authorizer.AuthorizationConfig{
 			PolicyFile:                  apiserverConfig.AuthorizationPolicyFile,
@@ -510,7 +514,6 @@ func New(s *soptions.SchedulerServer, simulatedPod *api.Pod, maxPods int, resour
 		}
 
 		cc.admissionController = admissionController
-
 		sharedInformers.Start(cc.admissionStopCh)
 	}
 

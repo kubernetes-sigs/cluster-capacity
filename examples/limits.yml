@@ -7,7 +7,7 @@ spec:
   limits:
   - max:
       cpu: "200m"
-      memory: 100Mi
+      memory: 200Mi
     min:
       cpu: 10m
       memory: 6Mi
@@ -19,8 +19,8 @@ spec:
       cpu: 10m
       memory: 6Mi
     max:
-      cpu: "50m"
-      memory: 20Mi
+      cpu: "250m"
+      memory: 200Mi
     min:
       cpu: 10m
       memory: 6Mi
