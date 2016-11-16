@@ -145,44 +145,50 @@ $ ./cluster-capacity --kubeconfig <path to kubeconfig> --master <API server addr
 ```
 
 With the ``period`` set to non-zero value, the ``cluster-capacity`` binary publishes the current capacity
-at ``http://localhost:8081/capacity/status/watch`` address.
+at ``http://localhost:8081/capacity/status?watch=true`` address.
 You can use ``curl`` to access the data:
 
 ```sh
-$ curl http://localhost:8081/capacity/status/watch
-{
-  "Timestamp": "2016-10-24T22:27:52.67211714+02:00",
-  "PodRequirements": {
-    "Cpu": "150m",
+$ curl http://localhost:8081/capacity/status?watch=true
+[
+  {
+   "Timestamp": "2016-11-16T08:30:33.079973497Z",
+   "PodRequirements": {
+    "Cpu": "200m",
     "Memory": "100Mi"
-  },
-  "Total": {
-   "Instances": 23,
-   "Reason": "FailedScheduling: pod (small-pod-23) failed to fit in any node\nfit failure on node (127.0.0.1): Insufficient cpu\n"
-  },
-  "Nodes": [
-   {
-    "NodeName": "127.0.0.1",
-    "Instances": 23,
-    "Reason": ""
+   },
+   "TotalInstances": 5,
+   "NodesNumInstances": {
+    "kube-node-2": 5
+   },
+   "FailReasons": {
+    "FailType": "FailedScheduling",
+    "FailMessage": "pod (cluster-capacity-stub-container-5) failed to fit in any node",
+    "NodeFailures": {
+     "kube-node-1": "MatchNodeSelector",
+     "kube-node-2": "Insufficient cpu"
+    }
    }
-  ]
- }{
-  "Timestamp": "2016-10-24T22:27:53.872736917+02:00",
-  "PodRequirements": {
-    "Cpu": "150m",
+  },
+  {
+   "Timestamp": "2016-11-16T08:30:43.277040728Z",
+   "PodRequirements": {
+    "Cpu": "200m",
     "Memory": "100Mi"
-  },
-  "Total": {
-   "Instances": 23,
-   "Reason": "FailedScheduling: pod (small-pod-23) failed to fit in any node\nfit failure on node (127.0.0.1): Insufficient cpu\n"
-  },
-  "Nodes": [
-   {
-    "NodeName": "127.0.0.1",
-    "Instances": 23,
-    "Reason": ""
+   },
+   "TotalInstances": 5,
+   "NodesNumInstances": {
+    "kube-node-2": 5
+   },
+   "FailReasons": {
+    "FailType": "FailedScheduling",
+    "FailMessage": "pod (cluster-capacity-stub-container-5) failed to fit in any node",
+    "NodeFailures": {
+     "kube-node-1": "MatchNodeSelector",
+     "kube-node-2": "Insufficient cpu"
+    }
    }
-  ]
+  }
+ ]
 ...
 ```
