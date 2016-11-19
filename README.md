@@ -133,6 +133,110 @@ spec:
 status: {}
 ```
 
+## Admissions
+
+The analysis can be run with admissions enabled as well:
+
+```sh
+./cluster-capacity --kubeconfig <path to kubeconfig> --master <API server address > --podspec=examples/pod.yaml --apiserver-config config/apiserver.yaml
+```
+
+The admissions are configured the same way as in the Apiserver:
+
+```sh
+$ cat config/apiserver.yml
+authorizationMode: "AlwaysAllow"
+authorizationPolicyFile: ""
+authorizationWebhookConfigFile: ""
+authorizationWebhookCacheAuthorizedTtl: "5m0s"
+authorizationWebhookCacheUnauthorizedTtl: "30s"
+authorizationRbacSuperUser: ""
+admissionControl: "NamespaceLifecycle,LimitRanger,SecurityContextDeny,ServiceAccount,ResourceQuota,AlwaysPullImages"
+```
+
+Each time a pod is scheduled it is run through the admission controller first.
+Some of available admissions can alter pod's specification (e.g. ``LimitRanger``, ``ServiceAccount``).
+Some of them can forbid the pod from being scheduled (e.g. ``ResourceQuota``)
+
+As the ``ResourceQuota`` limits pods in a namespace, it is not enabled in the analysis by default (even if set in the configuration file).
+In order to enable the admission as well, ``--resource-space-mode`` needs to be set to ``ResourceSpacePartial``.
+
+**Example**:
+
+Assuming the following namespace, resource quota and limit range objects are available in the cluster:
+
+```sh
+$ cat examples/namespace.yml 
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cluster-capacity
+  annotations:
+    openshift.io/node-selector: "region=hpc,load=high"
+```
+
+```sh
+$ cat examples/limits.yml 
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: hpclimits
+  namespace: cluster-capacity
+spec:
+  limits:
+  - max:
+      cpu: "200m"
+      memory: 200Mi
+    min:
+      cpu: 10m
+      memory: 6Mi
+    type: Pod
+  - default:
+      cpu: 10m
+      memory: 6Mi
+    defaultRequest:
+      cpu: 10m
+      memory: 6Mi
+    max:
+      cpu: "250m"
+      memory: 200Mi
+    min:
+      cpu: 10m
+      memory: 6Mi
+    type: Container
+```
+
+```sh
+$ cat examples/rq.yml 
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: compute-resources
+  namespace: cluster-capacity
+spec:
+  hard:
+    pods: "4"
+    requests.cpu: "1"
+    requests.memory: 1Gi
+    limits.cpu: "2"
+    limits.memory: 2Gi
+```
+
+When running the analysis the number of instances of a pod is limited by the resource quota:
+
+```sh
+$ ./cluster-capacity --kubeconfig <path to kubeconfig> --master <API server address > --podspec=examples/pod.yaml --apiserver-config config/apiserver.yaml --verbose --resource-space-mode ResourceSpacePartial
+Pod requirements:
+	- cpu: 150m
+	- memory: 100Mi
+
+The cluster can schedule 4 instance(s) of the pod.
+Termination reason: AdmissionControllerError: pods "small-pod-4" is forbidden: exceeded quota: compute-resources, requested: pods=1, used: pods=4, limited: pods=4
+
+Pod distribution among nodes:
+	- 127.0.0.1: 4 instance(s)
+```
+
 ## Continuous cluster capacity analysis
 
 The provided analysis can be run in loop to provide continuous stream of actual cluster capacities.
