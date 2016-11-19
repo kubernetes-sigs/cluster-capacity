@@ -15,6 +15,9 @@ spec:
       limits:
         cpu: 150m
         memory: 100Mi
+      requests:
+        cpu: 150m
+        memory: 100Mi
   imagePullPolicy: Always
   restartPolicy: "OnFailure"
   dnsPolicy: "Default"
