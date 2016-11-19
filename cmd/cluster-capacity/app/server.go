@@ -8,6 +8,7 @@ import (
 
 	"github.com/ingvagabund/cluster-capacity/cmd/cluster-capacity/app/options"
 	"github.com/ingvagabund/cluster-capacity/pkg/apiserver"
+	"github.com/ingvagabund/cluster-capacity/pkg/apiserver/cache"
 	"github.com/ingvagabund/cluster-capacity/pkg/framework"
 	"github.com/renstrom/dedent"
 	"github.com/spf13/cobra"
@@ -15,7 +16,6 @@ import (
 	"k8s.io/kubernetes/pkg/client/restclient"
 	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
 	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
-	"github.com/ingvagabund/cluster-capacity/pkg/utils"
 )
 
 var (
@@ -97,7 +97,7 @@ func Run(opt *options.ClusterCapacityOptions) error {
 		return err
 	}
 
-	conf.Reports = utils.NewCache(MAXREPORTS)
+	conf.Reports = cache.NewCache(MAXREPORTS)
 
 	watch := make(chan *framework.Report)
 	go func() {
