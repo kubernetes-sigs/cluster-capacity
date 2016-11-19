@@ -23,7 +23,6 @@ import (
 	"k8s.io/kubernetes/pkg/controller/informers"
 	"k8s.io/kubernetes/pkg/fields"
 	"k8s.io/kubernetes/pkg/genericapiserver/authorizer"
-	"k8s.io/kubernetes/pkg/util/wait"
 	"k8s.io/kubernetes/pkg/watch"
 	soptions "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app/options"
 	"k8s.io/kubernetes/plugin/pkg/scheduler"
@@ -135,6 +134,7 @@ type ClusterCapacity struct {
 	// analysis limitation
 	resourceSpaceMode   ResourceSpaceMode
 	admissionController admission.Interface
+	admissionStopCh     chan struct{}
 
 	// stop the analysis
 	stop      chan struct{}
@@ -263,7 +263,7 @@ func (c *ClusterCapacity) Close() {
 
 	c.coreRestClient.Close()
 	c.extensionsRestClient.Close()
-
+	close(c.admissionStopCh)
 	c.closed = true
 }
 
@@ -464,6 +464,7 @@ func New(s *soptions.SchedulerServer, simulatedPod *api.Pod, maxPods int, resour
 	cc.defaultScheduler = s.SchedulerName
 
 	cc.stop = make(chan struct{})
+	cc.admissionStopCh = make(chan struct{})
 
 	// Create empty event recorder, broadcaster, metrics and everything up to binder.
 	// Binder is redirected to cluster capacity's counter.
@@ -503,14 +504,14 @@ func New(s *soptions.SchedulerServer, simulatedPod *api.Pod, maxPods int, resour
 		}
 
 		pluginInitializer := admission.NewPluginInitializer(sharedInformers, apiAuthorizer)
-		admissionController, err := admission.NewFromPlugins(cc.kubeclient, admissionControlPluginNames, "", pluginInitializer)
+		admissionController, err := admission.NewFromPlugins(cc.kubeclient, admissionControlPluginNames, "", pluginInitializer, cc.admissionStopCh)
 		if err != nil {
 			log.Fatalf("Failed to initialize plugins: %v", err)
 		}
 
 		cc.admissionController = admissionController
 
-		sharedInformers.Start(wait.NeverStop)
+		sharedInformers.Start(cc.admissionStopCh)
 	}
 
 	return cc, nil
