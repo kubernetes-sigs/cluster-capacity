@@ -34,14 +34,17 @@ $ kubectl create -f cluster-capacity-pod.yaml
 $ kubectl expose pod cluster-capacity --port=8081
 ```
 
- - Get endpoint URL (eg. by describing cluster-capacity service):
+ - Get endpoint URL
  
 ```sh
-$ kubectl describe service cluster-capacity
+$ kubectl get endpoints cluster-capacity
 ```
 
  - Now you should be able to see cluster status: 
 
 ```sh
-curl http://<endpoint>/capacity/status/last
+curl http://<endpoint>/capacity/status
 ```
+
+ - For more information of how to access acquired data any see [API operations](https://github.com/ingvagabund/cluster-capacity/blob/master/doc/api-operations.md)
+ 

@@ -89,9 +89,7 @@ func (r *RestResource) introduce(request *restful.Request, response *restful.Res
 	if err != nil {
 		fmt.Printf("Template gave: %s", err)
 	}
-	if err != nil {
-		t.Execute(response.ResponseWriter, info)
-	}
+	t.Execute(response.ResponseWriter, info)
 }
 
 func (r *RestResource) getLastStatus(request *restful.Request, response *restful.Response) {
