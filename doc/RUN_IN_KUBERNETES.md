@@ -1,9 +1,17 @@
 # Deploying cluster-capacity on kubernetes
 
- - Have a running kubernetes environment - You can use e.g $ hack/local-up-cluster.sh in cloned local [kubernetes repository](https://github.com/kubernetes/kubernetes)
+ - Have a running kubernetes environment - You can use e.g ``$ hack/local-up-cluster.sh`` in cloned local [kubernetes repository](https://github.com/kubernetes/kubernetes)
 
  - If your kubernetes cluster doesn't have limit ranges and requests specified you can do it by specifying limitrange object. If you just want to try cluster-capacity, you can use 
  [Example limit range file](https://github.com/ingvagabund/cluster-capacity/blob/master/doc/example-limit-range.yaml)
+
+ - Make sure the kubernetes default service has the correct port and the traffic from the VIP is forwarded to running Apiserver (e.g. ``kubernetes`` service on VIP ``10.0.0.1`` and port ``443`` with Apiserver running on ``127.0.0.1:6443``).
+```
+# change service port
+$ kubectl patch svc kubernetes -p '[{"op": "replace", "path": "/spec/ports/0/port", "value":6443}]' --type="json"
+# update iptables to forward the kubernetes service to the Apiserver
+$ sudo iptables -t nat -A PREROUTING -d 10.0.0.1 -p tcp --dport 6443 -j DNAT --to-destination 127.0.0.1
+```
  
  - Create pod object:
 ```sh
@@ -17,12 +25,16 @@ metadata:
 spec:
   containers:
   - name: cluster-capacity
-    image: docker.io/dhodovsk/cluster-capacity:latest
+    image: docker.io/gofed/cluster-capacity:latest
     command:
     - "/bin/sh"
-    - "-c"
+    - "-ec"
     - |
-      /bin/genpod --namespace=default >> /pod.yaml && /bin/cluster-capacity --period=10 --podspec=/pod.yaml
+      echo "Generating pod"
+      /bin/genpod --namespace=cluster-capacity >> /pod.yaml
+      cat /pod.yaml
+      echo "Running cluster capacity framework"
+      /bin/cluster-capacity --period=1 --podspec=/pod.yaml --default-config /config/default-scheduler.yaml
     ports:
     - containerPort: 8081
 $ kubectl create -f cluster-capacity-pod.yaml

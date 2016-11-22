@@ -7,3 +7,6 @@ run:
 
 test:
 	./test.sh
+
+image:
+	docker build -t docker.io/gofed/cluster-capacity .
