@@ -1,6 +1,6 @@
-# cluster-capacity
+# Cluster capacity analysis framework
 
-This is a proof of concept implementation of [cluster capacity analysis](https://github.com/ingvagabund/kubernetes/blob/a6cf56c2482627b0adebaffe1953c69ea4b4e4db/docs/proposals/cluster-capacity.md).
+Implementation of [cluster capacity analysis](https://github.com/ingvagabund/kubernetes/blob/a6cf56c2482627b0adebaffe1953c69ea4b4e4db/docs/proposals/cluster-capacity.md).
 
 ## Intro
 
@@ -12,36 +12,36 @@ Or, carry different steps that lead to increase of available resources.
 Cluster capacity consists of capacities of individual cluster nodes.
 Capacity covers CPU, memory, disk space and other resources.
 
+Overall remaining allocatable capacity is a rough estimation since it does not assume all resources being distributed among nodes.
 Goal is to analyze remaining allocatable resources and estimate available capacity that is still consumable
-in terms of how many instances of a pod with given requirements can be scheduled in a cluster.
+in terms of a number of instances of a pod with given requirements that can be scheduled in a cluster.
 
-## Example use:
+## Build and Run
 
+Build the framework:
+
+```sh
+$ make build
 ```
-go build -o cluster-capacity github.com/ingvagabund/cluster-capacity/cmd/cluster-capacity
+
+and run the analysis:
+
+```sh
 $ ./cluster-capacity --kubeconfig <path to kubeconfig> --master <API server address> --podspec=examples/pod.yaml
 ```
 
-For more information run:
+For more information about available options run:
 ```
 $ ./cluster-capacity --help
 ```
 
-## Example output
+## Demonstration
 
-**System parameters**:
-
-* cluster with 4 nodes and 1 master with
-* each node with 2 CPUs and 4GB of memory
-
-**Pod requirements**:
-
-* 150m
-* 100Mi
-
-**Output**:
+Assuming a cluster is running with 4 nodes and 1 master with each node with 2 CPUs and 4GB of memory.
+With pod resource requirements to be `150m` of CPU and ``100Mi`` of Memory.
 
 ```sh
+$ ./cluster-capacity --kubeconfig <path to kubeconfig> --master <API server address> --podspec=pod.yaml --verbose
 Pod requirements:
 	- cpu: 150m
 	- memory: 100Mi
@@ -61,7 +61,7 @@ Pod distribution among nodes:
 	- kube-node-3: 13 instance(s)
 ```
 
-To decrease available resources you can use provided RC (`examples/rc.yml`):
+To decrease available resources in the cluster you can use provided RC (`examples/rc.yml`):
 
 ```sh
 $ kubectl create -f examples/rc.yml
@@ -70,7 +70,31 @@ $ kubectl create -f examples/rc.yml
 E.g. to change a number of replicas to `6`, you can run:
 
 ```sh
-$ kubectl patch -f examples/rc.yml -p '{"spec":{"replicas":6}}
+$ kubectl patch -f examples/rc.yml -p '{"spec":{"replicas":6}}'
+```
+
+Once the number of running pods in the cluster grows and the analysis is run again,
+the number of schedulable pods decreases as well:
+
+```sh
+$ ./cluster-capacity --kubeconfig <path to kubeconfig> --master <API server address> --podspec=pod.yaml --verbose
+Pod requirements:
+	- cpu: 150m
+	- memory: 100Mi
+
+The cluster can schedule 46 instance(s) of the pod.
+Termination reason: FailedScheduling: pod (small-pod-46) failed to fit in any node
+fit failure on node (kube-node-1): Insufficient cpu
+fit failure on node (kube-node-4): Insufficient cpu
+fit failure on node (kube-node-2): Insufficient cpu
+fit failure on node (kube-node-3): Insufficient cpu
+
+
+Pod distribution among nodes:
+	- kube-node-1: 11 instance(s)
+	- kube-node-4: 12 instance(s)
+	- kube-node-2: 11 instance(s)
+	- kube-node-3: 12 instance(s)
 ```
 
 ## Pod generator
@@ -89,7 +113,7 @@ If a namespace is annotated with `openshift.io/node-selector`, the selector is s
 
 **Example**:
 
-Assuming `cluster-capacity` namespace is created with `openshift.io/node-selector: "region=hpc,load=high"` annotation
+Assuming `cluster-capacity` namespace with `openshift.io/node-selector: "region=hpc,load=high"` annotation
 and resource limits are created (see `examples/namespace.yml` and `examples/limits.yml`)
 
 ```sh
@@ -296,3 +320,24 @@ $ curl http://localhost:8081/capacity/status?watch=true
  ]
 ...
 ```
+
+## Roadmap
+
+Underway:
+
+* analysis covering scheduler and admission controller
+* generic framework for any scheduler created by the default scheduler factory
+* continuous stream of estimations
+
+Would like to get soon:
+
+* include multiple schedulers
+* accept a list (sequence) of pods
+* extend analysis with volume handling
+* define common interface each scheduler need to implement if embedded in the framework
+
+Other possibilities:
+
+* incorporate re-scheduler
+* incorporate preemptive scheduling
+* include more of Kubelet's behaviour (e.g. recognize memory pressure, secrets/configmap existence test)
