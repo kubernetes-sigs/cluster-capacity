@@ -71,8 +71,8 @@ func (s *ClusterCapacityOptions) AddFlags(fs *pflag.FlagSet) {
 
 	filepath := path.Join(dir, "config/default-scheduler.yaml")
 
-	fs.StringVar(&s.DefaultSchedulerConfigFile, "default-config", filepath, "Path to JSON or YAML file containing pod definition.")
-	fs.StringVar(&s.ApiserverConfigFile, "apiserver-config", s.ApiserverConfigFile, "Path to JSON or YAML file containing Apiserver configuration.")
+	fs.StringVar(&s.DefaultSchedulerConfigFile, "default-config", filepath, "Path to JSON or YAML file containing scheduler configuration.")
+	fs.StringVar(&s.ApiserverConfigFile, "apiserver-config", s.ApiserverConfigFile, "Path to JSON or YAML file containing apiserver configuration.")
 	fs.StringVar(&s.ResourceSpaceMode, "resource-space-mode", "ResourceSpaceFull", "Resource space limitation. Defaults to ResourceSpaceFull. If set to ResourceSpacePartial, ResourceQuota admission is applied.")
 
 	fs.BoolVar(&s.Verbose, "verbose", s.Verbose, "Verbose mode")
