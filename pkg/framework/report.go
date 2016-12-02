@@ -22,8 +22,10 @@ const CLR_W = "\x1b[37;1m"
 const CLR_N = "\x1b[0m"
 
 type PodResources struct {
-	Cpu    resource.Quantity
-	Memory resource.Quantity
+	CPU                *resource.Quantity
+	Memory             *resource.Quantity
+	NvidiaGPU          *resource.Quantity
+	OpaqueIntResources map[api.ResourceName]int64
 }
 
 type FailReason struct {
@@ -34,7 +36,7 @@ type FailReason struct {
 
 type Report struct {
 	Timestamp         time.Time
-	PodRequirements   PodResources
+	PodRequirements   *PodResources
 	TotalInstances    int
 	NodesNumInstances map[string]int
 	FailReasons       FailReason
@@ -90,24 +92,56 @@ func getReason(message string) FailReason {
 	return fail
 }
 
+func GetResourceRequest(pod *api.Pod) *PodResources {
+	result := PodResources{
+		CPU:       resource.NewMilliQuantity(0, resource.DecimalSI),
+		Memory:    resource.NewQuantity(0, resource.BinarySI),
+		NvidiaGPU: resource.NewMilliQuantity(0, resource.DecimalSI),
+	}
+	for _, container := range pod.Spec.Containers {
+		for rName, rQuantity := range container.Resources.Requests {
+			switch rName {
+			case api.ResourceMemory:
+				result.Memory.Add(rQuantity)
+			case api.ResourceCPU:
+				result.CPU.Add(rQuantity)
+			case api.ResourceNvidiaGPU:
+				result.NvidiaGPU.Add(rQuantity)
+			default:
+				if api.IsOpaqueIntResourceName(rName) {
+					// Lazily allocate this map only if required.
+					if result.OpaqueIntResources == nil {
+						result.OpaqueIntResources = map[api.ResourceName]int64{}
+					}
+					result.OpaqueIntResources[rName] += rQuantity.Value()
+				}
+			}
+		}
+	}
+	return &result
+}
+
 func createReport(pod *api.Pod, status Status) *Report {
 	return &Report{
 		//TODO: set this sooner(right after the check is done)
-		Timestamp: time.Now(),
-		PodRequirements: PodResources{
-			Cpu:    *(pod.Spec.Containers[0].Resources.Limits.Cpu()),
-			Memory: *(pod.Spec.Containers[0].Resources.Limits.Memory()),
-		},
-		TotalInstances: len(status.Pods),
-		FailReasons:    getReason(status.StopReason),
+		Timestamp:       time.Now(),
+		PodRequirements: GetResourceRequest(pod),
+		TotalInstances:  len(status.Pods),
+		FailReasons:     getReason(status.StopReason),
 	}
 }
 
 func (r *Report) prettyPrint(verbose bool) {
 	if verbose {
 		fmt.Printf("%vPod requirements:%v\n", CLR_W, CLR_N)
-		fmt.Printf("\t- cpu: %v\n", r.PodRequirements.Cpu.String())
-		fmt.Printf("\t- memory: %v\n", r.PodRequirements.Memory.String())
+		fmt.Printf("\t- CPU: %v\n", r.PodRequirements.CPU.String())
+		fmt.Printf("\t- Memory: %v\n", r.PodRequirements.Memory.String())
+		if !r.PodRequirements.NvidiaGPU.IsZero() {
+			fmt.Printf("\t- NvidiaGPU: %v\n", r.PodRequirements.NvidiaGPU.String())
+		}
+		if r.PodRequirements.OpaqueIntResources != nil {
+			fmt.Printf("\t- OpaqueIntResources: %v\n", r.PodRequirements.OpaqueIntResources)
+		}
 		fmt.Printf("\n")
 	}
 

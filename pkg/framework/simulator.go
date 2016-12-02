@@ -150,7 +150,7 @@ type Status struct {
 	StopReason string
 }
 
-func (c *ClusterCapacity) Report(updatedPod bool) *Report {
+func (c *ClusterCapacity) Report() *Report {
 	if c.report == nil {
 		c.report = CreateFullReport(c.simulatedPod, c.status)
 	}
