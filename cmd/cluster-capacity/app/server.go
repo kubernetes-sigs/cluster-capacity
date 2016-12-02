@@ -93,15 +93,21 @@ func Run(opt *options.ClusterCapacityOptions) error {
 	}
 
 	if opt.Period == 0 {
-		_, err = runSimulator(conf)
-		return err
+		report, err := runSimulator(conf)
+		if err != nil {
+			return err
+		}
+		if err := report.Print(conf.Options.Verbose, conf.Options.OutputFormat); err != nil {
+			return fmt.Errorf("Error while printing: %v", err)
+		}
+		return nil
 	}
 
 	conf.Reports = cache.NewCache(MAXREPORTS)
 
-	watch := make(chan *framework.Report)
+	r := apiserver.NewResource(conf)
+
 	go func() {
-		r := apiserver.NewResource(watch, conf)
 		log.Fatal(apiserver.ListenAndServe(r))
 	}()
 
@@ -110,7 +116,9 @@ func Run(opt *options.ClusterCapacityOptions) error {
 		if err != nil {
 			return err
 		}
-		watch <- report
+		conf.Reports.Add(report)
+
+		r.PutStatus(report)
 		time.Sleep(time.Duration(opt.Period) * time.Second)
 	}
 }
@@ -168,17 +176,6 @@ func runSimulator(s *options.ClusterCapacityConfig) (*framework.Report, error) {
 		return nil, err
 	}
 
-	// report the updated pod if the simulator is run only once
-	report := cc.Report(s.Options.Period == 0)
-
-	if s.Options.Period == 0 {
-		err := report.Print(s.Options.Verbose, s.Options.OutputFormat)
-		if err != nil {
-			return nil, fmt.Errorf("Error while printing: %v", err)
-		}
-	} else {
-		s.Reports.Add(report)
-	}
-
+	report := cc.Report()
 	return report, nil
 }

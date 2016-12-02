@@ -7,14 +7,15 @@ import (
 	"strconv"
 	"time"
 
+	"html/template"
+	"strings"
+
 	"github.com/emicklei/go-restful"
 	"github.com/ingvagabund/cluster-capacity/cmd/cluster-capacity/app/options"
 	"github.com/ingvagabund/cluster-capacity/pkg/framework"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/validation"
 	"k8s.io/kubernetes/pkg/util/yaml"
-	"strings"
-	"html/template"
 )
 
 var TIMELAYOUT = "2006-01-02T15:04:05Z07:00"
@@ -57,9 +58,9 @@ func (r *RestResource) Register(container *restful.Container) {
 	container.Add(ws)
 }
 
-func NewResource(watch chan *framework.Report, conf *options.ClusterCapacityConfig) *RestResource {
+func NewResource(conf *options.ClusterCapacityConfig) *RestResource {
 	return &RestResource{
-		watcher: NewWatchChannelDistributor(watch),
+		watcher: NewWatchChannelDistributor(),
 		cconf:   conf,
 	}
 }
@@ -76,6 +77,10 @@ func ListenAndServe(r *RestResource) error {
 type ccBasicInfo struct {
 	CacheSize int
 	Period    int
+}
+
+func (r *RestResource) PutStatus(report *framework.Report) {
+	r.watcher.Broadcast(report)
 }
 
 func (r *RestResource) introduce(request *restful.Request, response *restful.Response) {
@@ -161,16 +166,14 @@ func (r *RestResource) watchStatus(request *restful.Request, response *restful.R
 	w := response.ResponseWriter
 
 	//receive read channel
-	ch := make(chan *framework.Report)
-	chpos, err := r.watcher.AddChannel(ch)
+	watchCh, err := r.watcher.NewChannel()
 	if err != nil {
 		w.Header().Set("Content-Type", "text/plain")
 		errmsg := fmt.Sprintf("Can't start watching: %v", err)
 		response.WriteErrorString(http.StatusForbidden, errmsg)
 		return
 	}
-	defer r.watcher.RemoveChannel(chpos)
-
+	defer watchCh.Close()
 
 	w.Header().Set("Transfer-Encoding", "chunked")
 	w.(http.Flusher).Flush()
@@ -180,7 +183,7 @@ func (r *RestResource) watchStatus(request *restful.Request, response *restful.R
 		select {
 		case <-w.(http.CloseNotifier).CloseNotify():
 			return
-		case report, ok := <-ch:
+		case report, ok := <-watchCh.Chan():
 			if !ok {
 				return
 			}
