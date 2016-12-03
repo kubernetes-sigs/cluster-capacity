@@ -4,7 +4,10 @@ import (
 	"fmt"
 
 	ccapi "github.com/ingvagabund/cluster-capacity/pkg/api"
+	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/client/cache"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
+	"k8s.io/kubernetes/pkg/fields"
 )
 
 type ResourceStore interface {
@@ -195,4 +198,18 @@ func NewResourceStore() *resourceStore {
 	resourceStore.resourceToCache = resourceToCache
 
 	return resourceStore
+}
+
+func NewResourceReflectors(client clientset.Interface, stopCh <-chan struct{}) *resourceStore {
+	rs := NewResourceStore()
+	for _, resource := range rs.Resources() {
+		var listWatcher *cache.ListWatch
+		if resource == ccapi.ReplicaSets {
+			listWatcher = cache.NewListWatchFromClient(client.Extensions().RESTClient(), resource.String(), api.NamespaceAll, fields.ParseSelectorOrDie(""))
+		} else {
+			listWatcher = cache.NewListWatchFromClient(client.Core().RESTClient(), resource.String(), api.NamespaceAll, fields.ParseSelectorOrDie(""))
+		}
+		cache.NewReflector(listWatcher, resource.ObjectType(), rs.resourceToCache[resource], 0).RunUntil(stopCh)
+	}
+	return rs
 }

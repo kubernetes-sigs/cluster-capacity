@@ -1,6 +1,12 @@
 package api
 
-import "fmt"
+import (
+	"fmt"
+
+	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/apis/extensions"
+	"k8s.io/kubernetes/pkg/runtime"
+)
 
 type ResourceType string
 
@@ -21,6 +27,36 @@ const (
 
 func (r ResourceType) String() string {
 	return string(r)
+}
+
+func (r ResourceType) ObjectType() runtime.Object {
+	switch r {
+	case "pods":
+		return &api.Pod{}
+	case "persistentvolumes":
+		return &api.PersistentVolume{}
+	case "replicationcontrollers":
+		return &api.ReplicationController{}
+	case "nodes":
+		return &api.Node{}
+	case "services":
+		return &api.Service{}
+	case "persistentvolumeclaims":
+		return &api.PersistentVolumeClaim{}
+	case "replicasets":
+		return &extensions.ReplicaSet{}
+	case "resourcequotas":
+		return &api.ResourceQuota{}
+	case "secrets":
+		return &api.Secret{}
+	case "serviceaccounts":
+		return &api.ServiceAccount{}
+	case "limitranges":
+		return &api.LimitRange{}
+	case "namespaces":
+		return &api.Namespace{}
+	}
+	return nil
 }
 
 func StringToResourceType(resource string) (ResourceType, error) {

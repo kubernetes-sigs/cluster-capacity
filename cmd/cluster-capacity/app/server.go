@@ -10,11 +10,13 @@ import (
 	"github.com/ingvagabund/cluster-capacity/pkg/apiserver"
 	"github.com/ingvagabund/cluster-capacity/pkg/apiserver/cache"
 	"github.com/ingvagabund/cluster-capacity/pkg/framework"
+	"github.com/ingvagabund/cluster-capacity/pkg/framework/store"
 	"github.com/renstrom/dedent"
 	"github.com/spf13/cobra"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 	"k8s.io/kubernetes/pkg/client/restclient"
 	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
+	"k8s.io/kubernetes/pkg/util/wait"
 	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
 )
 
@@ -111,6 +113,9 @@ func Run(opt *options.ClusterCapacityOptions) error {
 		log.Fatal(apiserver.ListenAndServe(r))
 	}()
 
+	// sync and watch apiserver
+	conf.ResourceStore = store.NewResourceReflectors(conf.KubeClient, wait.NeverStop)
+
 	for {
 		report, err := runSimulator(conf)
 		if err != nil {
@@ -169,7 +174,11 @@ func runSimulator(s *options.ClusterCapacityConfig) (*framework.Report, error) {
 		}
 	}
 
-	err = cc.SyncWithClient(s.KubeClient)
+	if s.Options.Period == 0 {
+		err = cc.SyncWithClient(s.KubeClient)
+	} else {
+		err = cc.SyncWithStore(s.ResourceStore)
+	}
 	if err != nil {
 		return nil, err
 	}

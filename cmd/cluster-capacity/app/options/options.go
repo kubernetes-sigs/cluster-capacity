@@ -11,6 +11,7 @@ import (
 
 	"github.com/ingvagabund/cluster-capacity/pkg/apiserver/cache"
 	"github.com/ingvagabund/cluster-capacity/pkg/framework"
+	"github.com/ingvagabund/cluster-capacity/pkg/framework/store"
 	"github.com/spf13/pflag"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/validation"
@@ -27,6 +28,7 @@ type ClusterCapacityConfig struct {
 	DefaultScheduler *schedopt.SchedulerServer
 	Reports          *cache.Cache
 	ApiServerOptions *framework.ApiServerOptions
+	ResourceStore    store.ResourceStore
 }
 
 type ClusterCapacityOptions struct {

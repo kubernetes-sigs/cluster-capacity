@@ -194,13 +194,14 @@ func (c *ClusterCapacity) SyncWithClient(client clientset.Interface) error {
 	return nil
 }
 
-func (c *ClusterCapacity) SyncWithStore(resourceStore store.ResourceStore) {
+func (c *ClusterCapacity) SyncWithStore(resourceStore store.ResourceStore) error {
 	for _, resource := range resourceStore.Resources() {
 		err := c.resourceStore.Replace(resource, resourceStore.List(resource), "0")
 		if err != nil {
-			fmt.Printf("Resource replace error: %v\n", err)
+			return fmt.Errorf("Resource replace error: %v\n", err)
 		}
 	}
+	return nil
 }
 
 func (c *ClusterCapacity) Bind(binding *api.Binding, schedulerName string) error {
