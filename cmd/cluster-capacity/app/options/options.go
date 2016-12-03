@@ -2,7 +2,9 @@ package options
 
 import (
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -129,16 +131,31 @@ func (s *ClusterCapacityConfig) ParseAdditionalSchedulerConfigs() error {
 }
 
 func (s *ClusterCapacityConfig) ParseAPISpec() error {
-	filename, _ := filepath.Abs(s.Options.PodSpecFile)
-	spec, err := os.Open(filename)
-	if err != nil {
-		return fmt.Errorf("Failed to open config file: %v", err)
+	var spec io.Reader
+	var err error
+	if strings.HasPrefix(s.Options.PodSpecFile, "http://") || strings.HasPrefix(s.Options.PodSpecFile, "https://") {
+		response, err := http.Get(s.Options.PodSpecFile)
+		if err != nil {
+			return err
+		}
+		defer response.Body.Close()
+		spec = response.Body
+	} else {
+		filename, _ := filepath.Abs(s.Options.PodSpecFile)
+		spec, err = os.Open(filename)
+		if err != nil {
+			return fmt.Errorf("Failed to open config file: %v", err)
+		}
 	}
 
 	decoder := yaml.NewYAMLOrJSONDecoder(spec, 4096)
 	err = decoder.Decode(&(s.Pod))
 	if err != nil {
 		return fmt.Errorf("Failed to decode config file: %v", err)
+	}
+
+	if s.Pod.ObjectMeta.Namespace == "" {
+		s.Pod.ObjectMeta.Namespace = "default"
 	}
 
 	if errs := validation.ValidatePod(s.Pod); len(errs) > 0 {

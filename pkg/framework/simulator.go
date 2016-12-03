@@ -245,7 +245,7 @@ func (c *ClusterCapacity) Bind(binding *api.Binding, schedulerName string) error
 
 	// all good, create another pod
 	if err := c.nextPod(); err != nil {
-		if strings.HasPrefix(c.status.StopReason, "AdmissionControllerError") {
+		if strings.HasPrefix(c.status.StopReason, "AdmissionControllerError") || strings.HasPrefix(c.status.StopReason, "NamespaceNotFound") {
 			c.Close()
 			c.stop <- struct{}{}
 			return nil
@@ -326,18 +326,20 @@ func (c *ClusterCapacity) nextPod() error {
 			return fmt.Errorf("Admission controller error: %v", err)
 		}
 	}
+
+	// Check the pod's namespace exists
+	_, err := c.kubeclient.Core().Namespaces().Get(pod.ObjectMeta.Namespace)
+	if err != nil {
+		c.status.StopReason = fmt.Sprintf("NamespaceNotFound: %v", err)
+		return fmt.Errorf("Pod's namespace %v not found: %v", c.simulatedPod.ObjectMeta.Namespace, err)
+	}
+
 	c.simulated++
 	c.lastSimulatedPod = &pod
 	return c.resourceStore.Add(ccapi.Pods, runtime.Object(&pod))
 }
 
 func (c *ClusterCapacity) Run() error {
-	// Check the pod's namespace exists
-	_, err := c.kubeclient.Core().Namespaces().Get(c.simulatedPod.ObjectMeta.Namespace)
-	if err != nil {
-		return fmt.Errorf("Pod's namespace %v not found: %v", c.simulatedPod.ObjectMeta.Namespace, err)
-	}
-
 	// TODO(jchaloup): remove all pods that are not scheduled yet
 
 	for _, scheduler := range c.schedulers {
@@ -347,7 +349,7 @@ func (c *ClusterCapacity) Run() error {
 	// TODO(jchaloup); find a better way how to do this or at least decrease it to <100ms
 	time.Sleep(100 * time.Millisecond)
 	// create the first simulated pod
-	err = c.nextPod()
+	err := c.nextPod()
 	if err != nil {
 		c.Close()
 		close(c.stop)

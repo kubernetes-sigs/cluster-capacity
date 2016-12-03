@@ -148,6 +148,11 @@ func TestPrediction(t *testing.T) {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
+	namespace := &api.Namespace{ObjectMeta: api.ObjectMeta{Name: "test-node-3"}}
+	if err := resourceStore.Add("namespaces", meta.Object(namespace)); err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
 	simulatedPod := &api.Pod{
 		ObjectMeta: api.ObjectMeta{Name: "simulated-pod", Namespace: "test-node-3", ResourceVersion: "10"},
 		Spec:       apitesting.DeepEqualSafePodSpec(),
@@ -196,7 +201,9 @@ func TestPrediction(t *testing.T) {
 	}
 
 	// 3. run predictor
-	cc.SyncWithStore(resourceStore)
+	if err := cc.SyncWithStore(resourceStore); err != nil {
+		t.Errorf("Unable to sync resources: %v", err)
+	}
 	if err := cc.Run(); err != nil {
 		t.Errorf("Unable to run analysis: %v", err)
 	}
