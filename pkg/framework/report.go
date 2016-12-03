@@ -9,6 +9,7 @@ import (
 	"github.com/ghodss/yaml"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/resource"
+	"k8s.io/kubernetes/pkg/labels"
 )
 
 const CLR_0 = "\x1b[30;1m"
@@ -28,6 +29,11 @@ type PodResources struct {
 	OpaqueIntResources map[api.ResourceName]int64
 }
 
+type PodRequirements struct {
+	PodResources *PodResources
+	NodeSelector map[string]string
+}
+
 type FailReason struct {
 	FailType     string
 	FailMessage  string
@@ -36,10 +42,11 @@ type FailReason struct {
 
 type Report struct {
 	Timestamp         time.Time
-	PodRequirements   *PodResources
+	PodRequirements   PodRequirements
 	TotalInstances    int
 	NodesNumInstances map[string]int
 	FailReasons       FailReason
+	Pod               *api.Pod
 }
 
 func CreateFullReport(pod *api.Pod, status Status) *Report {
@@ -124,24 +131,32 @@ func GetResourceRequest(pod *api.Pod) *PodResources {
 func createReport(pod *api.Pod, status Status) *Report {
 	return &Report{
 		//TODO: set this sooner(right after the check is done)
-		Timestamp:       time.Now(),
-		PodRequirements: GetResourceRequest(pod),
-		TotalInstances:  len(status.Pods),
-		FailReasons:     getReason(status.StopReason),
+		Timestamp: time.Now(),
+		PodRequirements: PodRequirements{
+			PodResources: GetResourceRequest(pod),
+			NodeSelector: pod.Spec.NodeSelector,
+		},
+		TotalInstances: len(status.Pods),
+		FailReasons:    getReason(status.StopReason),
 	}
 }
 
 func (r *Report) prettyPrint(verbose bool) {
 	if verbose {
 		fmt.Printf("%vPod requirements:%v\n", CLR_W, CLR_N)
-		fmt.Printf("\t- CPU: %v\n", r.PodRequirements.CPU.String())
-		fmt.Printf("\t- Memory: %v\n", r.PodRequirements.Memory.String())
-		if !r.PodRequirements.NvidiaGPU.IsZero() {
-			fmt.Printf("\t- NvidiaGPU: %v\n", r.PodRequirements.NvidiaGPU.String())
+		fmt.Printf("\t- CPU: %v\n", r.PodRequirements.PodResources.CPU.String())
+		fmt.Printf("\t- Memory: %v\n", r.PodRequirements.PodResources.Memory.String())
+		if !r.PodRequirements.PodResources.NvidiaGPU.IsZero() {
+			fmt.Printf("\t- NvidiaGPU: %v\n", r.PodRequirements.PodResources.NvidiaGPU.String())
 		}
-		if r.PodRequirements.OpaqueIntResources != nil {
-			fmt.Printf("\t- OpaqueIntResources: %v\n", r.PodRequirements.OpaqueIntResources)
+		if r.PodRequirements.PodResources.OpaqueIntResources != nil {
+			fmt.Printf("\t- OpaqueIntResources: %v\n", r.PodRequirements.PodResources.OpaqueIntResources)
 		}
+
+		if r.PodRequirements.NodeSelector != nil {
+			fmt.Printf("\t- NodeSelector: %v\n", labels.SelectorFromSet(labels.Set(r.PodRequirements.NodeSelector)).String())
+		}
+
 		fmt.Printf("\n")
 	}
 
