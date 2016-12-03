@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"os"
 
 	"log"
 	"time"
@@ -117,16 +118,20 @@ func Run(opt *options.ClusterCapacityOptions) error {
 	conf.ResourceStore = store.NewResourceReflectors(conf.KubeClient, wait.NeverStop)
 
 	for {
-		report, err := runSimulator(conf)
-		if err != nil {
-			return err
-		}
-		conf.Reports.Add(report)
+		func() {
+			report, err := runSimulator(conf)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				return
+			}
 
-		r.PutStatus(report)
-		if conf.Options.Verbose {
-			report.Print(conf.Options.Verbose, conf.Options.OutputFormat)
-		}
+			conf.Reports.Add(report)
+			r.PutStatus(report)
+
+			if conf.Options.Verbose {
+				report.Print(conf.Options.Verbose, conf.Options.OutputFormat)
+			}
+		}()
 		time.Sleep(time.Duration(opt.Period) * time.Second)
 	}
 }

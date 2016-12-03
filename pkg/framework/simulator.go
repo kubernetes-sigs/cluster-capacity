@@ -332,6 +332,12 @@ func (c *ClusterCapacity) nextPod() error {
 }
 
 func (c *ClusterCapacity) Run() error {
+	// Check the pod's namespace exists
+	_, err := c.kubeclient.Core().Namespaces().Get(c.simulatedPod.ObjectMeta.Namespace)
+	if err != nil {
+		return fmt.Errorf("Pod's namespace %v not found: %v", c.simulatedPod.ObjectMeta.Namespace, err)
+	}
+
 	// TODO(jchaloup): remove all pods that are not scheduled yet
 
 	for _, scheduler := range c.schedulers {
@@ -341,7 +347,7 @@ func (c *ClusterCapacity) Run() error {
 	// TODO(jchaloup); find a better way how to do this or at least decrease it to <100ms
 	time.Sleep(100 * time.Millisecond)
 	// create the first simulated pod
-	err := c.nextPod()
+	err = c.nextPod()
 	if err != nil {
 		c.Close()
 		close(c.stop)
