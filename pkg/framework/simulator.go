@@ -309,6 +309,8 @@ func (c *ClusterCapacity) Update(pod *api.Pod, podCondition *api.PodCondition, s
 
 func (c *ClusterCapacity) nextPod() error {
 	pod := *c.simulatedPod
+	// reset any node designation set
+	pod.Spec.NodeName = ""
 	// use simulated pod name with an index to construct the name
 	pod.ObjectMeta.Name = fmt.Sprintf("%v-%v", c.simulatedPod.Name, c.simulated)
 
