@@ -9,7 +9,9 @@ import (
 	"time"
 
 	ccapi "github.com/ingvagabund/cluster-capacity/pkg/api"
+	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/testapi"
+	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/runtime"
 	"k8s.io/kubernetes/pkg/watch"
 )
@@ -76,7 +78,19 @@ func (c *WatchBuffer) EmitWatchEvent(eType watch.EventType, object runtime.Objec
 	//	Object: object,
 	//}
 
-	obj_str := runtime.EncodeOrDie(testapi.Default.Codec(), object)
+	var encoder runtime.Encoder
+	if c.Resource == ccapi.ReplicaSets {
+		gvr := unversioned.GroupVersionResource{Group: "extensions", Version: "v1beta1", Resource: "replicasets"}
+		info, ok := runtime.SerializerInfoForMediaType(testapi.Default.NegotiatedSerializer().SupportedMediaTypes(), runtime.ContentTypeJSON)
+		if !ok {
+			return fmt.Errorf("serializer for %s not registered", runtime.ContentTypeJSON)
+		}
+
+		encoder = api.Codecs.EncoderForVersion(info.Serializer, gvr.GroupVersion())
+	} else {
+		encoder = testapi.Default.Codec()
+	}
+	obj_str := runtime.EncodeOrDie(encoder, object)
 	obj_str = strings.Replace(obj_str, "\n", "", -1)
 
 	var buffer bytes.Buffer
