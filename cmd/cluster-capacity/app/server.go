@@ -119,6 +119,9 @@ func Run(opt *options.ClusterCapacityOptions) error {
 		conf.Reports.Add(report)
 
 		r.PutStatus(report)
+		if conf.Options.Verbose {
+			report.Print(conf.Options.Verbose, conf.Options.OutputFormat)
+		}
 		time.Sleep(time.Duration(opt.Period) * time.Second)
 	}
 }
