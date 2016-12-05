@@ -96,7 +96,7 @@ func Run(opt *options.ClusterCapacityOptions) error {
 	}
 
 	if opt.Period == 0 {
-		report, err := runSimulator(conf)
+		report, err := runSimulator(conf, true)
 		if err != nil {
 			return err
 		}
@@ -117,21 +117,26 @@ func Run(opt *options.ClusterCapacityOptions) error {
 	// sync and watch apiserver
 	conf.ResourceStore = store.NewResourceReflectors(conf.KubeClient, wait.NeverStop)
 
+	runSimulation := func(syncWithClient bool) {
+		report, err := runSimulator(conf, syncWithClient)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return
+		}
+
+		conf.Reports.Add(report)
+		r.PutStatus(report)
+
+		if conf.Options.Verbose {
+			report.Print(conf.Options.Verbose, conf.Options.OutputFormat)
+		}
+	}
+
+	runSimulation(true)
+	time.Sleep(time.Duration(opt.Period) * time.Second)
+
 	for {
-		func() {
-			report, err := runSimulator(conf)
-			if err != nil {
-				fmt.Fprintln(os.Stderr, err)
-				return
-			}
-
-			conf.Reports.Add(report)
-			r.PutStatus(report)
-
-			if conf.Options.Verbose {
-				report.Print(conf.Options.Verbose, conf.Options.OutputFormat)
-			}
-		}()
+		runSimulation(false)
 		time.Sleep(time.Duration(opt.Period) * time.Second)
 	}
 }
@@ -162,7 +167,7 @@ func getKubeClient(master string, config string) (clientset.Interface, error) {
 	return kubeClient, nil
 }
 
-func runSimulator(s *options.ClusterCapacityConfig) (*framework.Report, error) {
+func runSimulator(s *options.ClusterCapacityConfig, syncWithClient bool) (*framework.Report, error) {
 	mode, err := framework.StringToResourceSpaceMode(s.Options.ResourceSpaceMode)
 	if err != nil {
 		return nil, err
@@ -179,7 +184,7 @@ func runSimulator(s *options.ClusterCapacityConfig) (*framework.Report, error) {
 		}
 	}
 
-	if s.Options.Period == 0 {
+	if syncWithClient {
 		err = cc.SyncWithClient(s.KubeClient)
 	} else {
 		err = cc.SyncWithStore(s.ResourceStore)
