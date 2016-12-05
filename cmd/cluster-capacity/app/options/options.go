@@ -139,6 +139,9 @@ func (s *ClusterCapacityConfig) ParseAPISpec() error {
 			return err
 		}
 		defer response.Body.Close()
+		if response.StatusCode != http.StatusOK {
+			return fmt.Errorf("unable to read URL %q, server reported %v, status code=%v", s.Options.PodSpecFile, response.Status, response.StatusCode)
+		}
 		spec = response.Body
 	} else {
 		filename, _ := filepath.Abs(s.Options.PodSpecFile)
