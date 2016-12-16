@@ -161,6 +161,15 @@ func (s *ClusterCapacityConfig) ParseAPISpec() error {
 		s.Pod.ObjectMeta.Namespace = "default"
 	}
 
+	// hardcoded from kube api defaults and validation
+	// TODO: rewrite when object validation gets more available for non kubectl approaches in kube
+	if s.Pod.Spec.DNSPolicy == "" {
+		s.Pod.Spec.DNSPolicy = api.DNSClusterFirst
+	}
+	if s.Pod.Spec.RestartPolicy == "" {
+		s.Pod.Spec.RestartPolicy = api.RestartPolicyAlways
+	}
+
 	if errs := validation.ValidatePod(s.Pod); len(errs) > 0 {
 		var errStrs []string
 		for _, err := range errs {
