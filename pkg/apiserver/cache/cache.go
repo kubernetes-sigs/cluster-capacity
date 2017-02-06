@@ -9,7 +9,7 @@ import (
 
 type Cache struct {
 	position int
-	reports  []*framework.Report
+	reports  []*framework.ClusterCapacityReview
 	size     int
 	mux      sync.Mutex
 }
@@ -17,7 +17,7 @@ type Cache struct {
 func NewCache(size int) *Cache {
 	return &Cache{
 		position: 0,
-		reports:  make([]*framework.Report, 0),
+		reports:  make([]*framework.ClusterCapacityReview, 0),
 		size:     size,
 	}
 }
@@ -26,7 +26,7 @@ func (c *Cache) GetSize() int {
 	return c.size
 }
 
-func (c *Cache) Add(r *framework.Report) {
+func (c *Cache) Add(r *framework.ClusterCapacityReview) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 	if len(c.reports) < c.size {
@@ -41,7 +41,7 @@ func (c *Cache) Add(r *framework.Report) {
 	}
 }
 
-func (c *Cache) GetLast(num int) []*framework.Report {
+func (c *Cache) GetLast(num int) []*framework.ClusterCapacityReview {
 	if len(c.reports) == 0 {
 		return nil
 	}
@@ -54,10 +54,10 @@ func (c *Cache) GetLast(num int) []*framework.Report {
 	return sorted[len(sorted)-num:]
 }
 
-func (c *Cache) All() []*framework.Report {
+func (c *Cache) All() []*framework.ClusterCapacityReview {
 	c.mux.Lock()
 	defer c.mux.Unlock()
-	sorted := make([]*framework.Report, 0)
+	sorted := make([]*framework.ClusterCapacityReview, 0)
 
 	for i := c.position; i < len(c.reports); i++ {
 		sorted = append(sorted, c.reports[i])
@@ -67,15 +67,15 @@ func (c *Cache) All() []*framework.Report {
 	}
 	return sorted
 }
-func (c *Cache) List(since time.Time, to time.Time, num int) []*framework.Report {
+func (c *Cache) List(since time.Time, to time.Time, num int) []*framework.ClusterCapacityReview {
 	all := c.All()
 	if len(all) == 0 {
 		return nil
 	}
 
-	list := make([]*framework.Report, 0)
+	list := make([]*framework.ClusterCapacityReview, 0)
 	for i := 0; i < len(all); i++ {
-		if all[i].Timestamp.After(since) && all[i].Timestamp.Before(to) {
+		if all[i].Status.CreationTimestamp.After(since) && all[i].Status.CreationTimestamp.Before(to) {
 			list = append(list, all[i])
 		}
 	}

@@ -163,7 +163,7 @@ func getKubeClient(master string, config string) (clientset.Interface, error) {
 	return kubeClient, nil
 }
 
-func runSimulator(s *options.ClusterCapacityConfig, syncWithClient bool) (*framework.Report, error) {
+func runSimulator(s *options.ClusterCapacityConfig, syncWithClient bool) (*framework.ClusterCapacityReview, error) {
 	mode, err := framework.StringToResourceSpaceMode(s.Options.ResourceSpaceMode)
 	if err != nil {
 		return nil, err

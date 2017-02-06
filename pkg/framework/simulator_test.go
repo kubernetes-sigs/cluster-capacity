@@ -209,14 +209,15 @@ func TestPrediction(t *testing.T) {
 		t.Errorf("Unable to run analysis: %v", err)
 	}
 
-	for node, inst := range cc.Report().NodesNumInstances {
-		t.Logf("Node: %v, instances: %v\n", node, inst)
+	// TODO: modify when sequence is implemented
+	for reason, replicas := range cc.Report().Status.Pods[0].ReplicasOnNodes {
+		t.Logf("Reason: %v, instances: %v\n", reason, replicas)
 	}
 
-	t.Logf("Stop reason: %v\n", cc.Report().FailReasons)
+	t.Logf("Stop reason: %v\n", cc.Report().Status.FailReason)
 
-	// 4. check expected number of pods is scheduled and reflected in the resource storage
-	if cc.Report().FailReasons.FailType != "LimitReached" {
-		t.Errorf("Unexpected stop reason occured: %v, expecting: LimitReached", cc.Report().FailReasons.FailType)
+	//4. check expected number of pods is scheduled and reflected in the resource storage
+	if cc.Report().Status.FailReason.FailType != "LimitReached" {
+		t.Errorf("Unexpected stop reason occured: %v, expecting: LimitReached", cc.Report().Status.FailReason.FailType)
 	}
 }

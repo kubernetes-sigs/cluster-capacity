@@ -55,7 +55,7 @@ func (r *RestResource) Register(container *restful.Container) {
 		Param(ws.QueryParameter("to", "RFC3339 standard").DataType("string")).
 		Param(ws.QueryParameter("watch", "get notification for new ones").DataType("boolean")).
 		Operation("getStatus").
-		Writes([]framework.Report{}))
+		Writes([]framework.ClusterCapacityReview{}))
 	container.Add(ws)
 }
 
@@ -80,7 +80,7 @@ type ccBasicInfo struct {
 	Period    int
 }
 
-func (r *RestResource) PutStatus(report *framework.Report) {
+func (r *RestResource) PutStatus(report *framework.ClusterCapacityReview) {
 	r.watcher.Broadcast(report)
 }
 
@@ -154,7 +154,7 @@ func (r *RestResource) getLastStatus(request *restful.Request, response *restful
 }
 
 // use this to avoid multiple response.WriteHeader calls
-func writeJson(resp *restful.Response, r *framework.Report) error {
+func writeJson(resp *restful.Response, r *framework.ClusterCapacityReview) error {
 	output, err := json.MarshalIndent(r, " ", " ")
 	if err != nil {
 		return err

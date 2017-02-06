@@ -8,14 +8,16 @@ import (
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework"
 )
 
-func exampleReport() *framework.Report {
+func exampleReport() *framework.ClusterCapacityReview {
 	revolution, err := time.Parse(TIMELAYOUT, "2000-01-01T00:00:00+00:00")
 	if err != nil {
 		panic(err)
 	}
-	return &framework.Report{
-		Timestamp:      revolution,
-		TotalInstances: 0,
+	return &framework.ClusterCapacityReview{
+		Status : framework.ClusterCapacityReviewStatus{
+			CreationTimestamp: revolution,
+			Replicas: 0,
+		},
 	}
 }
 

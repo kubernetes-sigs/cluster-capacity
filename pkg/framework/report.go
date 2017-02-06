@@ -3,95 +3,86 @@ package framework
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/ghodss/yaml"
-
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/resource"
+	"k8s.io/kubernetes/pkg/api/unversioned"
+	"k8s.io/kubernetes/pkg/conversion"
 	"k8s.io/kubernetes/pkg/labels"
 )
 
-type PodResources struct {
+type ClusterCapacityReview struct {
+	unversioned.TypeMeta
+	Spec   ClusterCapacityReviewSpec
+	Status ClusterCapacityReviewStatus
+}
+
+type ClusterCapacityReviewSpec struct {
+	// the pod desired for scheduling
+	Templates []api.Pod
+
+	// desired number of replicas that should be scheduled
+	// +optional
+	Replicas int32
+
+	PodRequirements []*Requirements
+}
+
+type ClusterCapacityReviewStatus struct {
+	CreationTimestamp time.Time
+	// actual number of replicas that could schedule
+	Replicas int32
+
+	FailReason *ClusterCapacityReviewScheduleFailReason
+
+	// per node information about the scheduling simulation
+	Pods []*ClusterCapacityReviewResult
+}
+
+type ClusterCapacityReviewResult struct {
+	PodName string
+	// numbers of replicas on nodes
+	ReplicasOnNodes map[string]int
+	// reason why no more pods could schedule (if any on this node)
+	// [reason]num of nodes with that reason
+	FailSummary map[string]int
+}
+
+type Resources struct {
 	CPU                *resource.Quantity
 	Memory             *resource.Quantity
 	NvidiaGPU          *resource.Quantity
 	OpaqueIntResources map[api.ResourceName]int64
 }
 
-type PodRequirements struct {
-	PodResources *PodResources
-	NodeSelector map[string]string
+type Requirements struct {
+	PodName       string
+	Resources     *Resources
+	NodeSelectors map[string]string
 }
 
-type FailReason struct {
-	FailType     string
-	FailMessage  string
-	NodeFailures map[string]string
+type ClusterCapacityReviewScheduleFailReason struct {
+	FailType    string
+	FailMessage string
 }
 
-type Report struct {
-	Timestamp         time.Time
-	PodRequirements   PodRequirements
-	TotalInstances    int
-	NodesNumInstances map[string]int
-	FailReasons       FailReason
-	Pod               *api.Pod
-}
-
-func CreateFullReport(pod *api.Pod, status Status) *Report {
-	report := createReport(pod, status)
-	if len(status.Pods) == 0 {
-		return report
-	}
-	report.NodesNumInstances = make(map[string]int)
-	for _, pod := range status.Pods {
-		_, ok := report.NodesNumInstances[pod.Spec.NodeName]
-		if !ok {
-			report.NodesNumInstances[pod.Spec.NodeName] = 1
-		} else {
-			report.NodesNumInstances[pod.Spec.NodeName]++
-		}
-	}
-
-	return report
-}
-
-func getReason(message string) FailReason {
+func getMainFailReason(message string) *ClusterCapacityReviewScheduleFailReason {
 	slicedMessage := strings.Split(message, "\n")
 	colon := strings.Index(slicedMessage[0], ":")
 
-	fail := FailReason{
+	fail := &ClusterCapacityReviewScheduleFailReason{
 		FailType:    slicedMessage[0][:colon],
 		FailMessage: strings.Trim(slicedMessage[0][colon+1:], " "),
-	}
-
-	if len(slicedMessage) == 1 {
-		return fail
-	}
-
-	fail.NodeFailures = make(map[string]string)
-	for _, nodeReason := range slicedMessage[1:] {
-		if len(nodeReason) < 4 {
-			continue
-		}
-		nameStart := strings.Index(nodeReason, "(")
-		nameEnd := strings.Index(nodeReason, ")")
-		name := nodeReason[nameStart+1 : nameEnd]
-
-		parts := strings.Split(nodeReason, ":")
-		if len(parts) != 2 {
-			fail.NodeFailures[name] = nodeReason[nameEnd+3:]
-		} else {
-			fail.NodeFailures[name] = strings.Trim(parts[1], " ")
-		}
 	}
 	return fail
 }
 
-func GetResourceRequest(pod *api.Pod) *PodResources {
-	result := PodResources{
+func getResourceRequest(pod *api.Pod) *Resources {
+	result := Resources{
 		CPU:       resource.NewMilliQuantity(0, resource.DecimalSI),
 		Memory:    resource.NewQuantity(0, resource.BinarySI),
 		NvidiaGPU: resource.NewMilliQuantity(0, resource.DecimalSI),
@@ -119,53 +110,145 @@ func GetResourceRequest(pod *api.Pod) *PodResources {
 	return &result
 }
 
-func createReport(pod *api.Pod, status Status) *Report {
-	return &Report{
-		//TODO: set this sooner(right after the check is done)
-		Timestamp: time.Now(),
-		PodRequirements: PodRequirements{
-			PodResources: GetResourceRequest(pod),
-			NodeSelector: pod.Spec.NodeSelector,
-		},
-		TotalInstances: len(status.Pods),
-		FailReasons:    getReason(status.StopReason),
+func parsePodsReview(templatePods []*api.Pod, status Status) []*ClusterCapacityReviewResult {
+	templatesCount := len(templatePods)
+	result := make([]*ClusterCapacityReviewResult, 0)
+
+	for i := 0; i < templatesCount; i++ {
+		result = append(result, &ClusterCapacityReviewResult{
+			ReplicasOnNodes: make(map[string]int),
+			PodName:         templatePods[i].Name,
+		})
+	}
+
+	for i, pod := range status.Pods {
+		nodeName := pod.Spec.NodeName
+		result[i%templatesCount].ReplicasOnNodes[nodeName]++
+	}
+
+	slicedMessage := strings.Split(status.StopReason, "\n")
+	if len(slicedMessage) == 1 {
+		return result
+	}
+
+	slicedMessage = strings.Split(slicedMessage[1][31:], `, `)
+	allReasons := make(map[string]int)
+	for _, nodeReason := range slicedMessage {
+		leftParenthesis := strings.LastIndex(nodeReason, `(`)
+
+		reason := nodeReason[:leftParenthesis-1]
+		replicas, _ := strconv.Atoi(nodeReason[leftParenthesis+1 : len(nodeReason)-1])
+		allReasons[reason] = replicas
+	}
+
+	result[(len(status.Pods)-1)%templatesCount].FailSummary = allReasons
+	return result
+}
+
+func getPodsRequirements(pods []*api.Pod) []*Requirements {
+	result := make([]*Requirements, 0)
+	for _, pod := range pods {
+		podRequirements := &Requirements{
+			PodName:       pod.Name,
+			Resources:     getResourceRequest(pod),
+			NodeSelectors: pod.Spec.NodeSelector,
+		}
+		result = append(result, podRequirements)
+	}
+	return result
+}
+
+func deepCopyPods(in []*api.Pod, out []api.Pod) {
+	cloner := conversion.NewCloner()
+	for i, pod := range in {
+		api.DeepCopy_api_Pod(pod, &out[i], cloner)
 	}
 }
 
-func (r *Report) prettyPrint(verbose bool) {
+func getReviewSpec(podTemplates []*api.Pod) ClusterCapacityReviewSpec {
+
+	podCopies := make([]api.Pod, len(podTemplates))
+	deepCopyPods(podTemplates, podCopies)
+	return ClusterCapacityReviewSpec{
+		Templates:       podCopies,
+		PodRequirements: getPodsRequirements(podTemplates),
+	}
+}
+
+func getReviewStatus(pods []*api.Pod, status Status) ClusterCapacityReviewStatus {
+	return ClusterCapacityReviewStatus{
+		CreationTimestamp: time.Now(),
+		Replicas:          int32(len(status.Pods)),
+		FailReason:        getMainFailReason(status.StopReason),
+		Pods:              parsePodsReview(pods, status),
+	}
+}
+
+func GetReport(pods []*api.Pod, status Status) *ClusterCapacityReview {
+	return &ClusterCapacityReview{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "ClusterCapacityReview",
+			APIVersion: "",
+		},
+		Spec:   getReviewSpec(pods),
+		Status: getReviewStatus(pods, status),
+	}
+}
+
+func instancesSum(replicasOnNodes map[string]int) int {
+	result := 0
+	for _, v := range replicasOnNodes {
+		result += v
+	}
+	return result
+}
+
+func (r *ClusterCapacityReview) prettyPrint(verbose bool) {
 	if verbose {
-		fmt.Println("Pod requirements:\n")
-		fmt.Printf("\t- CPU: %v\n", r.PodRequirements.PodResources.CPU.String())
-		fmt.Printf("\t- Memory: %v\n", r.PodRequirements.PodResources.Memory.String())
-		if !r.PodRequirements.PodResources.NvidiaGPU.IsZero() {
-			fmt.Printf("\t- NvidiaGPU: %v\n", r.PodRequirements.PodResources.NvidiaGPU.String())
-		}
-		if r.PodRequirements.PodResources.OpaqueIntResources != nil {
-			fmt.Printf("\t- OpaqueIntResources: %v\n", r.PodRequirements.PodResources.OpaqueIntResources)
-		}
+		for _, req := range r.Spec.PodRequirements {
+			fmt.Printf("%v pod requirements:\n", req.PodName)
+			fmt.Printf("\t- CPU: %v\n", req.Resources.CPU.String())
+			fmt.Printf("\t- Memory: %v\n", req.Resources.Memory.String())
+			if !req.Resources.NvidiaGPU.IsZero() {
+				fmt.Printf("\t- NvidiaGPU: %v\n", req.Resources.NvidiaGPU.String())
+			}
+			if req.Resources.OpaqueIntResources != nil {
+				fmt.Printf("\t- OpaqueIntResources: %v\n", req.Resources.OpaqueIntResources)
+			}
 
-		if r.PodRequirements.NodeSelector != nil {
-			fmt.Printf("\t- NodeSelector: %v\n", labels.SelectorFromSet(labels.Set(r.PodRequirements.NodeSelector)).String())
+			if req.NodeSelectors != nil {
+				fmt.Printf("\t- NodeSelector: %v\n", labels.SelectorFromSet(labels.Set(req.NodeSelectors)).String())
+			}
+			fmt.Printf("\n")
 		}
-
-		fmt.Printf("\n")
 	}
 
-	fmt.Printf("The cluster can schedule %v instance(s) of the pod.\n", r.TotalInstances)
-	fmt.Printf("Termination reason: %v: %v\n", r.FailReasons.FailType, r.FailReasons.FailMessage)
+	for _, pod := range r.Status.Pods {
+		fmt.Printf("The cluster can schedule %v instance(s) of the pod %v.\n", instancesSum(pod.ReplicasOnNodes), pod.PodName)
+	}
+	fmt.Printf("\nTermination reason: %v: %v\n", r.Status.FailReason.FailType, r.Status.FailReason.FailMessage)
 
-	if verbose && r.TotalInstances > 0 {
-		for node, fail := range r.FailReasons.NodeFailures {
-			fmt.Printf("fit failure on node (%v): %v\n", node, fail)
+	if verbose && r.Status.Replicas > 0 {
+		for _, pod := range r.Status.Pods {
+			if pod.FailSummary != nil {
+				fmt.Printf("fit failure summary on nodes: ")
+				for reason, occurence := range pod.FailSummary {
+					fmt.Printf("%v (%v), ", reason, occurence)
+				}
+				fmt.Printf("\n")
+			}
 		}
 		fmt.Printf("\nPod distribution among nodes:\n")
-		for node, instances := range r.NodesNumInstances {
-			fmt.Printf("\t- %v: %v instance(s)\n", node, instances)
+		for _, pod := range r.Status.Pods {
+			fmt.Printf("%v\n", pod.PodName)
+			for node, replicas := range pod.ReplicasOnNodes {
+				fmt.Printf("\t- %v: %v instance(s)\n", node, replicas)
+			}
 		}
 	}
 }
 
-func (r *Report) printJson() error {
+func (r *ClusterCapacityReview) printJson() error {
 	jsoned, err := json.Marshal(r)
 	if err != nil {
 		return fmt.Errorf("Failed to create json: %v", err)
@@ -174,7 +257,7 @@ func (r *Report) printJson() error {
 	return nil
 }
 
-func (r *Report) printYaml() error {
+func (r *ClusterCapacityReview) printYaml() error {
 	yamled, err := yaml.Marshal(r)
 	if err != nil {
 		return fmt.Errorf("Failed to create yaml: %v", err)
@@ -183,7 +266,7 @@ func (r *Report) printYaml() error {
 	return nil
 }
 
-func (r *Report) Print(verbose bool, format string) error {
+func (r *ClusterCapacityReview) Print(verbose bool, format string) error {
 	switch format {
 	case "json":
 		return r.printJson()

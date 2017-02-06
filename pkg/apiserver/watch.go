@@ -12,26 +12,26 @@ var MAXWATCHERS = 10
 const channel_cap = 1
 
 type WatchChannelDistributor struct {
-	inputChannel   chan *framework.Report
-	outputChannels []chan *framework.Report
+	inputChannel   chan *framework.ClusterCapacityReview
+	outputChannels []chan *framework.ClusterCapacityReview
 	mux            sync.Mutex
 	remMux         sync.Mutex
 }
 
 func NewWatchChannelDistributor() *WatchChannelDistributor {
 	return &WatchChannelDistributor{
-		inputChannel:   make(chan *framework.Report),
-		outputChannels: make([]chan *framework.Report, 0),
+		inputChannel:   make(chan *framework.ClusterCapacityReview),
+		outputChannels: make([]chan *framework.ClusterCapacityReview, 0),
 	}
 }
 
 type WatchChannel struct {
 	w   *WatchChannelDistributor
-	c   chan *framework.Report
+	c   chan *framework.ClusterCapacityReview
 	pos int
 }
 
-func (wc *WatchChannel) Chan() chan *framework.Report {
+func (wc *WatchChannel) Chan() chan *framework.ClusterCapacityReview {
 	return wc.c
 }
 
@@ -48,7 +48,7 @@ func (w *WatchChannelDistributor) NewChannel() (*WatchChannel, error) {
 		if w.outputChannels[i] == nil {
 			// set the channel capacity to 1
 			// if the channel is full, do not send anything to it
-			w.outputChannels[i] = make(chan *framework.Report, channel_cap)
+			w.outputChannels[i] = make(chan *framework.ClusterCapacityReview, channel_cap)
 			return &WatchChannel{
 				w:   w,
 				c:   w.outputChannels[i],
@@ -61,7 +61,7 @@ func (w *WatchChannelDistributor) NewChannel() (*WatchChannel, error) {
 		return nil, fmt.Errorf("Maximum number of watches exceeded\n")
 	}
 
-	ch := make(chan *framework.Report, channel_cap)
+	ch := make(chan *framework.ClusterCapacityReview, channel_cap)
 	w.outputChannels = append(w.outputChannels, ch)
 	return &WatchChannel{
 		w:   w,
@@ -89,7 +89,7 @@ func (w *WatchChannelDistributor) Run() {
 	}
 }
 
-func (w *WatchChannelDistributor) Broadcast(r *framework.Report) {
+func (w *WatchChannelDistributor) Broadcast(r *framework.ClusterCapacityReview) {
 	w.inputChannel <- r
 }
 
