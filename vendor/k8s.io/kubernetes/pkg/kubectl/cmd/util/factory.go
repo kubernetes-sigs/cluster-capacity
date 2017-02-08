@@ -27,29 +27,26 @@ import (
 	"os/user"
 	"path"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/emicklei/go-restful/swagger"
-	"github.com/golang/glog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
 	"k8s.io/kubernetes/federation/apis/federation"
 	"k8s.io/kubernetes/pkg/api"
-	apierrors "k8s.io/kubernetes/pkg/api/errors"
 	"k8s.io/kubernetes/pkg/api/meta"
 	"k8s.io/kubernetes/pkg/api/service"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/api/validation"
-	"k8s.io/kubernetes/pkg/apimachinery"
 	"k8s.io/kubernetes/pkg/apimachinery/registered"
 	"k8s.io/kubernetes/pkg/apis/apps"
 	"k8s.io/kubernetes/pkg/apis/batch"
 	"k8s.io/kubernetes/pkg/apis/extensions"
-	extensionsv1beta1 "k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
 	"k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 	coreclient "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/typed/core/internalversion"
 	"k8s.io/kubernetes/pkg/client/restclient"
@@ -65,6 +62,7 @@ import (
 	"k8s.io/kubernetes/pkg/runtime"
 	"k8s.io/kubernetes/pkg/runtime/serializer/json"
 	utilflag "k8s.io/kubernetes/pkg/util/flag"
+	"k8s.io/kubernetes/pkg/util/homedir"
 	"k8s.io/kubernetes/pkg/watch"
 )
 
@@ -81,6 +79,8 @@ type Factory interface {
 	// Returns internal flagset
 	FlagSet() *pflag.FlagSet
 
+	// Returns a discovery client
+	DiscoveryClient() (discovery.CachedDiscoveryInterface, error)
 	// Returns interfaces for dealing with arbitrary runtime.Objects.
 	Object() (meta.RESTMapper, runtime.ObjectTyper)
 	// Returns interfaces for dealing with arbitrary
@@ -198,6 +198,7 @@ const (
 	DeploymentBasicV1Beta1GeneratorName         = "deployment-basic/v1beta1"
 	JobV1Beta1GeneratorName                     = "job/v1beta1"
 	JobV1GeneratorName                          = "job/v1"
+	CronJobV2Alpha1GeneratorName                = "cronjob/v2alpha1"
 	ScheduledJobV2Alpha1GeneratorName           = "scheduledjob/v2alpha1"
 	NamespaceV1GeneratorName                    = "namespace/v1"
 	ResourceQuotaV1GeneratorName                = "resourcequotas/v1"
@@ -240,7 +241,8 @@ func DefaultGenerators(cmdName string) map[string]kubectl.Generator {
 			DeploymentV1Beta1GeneratorName:    kubectl.DeploymentV1Beta1{},
 			JobV1Beta1GeneratorName:           kubectl.JobV1Beta1{},
 			JobV1GeneratorName:                kubectl.JobV1{},
-			ScheduledJobV2Alpha1GeneratorName: kubectl.ScheduledJobV2Alpha1{},
+			ScheduledJobV2Alpha1GeneratorName: kubectl.CronJobV2Alpha1{},
+			CronJobV2Alpha1GeneratorName:      kubectl.CronJobV2Alpha1{},
 		}
 	case "autoscale":
 		generator = map[string]kubectl.Generator{
@@ -317,87 +319,76 @@ func NewFactory(optionalClientConfig clientcmd.ClientConfig) Factory {
 	}
 
 	clients := NewClientCache(clientConfig)
-	return &factory{
+
+	f := &factory{
 		flags:        flags,
 		clientConfig: clientConfig,
 		clients:      clients,
 	}
+
+	return f
 }
 
 func (f *factory) FlagSet() *pflag.FlagSet {
 	return f.flags
 }
 
-func (f *factory) Object() (meta.RESTMapper, runtime.ObjectTyper) {
+func (f *factory) DiscoveryClient() (discovery.CachedDiscoveryInterface, error) {
 	cfg, err := f.clientConfig.ClientConfig()
-	checkErrWithPrefix("failed to get client config: ", err)
-	cmdApiVersion := unversioned.GroupVersion{}
-	if cfg.GroupVersion != nil {
-		cmdApiVersion = *cfg.GroupVersion
+	if err != nil {
+		return nil, err
 	}
-
-	mapper := registered.RESTMapper()
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(cfg)
-	if err == nil {
-		// register third party resources with the api machinery groups.  This probably should be done, but
-		// its consistent with old code, so we'll start with it.
-		if err := registerThirdPartyResources(discoveryClient); err != nil {
-			glog.V(1).Infof("Unable to register third party resources: %v", err)
-		}
-		// ThirdPartyResourceData is special.  It's not discoverable, but needed for thirdparty resource listing
-		// TODO eliminate this once we're truly generic.
-		thirdPartyResourceDataMapper := meta.NewDefaultRESTMapper([]unversioned.GroupVersion{extensionsv1beta1.SchemeGroupVersion}, registered.InterfacesFor)
-		thirdPartyResourceDataMapper.Add(extensionsv1beta1.SchemeGroupVersion.WithKind("ThirdPartyResourceData"), meta.RESTScopeNamespace)
+	if err != nil {
+		return nil, err
+	}
+	cacheDir := computeDiscoverCacheDir(filepath.Join(homedir.HomeDir(), ".kube", "cache", "discovery"), cfg.Host)
+	return NewCachedDiscoveryClient(discoveryClient, cacheDir, time.Duration(10*time.Minute)), nil
+}
 
+func (f *factory) Object() (meta.RESTMapper, runtime.ObjectTyper) {
+	mapper := registered.RESTMapper()
+	discoveryClient, err := f.DiscoveryClient()
+	if err == nil {
 		mapper = meta.FirstHitRESTMapper{
 			MultiRESTMapper: meta.MultiRESTMapper{
 				discovery.NewDeferredDiscoveryRESTMapper(discoveryClient, registered.InterfacesFor),
-				thirdPartyResourceDataMapper, // needed for TPR printing
-				registered.RESTMapper(),      // hardcoded fall back
+				registered.RESTMapper(), // hardcoded fall back
 			},
 		}
 	}
 
 	// wrap with shortcuts
 	mapper = NewShortcutExpander(mapper, discoveryClient)
+
 	// wrap with output preferences
+	cfg, err := f.clients.ClientConfigForVersion(nil)
+	checkErrWithPrefix("failed to get client config: ", err)
+	cmdApiVersion := unversioned.GroupVersion{}
+	if cfg.GroupVersion != nil {
+		cmdApiVersion = *cfg.GroupVersion
+	}
 	mapper = kubectl.OutputVersionMapper{RESTMapper: mapper, OutputVersions: []unversioned.GroupVersion{cmdApiVersion}}
 	return mapper, api.Scheme
 }
 
 func (f *factory) UnstructuredObject() (meta.RESTMapper, runtime.ObjectTyper, error) {
-	cfg, err := f.clients.ClientConfigForVersion(nil)
+	discoveryClient, err := f.DiscoveryClient()
+	if err != nil {
+		return nil, nil, err
+	}
+	groupResources, err := discovery.GetAPIGroupResources(discoveryClient)
+	if err != nil && !discoveryClient.Fresh() {
+		discoveryClient.Invalidate()
+		groupResources, err = discovery.GetAPIGroupResources(discoveryClient)
+	}
 	if err != nil {
 		return nil, nil, err
 	}
 
-	dc, err := discovery.NewDiscoveryClientForConfig(cfg)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	groupResources, err := discovery.GetAPIGroupResources(dc)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// Register unknown APIs as third party for now to make
-	// validation happy. TODO perhaps make a dynamic schema
-	// validator to avoid this.
-	for _, group := range groupResources {
-		for _, version := range group.Group.Versions {
-			gv := unversioned.GroupVersion{Group: group.Group.Name, Version: version.Version}
-			if !registered.IsRegisteredVersion(gv) {
-				registered.AddThirdPartyAPIGroupVersions(gv)
-			}
-		}
-	}
-
-	mapper := discovery.NewRESTMapper(groupResources, meta.InterfacesForUnstructured)
-
+	mapper := discovery.NewDeferredDiscoveryRESTMapper(discoveryClient, meta.InterfacesForUnstructured)
 	typer := discovery.NewUnstructuredObjectTyper(groupResources)
-
-	return NewShortcutExpander(mapper, dc), typer, nil
+	return NewShortcutExpander(mapper, discoveryClient), typer, nil
 }
 
 func (f *factory) RESTClient() (*restclient.RESTClient, error) {
@@ -682,11 +673,16 @@ func (f *factory) Scaler(mapping *meta.RESTMapping) (kubectl.Scaler, error) {
 
 func (f *factory) Reaper(mapping *meta.RESTMapping) (kubectl.Reaper, error) {
 	mappingVersion := mapping.GroupVersionKind.GroupVersion()
-	clientset, err := f.clients.ClientSetForVersion(&mappingVersion)
-	if err != nil {
-		return nil, err
+	clientset, clientsetErr := f.clients.ClientSetForVersion(&mappingVersion)
+	reaper, reaperErr := kubectl.ReaperFor(mapping.GroupVersionKind.GroupKind(), clientset)
+
+	if kubectl.IsNoSuchReaperError(reaperErr) {
+		return nil, reaperErr
 	}
-	return kubectl.ReaperFor(mapping.GroupVersionKind.GroupKind(), clientset)
+	if clientsetErr != nil {
+		return nil, clientsetErr
+	}
+	return reaper, reaperErr
 }
 
 func (f *factory) HistoryViewer(mapping *meta.RESTMapping) (kubectl.HistoryViewer, error) {
@@ -1140,10 +1136,7 @@ func (c *clientSwaggerSchema) ValidateBytes(data []byte) error {
 		return err
 	}
 	if ok := registered.IsEnabledVersion(gvk.GroupVersion()); !ok {
-		return fmt.Errorf("API version %q isn't supported, only supports API versions %q", gvk.GroupVersion().String(), registered.EnabledVersions())
-	}
-	if registered.IsThirdPartyAPIGroupVersion(gvk.GroupVersion()) {
-		// Don't attempt to validate third party objects
+		// if we don't have this in our scheme, just skip validation because its an object we don't recognize
 		return nil
 	}
 
@@ -1327,53 +1320,15 @@ func (f *factory) SuggestedPodTemplateResources() []unversioned.GroupResource {
 	}
 }
 
-// registerThirdPartyResources inspects the discovery endpoint to find thirdpartyresources in the discovery doc
-// and then registers them with the apimachinery code.  I think this is done so that scheme/codec stuff works,
-// but I really don't know.  Feels like this code should go away once kubectl is completely generic for generic
-// CRUD
-func registerThirdPartyResources(discoveryClient discovery.DiscoveryInterface) error {
-	var versions []unversioned.GroupVersion
-	var gvks []unversioned.GroupVersionKind
-	var err error
-	retries := 3
-	for i := 0; i < retries; i++ {
-		versions, gvks, err = GetThirdPartyGroupVersions(discoveryClient)
-		// Retry if we got a NotFound error, because user may delete
-		// a thirdparty group when the GetThirdPartyGroupVersions is
-		// running.
-		if err == nil || !apierrors.IsNotFound(err) {
-			break
-		}
-	}
-	if err != nil {
-		return err
-	}
+// overlyCautiousIllegalFileCharacters matches characters that *might* not be supported.  Windows is really restrictive, so this is really restrictive
+var overlyCautiousIllegalFileCharacters = regexp.MustCompile(`[^(\w/\.)]`)
 
-	groupsMap := map[string][]unversioned.GroupVersion{}
-	for _, version := range versions {
-		groupsMap[version.Group] = append(groupsMap[version.Group], version)
-	}
-	for group, versionList := range groupsMap {
-		preferredExternalVersion := versionList[0]
+// computeDiscoverCacheDir takes the parentDir and the host and comes up with a "usually non-colliding" name.
+func computeDiscoverCacheDir(parentDir, host string) string {
+	// strip the optional scheme from host if its there:
+	schemelessHost := strings.Replace(strings.Replace(host, "https://", "", 1), "http://", "", 1)
+	// now do a simple collapse of non-AZ09 characters.  Collisions are possible but unlikely.  Even if we do collide the problem is short lived
+	safeHost := overlyCautiousIllegalFileCharacters.ReplaceAllString(schemelessHost, "_")
 
-		thirdPartyMapper, err := kubectl.NewThirdPartyResourceMapper(versionList, getGroupVersionKinds(gvks, group))
-		if err != nil {
-			return err
-		}
-
-		accessor := meta.NewAccessor()
-		groupMeta := apimachinery.GroupMeta{
-			GroupVersion:  preferredExternalVersion,
-			GroupVersions: versionList,
-			RESTMapper:    thirdPartyMapper,
-			SelfLinker:    runtime.SelfLinker(accessor),
-			InterfacesFor: makeInterfacesFor(versionList),
-		}
-		if err := registered.RegisterGroup(groupMeta); err != nil {
-			return err
-		}
-		registered.AddThirdPartyAPIGroupVersions(versionList...)
-	}
-
-	return nil
+	return filepath.Join(parentDir, safeHost)
 }

@@ -1,10 +1,10 @@
-// Copyright 2016 Google Inc. All Rights Reserved.
+// Copyright 2016, Google Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//      http://www.apache.org/licenses/LICENSE-2.0
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"math"
 	"runtime"
+	"strings"
 	"time"
 
 	gax "github.com/googleapis/gax-go"
@@ -52,7 +53,12 @@ type GroupCallOptions struct {
 func defaultGroupClientOptions() []option.ClientOption {
 	return []option.ClientOption{
 		option.WithEndpoint("monitoring.googleapis.com:443"),
-		option.WithScopes(),
+		option.WithScopes(
+			"https://www.googleapis.com/auth/cloud-platform",
+			"https://www.googleapis.com/auth/monitoring",
+			"https://www.googleapis.com/auth/monitoring.read",
+			"https://www.googleapis.com/auth/monitoring.write",
+		),
 	}
 }
 
@@ -140,7 +146,8 @@ func (c *GroupClient) Close() error {
 // the `x-goog-api-client` header passed on each request. Intended for
 // use by Google-written clients.
 func (c *GroupClient) SetGoogleClientInfo(name, version string) {
-	v := fmt.Sprintf("%s/%s %s gax/%s go/%s", name, version, gapicNameVersion, gax.Version, runtime.Version())
+	goVersion := strings.Replace(runtime.Version(), " ", "_", -1)
+	v := fmt.Sprintf("%s/%s %s gax/%s go/%s", name, version, gapicNameVersion, gax.Version, goVersion)
 	c.metadata = metadata.Pairs("x-goog-api-client", v)
 }
 
@@ -172,8 +179,7 @@ func (c *GroupClient) ListGroups(ctx context.Context, req *monitoringpb.ListGrou
 	md, _ := metadata.FromContext(ctx)
 	ctx = metadata.NewContext(ctx, metadata.Join(md, c.metadata))
 	it := &GroupIterator{}
-
-	fetch := func(pageSize int, pageToken string) (string, error) {
+	it.InternalFetch = func(pageSize int, pageToken string) ([]*monitoringpb.Group, string, error) {
 		var resp *monitoringpb.ListGroupsResponse
 		req.PageToken = pageToken
 		if pageSize > math.MaxInt32 {
@@ -187,19 +193,19 @@ func (c *GroupClient) ListGroups(ctx context.Context, req *monitoringpb.ListGrou
 			return err
 		}, c.CallOptions.ListGroups...)
 		if err != nil {
+			return nil, "", err
+		}
+		return resp.Group, resp.NextPageToken, nil
+	}
+	fetch := func(pageSize int, pageToken string) (string, error) {
+		items, nextPageToken, err := it.InternalFetch(pageSize, pageToken)
+		if err != nil {
 			return "", err
 		}
-		it.items = append(it.items, resp.Group...)
-		return resp.NextPageToken, nil
+		it.items = append(it.items, items...)
+		return nextPageToken, nil
 	}
-	bufLen := func() int { return len(it.items) }
-	takeBuf := func() interface{} {
-		b := it.items
-		it.items = nil
-		return b
-	}
-
-	it.pageInfo, it.nextFunc = iterator.NewPageInfo(fetch, bufLen, takeBuf)
+	it.pageInfo, it.nextFunc = iterator.NewPageInfo(fetch, it.bufLen, it.takeBuf)
 	return it
 }
 
@@ -269,8 +275,7 @@ func (c *GroupClient) ListGroupMembers(ctx context.Context, req *monitoringpb.Li
 	md, _ := metadata.FromContext(ctx)
 	ctx = metadata.NewContext(ctx, metadata.Join(md, c.metadata))
 	it := &MonitoredResourceIterator{}
-
-	fetch := func(pageSize int, pageToken string) (string, error) {
+	it.InternalFetch = func(pageSize int, pageToken string) ([]*monitoredrespb.MonitoredResource, string, error) {
 		var resp *monitoringpb.ListGroupMembersResponse
 		req.PageToken = pageToken
 		if pageSize > math.MaxInt32 {
@@ -284,19 +289,19 @@ func (c *GroupClient) ListGroupMembers(ctx context.Context, req *monitoringpb.Li
 			return err
 		}, c.CallOptions.ListGroupMembers...)
 		if err != nil {
+			return nil, "", err
+		}
+		return resp.Members, resp.NextPageToken, nil
+	}
+	fetch := func(pageSize int, pageToken string) (string, error) {
+		items, nextPageToken, err := it.InternalFetch(pageSize, pageToken)
+		if err != nil {
 			return "", err
 		}
-		it.items = append(it.items, resp.Members...)
-		return resp.NextPageToken, nil
+		it.items = append(it.items, items...)
+		return nextPageToken, nil
 	}
-	bufLen := func() int { return len(it.items) }
-	takeBuf := func() interface{} {
-		b := it.items
-		it.items = nil
-		return b
-	}
-
-	it.pageInfo, it.nextFunc = iterator.NewPageInfo(fetch, bufLen, takeBuf)
+	it.pageInfo, it.nextFunc = iterator.NewPageInfo(fetch, it.bufLen, it.takeBuf)
 	return it
 }
 
@@ -305,6 +310,14 @@ type GroupIterator struct {
 	items    []*monitoringpb.Group
 	pageInfo *iterator.PageInfo
 	nextFunc func() error
+
+	// InternalFetch is for use by the Google Cloud Libraries only.
+	// It is not part of the stable interface of this package.
+	//
+	// InternalFetch returns results from a single call to the underlying RPC.
+	// The number of results is no greater than pageSize.
+	// If there are no more results, nextPageToken is empty and err is nil.
+	InternalFetch func(pageSize int, pageToken string) (results []*monitoringpb.Group, nextPageToken string, err error)
 }
 
 // PageInfo supports pagination. See the google.golang.org/api/iterator package for details.
@@ -315,12 +328,23 @@ func (it *GroupIterator) PageInfo() *iterator.PageInfo {
 // Next returns the next result. Its second return value is iterator.Done if there are no more
 // results. Once Next returns Done, all subsequent calls will return Done.
 func (it *GroupIterator) Next() (*monitoringpb.Group, error) {
+	var item *monitoringpb.Group
 	if err := it.nextFunc(); err != nil {
-		return nil, err
+		return item, err
 	}
-	item := it.items[0]
+	item = it.items[0]
 	it.items = it.items[1:]
 	return item, nil
+}
+
+func (it *GroupIterator) bufLen() int {
+	return len(it.items)
+}
+
+func (it *GroupIterator) takeBuf() interface{} {
+	b := it.items
+	it.items = nil
+	return b
 }
 
 // MonitoredResourceIterator manages a stream of *monitoredrespb.MonitoredResource.
@@ -328,6 +352,14 @@ type MonitoredResourceIterator struct {
 	items    []*monitoredrespb.MonitoredResource
 	pageInfo *iterator.PageInfo
 	nextFunc func() error
+
+	// InternalFetch is for use by the Google Cloud Libraries only.
+	// It is not part of the stable interface of this package.
+	//
+	// InternalFetch returns results from a single call to the underlying RPC.
+	// The number of results is no greater than pageSize.
+	// If there are no more results, nextPageToken is empty and err is nil.
+	InternalFetch func(pageSize int, pageToken string) (results []*monitoredrespb.MonitoredResource, nextPageToken string, err error)
 }
 
 // PageInfo supports pagination. See the google.golang.org/api/iterator package for details.
@@ -338,10 +370,21 @@ func (it *MonitoredResourceIterator) PageInfo() *iterator.PageInfo {
 // Next returns the next result. Its second return value is iterator.Done if there are no more
 // results. Once Next returns Done, all subsequent calls will return Done.
 func (it *MonitoredResourceIterator) Next() (*monitoredrespb.MonitoredResource, error) {
+	var item *monitoredrespb.MonitoredResource
 	if err := it.nextFunc(); err != nil {
-		return nil, err
+		return item, err
 	}
-	item := it.items[0]
+	item = it.items[0]
 	it.items = it.items[1:]
 	return item, nil
+}
+
+func (it *MonitoredResourceIterator) bufLen() int {
+	return len(it.items)
+}
+
+func (it *MonitoredResourceIterator) takeBuf() interface{} {
+	b := it.items
+	it.items = nil
+	return b
 }

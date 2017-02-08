@@ -219,7 +219,7 @@ func TestAttachDetach(t *testing.T) {
 // newPlugin creates a new gcePersistentDiskPlugin with fake cloud, NewAttacher
 // and NewDetacher won't work.
 func newPlugin() *cinderPlugin {
-	host := volumetest.NewFakeVolumeHost("/tmp", nil, nil, "")
+	host := volumetest.NewFakeVolumeHost("/tmp", nil, nil)
 	plugins := ProbeVolumePlugins()
 	plugin := plugins[0]
 	plugin.Init(host)
@@ -391,6 +391,10 @@ func (testcase *testcase) GetAttachmentDiskPath(instanceID string, diskName stri
 	glog.V(4).Infof("GetAttachmentDiskPath call: %s, %s, returning %v, %v", diskName, instanceID, expected.retPath, expected.ret)
 
 	return expected.retPath, expected.ret
+}
+
+func (testcase *testcase) ShouldTrustDevicePath() bool {
+	return true
 }
 
 func (testcase *testcase) CreateVolume(name string, size int, vtype, availability string, tags *map[string]string) (volumeName string, err error) {

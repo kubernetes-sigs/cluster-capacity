@@ -47,7 +47,9 @@ const (
 	testPodName           = "test-container-pod"
 	hostTestPodName       = "host-test-container-pod"
 	nodePortServiceName   = "node-port-service"
-	hitEndpointRetryDelay = 1 * time.Second
+	// wait time between poll attempts of a Service vip and/or nodePort.
+	// coupled with testTries to produce a net timeout value.
+	hitEndpointRetryDelay = 2 * time.Second
 	// Number of retries to hit a given set of endpoints. Needs to be high
 	// because we verify iptables statistical rr loadbalancing.
 	testTries = 30
@@ -200,6 +202,8 @@ func (config *NetworkingTestConfig) DialFromContainer(protocol, containerIP, tar
 		if (eps.Equal(expectedEps) || eps.Len() == 0 && expectedEps.Len() == 0) && i+1 >= minTries {
 			return
 		}
+		// TODO: get rid of this delay #36281
+		time.Sleep(hitEndpointRetryDelay)
 	}
 
 	config.diagnoseMissingEndpoints(eps)
@@ -223,7 +227,7 @@ func (config *NetworkingTestConfig) DialFromNode(protocol, targetIP string, targ
 		// busybox timeout doesn't support non-integer values.
 		cmd = fmt.Sprintf("echo 'hostName' | timeout -t 2 nc -w 1 -u %s %d", targetIP, targetPort)
 	} else {
-		cmd = fmt.Sprintf("curl -q -s --connect-timeout 1 http://%s:%d/hostName", targetIP, targetPort)
+		cmd = fmt.Sprintf("timeout -t 15 curl -q -s --connect-timeout 1 http://%s:%d/hostName", targetIP, targetPort)
 	}
 
 	// TODO: This simply tells us that we can reach the endpoints. Check that
@@ -251,6 +255,8 @@ func (config *NetworkingTestConfig) DialFromNode(protocol, targetIP string, targ
 		if (eps.Equal(expectedEps) || eps.Len() == 0 && expectedEps.Len() == 0) && i+1 >= minTries {
 			return
 		}
+		// TODO: get rid of this delay #36281
+		time.Sleep(hitEndpointRetryDelay)
 	}
 
 	config.diagnoseMissingEndpoints(eps)
@@ -263,8 +269,33 @@ func (config *NetworkingTestConfig) DialFromNode(protocol, targetIP string, targ
 func (config *NetworkingTestConfig) GetSelfURL(path string, expected string) {
 	cmd := fmt.Sprintf("curl -q -s --connect-timeout 1 http://localhost:10249%s", path)
 	By(fmt.Sprintf("Getting kube-proxy self URL %s", path))
-	stdout := RunHostCmdOrDie(config.Namespace, config.HostTestContainerPod.Name, cmd)
-	Expect(strings.Contains(stdout, expected)).To(BeTrue())
+
+	// These are arbitrary timeouts. The curl command should pass on first try,
+	// unless kubeproxy is starved/bootstrapping/restarting etc.
+	const retryInterval = 1 * time.Second
+	const retryTimeout = 30 * time.Second
+	podName := config.HostTestContainerPod.Name
+	var msg string
+	if pollErr := wait.PollImmediate(retryInterval, retryTimeout, func() (bool, error) {
+		stdout, err := RunHostCmd(config.Namespace, podName, cmd)
+		if err != nil {
+			msg = fmt.Sprintf("failed executing cmd %v in %v/%v: %v", cmd, config.Namespace, podName, err)
+			Logf(msg)
+			return false, nil
+		}
+		if !strings.Contains(stdout, expected) {
+			msg = fmt.Sprintf("successfully executed %v in %v/%v, but output '%v' doesn't contain expected string '%v'", cmd, config.Namespace, podName, stdout, expected)
+			Logf(msg)
+			return false, nil
+		}
+		return true, nil
+	}); pollErr != nil {
+		Logf("\nOutput of kubectl describe pod %v/%v:\n", config.Namespace, podName)
+		desc, _ := RunKubectl(
+			"describe", "pod", podName, fmt.Sprintf("--namespace=%v", config.Namespace))
+		Logf("%s", desc)
+		Failf("Timed out in %v: %v", retryTimeout, msg)
+	}
 }
 
 func (config *NetworkingTestConfig) createNetShellPodSpec(podName string, node string) *api.Pod {
@@ -435,7 +466,7 @@ func (config *NetworkingTestConfig) setup(selector map[string]string) {
 	config.setupCore(selector)
 
 	By("Getting node addresses")
-	ExpectNoError(WaitForAllNodesSchedulable(config.f.ClientSet))
+	ExpectNoError(WaitForAllNodesSchedulable(config.f.ClientSet, 10*time.Minute))
 	nodeList := GetReadySchedulableNodesOrDie(config.f.ClientSet)
 	config.ExternalAddrs = NodeAddresses(nodeList, api.NodeExternalIP)
 	if len(config.ExternalAddrs) < 2 {
@@ -486,7 +517,7 @@ func shuffleNodes(nodes []api.Node) []api.Node {
 }
 
 func (config *NetworkingTestConfig) createNetProxyPods(podName string, selector map[string]string) []*api.Pod {
-	ExpectNoError(WaitForAllNodesSchedulable(config.f.ClientSet))
+	ExpectNoError(WaitForAllNodesSchedulable(config.f.ClientSet, 10*time.Minute))
 	nodeList := GetReadySchedulableNodesOrDie(config.f.ClientSet)
 
 	// To make this test work reasonably fast in large clusters,

@@ -15,7 +15,7 @@
 # Build the kube-discovery image.
 #
 # Requires a pre-built kube-discovery binary:
-#   build-tools/run.sh /bin/bash -c "KUBE_BUILD_PLATFORMS=linux/ARCH make WHAT=cmd/kube-discovery"
+#   build/run.sh /bin/bash -c "KUBE_BUILD_PLATFORMS=linux/ARCH make WHAT=cmd/kube-discovery"
 #
 # Usage:
 #   [ARCH=amd64] [REGISTRY="gcr.io/google_containers"] make (build|push) VERSION={some_released_version_of_kubernetes}
@@ -44,7 +44,7 @@ build:
 	cp -r ./* ${TEMP_DIR}
 	cp ../../../_output/dockerized/bin/linux/${ARCH}/kube-discovery ${TEMP_DIR}
 	cd ${TEMP_DIR} && sed -i.back "s|BASEIMAGE|${BASEIMAGE}|g" Dockerfile
-	docker build -t ${REGISTRY}/kube-discovery-${ARCH}:${VERSION} ${TEMP_DIR}
+	docker build --pull -t ${REGISTRY}/kube-discovery-${ARCH}:${VERSION} ${TEMP_DIR}
 	rm -rf "${TEMP_DIR}"
 
 push: build

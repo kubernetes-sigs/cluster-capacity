@@ -17,7 +17,6 @@ limitations under the License.
 package bigtable
 
 import (
-	"flag"
 	"fmt"
 	"math/rand"
 	"reflect"
@@ -27,10 +26,7 @@ import (
 	"testing"
 	"time"
 
-	"cloud.google.com/go/bigtable/bttest"
 	"golang.org/x/net/context"
-	"google.golang.org/api/option"
-	"google.golang.org/grpc"
 )
 
 func TestPrefix(t *testing.T) {
@@ -58,8 +54,6 @@ func TestPrefix(t *testing.T) {
 	}
 }
 
-var useProd = flag.String("use_prod", "", `if set to "proj,instance,table", run integration test against production`)
-
 func TestClientIntegration(t *testing.T) {
 	start := time.Now()
 	lastCheckpoint := start
@@ -69,43 +63,35 @@ func TestClientIntegration(t *testing.T) {
 		lastCheckpoint = n
 	}
 
-	proj, instance, table := "proj", "instance", "mytable"
-	var clientOpts []option.ClientOption
-	timeout := 20 * time.Second
-	if *useProd == "" {
-		srv, err := bttest.NewServer("127.0.0.1:0")
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer srv.Close()
-		t.Logf("bttest.Server running on %s", srv.Addr)
-		conn, err := grpc.Dial(srv.Addr, grpc.WithInsecure())
-		if err != nil {
-			t.Fatalf("grpc.Dial: %v", err)
-		}
-		clientOpts = []option.ClientOption{option.WithGRPCConn(conn)}
-	} else {
-		t.Logf("Running test against production")
-		a := strings.SplitN(*useProd, ",", 3)
-		proj, instance, table = a[0], a[1], a[2]
-		timeout = 5 * time.Minute
+	testEnv, err := NewIntegrationEnv()
+	if err != nil {
+		t.Fatalf("IntegrationEnv: %v", err)
 	}
 
+	timeout := 20 * time.Second
+	if testEnv.Config().UseProd {
+		timeout = 5 * time.Minute
+		t.Logf("Running test against production")
+	} else {
+		t.Logf("bttest.Server running on %s", testEnv.Config().AdminEndpoint)
+	}
 	ctx, _ := context.WithTimeout(context.Background(), timeout)
 
-	client, err := NewClient(ctx, proj, instance, clientOpts...)
+	client, err := testEnv.NewClient()
 	if err != nil {
-		t.Fatalf("NewClient: %v", err)
+		t.Fatalf("Client: %v", err)
 	}
 	defer client.Close()
 	checkpoint("dialed Client")
 
-	adminClient, err := NewAdminClient(ctx, proj, instance, clientOpts...)
+	adminClient, err := testEnv.NewAdminClient()
 	if err != nil {
-		t.Fatalf("NewAdminClient: %v", err)
+		t.Fatalf("AdminClient: %v", err)
 	}
 	defer adminClient.Close()
 	checkpoint("dialed AdminClient")
+
+	table := testEnv.Config().Table
 
 	// Delete the table at the end of the test.
 	// Do this even before creating the table so that if this is running
@@ -182,8 +168,9 @@ func TestClientIntegration(t *testing.T) {
 	// Do a bunch of reads with filters.
 	readTests := []struct {
 		desc   string
-		rr     RowRange
-		filter Filter // may be nil
+		rr     RowSet
+		filter Filter     // may be nil
+		limit  ReadOption // may be nil
 
 		// We do the read, grab all the cells, turn them into "<row>-<col>-<val>",
 		// sort that list, and join with a comma.
@@ -220,11 +207,101 @@ func TestClientIntegration(t *testing.T) {
 			filter: ColumnFilter(".*j.*"), // matches "jadams" and "tjefferson"
 			want:   "gwashington-jadams-1,jadams-tjefferson-1,tjefferson-jadams-1,wmckinley-tjefferson-1",
 		},
+		{
+			desc:   "read range, with ColumnRangeFilter",
+			rr:     RowRange{},
+			filter: ColumnRangeFilter("follows", "h", "k"),
+			want:   "gwashington-jadams-1,tjefferson-jadams-1",
+		},
+		{
+			desc:   "read range from empty, with ColumnRangeFilter",
+			rr:     RowRange{},
+			filter: ColumnRangeFilter("follows", "", "u"),
+			want:   "gwashington-jadams-1,jadams-gwashington-1,jadams-tjefferson-1,tjefferson-gwashington-1,tjefferson-jadams-1,wmckinley-tjefferson-1",
+		},
+		{
+			desc:   "read range from start to empty, with ColumnRangeFilter",
+			rr:     RowRange{},
+			filter: ColumnRangeFilter("follows", "h", ""),
+			want:   "gwashington-jadams-1,jadams-tjefferson-1,tjefferson-jadams-1,tjefferson-wmckinley-1,wmckinley-tjefferson-1",
+		},
+		{
+			desc:   "read with RowKeyFilter",
+			rr:     RowRange{},
+			filter: RowKeyFilter(".*wash.*"),
+			want:   "gwashington-jadams-1",
+		},
+		{
+			desc:   "read with RowKeyFilter, no matches",
+			rr:     RowRange{},
+			filter: RowKeyFilter(".*xxx.*"),
+			want:   "",
+		},
+		{
+			desc:   "read with FamilyFilter, no matches",
+			rr:     RowRange{},
+			filter: FamilyFilter(".*xxx.*"),
+			want:   "",
+		},
+		{
+			desc:   "read with ColumnFilter + row limit",
+			rr:     RowRange{},
+			filter: ColumnFilter(".*j.*"), // matches "jadams" and "tjefferson"
+			limit:  LimitRows(2),
+			want:   "gwashington-jadams-1,jadams-tjefferson-1",
+		},
+		{
+			desc:   "read all, strip values",
+			rr:     RowRange{},
+			filter: StripValueFilter(),
+			want:   "gwashington-jadams-,jadams-gwashington-,jadams-tjefferson-,tjefferson-gwashington-,tjefferson-jadams-,tjefferson-wmckinley-,wmckinley-tjefferson-",
+		},
+		{
+			desc:   "read with ColumnFilter + row limit + strip values",
+			rr:     RowRange{},
+			filter: ChainFilters(ColumnFilter(".*j.*"), StripValueFilter()), // matches "jadams" and "tjefferson"
+			limit:  LimitRows(2),
+			want:   "gwashington-jadams-,jadams-tjefferson-",
+		},
+		{
+			desc:   "read with condition, strip values on true",
+			rr:     RowRange{},
+			filter: ConditionFilter(ColumnFilter(".*j.*"), StripValueFilter(), nil),
+			want:   "gwashington-jadams-,jadams-gwashington-,jadams-tjefferson-,tjefferson-gwashington-,tjefferson-jadams-,tjefferson-wmckinley-,wmckinley-tjefferson-",
+		},
+		{
+			desc:   "read with condition, strip values on false",
+			rr:     RowRange{},
+			filter: ConditionFilter(ColumnFilter(".*xxx.*"), nil, StripValueFilter()),
+			want:   "gwashington-jadams-,jadams-gwashington-,jadams-tjefferson-,tjefferson-gwashington-,tjefferson-jadams-,tjefferson-wmckinley-,wmckinley-tjefferson-",
+		},
+		{
+			desc:   "read with ValueRangeFilter + row limit",
+			rr:     RowRange{},
+			filter: ValueRangeFilter([]byte("1"), []byte("5")), // matches our value of "1"
+			limit:  LimitRows(2),
+			want:   "gwashington-jadams-1,jadams-gwashington-1,jadams-tjefferson-1",
+		},
+		{
+			desc:   "read with ValueRangeFilter, no match on exclusive end",
+			rr:     RowRange{},
+			filter: ValueRangeFilter([]byte("0"), []byte("1")), // no match
+			want:   "",
+		},
+		{
+			desc:   "read with ValueRangeFilter, no matches",
+			rr:     RowRange{},
+			filter: ValueRangeFilter([]byte("3"), []byte("5")), // matches nothing
+			want:   "",
+		},
 	}
 	for _, tc := range readTests {
 		var opts []ReadOption
 		if tc.filter != nil {
 			opts = append(opts, RowFilter(tc.filter))
+		}
+		if tc.limit != nil {
+			opts = append(opts, tc.limit)
 		}
 		var elt []string
 		err := tbl.ReadRows(context.Background(), tc.rr, func(r Row) bool {
@@ -390,10 +467,34 @@ func TestClientIntegration(t *testing.T) {
 	if !reflect.DeepEqual(r, wantRow) {
 		t.Errorf("Cell with multiple versions and LatestNFilter(2),\n got %v\nwant %v", r, wantRow)
 	}
+	// Check timestamp range filtering (with truncation)
+	r, err = tbl.ReadRow(ctx, "testrow", RowFilter(TimestampRangeFilterMicros(1001, 3000)))
+	if err != nil {
+		t.Fatalf("Reading row: %v", err)
+	}
+	wantRow = Row{"ts": []ReadItem{
+		{Row: "testrow", Column: "ts:col", Timestamp: 2000, Value: []byte("val-2")},
+		{Row: "testrow", Column: "ts:col", Timestamp: 1000, Value: []byte("val-1")},
+	}}
+	if !reflect.DeepEqual(r, wantRow) {
+		t.Errorf("Cell with multiple versions and TimestampRangeFilter(1000, 3000),\n got %v\nwant %v", r, wantRow)
+	}
+	r, err = tbl.ReadRow(ctx, "testrow", RowFilter(TimestampRangeFilterMicros(1000, 0)))
+	if err != nil {
+		t.Fatalf("Reading row: %v", err)
+	}
+	wantRow = Row{"ts": []ReadItem{
+		{Row: "testrow", Column: "ts:col", Timestamp: 3000, Value: []byte("val-3")},
+		{Row: "testrow", Column: "ts:col", Timestamp: 2000, Value: []byte("val-2")},
+		{Row: "testrow", Column: "ts:col", Timestamp: 1000, Value: []byte("val-1")},
+	}}
+	if !reflect.DeepEqual(r, wantRow) {
+		t.Errorf("Cell with multiple versions and TimestampRangeFilter(1000, 0),\n got %v\nwant %v", r, wantRow)
+	}
 	// Delete the cell with timestamp 2000 and repeat the last read,
 	// checking that we get ts 3000 and ts 1000.
 	mut = NewMutation()
-	mut.DeleteTimestampRange("ts", "col", 2000, 3000) // half-open interval
+	mut.DeleteTimestampRange("ts", "col", 2001, 3000) // half-open interval
 	if err := tbl.Apply(ctx, "testrow", mut); err != nil {
 		t.Fatalf("Mutating row: %v", err)
 	}

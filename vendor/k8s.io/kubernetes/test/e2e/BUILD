@@ -22,6 +22,7 @@ go_library(
         "cluster_logging_utils.go",
         "cluster_size_autoscaling.go",
         "cluster_upgrade.go",
+        "cronjob.go",
         "daemon_restart.go",
         "daemon_set.go",
         "dashboard.go",
@@ -29,6 +30,8 @@ go_library(
         "deployment.go",
         "disruption.go",
         "dns.go",
+        "dns_autoscaling.go",
+        "dns_configmap.go",
         "e2e.go",
         "empty.go",
         "empty_dir_wrapper.go",
@@ -43,6 +46,8 @@ go_library(
         "federated-service.go",
         "federation-apiserver.go",
         "federation-authn.go",
+        "federation-daemonset.go",
+        "federation-deployment.go",
         "federation-event.go",
         "federation-replicaset.go",
         "federation-util.go",
@@ -59,6 +64,7 @@ go_library(
         "initial_resources.go",
         "job.go",
         "kibana_logging.go",
+        "kube_proxy.go",
         "kubectl.go",
         "kubelet.go",
         "kubelet_perf.go",
@@ -78,6 +84,7 @@ go_library(
         "persistent_volumes.go",
         "petset.go",
         "pod_gc.go",
+        "pods.go",
         "portforward.go",
         "pre_stop.go",
         "proxy.go",
@@ -88,7 +95,6 @@ go_library(
         "resize_nodes.go",
         "resource_quota.go",
         "restart.go",
-        "scheduledjob.go",
         "scheduler_predicates.go",
         "security_context.go",
         "service.go",
@@ -106,6 +112,7 @@ go_library(
     deps = [
         "//federation/apis/federation/v1beta1:go_default_library",
         "//federation/client/clientset_generated/federation_release_1_5:go_default_library",
+        "//federation/client/clientset_generated/federation_release_1_5/typed/core/v1:go_default_library",
         "//federation/pkg/federation-controller/util:go_default_library",
         "//pkg/api:go_default_library",
         "//pkg/api/annotations:go_default_library",
@@ -140,6 +147,10 @@ go_library(
         "//pkg/controller/endpoint:go_default_library",
         "//pkg/controller/job:go_default_library",
         "//pkg/controller/petset:go_default_library",
+        "//pkg/controller/replicaset:go_default_library",
+        "//pkg/controller/replication:go_default_library",
+        "//pkg/conversion:go_default_library",
+        "//pkg/dns/federation:go_default_library",
         "//pkg/fields:go_default_library",
         "//pkg/kubectl:go_default_library",
         "//pkg/kubectl/cmd/util:go_default_library",
@@ -172,6 +183,7 @@ go_library(
         "//test/e2e/chaosmonkey:go_default_library",
         "//test/e2e/common:go_default_library",
         "//test/e2e/framework:go_default_library",
+        "//test/images/net/nat:go_default_library",
         "//test/utils:go_default_library",
         "//vendor:github.com/aws/aws-sdk-go/aws",
         "//vendor:github.com/aws/aws-sdk-go/aws/awserr",
@@ -196,12 +208,15 @@ go_library(
         "//vendor:k8s.io/client-go/pkg/api/unversioned",
         "//vendor:k8s.io/client-go/pkg/api/v1",
         "//vendor:k8s.io/client-go/pkg/apis/extensions/v1beta1",
-        "//vendor:k8s.io/client-go/pkg/apis/policy/v1alpha1",
+        "//vendor:k8s.io/client-go/pkg/apis/policy/v1beta1",
         "//vendor:k8s.io/client-go/pkg/util/intstr",
     ],
 )
 
-go_test(
+# this is a private library until we can support building the
+# test binary
+# TODO(mikedanese): fix @io_bazelbuild/rules_go
+go_library(
     name = "go_default_test",
     srcs = [
         "e2e_test.go",
@@ -209,6 +224,7 @@ go_test(
     ],
     library = "go_default_library",
     tags = ["automanaged"],
+    visibility = ["//visibility:private"],
     deps = [
         "//pkg/api:go_default_library",
         "//pkg/client/clientset_generated/internalclientset:go_default_library",

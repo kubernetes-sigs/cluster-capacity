@@ -33,6 +33,9 @@ import (
 	"cloud.google.com/go/compute/metadata"
 	"golang.org/x/debug"
 	"golang.org/x/debug/local"
+	"golang.org/x/net/context"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 	cd "google.golang.org/api/clouddebugger/v2"
 )
 
@@ -80,14 +83,24 @@ func main() {
 	if err != nil {
 		log.Print("Reading source context file: ", err)
 	}
-	c, err := debuglet.NewController(debuglet.Options{
-		ProjectNumber:      *projectNumber,
-		ProjectID:          *projectID,
-		AppModule:          *appModule,
-		AppVersion:         *appVersion,
-		SourceContexts:     sourceContexts,
-		Verbose:            *verbose,
-		ServiceAccountFile: *serviceAccountFile,
+	var ts oauth2.TokenSource
+	ctx := context.Background()
+	if *serviceAccountFile != "" {
+		if ts, err = serviceAcctTokenSource(ctx, *serviceAccountFile, cd.CloudDebuggerScope); err != nil {
+			log.Fatalf("Error getting credentials from file %s: %v", *serviceAccountFile, err)
+		}
+	} else if ts, err = google.DefaultTokenSource(ctx, cd.CloudDebuggerScope); err != nil {
+		log.Print("Error getting application default credentials for Cloud Debugger:", err)
+		os.Exit(103)
+	}
+	c, err := debuglet.NewController(ctx, debuglet.Options{
+		ProjectNumber:  *projectNumber,
+		ProjectID:      *projectID,
+		AppModule:      *appModule,
+		AppVersion:     *appVersion,
+		SourceContexts: sourceContexts,
+		Verbose:        *verbose,
+		TokenSource:    ts,
 	})
 	if err != nil {
 		log.Fatal("Error connecting to Cloud Debugger: ", err)
@@ -122,14 +135,14 @@ func main() {
 	ch := make(chan bool)
 	// Start a goroutine that sends List requests to the Debuglet Controller, and
 	// sets any breakpoints it gets back.
-	go breakpointListLoop(c, bs, ch)
+	go breakpointListLoop(ctx, c, bs, ch)
 	// Wait until 5 seconds have passed or breakpointListLoop has closed ch.
 	select {
 	case <-time.After(5 * time.Second):
 	case <-ch:
 	}
 	// Run the debuggee.
-	programLoop(c, bs, prog)
+	programLoop(ctx, c, bs, prog)
 }
 
 // usage prints a usage message to stderr and exits.
@@ -169,7 +182,7 @@ func readSourceContextFile(filename string) ([]*cd.SourceContext, error) {
 // in the program.
 //
 // After the first List call finishes, ch is closed.
-func breakpointListLoop(c *debuglet.Controller, bs *breakpoints.BreakpointStore, first chan bool) {
+func breakpointListLoop(ctx context.Context, c *debuglet.Controller, bs *breakpoints.BreakpointStore, first chan bool) {
 	const (
 		avgTimeBetweenCalls = time.Second
 		errorDelay          = 5 * time.Second
@@ -184,7 +197,7 @@ func breakpointListLoop(c *debuglet.Controller, bs *breakpoints.BreakpointStore,
 
 	for {
 		callStart := time.Now()
-		resp, err := c.List()
+		resp, err := c.List(ctx)
 		if err != nil && err != debuglet.ErrListUnchanged {
 			log.Printf("Debuglet controller server error: %v", err)
 		}
@@ -204,7 +217,7 @@ func breakpointListLoop(c *debuglet.Controller, bs *breakpoints.BreakpointStore,
 		errorBps := bs.ErrorBreakpoints()
 		for _, bp := range errorBps {
 			go func(bp *cd.Breakpoint) {
-				if err := c.Update(bp.Id, bp); err != nil {
+				if err := c.Update(ctx, bp.Id, bp); err != nil {
 					log.Printf("Failed to send breakpoint update for %s: %s", bp.Id, err)
 				}
 			}(bp)
@@ -235,7 +248,7 @@ func breakpointListLoop(c *debuglet.Controller, bs *breakpoints.BreakpointStore,
 // programLoop runs the program being debugged to completion.  When a breakpoint's
 // conditions are satisfied, it sends an Update RPC to the Debuglet Controller.
 // The function returns when the program exits and all Update RPCs have finished.
-func programLoop(c *debuglet.Controller, bs *breakpoints.BreakpointStore, prog debug.Program) {
+func programLoop(ctx context.Context, c *debuglet.Controller, bs *breakpoints.BreakpointStore, prog debug.Program) {
 	var wg sync.WaitGroup
 	for {
 		// Run the program until it hits a breakpoint or exits.
@@ -306,7 +319,7 @@ func programLoop(c *debuglet.Controller, bs *breakpoints.BreakpointStore, prog d
 						bp.VariableTable = variableTable
 						bp.Status = stackFramesStatusMessage
 					}
-					if err := c.Update(bp.Id, bp); err != nil {
+					if err := c.Update(ctx, bp.Id, bp); err != nil {
 						log.Printf("Failed to send breakpoint update for %s: %s", bp.Id, err)
 					}
 				}(bp)
@@ -422,4 +435,16 @@ var refersToString = map[int]string{
 	refersToUnspecified:          "UNSPECIFIED",
 	refersToBreakpointCondition:  "BREAKPOINT_CONDITION",
 	refersToBreakpointExpression: "BREAKPOINT_EXPRESSION",
+}
+
+func serviceAcctTokenSource(ctx context.Context, filename string, scope ...string) (oauth2.TokenSource, error) {
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, fmt.Errorf("cannot read service account file: %v", err)
+	}
+	cfg, err := google.JWTConfigFromJSON(data, scope...)
+	if err != nil {
+		return nil, fmt.Errorf("google.JWTConfigFromJSON: %v", err)
+	}
+	return cfg.TokenSource(ctx), nil
 }

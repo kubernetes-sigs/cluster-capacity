@@ -311,10 +311,10 @@ func TestSimpleQuery(t *testing.T) {
 			continue
 		}
 
-		key1 := NewKey(ctx, "Gopher", "", 6, nil)
+		key1 := IDKey("Gopher", 6, nil)
 		expectedKeys := []*Key{
 			key1,
-			NewKey(ctx, "Gopher", "", 8, key1),
+			IDKey("Gopher", 8, key1),
 		}
 		if l1, l2 := len(keys), len(expectedKeys); l1 != l2 {
 			t.Errorf("dst type %T: got %d keys, want %d keys", tc.dst, l1, l2)
@@ -344,10 +344,10 @@ func TestSimpleQuery(t *testing.T) {
 // keysEqual is like (*Key).Equal, but ignores the App ID.
 func keysEqual(a, b *Key) bool {
 	for a != nil && b != nil {
-		if a.Kind() != b.Kind() || a.Name() != b.Name() || a.ID() != b.ID() {
+		if a.Kind != b.Kind || a.Name != b.Name || a.ID != b.ID {
 			return false
 		}
-		a, b = a.Parent(), b.Parent()
+		a, b = a.Parent, b.Parent
 	}
 	return a == b
 }
@@ -482,37 +482,12 @@ func TestNamespaceQuery(t *testing.T) {
 	}
 
 	const ns = "not_default"
-
-	// query namespace
-	ctx = context.Background()
 	client.GetAll(ctx, NewQuery("gopher").Namespace(ns), &gs)
 	if got, want := <-gotNamespace, ns; got != want {
 		t.Errorf("GetAll: got namespace %q, want %q", got, want)
 	}
 	client.Count(ctx, NewQuery("gopher").Namespace(ns))
 	if got, want := <-gotNamespace, ns; got != want {
-		t.Errorf("Count: got namespace %q, want %q", got, want)
-	}
-
-	// ctx namespace
-	ctx = WithNamespace(ctx, ns)
-	client.GetAll(ctx, NewQuery("gopher"), &gs)
-	if got, want := <-gotNamespace, ns; got != want {
-		t.Errorf("GetAll: got namespace %q, want %q", got, want)
-	}
-	client.Count(ctx, NewQuery("gopher"))
-	if got, want := <-gotNamespace, ns; got != want {
-		t.Errorf("Count: got namespace %q, want %q", got, want)
-	}
-
-	// query & ctx namespace (query namespace wins)
-	const ns2 = "not_default2"
-	client.GetAll(ctx, NewQuery("gopher").Namespace(ns2), &gs)
-	if got, want := <-gotNamespace, ns2; got != want {
-		t.Errorf("GetAll: got namespace %q, want %q", got, want)
-	}
-	client.Count(ctx, NewQuery("gopher").Namespace(ns2))
-	if got, want := <-gotNamespace, ns2; got != want {
 		t.Errorf("Count: got namespace %q, want %q", got, want)
 	}
 }

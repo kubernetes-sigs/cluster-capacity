@@ -15,6 +15,9 @@
 package bigquery
 
 import (
+	"fmt"
+	"reflect"
+
 	"golang.org/x/net/context"
 	"google.golang.org/api/iterator"
 )
@@ -46,25 +49,83 @@ type RowIterator struct {
 	pageInfo *iterator.PageInfo
 	nextFunc func() error
 
-	// StartIndex can be set before the first call to Next. If PageInfo().PageToken
+	// StartIndex can be set before the first call to Next. If PageInfo().Token
 	// is also set, StartIndex is ignored.
 	StartIndex uint64
 
 	rows [][]Value
 
-	schema Schema // populated on first call to fetch
+	schema       Schema       // populated on first call to fetch
+	structLoader structLoader // used to populate a pointer to a struct
 }
 
 // Next loads the next row into dst. Its return value is iterator.Done if there
 // are no more results. Once Next returns iterator.Done, all subsequent calls
 // will return iterator.Done.
-func (it *RowIterator) Next(dst ValueLoader) error {
+//
+// dst may implement ValueLoader, or may be a *[]Value, *map[string]Value, or struct pointer.
+//
+// If dst is a *[]Value, it will be set to to new []Value whose i'th element
+// will be populated with the i'th column of the row.
+//
+// If dst is a *map[string]Value, a new map will be created if dst is nil. Then
+// for each schema column name, the map key of that name will be set to the column's
+// value.
+//
+// If dst is pointer to a struct, each column in the schema will be matched
+// with an exported field of the struct that has the same name, ignoring case.
+// Unmatched schema columns and struct fields will be ignored.
+//
+// Each BigQuery column type corresponds to one or more Go types; a matching struct
+// field must be of the correct type. The correspondences are:
+//
+//   STRING      string
+//   BOOL        bool
+//   INTEGER     int, int8, int16, int32, int64, uint8, uint16, uint32
+//   FLOAT       float32, float64
+//   BYTES       []byte
+//   TIMESTAMP   time.Time
+//   DATE        civil.Date
+//   TIME        civil.Time
+//   DATETIME    civil.DateTime
+//
+// A repeated field corresponds to a slice or array of the element type.
+// A RECORD type (nested schema) corresponds to a nested struct or struct pointer.
+// All calls to Next on the same iterator must use the same struct type.
+func (it *RowIterator) Next(dst interface{}) error {
+	var vl ValueLoader
+	switch dst := dst.(type) {
+	case ValueLoader:
+		vl = dst
+	case *[]Value:
+		vl = (*valueList)(dst)
+	case *map[string]Value:
+		vl = (*valueMap)(dst)
+	default:
+		if !isStructPtr(dst) {
+			return fmt.Errorf("bigquery: cannot convert %T to ValueLoader (need pointer to []Value, map[string]Value, or struct)", dst)
+		}
+	}
 	if err := it.nextFunc(); err != nil {
 		return err
 	}
 	row := it.rows[0]
 	it.rows = it.rows[1:]
-	return dst.Load(row, it.schema)
+
+	if vl == nil {
+		// This can only happen if dst is a pointer to a struct. We couldn't
+		// set vl above because we need the schema.
+		if err := it.structLoader.set(dst, it.schema); err != nil {
+			return err
+		}
+		vl = &it.structLoader
+	}
+	return vl.Load(row, it.schema)
+}
+
+func isStructPtr(x interface{}) bool {
+	t := reflect.TypeOf(x)
+	return t.Kind() == reflect.Ptr && t.Elem().Kind() == reflect.Struct
 }
 
 // PageInfo supports pagination. See the google.golang.org/api/iterator package for details.

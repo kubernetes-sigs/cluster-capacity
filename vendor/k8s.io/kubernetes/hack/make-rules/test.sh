@@ -35,6 +35,7 @@ kube::test::find_dirs() {
           -path './_artifacts/*' \
           -o -path './_output/*' \
           -o -path './_gopath/*' \
+          -o -path './cmd/kubeadm/test/*' \
           -o -path './contrib/podex/*' \
           -o -path './output/*' \
           -o -path './release/*' \
@@ -52,6 +53,7 @@ kube::test::find_dirs() {
     find -L . \
         -path './_output' -prune \
         -o -path './vendor/k8s.io/client-go/*' \
+        -o -path './test/e2e_node/system/*' \
       -name '*_test.go' -print0 | xargs -0n1 dirname | sed 's|^\./||' | LC_ALL=C sort -u
   )
 }

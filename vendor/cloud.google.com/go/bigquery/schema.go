@@ -16,7 +16,10 @@ package bigquery
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
+
+	"cloud.google.com/go/internal/atomiccache"
 
 	bq "google.golang.org/api/bigquery/v2"
 )
@@ -106,72 +109,113 @@ type FieldType string
 
 const (
 	StringFieldType    FieldType = "STRING"
+	BytesFieldType     FieldType = "BYTES"
 	IntegerFieldType   FieldType = "INTEGER"
 	FloatFieldType     FieldType = "FLOAT"
 	BooleanFieldType   FieldType = "BOOLEAN"
 	TimestampFieldType FieldType = "TIMESTAMP"
 	RecordFieldType    FieldType = "RECORD"
+	DateFieldType      FieldType = "DATE"
+	TimeFieldType      FieldType = "TIME"
+	DateTimeFieldType  FieldType = "DATETIME"
 )
 
-var errNoStruct = errors.New("bigquery: can only infer schema from struct or pointer to struct")
-var errUnsupportedFieldType = errors.New("bigquery: unsupported type of field in struct")
+var (
+	errNoStruct             = errors.New("bigquery: can only infer schema from struct or pointer to struct")
+	errUnsupportedFieldType = errors.New("bigquery: unsupported type of field in struct")
+	errInvalidFieldName     = errors.New("bigquery: invalid name of field in struct")
+)
+
+var typeOfByteSlice = reflect.TypeOf([]byte{})
 
 // InferSchema tries to derive a BigQuery schema from the supplied struct value.
 // NOTE: All fields in the returned Schema are configured to be required,
 // unless the corresponding field in the supplied struct is a slice or array.
+//
 // It is considered an error if the struct (including nested structs) contains
 // any exported fields that are pointers or one of the following types:
-// map, interface, complex64, complex128, func, chan.
+// uint, uint64, uintptr, map, interface, complex64, complex128, func, chan.
 // In these cases, an error will be returned.
 // Future versions may handle these cases without error.
+//
+// Recursively defined structs are also disallowed.
 func InferSchema(st interface{}) (Schema, error) {
-	return inferStruct(reflect.TypeOf(st))
+	return inferSchemaReflect(reflect.TypeOf(st))
 }
 
-func inferStruct(rt reflect.Type) (Schema, error) {
-	switch rt.Kind() {
+var schemaCache atomiccache.Cache
+
+type cacheVal struct {
+	schema Schema
+	err    error
+}
+
+func inferSchemaReflect(t reflect.Type) (Schema, error) {
+	cv := schemaCache.Get(t, func() interface{} {
+		s, err := inferStruct(t, map[reflect.Type]bool{})
+		return cacheVal{s, err}
+	}).(cacheVal)
+	return cv.schema, cv.err
+}
+
+func inferStruct(t reflect.Type, seen map[reflect.Type]bool) (Schema, error) {
+	if seen[t] {
+		return nil, fmt.Errorf("bigquery: schema inference for recursive type %s", t)
+	}
+	seen[t] = true
+	switch t.Kind() {
+	case reflect.Ptr:
+		if t.Elem().Kind() != reflect.Struct {
+			return nil, errNoStruct
+		}
+		t = t.Elem()
+		fallthrough
+
 	case reflect.Struct:
-		return inferFields(rt)
+		return inferFields(t, seen)
 	default:
 		return nil, errNoStruct
 	}
-
 }
 
 // inferFieldSchema infers the FieldSchema for a Go type
-func inferFieldSchema(rt reflect.Type) (*FieldSchema, error) {
-	switch {
-	case isByteSlice(rt):
-		return &FieldSchema{Required: true, Type: StringFieldType}, nil
-	case isTimeTime(rt):
+func inferFieldSchema(rt reflect.Type, seen map[reflect.Type]bool) (*FieldSchema, error) {
+	switch rt {
+	case typeOfByteSlice:
+		return &FieldSchema{Required: true, Type: BytesFieldType}, nil
+	case typeOfGoTime:
 		return &FieldSchema{Required: true, Type: TimestampFieldType}, nil
-	case isRepeated(rt):
+	case typeOfDate:
+		return &FieldSchema{Required: true, Type: DateFieldType}, nil
+	case typeOfTime:
+		return &FieldSchema{Required: true, Type: TimeFieldType}, nil
+	case typeOfDateTime:
+		return &FieldSchema{Required: true, Type: DateTimeFieldType}, nil
+	}
+	if isSupportedIntType(rt) {
+		return &FieldSchema{Required: true, Type: IntegerFieldType}, nil
+	}
+	switch rt.Kind() {
+	case reflect.Slice, reflect.Array:
 		et := rt.Elem()
-
-		if isRepeated(et) && !isByteSlice(et) {
+		if et != typeOfByteSlice && (et.Kind() == reflect.Slice || et.Kind() == reflect.Array) {
 			// Multi dimensional slices/arrays are not supported by BigQuery
 			return nil, errUnsupportedFieldType
 		}
 
-		f, err := inferFieldSchema(et)
+		f, err := inferFieldSchema(et, seen)
 		if err != nil {
 			return nil, err
 		}
 		f.Repeated = true
 		f.Required = false
 		return f, nil
-	case isStruct(rt):
-		nested, err := inferFields(rt)
+	case reflect.Struct, reflect.Ptr:
+		nested, err := inferStruct(rt, seen)
 		if err != nil {
 			return nil, err
 		}
 		return &FieldSchema{Required: true, Type: RecordFieldType, Schema: nested}, nil
-	}
-
-	switch rt.Kind() {
-	case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int,
-		reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint, reflect.Uintptr:
-		return &FieldSchema{Required: true, Type: IntegerFieldType}, nil
 	case reflect.String:
 		return &FieldSchema{Required: true, Type: StringFieldType}, nil
 	case reflect.Bool:
@@ -184,48 +228,29 @@ func inferFieldSchema(rt reflect.Type) (*FieldSchema, error) {
 }
 
 // inferFields extracts all exported field types from struct type.
-func inferFields(rt reflect.Type) (Schema, error) {
+func inferFields(rt reflect.Type, seen map[reflect.Type]bool) (Schema, error) {
 	var s Schema
-
-	for i := 0; i < rt.NumField(); i++ {
-		field := rt.Field(i)
-		if field.PkgPath != "" {
-			// field is unexported.
-			continue
-		}
-
-		if field.Anonymous {
-			// TODO(nightlyone) support embedded (see https://github.com/GoogleCloudPlatform/google-cloud-go/issues/238)
-			return nil, errUnsupportedFieldType
-		}
-
-		f, err := inferFieldSchema(field.Type)
+	fields, err := fieldCache.Fields(rt)
+	if err != nil {
+		return nil, err
+	}
+	for _, field := range fields {
+		f, err := inferFieldSchema(field.Type, seen)
 		if err != nil {
 			return nil, err
 		}
 		f.Name = field.Name
-
 		s = append(s, f)
 	}
-
 	return s, nil
 }
 
-func isByteSlice(rt reflect.Type) bool {
-	return rt.Kind() == reflect.Slice && rt.Elem().Kind() == reflect.Uint8
-}
-
-func isTimeTime(rt reflect.Type) bool {
-	return rt.PkgPath() == "time" && rt.Name() == "Time"
-}
-
-func isStruct(rt reflect.Type) bool {
-	return rt.Kind() == reflect.Struct
-}
-
-func isRepeated(rt reflect.Type) bool {
-	switch rt.Kind() {
-	case reflect.Slice, reflect.Array:
+// isSupportedIntType reports whether t can be properly represented by the
+// BigQuery INTEGER/INT64 type.
+func isSupportedIntType(t reflect.Type) bool {
+	switch t.Kind() {
+	case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int,
+		reflect.Uint8, reflect.Uint16, reflect.Uint32:
 		return true
 	default:
 		return false

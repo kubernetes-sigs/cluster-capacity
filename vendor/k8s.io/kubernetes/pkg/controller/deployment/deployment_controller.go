@@ -301,6 +301,7 @@ func (dc *DeploymentController) handleErr(err error, key interface{}) {
 	}
 
 	utilruntime.HandleError(err)
+	glog.V(2).Infof("Dropping deployment %q out of the queue: %v", key, err)
 	dc.queue.Forget(key)
 }
 
@@ -350,6 +351,21 @@ func (dc *DeploymentController) syncDeployment(key string) error {
 		return nil
 	}
 
+	// Update deployment conditions with an Unknown condition when pausing/resuming
+	// a deployment. In this way, we can be sure that we won't timeout when a user
+	// resumes a Deployment with a set progressDeadlineSeconds.
+	if err = dc.checkPausedConditions(d); err != nil {
+		return err
+	}
+
+	_, err = dc.hasFailed(d)
+	if err != nil {
+		return err
+	}
+	// TODO: Automatically rollback here if we failed above. Locate the last complete
+	// revision and populate the rollback spec with it.
+	// See https://github.com/kubernetes/kubernetes/issues/23211.
+
 	if d.Spec.Paused {
 		return dc.sync(d)
 	}
@@ -382,17 +398,17 @@ func (dc *DeploymentController) syncDeployment(key string) error {
 // the newer overlapping ones (only sync the oldest one). New/old is determined by when the
 // deployment's selector is last updated.
 func (dc *DeploymentController) handleOverlap(d *extensions.Deployment) error {
-	selector, err := unversioned.LabelSelectorAsSelector(d.Spec.Selector)
-	if err != nil {
-		return fmt.Errorf("deployment %s/%s has invalid label selector: %v", d.Namespace, d.Name, err)
-	}
 	deployments, err := dc.dLister.Deployments(d.Namespace).List(labels.Everything())
 	if err != nil {
 		return fmt.Errorf("error listing deployments in namespace %s: %v", d.Namespace, err)
 	}
 	overlapping := false
 	for _, other := range deployments {
-		if !selector.Empty() && selector.Matches(labels.Set(other.Spec.Template.Labels)) && d.UID != other.UID {
+		foundOverlaps, err := util.OverlapsWith(d, other)
+		if err != nil {
+			return err
+		}
+		if foundOverlaps {
 			deploymentCopy, err := util.DeploymentDeepCopy(other)
 			if err != nil {
 				return err

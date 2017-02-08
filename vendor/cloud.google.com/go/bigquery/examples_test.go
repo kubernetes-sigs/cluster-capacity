@@ -17,7 +17,6 @@ package bigquery_test
 import (
 	"fmt"
 	"os"
-	"time"
 
 	"cloud.google.com/go/bigquery"
 	"golang.org/x/net/context"
@@ -89,7 +88,7 @@ func ExampleClient_JobFromID() {
 	fmt.Println(job)
 }
 
-func ExampleClient_NewGCSReference() {
+func ExampleNewGCSReference() {
 	gcsRef := bigquery.NewGCSReference("gs://my-bucket/my-object")
 	fmt.Println(gcsRef)
 }
@@ -102,6 +101,20 @@ func ExampleClient_Query() {
 	}
 	q := client.Query("select name, num from t1")
 	q.DefaultProjectID = "project-id"
+	// TODO: set other options on the Query.
+	// TODO: Call Query.Run or Query.Read.
+}
+
+func ExampleClient_Query_parameters() {
+	ctx := context.Background()
+	client, err := bigquery.NewClient(ctx, "project-id")
+	if err != nil {
+		// TODO: Handle error.
+	}
+	q := client.Query("select num from t1 where name = @user")
+	q.Parameters = []bigquery.QueryParameter{
+		{Name: "user", Value: "Elizabeth"},
+	}
 	// TODO: set other options on the Query.
 	// TODO: Call Query.Run or Query.Read.
 }
@@ -132,7 +145,7 @@ func ExampleRowIterator_Next() {
 		// TODO: Handle error.
 	}
 	for {
-		var row bigquery.ValueList
+		var row []bigquery.Value
 		err := it.Next(&row)
 		if err == iterator.Done {
 			break
@@ -141,6 +154,36 @@ func ExampleRowIterator_Next() {
 			// TODO: Handle error.
 		}
 		fmt.Println(row)
+	}
+}
+
+func ExampleRowIterator_Next_struct() {
+	ctx := context.Background()
+	client, err := bigquery.NewClient(ctx, "project-id")
+	if err != nil {
+		// TODO: Handle error.
+	}
+
+	type score struct {
+		Name string
+		Num  int
+	}
+
+	q := client.Query("select name, num from t1")
+	it, err := q.Read(ctx)
+	if err != nil {
+		// TODO: Handle error.
+	}
+	for {
+		var s score
+		err := it.Next(&s)
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			// TODO: Handle error.
+		}
+		fmt.Println(s)
 	}
 }
 
@@ -164,15 +207,59 @@ func ExampleJob_Read() {
 	_ = it // TODO: iterate using Next or iterator.Pager.
 }
 
+func ExampleJob_Wait() {
+	ctx := context.Background()
+	client, err := bigquery.NewClient(ctx, "project-id")
+	if err != nil {
+		// TODO: Handle error.
+	}
+	ds := client.Dataset("my_dataset")
+	job, err := ds.Table("t1").CopierFrom(ds.Table("t2")).Run(ctx)
+	if err != nil {
+		// TODO: Handle error.
+	}
+	status, err := job.Wait(ctx)
+	if err != nil {
+		// TODO: Handle error.
+	}
+	if status.Err() != nil {
+		// TODO: Handle error.
+	}
+}
+
 func ExampleDataset_Create() {
 	ctx := context.Background()
 	client, err := bigquery.NewClient(ctx, "project-id")
 	if err != nil {
 		// TODO: Handle error.
 	}
-	if err := client.Dataset("new-dataset").Create(ctx); err != nil {
+	if err := client.Dataset("my_dataset").Create(ctx); err != nil {
 		// TODO: Handle error.
 	}
+}
+
+func ExampleDataset_Delete() {
+	ctx := context.Background()
+	client, err := bigquery.NewClient(ctx, "project-id")
+	if err != nil {
+		// TODO: Handle error.
+	}
+	if err := client.Dataset("my_dataset").Delete(ctx); err != nil {
+		// TODO: Handle error.
+	}
+}
+
+func ExampleDataset_Metadata() {
+	ctx := context.Background()
+	client, err := bigquery.NewClient(ctx, "project-id")
+	if err != nil {
+		// TODO: Handle error.
+	}
+	md, err := client.Dataset("my_dataset").Metadata(ctx)
+	if err != nil {
+		// TODO: Handle error.
+	}
+	fmt.Println(md)
 }
 
 func ExampleDataset_Table() {
@@ -236,6 +323,27 @@ func ExampleInferSchema() {
 	// Count INTEGER
 }
 
+func ExampleInferSchema_tags() {
+	type Item struct {
+		Name   string
+		Size   float64
+		Count  int    `bigquery:"number"`
+		Secret []byte `bigquery:"-"`
+	}
+	schema, err := bigquery.InferSchema(Item{})
+	if err != nil {
+		fmt.Println(err)
+		// TODO: Handle error.
+	}
+	for _, fs := range schema {
+		fmt.Println(fs.Name, fs.Type)
+	}
+	// Output:
+	// Name STRING
+	// Size FLOAT
+	// number INTEGER
+}
+
 func ExampleTable_Create() {
 	ctx := context.Background()
 	client, err := bigquery.NewClient(ctx, "project-id")
@@ -244,6 +352,23 @@ func ExampleTable_Create() {
 	}
 	t := client.Dataset("my_dataset").Table("new-table")
 	if err := t.Create(ctx); err != nil {
+		// TODO: Handle error.
+	}
+}
+
+func ExampleTable_Create_schema() {
+	ctx := context.Background()
+	// Infer table schema from a Go type.
+	schema, err := bigquery.InferSchema(Item{})
+	if err != nil {
+		// TODO: Handle error.
+	}
+	client, err := bigquery.NewClient(ctx, "project-id")
+	if err != nil {
+		// TODO: Handle error.
+	}
+	t := client.Dataset("my_dataset").Table("new-table")
+	if err := t.Create(ctx, schema); err != nil {
 		// TODO: Handle error.
 	}
 }
@@ -308,23 +433,14 @@ func ExampleTable_CopierFrom() {
 	if err != nil {
 		// TODO: Handle error.
 	}
-	// Poll for job completion.
-	for {
-		status, err := job.Status(ctx)
-		if err != nil {
-			// TODO: Handle error.
-		}
-		if status.Done() {
-			if status.Err() != nil {
-				// TODO: Handle error.
-			}
-			break
-		}
-		time.Sleep(pollInterval)
+	status, err := job.Wait(ctx)
+	if err != nil {
+		// TODO: Handle error.
+	}
+	if status.Err() != nil {
+		// TODO: Handle error.
 	}
 }
-
-const pollInterval = 30 * time.Second
 
 func ExampleTable_ExtractorTo() {
 	ctx := context.Background()
@@ -343,19 +459,12 @@ func ExampleTable_ExtractorTo() {
 	if err != nil {
 		// TODO: Handle error.
 	}
-	// Poll for job completion.
-	for {
-		status, err := job.Status(ctx)
-		if err != nil {
-			// TODO: Handle error.
-		}
-		if status.Done() {
-			if status.Err() != nil {
-				// TODO: Handle error.
-			}
-			break
-		}
-		time.Sleep(pollInterval)
+	status, err := job.Wait(ctx)
+	if err != nil {
+		// TODO: Handle error.
+	}
+	if status.Err() != nil {
+		// TODO: Handle error.
 	}
 }
 
@@ -376,19 +485,12 @@ func ExampleTable_LoaderFrom() {
 	if err != nil {
 		// TODO: Handle error.
 	}
-	// Poll for job completion.
-	for {
-		status, err := job.Status(ctx)
-		if err != nil {
-			// TODO: Handle error.
-		}
-		if status.Done() {
-			if status.Err() != nil {
-				// TODO: Handle error.
-			}
-			break
-		}
-		time.Sleep(pollInterval)
+	status, err := job.Wait(ctx)
+	if err != nil {
+		// TODO: Handle error.
+	}
+	if status.Err() != nil {
+		// TODO: Handle error.
 	}
 }
 
@@ -413,19 +515,12 @@ func ExampleTable_LoaderFrom_reader() {
 	if err != nil {
 		// TODO: Handle error.
 	}
-	// Poll for job completion.
-	for {
-		status, err := job.Status(ctx)
-		if err != nil {
-			// TODO: Handle error.
-		}
-		if status.Done() {
-			if status.Err() != nil {
-				// TODO: Handle error.
-			}
-			break
-		}
-		time.Sleep(pollInterval)
+	status, err := job.Wait(ctx)
+	if err != nil {
+		// TODO: Handle error.
+	}
+	if status.Err() != nil {
+		// TODO: Handle error.
 	}
 }
 
@@ -503,6 +598,55 @@ func ExampleUploader_Put() {
 		{Name: "n3", Size: 101.5, Count: 1},
 	}
 	if err := u.Put(ctx, items); err != nil {
+		// TODO: Handle error.
+	}
+}
+
+var schema bigquery.Schema
+
+func ExampleUploader_Put_structSaver() {
+	ctx := context.Background()
+	client, err := bigquery.NewClient(ctx, "project-id")
+	if err != nil {
+		// TODO: Handle error.
+	}
+	u := client.Dataset("my_dataset").Table("my_table").Uploader()
+
+	type score struct {
+		Name string
+		Num  int
+	}
+
+	// Assume schema holds the table's schema.
+	savers := []*bigquery.StructSaver{
+		{Struct: score{Name: "n1", Num: 12}, Schema: schema, InsertID: "id1"},
+		{Struct: score{Name: "n2", Num: 31}, Schema: schema, InsertID: "id2"},
+		{Struct: score{Name: "n3", Num: 7}, Schema: schema, InsertID: "id3"},
+	}
+	if err := u.Put(ctx, savers); err != nil {
+		// TODO: Handle error.
+	}
+}
+
+func ExampleUploader_Put_struct() {
+	ctx := context.Background()
+	client, err := bigquery.NewClient(ctx, "project-id")
+	if err != nil {
+		// TODO: Handle error.
+	}
+	u := client.Dataset("my_dataset").Table("my_table").Uploader()
+
+	type score struct {
+		Name string
+		Num  int
+	}
+	scores := []score{
+		{Name: "n1", Num: 12},
+		{Name: "n2", Num: 31},
+		{Name: "n3", Num: 7},
+	}
+	// Schema is inferred from the score type.
+	if err := u.Put(ctx, scores); err != nil {
 		// TODO: Handle error.
 	}
 }

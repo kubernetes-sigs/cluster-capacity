@@ -1,10 +1,9 @@
 package main
 
 import (
+	"github.com/emicklei/go-restful"
 	"log"
 	"net/http"
-
-	"github.com/emicklei/go-restful"
 )
 
 // This example has the same service definition as restful-user-resource
@@ -81,7 +80,8 @@ func (u *UserResource) createUser(request *restful.Request, response *restful.Re
 	err := request.ReadEntity(&usr)
 	if err == nil {
 		u.users[usr.Id] = usr
-		response.WriteHeaderAndEntity(http.StatusCreated, usr)
+		response.WriteHeader(http.StatusCreated)
+		response.WriteEntity(usr)
 	} else {
 		response.AddHeader("Content-Type", "text/plain")
 		response.WriteErrorString(http.StatusInternalServerError, err.Error())

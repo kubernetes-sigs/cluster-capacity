@@ -18,28 +18,33 @@ package master
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"reflect"
+	"strconv"
 	"time"
 
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	apiv1 "k8s.io/kubernetes/pkg/api/v1"
-	appsapi "k8s.io/kubernetes/pkg/apis/apps/v1alpha1"
+	appsapi "k8s.io/kubernetes/pkg/apis/apps/v1beta1"
 	authenticationv1beta1 "k8s.io/kubernetes/pkg/apis/authentication/v1beta1"
 	authorizationapiv1beta1 "k8s.io/kubernetes/pkg/apis/authorization/v1beta1"
 	autoscalingapiv1 "k8s.io/kubernetes/pkg/apis/autoscaling/v1"
 	batchapiv1 "k8s.io/kubernetes/pkg/apis/batch/v1"
 	certificatesapiv1alpha1 "k8s.io/kubernetes/pkg/apis/certificates/v1alpha1"
 	extensionsapiv1beta1 "k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
-	policyapiv1alpha1 "k8s.io/kubernetes/pkg/apis/policy/v1alpha1"
+	policyapiv1beta1 "k8s.io/kubernetes/pkg/apis/policy/v1beta1"
 	rbacapi "k8s.io/kubernetes/pkg/apis/rbac/v1alpha1"
 	storageapiv1beta1 "k8s.io/kubernetes/pkg/apis/storage/v1beta1"
 	coreclient "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/typed/core/internalversion"
 	"k8s.io/kubernetes/pkg/genericapiserver"
+	"k8s.io/kubernetes/pkg/genericapiserver/options"
 	"k8s.io/kubernetes/pkg/healthz"
 	kubeletclient "k8s.io/kubernetes/pkg/kubelet/client"
 	"k8s.io/kubernetes/pkg/master/thirdparty"
+	utilnet "k8s.io/kubernetes/pkg/util/net"
+	nodeutil "k8s.io/kubernetes/pkg/util/node"
 
 	"k8s.io/kubernetes/pkg/registry/generic"
 	"k8s.io/kubernetes/pkg/registry/generic/registry"
@@ -84,6 +89,38 @@ type Config struct {
 	EnableUISupport   bool
 	EnableLogsSupport bool
 	ProxyTransport    http.RoundTripper
+
+	// Values to build the IP addresses used by discovery
+	// The range of IPs to be assigned to services with type=ClusterIP or greater
+	ServiceIPRange net.IPNet
+	// The IP address for the GenericAPIServer service (must be inside ServiceIPRange)
+	APIServerServiceIP net.IP
+	// Port for the apiserver service.
+	APIServerServicePort int
+
+	// TODO, we can probably group service related items into a substruct to make it easier to configure
+	// the API server items and `Extra*` fields likely fit nicely together.
+
+	// The range of ports to be assigned to services with type=NodePort or greater
+	ServiceNodePortRange utilnet.PortRange
+	// Additional ports to be exposed on the GenericAPIServer service
+	// extraServicePorts is injectable in the event that more ports
+	// (other than the default 443/tcp) are exposed on the GenericAPIServer
+	// and those ports need to be load balanced by the GenericAPIServer
+	// service because this pkg is linked by out-of-tree projects
+	// like openshift which want to use the GenericAPIServer but also do
+	// more stuff.
+	ExtraServicePorts []api.ServicePort
+	// Additional ports to be exposed on the GenericAPIServer endpoints
+	// Port names should align with ports defined in ExtraServicePorts
+	ExtraEndpointPorts []api.EndpointPort
+	// If non-zero, the "kubernetes" services uses this port as NodePort.
+	// TODO(sttts): move into master
+	KubernetesServiceNodePort int
+
+	// Number of masters running; all masters must be started with the
+	// same value for this field. (Numbers > 1 currently untested.)
+	MasterCount int
 }
 
 // EndpointReconcilerConfig holds the endpoint reconciler and endpoint reconciliation interval to be
@@ -106,6 +143,31 @@ type completedConfig struct {
 func (c *Config) Complete() completedConfig {
 	c.GenericConfig.Complete()
 
+	serviceIPRange, apiServerServiceIP, err := genericapiserver.DefaultServiceIPRange(c.ServiceIPRange)
+	if err != nil {
+		glog.Fatalf("Error determining service IP ranges: %v", err)
+	}
+	if c.ServiceIPRange.IP == nil {
+		c.ServiceIPRange = serviceIPRange
+	}
+	if c.APIServerServiceIP == nil {
+		c.APIServerServiceIP = apiServerServiceIP
+	}
+
+	discoveryAddresses := genericapiserver.DefaultDiscoveryAddresses{DefaultAddress: c.GenericConfig.ExternalAddress}
+	discoveryAddresses.DiscoveryCIDRRules = append(discoveryAddresses.DiscoveryCIDRRules,
+		genericapiserver.DiscoveryCIDRRule{IPRange: c.ServiceIPRange, Address: net.JoinHostPort(c.APIServerServiceIP.String(), strconv.Itoa(c.APIServerServicePort))})
+	c.GenericConfig.DiscoveryAddresses = discoveryAddresses
+
+	if c.ServiceNodePortRange.Size == 0 {
+		// TODO: Currently no way to specify an empty range (do we need to allow this?)
+		// We should probably allow this for clouds that don't require NodePort to do load-balancing (GCE)
+		// but then that breaks the strict nestedness of ServiceType.
+		// Review post-v1
+		c.ServiceNodePortRange = options.DefaultServiceNodePortRange
+		glog.Infof("Node port range unspecified. Defaulting to %v.", c.ServiceNodePortRange)
+	}
+
 	// enable swagger UI only if general UI support is on
 	c.GenericConfig.EnableSwaggerUI = c.GenericConfig.EnableSwaggerUI && c.EnableUISupport
 
@@ -116,8 +178,11 @@ func (c *Config) Complete() completedConfig {
 	if c.EndpointReconcilerConfig.Reconciler == nil {
 		// use a default endpoint reconciler if nothing is set
 		endpointClient := coreclient.NewForConfigOrDie(c.GenericConfig.LoopbackClientConfig)
-		c.EndpointReconcilerConfig.Reconciler = NewMasterCountEndpointReconciler(c.GenericConfig.MasterCount, endpointClient)
+		c.EndpointReconcilerConfig.Reconciler = NewMasterCountEndpointReconciler(c.MasterCount, endpointClient)
 	}
+
+	// this has always been hardcoded true in the past
+	c.GenericConfig.EnableMetrics = true
 
 	return completedConfig{c}
 }
@@ -167,13 +232,13 @@ func (c completedConfig) New() (*Master, error) {
 	// install legacy rest storage
 	if c.GenericConfig.APIResourceConfigSource.AnyResourcesForVersionEnabled(apiv1.SchemeGroupVersion) {
 		legacyRESTStorageProvider := corerest.LegacyRESTStorageProvider{
-			StorageFactory:        c.StorageFactory,
-			ProxyTransport:        c.ProxyTransport,
-			KubeletClientConfig:   c.KubeletClientConfig,
-			EventTTL:              c.EventTTL,
-			ServiceClusterIPRange: c.GenericConfig.ServiceClusterIPRange,
-			ServiceNodePortRange:  c.GenericConfig.ServiceNodePortRange,
-			LoopbackClientConfig:  c.GenericConfig.LoopbackClientConfig,
+			StorageFactory:       c.StorageFactory,
+			ProxyTransport:       c.ProxyTransport,
+			KubeletClientConfig:  c.KubeletClientConfig,
+			EventTTL:             c.EventTTL,
+			ServiceIPRange:       c.ServiceIPRange,
+			ServiceNodePortRange: c.ServiceNodePortRange,
+			LoopbackClientConfig: c.GenericConfig.LoopbackClientConfig,
 		}
 		m.InstallLegacyAPI(c.Config, restOptionsFactory.NewFor, legacyRESTStorageProvider)
 	}
@@ -192,7 +257,9 @@ func (c completedConfig) New() (*Master, error) {
 	}
 	m.InstallAPIs(c.Config.GenericConfig.APIResourceConfigSource, restOptionsFactory.NewFor, restStorageProviders...)
 
-	m.InstallGeneralEndpoints(c.Config)
+	if c.Tunneler != nil {
+		m.installTunneler(c.Tunneler, coreclient.NewForConfigOrDie(c.GenericConfig.LoopbackClientConfig).Nodes())
+	}
 
 	return m, nil
 }
@@ -204,7 +271,8 @@ func (m *Master) InstallLegacyAPI(c *Config, restOptionsGetter genericapiserver.
 	}
 
 	if c.EnableCoreControllers {
-		bootstrapController := c.NewBootstrapController(legacyRESTStorage)
+		serviceClient := coreclient.NewForConfigOrDie(c.GenericConfig.LoopbackClientConfig)
+		bootstrapController := c.NewBootstrapController(legacyRESTStorage, serviceClient)
 		if err := m.GenericAPIServer.AddPostStartHook("bootstrap-controller", bootstrapController.PostStartHook); err != nil {
 			glog.Fatalf("Error registering PostStartHook %q: %v", "bootstrap-controller", err)
 		}
@@ -215,29 +283,13 @@ func (m *Master) InstallLegacyAPI(c *Config, restOptionsGetter genericapiserver.
 	}
 }
 
-// TODO this needs to be refactored so we have a way to add general health checks to genericapiserver
-// TODO profiling should be generic
-func (m *Master) InstallGeneralEndpoints(c *Config) {
-	// Run the tunneler.
-	healthzChecks := []healthz.HealthzChecker{}
-	if c.Tunneler != nil {
-		nodeClient := coreclient.NewForConfigOrDie(c.GenericConfig.LoopbackClientConfig).Nodes()
-		c.Tunneler.Run(nodeAddressProvider{nodeClient}.externalAddresses)
-
-		healthzChecks = append(healthzChecks, healthz.NamedCheck("SSH Tunnel Check", genericapiserver.TunnelSyncHealthChecker(c.Tunneler)))
-		prometheus.NewGaugeFunc(prometheus.GaugeOpts{
-			Name: "apiserver_proxy_tunnel_sync_latency_secs",
-			Help: "The time since the last successful synchronization of the SSH tunnels for proxy requests.",
-		}, func() float64 { return float64(c.Tunneler.SecondsSinceSync()) })
-	}
-	healthz.InstallHandler(&m.GenericAPIServer.HandlerContainer.NonSwaggerRoutes, healthzChecks...)
-
-	if c.GenericConfig.EnableProfiling {
-		routes.MetricsWithReset{}.Install(m.GenericAPIServer.HandlerContainer)
-	} else {
-		routes.DefaultMetrics{}.Install(m.GenericAPIServer.HandlerContainer)
-	}
-
+func (m *Master) installTunneler(tunneler genericapiserver.Tunneler, nodeClient coreclient.NodeInterface) {
+	tunneler.Run(nodeAddressProvider{nodeClient}.externalAddresses)
+	m.GenericAPIServer.AddHealthzChecks(healthz.NamedCheck("SSH Tunnel Check", genericapiserver.TunnelSyncHealthChecker(tunneler)))
+	prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+		Name: "apiserver_proxy_tunnel_sync_latency_secs",
+		Help: "The time since the last successful synchronization of the SSH tunnels for proxy requests.",
+	}, func() float64 { return float64(tunneler.SecondsSinceSync()) })
 }
 
 // InstallAPIs will install the APIs for the restStorageProviders if they are enabled.
@@ -304,6 +356,10 @@ type nodeAddressProvider struct {
 }
 
 func (n nodeAddressProvider) externalAddresses() (addresses []string, err error) {
+	preferredAddressTypes := []api.NodeAddressType{
+		api.NodeExternalIP,
+		api.NodeLegacyHostIP,
+	}
 	nodes, err := n.nodeClient.List(api.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -311,31 +367,13 @@ func (n nodeAddressProvider) externalAddresses() (addresses []string, err error)
 	addrs := []string{}
 	for ix := range nodes.Items {
 		node := &nodes.Items[ix]
-		addr, err := findExternalAddress(node)
+		addr, err := nodeutil.GetPreferredNodeAddress(node, preferredAddressTypes)
 		if err != nil {
 			return nil, err
 		}
 		addrs = append(addrs, addr)
 	}
 	return addrs, nil
-}
-
-// findExternalAddress returns ExternalIP of provided node with fallback to LegacyHostIP.
-func findExternalAddress(node *api.Node) (string, error) {
-	var fallback string
-	for ix := range node.Status.Addresses {
-		addr := &node.Status.Addresses[ix]
-		if addr.Type == api.NodeExternalIP {
-			return addr.Address, nil
-		}
-		if fallback == "" && addr.Type == api.NodeLegacyHostIP {
-			fallback = addr.Address
-		}
-	}
-	if fallback != "" {
-		return fallback, nil
-	}
-	return "", fmt.Errorf("Couldn't find external address: %v", node)
 }
 
 func DefaultAPIResourceConfigSource() *genericapiserver.ResourceConfig {
@@ -347,7 +385,7 @@ func DefaultAPIResourceConfigSource() *genericapiserver.ResourceConfig {
 		authenticationv1beta1.SchemeGroupVersion,
 		autoscalingapiv1.SchemeGroupVersion,
 		appsapi.SchemeGroupVersion,
-		policyapiv1alpha1.SchemeGroupVersion,
+		policyapiv1beta1.SchemeGroupVersion,
 		rbacapi.SchemeGroupVersion,
 		storageapiv1beta1.SchemeGroupVersion,
 		certificatesapiv1alpha1.SchemeGroupVersion,

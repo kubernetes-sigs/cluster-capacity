@@ -32,7 +32,7 @@ import (
 	apiv1 "k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/apimachinery/registered"
 	"k8s.io/kubernetes/pkg/apis/apps"
-	appsapiv1alpha1 "k8s.io/kubernetes/pkg/apis/apps/v1alpha1"
+	appsapiv1beta1 "k8s.io/kubernetes/pkg/apis/apps/v1beta1"
 	"k8s.io/kubernetes/pkg/apis/autoscaling"
 	autoscalingapiv1 "k8s.io/kubernetes/pkg/apis/autoscaling/v1"
 	"k8s.io/kubernetes/pkg/apis/batch"
@@ -47,7 +47,6 @@ import (
 	openapigen "k8s.io/kubernetes/pkg/generated/openapi"
 	"k8s.io/kubernetes/pkg/genericapiserver"
 	kubeletclient "k8s.io/kubernetes/pkg/kubelet/client"
-	ipallocator "k8s.io/kubernetes/pkg/registry/core/service/ipallocator"
 	"k8s.io/kubernetes/pkg/registry/registrytest"
 	"k8s.io/kubernetes/pkg/runtime"
 	etcdtesting "k8s.io/kubernetes/pkg/storage/etcd/testing"
@@ -67,7 +66,9 @@ func setUp(t *testing.T) (*Master, *etcdtesting.EtcdTestServer, Config, *assert.
 	server, storageConfig := etcdtesting.NewUnsecuredEtcd3TestClientServer(t)
 
 	config := &Config{
-		GenericConfig: genericapiserver.NewConfig(),
+		GenericConfig:        genericapiserver.NewConfig(),
+		APIServerServicePort: 443,
+		MasterCount:          1,
 	}
 
 	resourceEncoding := genericapiserver.NewDefaultResourceEncodingConfig()
@@ -90,6 +91,7 @@ func setUp(t *testing.T) (*Master, *etcdtesting.EtcdTestServer, Config, *assert.
 	config.GenericConfig.APIResourceConfigSource = DefaultAPIResourceConfigSource()
 	config.GenericConfig.RequestContextMapper = api.NewRequestContextMapper()
 	config.GenericConfig.LoopbackClientConfig = &restclient.Config{APIPath: "/api", ContentConfig: restclient.ContentConfig{NegotiatedSerializer: api.Codecs}}
+	config.GenericConfig.EnableMetrics = true
 	config.EnableCoreControllers = false
 	config.KubeletClientConfig = kubeletclient.KubeletClientConfig{Port: 10250}
 	config.ProxyTransport = utilnet.SetTransportDefaults(&http.Transport{
@@ -124,7 +126,7 @@ func limitedAPIResourceConfigSource() *genericapiserver.ResourceConfig {
 		extensionsapiv1beta1.SchemeGroupVersion,
 		batchapiv1.SchemeGroupVersion,
 		batchapiv2alpha1.SchemeGroupVersion,
-		appsapiv1alpha1.SchemeGroupVersion,
+		appsapiv1beta1.SchemeGroupVersion,
 		autoscalingapiv1.SchemeGroupVersion,
 	)
 	return ret
@@ -140,19 +142,6 @@ func newLimitedMaster(t *testing.T) (*Master, *etcdtesting.EtcdTestServer, Confi
 	}
 
 	return master, etcdserver, config, assert
-}
-
-// TestNew verifies that the New function returns a Master
-// using the configuration properly.
-func TestNew(t *testing.T) {
-	master, etcdserver, _, assert := newMaster(t)
-	defer etcdserver.Terminate(t)
-
-	// these values get defaulted
-	_, serviceClusterIPRange, _ := net.ParseCIDR("10.0.0.0/24")
-	serviceReadWriteIP, _ := ipallocator.GetIndexedIP(serviceClusterIPRange, 1)
-	assert.Equal(master.GenericAPIServer.MasterCount, 1)
-	assert.Equal(master.GenericAPIServer.ServiceReadWriteIP, serviceReadWriteIP)
 }
 
 // TestVersion tests /version
@@ -176,29 +165,6 @@ func TestVersion(t *testing.T) {
 	if !reflect.DeepEqual(version.Get(), info) {
 		t.Errorf("Expected %#v, Got %#v", version.Get(), info)
 	}
-}
-
-// TestFindExternalAddress verifies both pass and fail cases for the unexported
-// findExternalAddress function
-func TestFindExternalAddress(t *testing.T) {
-	assert := assert.New(t)
-	expectedIP := "172.0.0.1"
-
-	nodes := []*api.Node{new(api.Node), new(api.Node), new(api.Node)}
-	nodes[0].Status.Addresses = []api.NodeAddress{{Type: "ExternalIP", Address: expectedIP}}
-	nodes[1].Status.Addresses = []api.NodeAddress{{Type: "LegacyHostIP", Address: expectedIP}}
-	nodes[2].Status.Addresses = []api.NodeAddress{{Type: "ExternalIP", Address: expectedIP}, {Type: "LegacyHostIP", Address: "172.0.0.2"}}
-
-	// Pass Case
-	for _, node := range nodes {
-		ip, err := findExternalAddress(node)
-		assert.NoError(err, "error getting node external address")
-		assert.Equal(expectedIP, ip, "expected ip to be %s, but was %s", expectedIP, ip)
-	}
-
-	// Fail case
-	_, err := findExternalAddress(new(api.Node))
-	assert.Error(err, "expected findExternalAddress to fail on a node with missing ip information")
 }
 
 type fakeEndpointReconciler struct{}

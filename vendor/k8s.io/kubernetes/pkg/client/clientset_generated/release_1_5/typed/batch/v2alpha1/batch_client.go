@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The Kubernetes Authors.
+Copyright 2017 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -27,8 +27,8 @@ import (
 
 type BatchV2alpha1Interface interface {
 	RESTClient() restclient.Interface
+	CronJobsGetter
 	JobsGetter
-	ScheduledJobsGetter
 }
 
 // BatchV2alpha1Client is used to interact with features provided by the k8s.io/kubernetes/pkg/apimachinery/registered.Group group.
@@ -36,12 +36,12 @@ type BatchV2alpha1Client struct {
 	restClient restclient.Interface
 }
 
-func (c *BatchV2alpha1Client) Jobs(namespace string) JobInterface {
-	return newJobs(c, namespace)
+func (c *BatchV2alpha1Client) CronJobs(namespace string) CronJobInterface {
+	return newCronJobs(c, namespace)
 }
 
-func (c *BatchV2alpha1Client) ScheduledJobs(namespace string) ScheduledJobInterface {
-	return newScheduledJobs(c, namespace)
+func (c *BatchV2alpha1Client) Jobs(namespace string) JobInterface {
+	return newJobs(c, namespace)
 }
 
 // NewForConfig creates a new BatchV2alpha1Client for the given config.

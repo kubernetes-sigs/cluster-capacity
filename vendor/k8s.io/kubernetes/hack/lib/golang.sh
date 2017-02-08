@@ -20,7 +20,7 @@ readonly KUBE_GOPATH="${KUBE_OUTPUT}/go"
 
 # The set of server targets that we are only building for Linux
 # Note: if you are adding something here, you might need to add it to
-# kube::build::source_targets in build-tools/common.sh as well.
+# kube::build::source_targets in build/common.sh as well.
 kube::golang::server_targets() {
   local targets=(
     cmd/kube-dns
@@ -68,7 +68,7 @@ else
   readonly KUBE_SERVER_PLATFORMS
 
   # If we update this we should also update the set of golang compilers we build
-  # in 'build-tools/build-image/cross/Dockerfile'. However, it's only a bit faster since go 1.5, not mandatory
+  # in 'build/build-image/cross/Dockerfile'. However, it's only a bit faster since go 1.5, not mandatory
   KUBE_CLIENT_PLATFORMS=(
     linux/amd64
     linux/386
@@ -95,6 +95,7 @@ fi
 # The set of client targets that we are building for all platforms
 readonly KUBE_CLIENT_TARGETS=(
   cmd/kubectl
+  federation/cmd/kubefed
 )
 readonly KUBE_CLIENT_BINARIES=("${KUBE_CLIENT_TARGETS[@]##*/}")
 readonly KUBE_CLIENT_BINARIES_WIN=("${KUBE_CLIENT_BINARIES[@]/%/.exe}")
@@ -163,6 +164,11 @@ readonly KUBE_STATIC_LIBRARIES=(
   kube-discovery
   kubeadm
   kubectl
+)
+
+# Add any files with those //generate annotations in the array below.
+readonly KUBE_BINDATAS=(
+  test/e2e/framework/gobindata_util.go
 )
 
 kube::golang::is_statically_linked_library() {
@@ -413,12 +419,12 @@ kube::golang::fallback_if_stdlib_not_installable() {
 
 # Builds the toolchain necessary for building kube. This needs to be
 # built only on the host platform.
-# TODO: This builds only the `teststale` binary right now. As we expand
-# this function's capabilities we need to find this a right home.
+# TODO: Find this a proper home.
 # Ideally, not a shell script because testing shell scripts is painful.
 kube::golang::build_kube_toolchain() {
   local targets=(
     hack/cmd/teststale
+    vendor/github.com/jteeuwen/go-bindata/go-bindata
   )
 
   local binaries
@@ -454,6 +460,8 @@ kube::golang::build_binaries_for_platform() {
   local -a statics=()
   local -a nonstatics=()
   local -a tests=()
+
+  V=2 kube::log::info "Env for ${platform}: GOOS=${GOOS-} GOARCH=${GOARCH-} GOROOT=${GOROOT-} CGO_ENABLED=${CGO_ENABLED-} CC=${CC-}"
 
   for binary in "${binaries[@]}"; do
 
@@ -609,17 +617,6 @@ kube::golang::build_binaries() {
     local -a targets=()
     local arg
 
-    # Add any files with those //generate annotations in the array below.
-    readonly BINDATAS=( "${KUBE_ROOT}/test/e2e/framework/gobindata_util.go" )
-    kube::log::status "Generating bindata:" "${BINDATAS[@]}"
-    for bindata in ${BINDATAS[@]}; do
-          # Only try to generate bindata if the file exists, since in some cases
-          # one-off builds of individual directories may exclude some files.
-      if [[ -f $bindata ]]; then
-          go generate "${bindata}"
-      fi
-    done
-
     for arg; do
       if [[ "${arg}" == "--use_go_build" ]]; then
         use_go_build=true
@@ -660,6 +657,15 @@ kube::golang::build_binaries() {
     # First build the toolchain before building any other targets
     kube::golang::build_kube_toolchain
 
+    kube::log::status "Generating bindata:" "${KUBE_BINDATAS[@]}"
+    for bindata in ${KUBE_BINDATAS[@]}; do
+      # Only try to generate bindata if the file exists, since in some cases
+      # one-off builds of individual directories may exclude some files.
+      if [[ -f "${KUBE_ROOT}/${bindata}" ]]; then
+        go "${goflags[@]:+${goflags[@]}}" generate "${KUBE_ROOT}/${bindata}"
+      fi
+    done
+
     if [[ "${parallel}" == "true" ]]; then
       kube::log::status "Building go targets for {${platforms[*]}} in parallel (output will appear in a burst when complete):" "${targets[@]}"
       local platform
@@ -684,8 +690,10 @@ kube::golang::build_binaries() {
     else
       for platform in "${platforms[@]}"; do
         kube::log::status "Building go targets for ${platform}:" "${targets[@]}"
-        kube::golang::set_platform_envs "${platform}"
-        kube::golang::build_binaries_for_platform ${platform} ${use_go_build:-}
+        (
+          kube::golang::set_platform_envs "${platform}"
+          kube::golang::build_binaries_for_platform ${platform} ${use_go_build:-}
+        )
       done
     fi
   )

@@ -143,12 +143,17 @@ func runEdit(f cmdutil.Factory, out, errOut io.Writer, cmd *cobra.Command, args 
 		return err
 	}
 
+	normalEditInfos, err := r.Infos()
+	if err != nil {
+		return err
+	}
+
 	var (
 		windowsLineEndings = cmdutil.GetFlagBool(cmd, "windows-line-endings")
 		edit               = editor.NewDefaultEditor(f.EditorEnvs())
 	)
 
-	err = r.Visit(func(info *resource.Info, err error) error {
+	editFn := func(info *resource.Info, err error) error {
 		var (
 			results  = editResults{}
 			original = []byte{}
@@ -157,9 +162,16 @@ func runEdit(f cmdutil.Factory, out, errOut io.Writer, cmd *cobra.Command, args 
 		)
 
 		containsError := false
-
+		var infos []*resource.Info
 		for {
-			infos := []*resource.Info{info}
+			switch editMode {
+			case NormalEditMode:
+				infos = normalEditInfos
+			case EditBeforeCreateMode:
+				infos = []*resource.Info{info}
+			default:
+				err = fmt.Errorf("Not supported edit mode %q", editMode)
+			}
 			originalObj, err := resource.AsVersionedObject(infos, false, defaultVersion, encoder)
 			if err != nil {
 				return err
@@ -224,7 +236,7 @@ func runEdit(f cmdutil.Factory, out, errOut io.Writer, cmd *cobra.Command, args 
 					file: file,
 				}
 				containsError = true
-				fmt.Fprintln(out, results.addError(errors.NewInvalid(api.Kind(""), "", field.ErrorList{field.Invalid(nil, "The edited file failed validation", fmt.Sprintf("%v", err))}), info))
+				fmt.Fprintln(out, results.addError(errors.NewInvalid(api.Kind(""), "", field.ErrorList{field.Invalid(nil, "The edited file failed validation", fmt.Sprintf("%v", err))}), infos[0]))
 				continue
 			}
 
@@ -316,8 +328,18 @@ func runEdit(f cmdutil.Factory, out, errOut io.Writer, cmd *cobra.Command, args 
 				containsError = true
 			}
 		}
-	})
-	return err
+	}
+
+	switch editMode {
+	// If doing normal edit we cannot use Visit because we need to edit a list for convenience. Ref: #20519
+	case NormalEditMode:
+		return editFn(nil, nil)
+	// If doing an edit before created, we don't want a list and instead want the normal behavior as kubectl create.
+	case EditBeforeCreateMode:
+		return r.Visit(editFn)
+	default:
+		return fmt.Errorf("Not supported edit mode %q", editMode)
+	}
 }
 
 func getPrinter(cmd *cobra.Command) (*editPrinterOptions, error) {

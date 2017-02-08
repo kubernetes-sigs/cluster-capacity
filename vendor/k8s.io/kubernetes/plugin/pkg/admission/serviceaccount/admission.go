@@ -53,13 +53,9 @@ const DefaultAPITokenMountPath = "/var/run/secrets/kubernetes.io/serviceaccount"
 const PluginName = "ServiceAccount"
 
 func init() {
-	admission.RegisterPlugin(PluginName, func(client clientset.Interface, config io.Reader, stopCh chan struct{}) (admission.Interface, error) {
+	admission.RegisterPlugin(PluginName, func(client clientset.Interface, config io.Reader) (admission.Interface, error) {
 		serviceAccountAdmission := NewServiceAccount(client)
-		if stopCh == nil {
-			serviceAccountAdmission.Run()
-		} else {
-			serviceAccountAdmission.RunUntil(stopCh)
-		}
+		serviceAccountAdmission.Run()
 		return serviceAccountAdmission, nil
 	})
 }
@@ -146,12 +142,6 @@ func (s *serviceAccount) Run() {
 		s.secretsReflector.RunUntil(s.stopChan)
 	}
 }
-
-func (s *serviceAccount) RunUntil(stopCh chan struct{}) {
-	s.serviceAccountsReflector.RunUntil(stopCh)
-	s.secretsReflector.RunUntil(stopCh)
-}
-
 func (s *serviceAccount) Stop() {
 	if s.stopChan != nil {
 		close(s.stopChan)

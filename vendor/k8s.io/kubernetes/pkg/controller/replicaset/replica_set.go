@@ -342,8 +342,19 @@ func (rsc *ReplicaSetController) updatePod(old, cur interface{}) {
 		}
 	}
 
+	changedToReady := !api.IsPodReady(oldPod) && api.IsPodReady(curPod)
 	if curRS := rsc.getPodReplicaSet(curPod); curRS != nil {
 		rsc.enqueueReplicaSet(curRS)
+		// TODO: MinReadySeconds in the Pod will generate an Available condition to be added in
+		// the Pod status which in turn will trigger a requeue of the owning replica set thus
+		// having its status updated with the newly available replica. For now, we can fake the
+		// update by resyncing the controller MinReadySeconds after the it is requeued because
+		// a Pod transitioned to Ready.
+		// Note that this still suffers from #29229, we are just moving the problem one level
+		// "closer" to kubelet (from the deployment to the replica set controller).
+		if changedToReady && curRS.Spec.MinReadySeconds > 0 {
+			rsc.enqueueReplicaSetAfter(curRS, time.Duration(curRS.Spec.MinReadySeconds)*time.Second)
+		}
 	}
 }
 
@@ -395,6 +406,23 @@ func (rsc *ReplicaSetController) enqueueReplicaSet(obj interface{}) {
 	// by querying the store for all replica sets that this replica set overlaps, as well as all
 	// replica sets that overlap this ReplicaSet, and sorting them.
 	rsc.queue.Add(key)
+}
+
+// obj could be an *extensions.ReplicaSet, or a DeletionFinalStateUnknown marker item.
+func (rsc *ReplicaSetController) enqueueReplicaSetAfter(obj interface{}, after time.Duration) {
+	key, err := controller.KeyFunc(obj)
+	if err != nil {
+		utilruntime.HandleError(fmt.Errorf("Couldn't get key for object %+v: %v", obj, err))
+		return
+	}
+
+	// TODO: Handle overlapping replica sets better. Either disallow them at admission time or
+	// deterministically avoid syncing replica sets that fight over pods. Currently, we only
+	// ensure that the same replica set is synced for a given pod. When we periodically relist
+	// all replica sets there will still be some replica instability. One way to handle this is
+	// by querying the store for all replica sets that this replica set overlaps, as well as all
+	// replica sets that overlap this ReplicaSet, and sorting them.
+	rsc.queue.AddAfter(key, after)
 }
 
 // worker runs a worker thread that just dequeues items, processes them, and marks them done.
@@ -618,36 +646,10 @@ func (rsc *ReplicaSetController) syncReplicaSet(key string) error {
 		manageReplicasErr = rsc.manageReplicas(filteredPods, &rs)
 	}
 
-	// Count the number of pods that have labels matching the labels of the pod
-	// template of the replicaSet, the matching pods may have more labels than
-	// are in the template. Because the label of podTemplateSpec is a superset
-	// of the selector of the replicaset, so the possible matching pods must be
-	// part of the filteredPods.
-	fullyLabeledReplicasCount := 0
-	readyReplicasCount := 0
-	availableReplicasCount := 0
-	templateLabel := labels.Set(rs.Spec.Template.Labels).AsSelectorPreValidated()
-	for _, pod := range filteredPods {
-		if templateLabel.Matches(labels.Set(pod.Labels)) {
-			fullyLabeledReplicasCount++
-		}
-		if api.IsPodReady(pod) {
-			readyReplicasCount++
-			if api.IsPodAvailable(pod, rs.Spec.MinReadySeconds, unversioned.Now()) {
-				availableReplicasCount++
-			}
-		}
-	}
+	newStatus := calculateStatus(rs, filteredPods, manageReplicasErr)
 
 	// Always updates status as pods come up or die.
-	if err := updateReplicaCount(
-		rsc.kubeClient.Extensions().ReplicaSets(rs.Namespace),
-		rs,
-		len(filteredPods),
-		fullyLabeledReplicasCount,
-		readyReplicasCount,
-		availableReplicasCount,
-	); err != nil {
+	if err := updateReplicaSetStatus(rsc.kubeClient.Extensions().ReplicaSets(rs.Namespace), rs, newStatus); err != nil {
 		// Multiple things could lead to this update failing. Requeuing the replica set ensures
 		// Returning an error causes a requeue without forcing a hotloop
 		return err

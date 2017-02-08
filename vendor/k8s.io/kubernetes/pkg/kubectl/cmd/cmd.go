@@ -195,6 +195,7 @@ __custom_func() {
     * secrets
     * serviceaccounts (aka 'sa')
     * services (aka 'svc')
+    * statefulsets
     * storageclasses
     * thirdpartyresources
     `
@@ -236,13 +237,13 @@ func NewKubectlCommand(f cmdutil.Factory, in io.Reader, out, err io.Writer) *cob
 				NewCmdGet(f, out, err),
 				NewCmdExplain(f, out, err),
 				NewCmdEdit(f, out, err),
-				NewCmdDelete(f, out),
+				NewCmdDelete(f, out, err),
 			},
 		},
 		{
 			Message: "Deploy Commands:",
 			Commands: []*cobra.Command{
-				rollout.NewCmdRollout(f, out),
+				rollout.NewCmdRollout(f, out, err),
 				NewCmdRollingUpdate(f, out),
 				NewCmdScale(f, out),
 				NewCmdAutoscale(f, out),
@@ -251,11 +252,12 @@ func NewKubectlCommand(f cmdutil.Factory, in io.Reader, out, err io.Writer) *cob
 		{
 			Message: "Cluster Management Commands:",
 			Commands: []*cobra.Command{
+				NewCmdCertificate(f, out),
 				NewCmdClusterInfo(f, out),
-				NewCmdTop(f, out),
+				NewCmdTop(f, out, err),
 				NewCmdCordon(f, out),
 				NewCmdUncordon(f, out),
-				NewCmdDrain(f, out),
+				NewCmdDrain(f, out, err),
 				NewCmdTaint(f, out),
 			},
 		},
@@ -307,7 +309,7 @@ func NewKubectlCommand(f cmdutil.Factory, in io.Reader, out, err io.Writer) *cob
 		)
 	}
 
-	cmds.AddCommand(cmdconfig.NewCmdConfig(clientcmd.NewDefaultPathOptions(), out))
+	cmds.AddCommand(cmdconfig.NewCmdConfig(clientcmd.NewDefaultPathOptions(), out, err))
 	cmds.AddCommand(NewCmdVersion(f, out))
 	cmds.AddCommand(NewCmdApiVersions(f, out))
 	cmds.AddCommand(NewCmdOptions(out))

@@ -375,6 +375,15 @@ current-context: service-account-context
 EOF
 }
 
+function create-master-etcd-auth {
+  if [[ -n "${ETCD_CA_CERT:-}" && -n "${ETCD_PEER_KEY:-}" && -n "${ETCD_PEER_CERT:-}" ]]; then
+    local -r auth_dir="/etc/srv/kubernetes"
+    echo "${ETCD_CA_CERT}" | base64 --decode | gunzip > "${auth_dir}/etcd-ca.crt"
+    echo "${ETCD_PEER_KEY}" | base64 --decode > "${auth_dir}/etcd-peer.key"
+    echo "${ETCD_PEER_CERT}" | base64 --decode | gunzip > "${auth_dir}/etcd-peer.crt"
+  fi
+}
+
 function assemble-docker-flags {
   echo "Assemble docker command line flags"
   local docker_opts="-p /var/run/docker.pid --iptables=false --ip-masq=false"
@@ -400,9 +409,22 @@ function assemble-docker-flags {
   fi
 
   echo "DOCKER_OPTS=\"${docker_opts} ${EXTRA_DOCKER_OPTS:-}\"" > /etc/default/docker
-  # If using a network plugin, we need to explicitly restart docker daemon, because
-  # kubelet will not do it.
+
   if [[ "${use_net_plugin}" == "true" ]]; then
+    # If using a network plugin, extend the docker configuration to always remove
+    # the network checkpoint to avoid corrupt checkpoints.
+    # (https://github.com/docker/docker/issues/18283).
+    echo "Extend the default docker.service configuration"
+    mkdir -p /etc/systemd/system/docker.service.d
+    cat <<EOF >/etc/systemd/system/docker.service.d/01network.conf
+[Service]
+ExecStartPre=/bin/sh -x -c "rm -rf /var/lib/docker/network"
+EOF
+
+    systemctl daemon-reload
+
+    # If using a network plugin, we need to explicitly restart docker daemon, because
+    # kubelet will not do it.
     echo "Docker command line is updated. Restart docker to pick it up"
     systemctl restart docker
   fi
@@ -473,6 +495,8 @@ function start-kubelet {
   flags+=" --cluster-dns=${DNS_SERVER_IP}"
   flags+=" --cluster-domain=${DNS_DOMAIN}"
   flags+=" --config=/etc/kubernetes/manifests"
+  flags+=" --experimental-mounter-path=${KUBE_HOME}/bin/mounter"
+  flags+=" --experimental-check-node-capabilities-before-mount=true"
 
   if [[ -n "${KUBELET_PORT:-}" ]]; then
     flags+=" --port=${KUBELET_PORT}"
@@ -483,11 +507,8 @@ function start-kubelet {
     if [[ ! -z "${KUBELET_APISERVER:-}" && ! -z "${KUBELET_CERT:-}" && ! -z "${KUBELET_KEY:-}" ]]; then
       flags+=" --api-servers=https://${KUBELET_APISERVER}"
       flags+=" --register-schedulable=false"
-      # need at least a /29 pod cidr for now due to #32844
-      # TODO: determine if we still allow non-hostnetwork pods to run on master, clean up master pod setup
-      # WARNING: potential ip range collision with 10.123.45.0/29
-      flags+=" --pod-cidr=10.123.45.0/29"
     else
+      # Standalone mode (not widely used?)
       flags+=" --pod-cidr=${MASTER_IP_RANGE}"
     fi
   else # For nodes
@@ -607,14 +628,23 @@ function prepare-etcd-manifest {
   local host_name=$(hostname)
   local etcd_cluster=""
   local cluster_state="new"
+  local etcd_protocol="http"
+  local etcd_creds=""
+
+  if [[ -n "${ETCD_CA_KEY:-}" && -n "${ETCD_CA_CERT:-}" && -n "${ETCD_PEER_KEY:-}" && -n "${ETCD_PEER_CERT:-}" ]]; then
+    etcd_creds=" --peer-trusted-ca-file /etc/srv/kubernetes/etcd-ca.crt --peer-cert-file /etc/srv/kubernetes/etcd-peer.crt --peer-key-file /etc/srv/kubernetes/etcd-peer.key -peer-client-cert-auth "
+    etcd_protocol="https"
+  fi
+
   for host in $(echo "${INITIAL_ETCD_CLUSTER:-${host_name}}" | tr "," "\n"); do
-    etcd_host="etcd-${host}=http://${host}:$3"
+    etcd_host="etcd-${host}=${etcd_protocol}://${host}:$3"
     if [[ -n "${etcd_cluster}" ]]; then
       etcd_cluster+=","
       cluster_state="existing"
     fi
     etcd_cluster+="${etcd_host}"
   done
+
   local -r temp_file="/tmp/$5"
   cp "${KUBE_HOME}/kube-manifests/kubernetes/gci-trusty/etcd.manifest" "${temp_file}"
   remove-salt-config-comments "${temp_file}"
@@ -623,13 +653,26 @@ function prepare-etcd-manifest {
   sed -i -e "s@{{ *server_port *}}@$3@g" "${temp_file}"
   sed -i -e "s@{{ *cpulimit *}}@\"$4\"@g" "${temp_file}"
   sed -i -e "s@{{ *hostname *}}@$host_name@g" "${temp_file}"
+  sed -i -e "s@{{ *srv_kube_path *}}@/etc/srv/kubernetes@g" "${temp_file}"
   sed -i -e "s@{{ *etcd_cluster *}}@$etcd_cluster@g" "${temp_file}"
   sed -i -e "s@{{ *storage_backend *}}@${STORAGE_BACKEND:-}@g" "${temp_file}"
+  if [[ "${STORAGE_BACKEND:-}" == "etcd3" ]]; then
+    sed -i -e "s@{{ *quota_bytes *}}@--quota-backend-bytes=4294967296@g" "${temp_file}"
+  else
+    sed -i -e "s@{{ *quota_bytes *}}@@g" "${temp_file}"
+  fi
   sed -i -e "s@{{ *cluster_state *}}@$cluster_state@g" "${temp_file}"
-  if [[ -n "${ETCD_VERSION:-}" ]]; then
-    sed -i -e "s@{{ *pillar\.get('etcd_docker_tag', '\(.*\)') *}}@${ETCD_VERSION}@g" "${temp_file}"
+  if [[ -n "${ETCD_IMAGE:-}" ]]; then
+    sed -i -e "s@{{ *pillar\.get('etcd_docker_tag', '\(.*\)') *}}@${ETCD_IMAGE}@g" "${temp_file}"
   else
     sed -i -e "s@{{ *pillar\.get('etcd_docker_tag', '\(.*\)') *}}@\1@g" "${temp_file}"
+  fi
+  sed -i -e "s@{{ *etcd_protocol *}}@$etcd_protocol@g" "${temp_file}"
+  sed -i -e "s@{{ *etcd_creds *}}@$etcd_creds@g" "${temp_file}"
+  if [[ -n "${ETCD_VERSION:-}" ]]; then
+    sed -i -e "s@{{ *pillar\.get('etcd_version', '\(.*\)') *}}@${ETCD_VERSION}@g" "${temp_file}"
+  else
+    sed -i -e "s@{{ *pillar\.get('etcd_version', '\(.*\)') *}}@\1@g" "${temp_file}"
   fi
   # Replace the volume host path.
   sed -i -e "s@/mnt/master-pd/var/etcd@/mnt/disks/master-pd/var/etcd@g" "${temp_file}"
@@ -730,6 +773,10 @@ function start-kube-apiserver {
     params+=" --enable-garbage-collector=${ENABLE_GARBAGE_COLLECTOR}"
   fi
   if [[ -n "${NUM_NODES:-}" ]]; then
+    # If the cluster is large, increase max-requests-inflight limit in apiserver.
+    if [[ "${NUM_NODES}" -ge 1000 ]]; then
+      params+=" --max-requests-inflight=1500"
+    fi
     # Set amount of memory available for apiserver based on number of nodes.
     # TODO: Once we start setting proper requests and limits for apiserver
     # we should reuse the same logic here instead of current heuristic.
@@ -737,6 +784,9 @@ function start-kube-apiserver {
   fi
   if [[ -n "${SERVICE_CLUSTER_IP_RANGE:-}" ]]; then
     params+=" --service-cluster-ip-range=${SERVICE_CLUSTER_IP_RANGE}"
+  fi
+  if [[ -n "${ETCD_QUORUM_READ:-}" ]]; then
+    params+=" --etcd-quorum-read=${ETCD_QUORUM_READ}"
   fi
 
   local admission_controller_config_mount=""
@@ -770,6 +820,8 @@ function start-kube-apiserver {
     params+=" --advertise-address=${vm_external_ip}"
     params+=" --ssh-user=${PROXY_SSH_USER}"
     params+=" --ssh-keyfile=/etc/srv/sshproxy/.sshkeyfile"
+  elif [ -n "${MASTER_ADVERTISE_ADDRESS:-}" ]; then
+    params="${params} --advertise-address=${MASTER_ADVERTISE_ADDRESS}"
   fi
 
   local webhook_authn_config_mount=""
@@ -977,11 +1029,8 @@ function start-kube-addons {
     setup-addon-manifests "addons" "${file_dir}"
     # Replace the salt configurations with variable values.
     base_metrics_memory="140Mi"
-    metrics_memory="${base_metrics_memory}"
     base_eventer_memory="190Mi"
     base_metrics_cpu="80m"
-    metrics_cpu="${base_metrics_cpu}"
-    eventer_memory="${base_eventer_memory}"
     nanny_memory="90Mi"
     local -r metrics_memory_per_node="4"
     local -r metrics_cpu_per_node="0.5"
@@ -989,10 +1038,7 @@ function start-kube-addons {
     local -r nanny_memory_per_node="200"
     if [[ -n "${NUM_NODES:-}" && "${NUM_NODES}" -ge 1 ]]; then
       num_kube_nodes="$((${NUM_NODES}+1))"
-      metrics_memory="$((${num_kube_nodes} * ${metrics_memory_per_node} + 200))Mi"
-      eventer_memory="$((${num_kube_nodes} * ${eventer_memory_per_node} + 200 * 1024))Ki"
       nanny_memory="$((${num_kube_nodes} * ${nanny_memory_per_node} + 90 * 1024))Ki"
-      metrics_cpu=$(echo - | awk "{print ${num_kube_nodes} * ${metrics_cpu_per_node} + 80}")m
     fi
     controller_yaml="${dst_dir}/${file_dir}"
     if [[ "${ENABLE_CLUSTER_MONITORING:-}" == "googleinfluxdb" ]]; then
@@ -1002,11 +1048,8 @@ function start-kube-addons {
     fi
     remove-salt-config-comments "${controller_yaml}"
     sed -i -e "s@{{ *base_metrics_memory *}}@${base_metrics_memory}@g" "${controller_yaml}"
-    sed -i -e "s@{{ *metrics_memory *}}@${metrics_memory}@g" "${controller_yaml}"
     sed -i -e "s@{{ *base_metrics_cpu *}}@${base_metrics_cpu}@g" "${controller_yaml}"
-    sed -i -e "s@{{ *metrics_cpu *}}@${metrics_cpu}@g" "${controller_yaml}"
     sed -i -e "s@{{ *base_eventer_memory *}}@${base_eventer_memory}@g" "${controller_yaml}"
-    sed -i -e "s@{{ *eventer_memory *}}@${eventer_memory}@g" "${controller_yaml}"
     sed -i -e "s@{{ *metrics_memory_per_node *}}@${metrics_memory_per_node}@g" "${controller_yaml}"
     sed -i -e "s@{{ *eventer_memory_per_node *}}@${eventer_memory_per_node}@g" "${controller_yaml}"
     sed -i -e "s@{{ *nanny_memory *}}@${nanny_memory}@g" "${controller_yaml}"
@@ -1019,9 +1062,12 @@ function start-kube-addons {
     mv "${dst_dir}/dns/skydns-rc.yaml.in" "${dns_rc_file}"
     mv "${dst_dir}/dns/skydns-svc.yaml.in" "${dns_svc_file}"
     # Replace the salt configurations with variable values.
-    sed -i -e "s@{{ *pillar\['dns_replicas'\] *}}@${DNS_REPLICAS}@g" "${dns_rc_file}"
     sed -i -e "s@{{ *pillar\['dns_domain'\] *}}@${DNS_DOMAIN}@g" "${dns_rc_file}"
     sed -i -e "s@{{ *pillar\['dns_server'\] *}}@${DNS_SERVER_IP}@g" "${dns_svc_file}"
+
+    if [[ "${ENABLE_DNS_HORIZONTAL_AUTOSCALER:-}" == "true" ]]; then
+      setup-addon-manifests "addons" "dns-horizontal-autoscaler"
+    fi
 
     if [[ "${FEDERATION:-}" == "true" ]]; then
       local federations_domain_map="${FEDERATIONS_DOMAIN_MAP:-}"
@@ -1076,7 +1122,7 @@ function start-fluentd {
   echo "Start fluentd pod"
   if [[ "${ENABLE_NODE_LOGGING:-}" == "true" ]]; then
     if [[ "${LOGGING_DESTINATION:-}" == "gcp" ]]; then
-      cp "${KUBE_HOME}/kube-manifests/kubernetes/gci-trusty/gci/fluentd-gcp.yaml" /etc/kubernetes/manifests/
+      cp "${KUBE_HOME}/kube-manifests/kubernetes/fluentd-gcp-gci.yaml" /etc/kubernetes/manifests/
     elif [[ "${LOGGING_DESTINATION:-}" == "elasticsearch" && "${KUBERNETES_MASTER:-}" != "true" ]]; then
       # Running fluentd-es on the master is pointless, as it can't communicate
       # with elasticsearch from there in the default configuration.
@@ -1163,7 +1209,13 @@ EOF
 }
 
 function override-kubectl {
+    echo "overriding kubectl"
     echo "export PATH=${KUBE_HOME}/bin:\$PATH" > /etc/profile.d/kube_env.sh
+}
+
+function pre-warm-mounter {
+    echo "prewarming mounter"
+    ${KUBE_HOME}/bin/mounter &> /dev/null
 }
 
 ########### Main Function ###########
@@ -1194,12 +1246,15 @@ if [[ "${KUBERNETES_MASTER:-}" == "true" ]]; then
   mount-master-pd
   create-master-auth
   create-master-kubelet-auth
+  create-master-etcd-auth
 else
   create-kubelet-kubeconfig
   create-kubeproxy-kubeconfig
 fi
 
 override-kubectl
+# Run the containerized mounter once to pre-cache the container image.
+pre-warm-mounter
 assemble-docker-flags
 load-docker-images
 start-kubelet

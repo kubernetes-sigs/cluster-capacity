@@ -28,7 +28,7 @@ NODE_IPS=""
 #   KUBE_ROOT
 function test-build-release() {
   # Make a release
-  "${KUBE_ROOT}/build-tools/release.sh"
+  "${KUBE_ROOT}/build/release.sh"
 }
 
 # From user input set the necessary k8s and etcd configuration information
@@ -224,7 +224,7 @@ function create-etcd-opts() {
   cat <<EOF > ~/kube/default/etcd
 ETCD_OPTS="\
  -name infra\
- -listen-client-urls http://127.0.0.1:4001,http://${1}:4001\
+ --listen-client-urls=http://127.0.0.1:4001,http://${1}:4001\
  -advertise-client-urls http://${1}:4001"
 EOF
 }

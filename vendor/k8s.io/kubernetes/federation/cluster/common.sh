@@ -129,6 +129,13 @@ function create-federation-api-objects {
 	$template "${manifests_root}/federation-apiserver-lb-service.yaml" | $host_kubectl create -f -
 	for i in {1..30};do
 	    echo "attempting to get federation-apiserver loadbalancer hostname ($i / 30)"
+	    LB_STATUS=`${host_kubectl} get -o=jsonpath svc/${FEDERATION_APISERVER_DEPLOYMENT_NAME} --template '{.status.loadBalancer}'`
+	    # Check if ingress field has been set in load balancer status.
+	    if [[ "${LB_STATUS}" != *"ingress"* ]]; then
+	        echo "Waiting for load balancer status to be set"
+	        sleep 5
+	        continue
+	    fi
 	    for field in ip hostname;do
 		FEDERATION_API_HOST=`${host_kubectl} get -o=jsonpath svc/${FEDERATION_APISERVER_DEPLOYMENT_NAME} --template '{.status.loadBalancer.ingress[*].'"${field}}"`
 		if [[ ! -z "${FEDERATION_API_HOST// }" ]];then
@@ -286,7 +293,7 @@ function push-federation-images {
     : "${FEDERATION_PUSH_REPO_BASE?Must set FEDERATION_PUSH_REPO_BASE env var}"
     : "${FEDERATION_IMAGE_TAG?Must set FEDERATION_IMAGE_TAG env var}"
 
-    source "${KUBE_ROOT}/build-tools/common.sh"
+    source "${KUBE_ROOT}/build/common.sh"
     source "${KUBE_ROOT}/hack/lib/util.sh"
 
     local FEDERATION_BINARIES=${FEDERATION_BINARIES:-"hyperkube"}
@@ -326,7 +333,7 @@ function push-federation-images {
         # TODO(madhusudancs): Remove this code when the new turn up mechanism work
         # is merged.
         kube::log::status "Building docker image ${docker_image_tag} from the binary"
-        docker build -q -t "${docker_image_tag}" ${docker_build_path} >/dev/null
+        docker build --pull -q -t "${docker_image_tag}" ${docker_build_path} >/dev/null
 
         rm -rf ${docker_build_path}
 

@@ -68,7 +68,7 @@ type QueryConfig struct {
 	// For additional limitations, see https://cloud.google.com/bigquery/querying-data#largequeryresults
 	AllowLargeResults bool
 
-	// Priority species the priority with which to schedule the query.
+	// Priority specifies the priority with which to schedule the query.
 	// The default priority is InteractivePriority.
 	// For more information, see https://cloud.google.com/bigquery/querying-data#batchqueries
 	Priority QueryPriority
@@ -88,9 +88,16 @@ type QueryConfig struct {
 	// UseStandardSQL causes the query to use standard SQL.
 	// The default is false (using legacy SQL).
 	UseStandardSQL bool
+
+	// Parameters is a list of query parameters. The presence of parameters
+	// implies the use of standard SQL.
+	// If the query uses positional syntax ("?"), then no parameter may have a name.
+	// If the query uses named syntax ("@p"), then all parameters must have names.
+	// It is illegal to mix positional and named syntax.
+	Parameters []QueryParameter
 }
 
-// QueryPriority species a priority with which a query is to be executed.
+// QueryPriority specifies a priority with which a query is to be executed.
 type QueryPriority string
 
 const (
@@ -122,7 +129,9 @@ func (q *Query) Run(ctx context.Context) (*Job, error) {
 	}
 	setJobRef(job, q.JobID, q.client.projectID)
 
-	q.QueryConfig.populateJobQueryConfig(job.Configuration.Query)
+	if err := q.QueryConfig.populateJobQueryConfig(job.Configuration.Query); err != nil {
+		return nil, err
+	}
 	j, err := q.client.service.insertJob(ctx, q.client.projectID, &insertJobConf{job: job})
 	if err != nil {
 		return nil, err
@@ -131,7 +140,7 @@ func (q *Query) Run(ctx context.Context) (*Job, error) {
 	return j, nil
 }
 
-func (q *QueryConfig) populateJobQueryConfig(conf *bq.JobConfigurationQuery) {
+func (q *QueryConfig) populateJobQueryConfig(conf *bq.JobConfigurationQuery) error {
 	conf.Query = q.Q
 
 	if len(q.TableDefinitions) > 0 {
@@ -168,7 +177,7 @@ func (q *QueryConfig) populateJobQueryConfig(conf *bq.JobConfigurationQuery) {
 	if q.MaxBytesBilled >= 1 {
 		conf.MaximumBytesBilled = q.MaxBytesBilled
 	}
-	if q.UseStandardSQL {
+	if q.UseStandardSQL || len(q.Parameters) > 0 {
 		conf.UseLegacySql = false
 		conf.ForceSendFields = append(conf.ForceSendFields, "UseLegacySql")
 	}
@@ -176,4 +185,12 @@ func (q *QueryConfig) populateJobQueryConfig(conf *bq.JobConfigurationQuery) {
 	if q.Dst != nil && !q.Dst.implicitTable() {
 		conf.DestinationTable = q.Dst.tableRefProto()
 	}
+	for _, p := range q.Parameters {
+		qp, err := p.toRaw()
+		if err != nil {
+			return err
+		}
+		conf.QueryParameters = append(conf.QueryParameters, qp)
+	}
+	return nil
 }

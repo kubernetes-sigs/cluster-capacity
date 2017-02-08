@@ -124,8 +124,11 @@ func RunReplace(f cmdutil.Factory, out io.Writer, cmd *cobra.Command, args []str
 		return fmt.Errorf("--timeout must have --force specified")
 	}
 
-	mapper, typer := f.Object()
-	r := resource.NewBuilder(mapper, typer, resource.ClientMapperFunc(f.ClientForMapping), f.Decoder(true)).
+	mapper, typer, err := f.UnstructuredObject()
+	if err != nil {
+		return err
+	}
+	r := resource.NewBuilder(mapper, typer, resource.ClientMapperFunc(f.UnstructuredClientForMapping), runtime.UnstructuredJSONScheme).
 		Schema(schema).
 		ContinueOnError().
 		NamespaceParam(cmdNamespace).DefaultNamespace().
@@ -210,10 +213,18 @@ func forceReplace(f cmdutil.Factory, out io.Writer, cmd *cobra.Command, args []s
 	//Replace will create a resource if it doesn't exist already, so ignore not found error
 	ignoreNotFound := true
 	timeout := cmdutil.GetFlagDuration(cmd, "timeout")
+	gracePeriod := cmdutil.GetFlagInt(cmd, "grace-period")
+	waitForDeletion := false
+	if gracePeriod == 0 {
+		// To preserve backwards compatibility, but prevent accidental data loss, we convert --grace-period=0
+		// into --grace-period=1 and wait until the object is successfully deleted.
+		gracePeriod = 1
+		waitForDeletion = true
+	}
 	// By default use a reaper to delete all related resources.
 	if cmdutil.GetFlagBool(cmd, "cascade") {
 		glog.Warningf("\"cascade\" is set, kubectl will delete and re-create all resources managed by this resource (e.g. Pods created by a ReplicationController). Consider using \"kubectl rolling-update\" if you want to update a ReplicationController together with its Pods.")
-		err = ReapResult(r, f, out, cmdutil.GetFlagBool(cmd, "cascade"), ignoreNotFound, timeout, cmdutil.GetFlagInt(cmd, "grace-period"), shortOutput, mapper, false)
+		err = ReapResult(r, f, out, cmdutil.GetFlagBool(cmd, "cascade"), ignoreNotFound, timeout, gracePeriod, waitForDeletion, shortOutput, mapper, false)
 	} else {
 		err = DeleteResult(r, out, ignoreNotFound, shortOutput, mapper)
 	}

@@ -100,7 +100,7 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 	app.register(v2.RouteNameBase, func(ctx *Context, r *http.Request) http.Handler {
 		return http.HandlerFunc(apiBase)
 	})
-	app.register(v2.RouteNameManifest, imageManifestDispatcher)
+	app.register(v2.RouteNameManifest, manifestDispatcher)
 	app.register(v2.RouteNameCatalog, catalogDispatcher)
 	app.register(v2.RouteNameTags, tagsDispatcher)
 	app.register(v2.RouteNameBlob, blobDispatcher)
@@ -211,6 +211,10 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 		ctxu.GetLogger(app).Infof("backend redirection disabled")
 	} else {
 		options = append(options, storage.EnableRedirect)
+	}
+
+	if !config.Validation.Enabled {
+		config.Validation.Enabled = !config.Validation.Disabled
 	}
 
 	// configure validation
@@ -341,7 +345,7 @@ func (app *App) RegisterHealthChecks(healthRegistries ...*health.Registry) {
 		}
 
 		storageDriverCheck := func() error {
-			_, err := app.driver.List(app, "/") // "/" should always exist
+			_, err := app.driver.Stat(app, "/") // "/" should always exist
 			return err                          // any error will be treated as failure
 		}
 
@@ -646,7 +650,7 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 		context.Context = ctxu.WithLogger(context.Context, ctxu.GetLogger(context.Context, auth.UserNameKey))
 
 		if app.nameRequired(r) {
-			nameRef, err := reference.ParseNamed(getName(context))
+			nameRef, err := reference.WithName(getName(context))
 			if err != nil {
 				ctxu.GetLogger(context).Errorf("error parsing reference from context: %v", err)
 				context.Errors = append(context.Errors, distribution.ErrRepositoryNameInvalid{
@@ -897,12 +901,10 @@ func appendAccessRecords(records []auth.Access, method string, repo string) []au
 				Action:   "push",
 			})
 	case "DELETE":
-		// DELETE access requires full admin rights, which is represented
-		// as "*". This may not be ideal.
 		records = append(records,
 			auth.Access{
 				Resource: resource,
-				Action:   "*",
+				Action:   "delete",
 			})
 	}
 	return records
