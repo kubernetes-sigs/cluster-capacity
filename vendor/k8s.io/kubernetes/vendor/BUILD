@@ -4,10 +4,10 @@ licenses(["notice"])
 
 load(
     "@io_bazel_rules_go//go:def.bzl",
+    "cgo_genrule",
     "go_binary",
     "go_library",
     "go_test",
-    "cgo_library",
 )
 
 go_library(
@@ -64,6 +64,25 @@ go_library(
         "//vendor:github.com/Azure/go-autorest/autorest/azure",
         "//vendor:github.com/Azure/go-autorest/autorest/date",
         "//vendor:github.com/Azure/go-autorest/autorest/to",
+        "//vendor:github.com/Azure/go-autorest/autorest/validation",
+    ],
+)
+
+go_library(
+    name = "github.com/Azure/azure-sdk-for-go/arm/containerregistry",
+    srcs = [
+        "github.com/Azure/azure-sdk-for-go/arm/containerregistry/client.go",
+        "github.com/Azure/azure-sdk-for-go/arm/containerregistry/models.go",
+        "github.com/Azure/azure-sdk-for-go/arm/containerregistry/registries.go",
+        "github.com/Azure/azure-sdk-for-go/arm/containerregistry/version.go",
+    ],
+    tags = ["automanaged"],
+    deps = [
+        "//vendor:github.com/Azure/go-autorest/autorest",
+        "//vendor:github.com/Azure/go-autorest/autorest/azure",
+        "//vendor:github.com/Azure/go-autorest/autorest/date",
+        "//vendor:github.com/Azure/go-autorest/autorest/to",
+        "//vendor:github.com/Azure/go-autorest/autorest/validation",
     ],
 )
 
@@ -90,6 +109,7 @@ go_library(
         "github.com/Azure/azure-sdk-for-go/arm/network/version.go",
         "github.com/Azure/azure-sdk-for-go/arm/network/virtualnetworkgatewayconnections.go",
         "github.com/Azure/azure-sdk-for-go/arm/network/virtualnetworkgateways.go",
+        "github.com/Azure/azure-sdk-for-go/arm/network/virtualnetworkpeerings.go",
         "github.com/Azure/azure-sdk-for-go/arm/network/virtualnetworks.go",
     ],
     tags = ["automanaged"],
@@ -97,7 +117,40 @@ go_library(
         "//vendor:github.com/Azure/go-autorest/autorest",
         "//vendor:github.com/Azure/go-autorest/autorest/azure",
         "//vendor:github.com/Azure/go-autorest/autorest/to",
+        "//vendor:github.com/Azure/go-autorest/autorest/validation",
     ],
+)
+
+go_library(
+    name = "github.com/Azure/azure-sdk-for-go/arm/storage",
+    srcs = [
+        "github.com/Azure/azure-sdk-for-go/arm/storage/accounts.go",
+        "github.com/Azure/azure-sdk-for-go/arm/storage/client.go",
+        "github.com/Azure/azure-sdk-for-go/arm/storage/models.go",
+        "github.com/Azure/azure-sdk-for-go/arm/storage/usageoperations.go",
+        "github.com/Azure/azure-sdk-for-go/arm/storage/version.go",
+    ],
+    tags = ["automanaged"],
+    deps = [
+        "//vendor:github.com/Azure/go-autorest/autorest",
+        "//vendor:github.com/Azure/go-autorest/autorest/azure",
+        "//vendor:github.com/Azure/go-autorest/autorest/date",
+        "//vendor:github.com/Azure/go-autorest/autorest/validation",
+    ],
+)
+
+go_library(
+    name = "github.com/Azure/azure-sdk-for-go/storage",
+    srcs = [
+        "github.com/Azure/azure-sdk-for-go/storage/blob.go",
+        "github.com/Azure/azure-sdk-for-go/storage/client.go",
+        "github.com/Azure/azure-sdk-for-go/storage/file.go",
+        "github.com/Azure/azure-sdk-for-go/storage/queue.go",
+        "github.com/Azure/azure-sdk-for-go/storage/table.go",
+        "github.com/Azure/azure-sdk-for-go/storage/table_entities.go",
+        "github.com/Azure/azure-sdk-for-go/storage/util.go",
+    ],
+    tags = ["automanaged"],
 )
 
 go_library(
@@ -173,6 +226,12 @@ go_library(
 go_library(
     name = "github.com/Azure/go-autorest/autorest/to",
     srcs = ["github.com/Azure/go-autorest/autorest/to/convert.go"],
+    tags = ["automanaged"],
+)
+
+go_library(
+    name = "github.com/Azure/go-autorest/autorest/validation",
+    srcs = ["github.com/Azure/go-autorest/autorest/validation/validation.go"],
     tags = ["automanaged"],
 )
 
@@ -4197,17 +4256,6 @@ go_library(
     tags = ["automanaged"],
 )
 
-go_binary(
-    name = "github.com/jteeuwen/go-bindata/go-bindata",
-    srcs = [
-        "github.com/jteeuwen/go-bindata/go-bindata/AppendSliceValue.go",
-        "github.com/jteeuwen/go-bindata/go-bindata/main.go",
-        "github.com/jteeuwen/go-bindata/go-bindata/version.go",
-    ],
-    tags = ["automanaged"],
-    deps = ["//vendor:github.com/jteeuwen/go-bindata"],
-)
-
 go_library(
     name = "github.com/juju/ratelimit",
     srcs = [
@@ -4496,37 +4544,6 @@ go_library(
     name = "github.com/onsi/ginkgo/config",
     srcs = ["github.com/onsi/ginkgo/config/config.go"],
     tags = ["automanaged"],
-)
-
-go_binary(
-    name = "github.com/onsi/ginkgo/ginkgo",
-    srcs = [
-        "github.com/onsi/ginkgo/ginkgo/bootstrap_command.go",
-        "github.com/onsi/ginkgo/ginkgo/build_command.go",
-        "github.com/onsi/ginkgo/ginkgo/convert_command.go",
-        "github.com/onsi/ginkgo/ginkgo/generate_command.go",
-        "github.com/onsi/ginkgo/ginkgo/help_command.go",
-        "github.com/onsi/ginkgo/ginkgo/main.go",
-        "github.com/onsi/ginkgo/ginkgo/nodot_command.go",
-        "github.com/onsi/ginkgo/ginkgo/notifications.go",
-        "github.com/onsi/ginkgo/ginkgo/run_command.go",
-        "github.com/onsi/ginkgo/ginkgo/run_watch_and_build_command_flags.go",
-        "github.com/onsi/ginkgo/ginkgo/suite_runner.go",
-        "github.com/onsi/ginkgo/ginkgo/unfocus_command.go",
-        "github.com/onsi/ginkgo/ginkgo/version_command.go",
-        "github.com/onsi/ginkgo/ginkgo/watch_command.go",
-    ],
-    tags = ["automanaged"],
-    deps = [
-        "//vendor:github.com/onsi/ginkgo/config",
-        "//vendor:github.com/onsi/ginkgo/ginkgo/convert",
-        "//vendor:github.com/onsi/ginkgo/ginkgo/interrupthandler",
-        "//vendor:github.com/onsi/ginkgo/ginkgo/nodot",
-        "//vendor:github.com/onsi/ginkgo/ginkgo/testrunner",
-        "//vendor:github.com/onsi/ginkgo/ginkgo/testsuite",
-        "//vendor:github.com/onsi/ginkgo/ginkgo/watch",
-        "//vendor:github.com/onsi/ginkgo/types",
-    ],
 )
 
 go_library(
@@ -5908,6 +5925,15 @@ go_library(
 )
 
 go_library(
+    name = "github.com/rubiojr/go-vhd/vhd",
+    srcs = [
+        "github.com/rubiojr/go-vhd/vhd/util.go",
+        "github.com/rubiojr/go-vhd/vhd/vhd.go",
+    ],
+    tags = ["automanaged"],
+)
+
+go_library(
     name = "github.com/russross/blackfriday",
     srcs = [
         "github.com/russross/blackfriday/block.go",
@@ -6309,15 +6335,6 @@ go_library(
     tags = ["automanaged"],
 )
 
-go_binary(
-    name = "github.com/ugorji/go/codec/codecgen",
-    srcs = [
-        "github.com/ugorji/go/codec/codecgen/gen.go",
-        "github.com/ugorji/go/codec/codecgen/z.go",
-    ],
-    tags = ["automanaged"],
-)
-
 go_library(
     name = "github.com/vishvananda/netlink",
     srcs = [
@@ -6637,6 +6654,44 @@ go_library(
         "github.com/vmware/govmomi/vim25/xml/read.go",
         "github.com/vmware/govmomi/vim25/xml/typeinfo.go",
         "github.com/vmware/govmomi/vim25/xml/xml.go",
+    ],
+    tags = ["automanaged"],
+)
+
+go_library(
+    name = "github.com/vmware/photon-controller-go-sdk/photon",
+    srcs = [
+        "github.com/vmware/photon-controller-go-sdk/photon/apitypes.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/auth.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/availabilityzones.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/client.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/clusters.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/deployments.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/disks.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/flavors.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/hosts.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/images.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/info.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/networks.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/projects.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/resourcetickets.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/restclient.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/status.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/tasks.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/tenants.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/util.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/virtualnetworks.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/vms.go",
+    ],
+    tags = ["automanaged"],
+    deps = ["//vendor:github.com/vmware/photon-controller-go-sdk/photon/lightwave"],
+)
+
+go_library(
+    name = "github.com/vmware/photon-controller-go-sdk/photon/lightwave",
+    srcs = [
+        "github.com/vmware/photon-controller-go-sdk/photon/lightwave/jwttoken.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/lightwave/oidcclient.go",
     ],
     tags = ["automanaged"],
 )
@@ -7749,6 +7804,30 @@ go_library(
 )
 
 go_library(
+    name = "k8s.io/client-go/_vendor/github.com/docker/spdystream",
+    srcs = [
+        "k8s.io/client-go/_vendor/github.com/docker/spdystream/connection.go",
+        "k8s.io/client-go/_vendor/github.com/docker/spdystream/handlers.go",
+        "k8s.io/client-go/_vendor/github.com/docker/spdystream/priority.go",
+        "k8s.io/client-go/_vendor/github.com/docker/spdystream/stream.go",
+        "k8s.io/client-go/_vendor/github.com/docker/spdystream/utils.go",
+    ],
+    tags = ["automanaged"],
+    deps = ["//vendor:github.com/docker/spdystream/spdy"],
+)
+
+go_library(
+    name = "k8s.io/client-go/_vendor/github.com/docker/spdystream/spdy",
+    srcs = [
+        "k8s.io/client-go/_vendor/github.com/docker/spdystream/spdy/dictionary.go",
+        "k8s.io/client-go/_vendor/github.com/docker/spdystream/spdy/read.go",
+        "k8s.io/client-go/_vendor/github.com/docker/spdystream/spdy/types.go",
+        "k8s.io/client-go/_vendor/github.com/docker/spdystream/spdy/write.go",
+    ],
+    tags = ["automanaged"],
+)
+
+go_library(
     name = "k8s.io/client-go/_vendor/github.com/emicklei/go-restful",
     srcs = [
         "k8s.io/client-go/_vendor/github.com/emicklei/go-restful/compress.go",
@@ -7989,15 +8068,6 @@ go_library(
 )
 
 go_library(
-    name = "k8s.io/client-go/_vendor/github.com/juju/ratelimit",
-    srcs = [
-        "k8s.io/client-go/_vendor/github.com/juju/ratelimit/ratelimit.go",
-        "k8s.io/client-go/_vendor/github.com/juju/ratelimit/reader.go",
-    ],
-    tags = ["automanaged"],
-)
-
-go_library(
     name = "k8s.io/client-go/_vendor/github.com/mailru/easyjson/buffer",
     srcs = ["k8s.io/client-go/_vendor/github.com/mailru/easyjson/buffer/pool.go"],
     tags = ["automanaged"],
@@ -8037,6 +8107,12 @@ go_library(
 )
 
 go_library(
+    name = "k8s.io/client-go/_vendor/github.com/pmezard/go-difflib/difflib",
+    srcs = ["k8s.io/client-go/_vendor/github.com/pmezard/go-difflib/difflib/difflib.go"],
+    tags = ["automanaged"],
+)
+
+go_library(
     name = "k8s.io/client-go/_vendor/github.com/spf13/pflag",
     srcs = [
         "k8s.io/client-go/_vendor/github.com/spf13/pflag/bool.go",
@@ -8064,6 +8140,22 @@ go_library(
         "k8s.io/client-go/_vendor/github.com/spf13/pflag/uint8.go",
     ],
     tags = ["automanaged"],
+)
+
+go_library(
+    name = "k8s.io/client-go/_vendor/github.com/stretchr/testify/assert",
+    srcs = [
+        "k8s.io/client-go/_vendor/github.com/stretchr/testify/assert/assertions.go",
+        "k8s.io/client-go/_vendor/github.com/stretchr/testify/assert/doc.go",
+        "k8s.io/client-go/_vendor/github.com/stretchr/testify/assert/errors.go",
+        "k8s.io/client-go/_vendor/github.com/stretchr/testify/assert/forward_assertions.go",
+        "k8s.io/client-go/_vendor/github.com/stretchr/testify/assert/http_assertions.go",
+    ],
+    tags = ["automanaged"],
+    deps = [
+        "//vendor:github.com/davecgh/go-spew/spew",
+        "//vendor:github.com/pmezard/go-difflib/difflib",
+    ],
 )
 
 go_library(
@@ -8524,6 +8616,7 @@ go_library(
     tags = ["automanaged"],
     deps = [
         "//vendor:github.com/emicklei/go-restful/swagger",
+        "//vendor:github.com/golang/glog",
         "//vendor:k8s.io/client-go/pkg/api",
         "//vendor:k8s.io/client-go/pkg/api/errors",
         "//vendor:k8s.io/client-go/pkg/api/meta",
@@ -8585,15 +8678,16 @@ go_library(
     deps = [
         "//vendor:github.com/golang/glog",
         "//vendor:k8s.io/client-go/discovery",
-        "//vendor:k8s.io/client-go/kubernetes/typed/apps/v1alpha1",
+        "//vendor:k8s.io/client-go/kubernetes/typed/apps/v1beta1",
         "//vendor:k8s.io/client-go/kubernetes/typed/authentication/v1beta1",
         "//vendor:k8s.io/client-go/kubernetes/typed/authorization/v1beta1",
         "//vendor:k8s.io/client-go/kubernetes/typed/autoscaling/v1",
         "//vendor:k8s.io/client-go/kubernetes/typed/batch/v1",
+        "//vendor:k8s.io/client-go/kubernetes/typed/batch/v2alpha1",
         "//vendor:k8s.io/client-go/kubernetes/typed/certificates/v1alpha1",
         "//vendor:k8s.io/client-go/kubernetes/typed/core/v1",
         "//vendor:k8s.io/client-go/kubernetes/typed/extensions/v1beta1",
-        "//vendor:k8s.io/client-go/kubernetes/typed/policy/v1alpha1",
+        "//vendor:k8s.io/client-go/kubernetes/typed/policy/v1beta1",
         "//vendor:k8s.io/client-go/kubernetes/typed/rbac/v1alpha1",
         "//vendor:k8s.io/client-go/kubernetes/typed/storage/v1beta1",
         "//vendor:k8s.io/client-go/pkg/api/install",
@@ -8625,8 +8719,8 @@ go_library(
         "//vendor:k8s.io/client-go/discovery",
         "//vendor:k8s.io/client-go/discovery/fake",
         "//vendor:k8s.io/client-go/kubernetes",
-        "//vendor:k8s.io/client-go/kubernetes/typed/apps/v1alpha1",
-        "//vendor:k8s.io/client-go/kubernetes/typed/apps/v1alpha1/fake",
+        "//vendor:k8s.io/client-go/kubernetes/typed/apps/v1beta1",
+        "//vendor:k8s.io/client-go/kubernetes/typed/apps/v1beta1/fake",
         "//vendor:k8s.io/client-go/kubernetes/typed/authentication/v1beta1",
         "//vendor:k8s.io/client-go/kubernetes/typed/authentication/v1beta1/fake",
         "//vendor:k8s.io/client-go/kubernetes/typed/authorization/v1beta1",
@@ -8635,14 +8729,16 @@ go_library(
         "//vendor:k8s.io/client-go/kubernetes/typed/autoscaling/v1/fake",
         "//vendor:k8s.io/client-go/kubernetes/typed/batch/v1",
         "//vendor:k8s.io/client-go/kubernetes/typed/batch/v1/fake",
+        "//vendor:k8s.io/client-go/kubernetes/typed/batch/v2alpha1",
+        "//vendor:k8s.io/client-go/kubernetes/typed/batch/v2alpha1/fake",
         "//vendor:k8s.io/client-go/kubernetes/typed/certificates/v1alpha1",
         "//vendor:k8s.io/client-go/kubernetes/typed/certificates/v1alpha1/fake",
         "//vendor:k8s.io/client-go/kubernetes/typed/core/v1",
         "//vendor:k8s.io/client-go/kubernetes/typed/core/v1/fake",
         "//vendor:k8s.io/client-go/kubernetes/typed/extensions/v1beta1",
         "//vendor:k8s.io/client-go/kubernetes/typed/extensions/v1beta1/fake",
-        "//vendor:k8s.io/client-go/kubernetes/typed/policy/v1alpha1",
-        "//vendor:k8s.io/client-go/kubernetes/typed/policy/v1alpha1/fake",
+        "//vendor:k8s.io/client-go/kubernetes/typed/policy/v1beta1",
+        "//vendor:k8s.io/client-go/kubernetes/typed/policy/v1beta1/fake",
         "//vendor:k8s.io/client-go/kubernetes/typed/rbac/v1alpha1",
         "//vendor:k8s.io/client-go/kubernetes/typed/rbac/v1alpha1/fake",
         "//vendor:k8s.io/client-go/kubernetes/typed/storage/v1beta1",
@@ -8656,19 +8752,20 @@ go_library(
 )
 
 go_library(
-    name = "k8s.io/client-go/kubernetes/typed/apps/v1alpha1",
+    name = "k8s.io/client-go/kubernetes/typed/apps/v1beta1",
     srcs = [
-        "k8s.io/client-go/kubernetes/typed/apps/v1alpha1/apps_client.go",
-        "k8s.io/client-go/kubernetes/typed/apps/v1alpha1/doc.go",
-        "k8s.io/client-go/kubernetes/typed/apps/v1alpha1/generated_expansion.go",
-        "k8s.io/client-go/kubernetes/typed/apps/v1alpha1/statefulset.go",
+        "k8s.io/client-go/kubernetes/typed/apps/v1beta1/apps_client.go",
+        "k8s.io/client-go/kubernetes/typed/apps/v1beta1/doc.go",
+        "k8s.io/client-go/kubernetes/typed/apps/v1beta1/generated_expansion.go",
+        "k8s.io/client-go/kubernetes/typed/apps/v1beta1/statefulset.go",
     ],
     tags = ["automanaged"],
     deps = [
         "//vendor:k8s.io/client-go/pkg/api",
         "//vendor:k8s.io/client-go/pkg/api/v1",
         "//vendor:k8s.io/client-go/pkg/apimachinery/registered",
-        "//vendor:k8s.io/client-go/pkg/apis/apps/v1alpha1",
+        "//vendor:k8s.io/client-go/pkg/apis/apps/v1beta1",
+        "//vendor:k8s.io/client-go/pkg/runtime/schema",
         "//vendor:k8s.io/client-go/pkg/runtime/serializer",
         "//vendor:k8s.io/client-go/pkg/watch",
         "//vendor:k8s.io/client-go/rest",
@@ -8676,20 +8773,20 @@ go_library(
 )
 
 go_library(
-    name = "k8s.io/client-go/kubernetes/typed/apps/v1alpha1/fake",
+    name = "k8s.io/client-go/kubernetes/typed/apps/v1beta1/fake",
     srcs = [
-        "k8s.io/client-go/kubernetes/typed/apps/v1alpha1/fake/doc.go",
-        "k8s.io/client-go/kubernetes/typed/apps/v1alpha1/fake/fake_apps_client.go",
-        "k8s.io/client-go/kubernetes/typed/apps/v1alpha1/fake/fake_statefulset.go",
+        "k8s.io/client-go/kubernetes/typed/apps/v1beta1/fake/doc.go",
+        "k8s.io/client-go/kubernetes/typed/apps/v1beta1/fake/fake_apps_client.go",
+        "k8s.io/client-go/kubernetes/typed/apps/v1beta1/fake/fake_statefulset.go",
     ],
     tags = ["automanaged"],
     deps = [
-        "//vendor:k8s.io/client-go/kubernetes/typed/apps/v1alpha1",
+        "//vendor:k8s.io/client-go/kubernetes/typed/apps/v1beta1",
         "//vendor:k8s.io/client-go/pkg/api",
-        "//vendor:k8s.io/client-go/pkg/api/unversioned",
         "//vendor:k8s.io/client-go/pkg/api/v1",
-        "//vendor:k8s.io/client-go/pkg/apis/apps/v1alpha1",
+        "//vendor:k8s.io/client-go/pkg/apis/apps/v1beta1",
         "//vendor:k8s.io/client-go/pkg/labels",
+        "//vendor:k8s.io/client-go/pkg/runtime/schema",
         "//vendor:k8s.io/client-go/pkg/watch",
         "//vendor:k8s.io/client-go/rest",
         "//vendor:k8s.io/client-go/testing",
@@ -8703,11 +8800,14 @@ go_library(
         "k8s.io/client-go/kubernetes/typed/authentication/v1beta1/doc.go",
         "k8s.io/client-go/kubernetes/typed/authentication/v1beta1/generated_expansion.go",
         "k8s.io/client-go/kubernetes/typed/authentication/v1beta1/tokenreview.go",
+        "k8s.io/client-go/kubernetes/typed/authentication/v1beta1/tokenreview_expansion.go",
     ],
     tags = ["automanaged"],
     deps = [
         "//vendor:k8s.io/client-go/pkg/api",
+        "//vendor:k8s.io/client-go/pkg/api/unversioned",
         "//vendor:k8s.io/client-go/pkg/apimachinery/registered",
+        "//vendor:k8s.io/client-go/pkg/apis/authentication/v1beta1",
         "//vendor:k8s.io/client-go/pkg/runtime/serializer",
         "//vendor:k8s.io/client-go/rest",
     ],
@@ -8719,10 +8819,12 @@ go_library(
         "k8s.io/client-go/kubernetes/typed/authentication/v1beta1/fake/doc.go",
         "k8s.io/client-go/kubernetes/typed/authentication/v1beta1/fake/fake_authentication_client.go",
         "k8s.io/client-go/kubernetes/typed/authentication/v1beta1/fake/fake_tokenreview.go",
+        "k8s.io/client-go/kubernetes/typed/authentication/v1beta1/fake/fake_tokenreview_expansion.go",
     ],
     tags = ["automanaged"],
     deps = [
         "//vendor:k8s.io/client-go/kubernetes/typed/authentication/v1beta1",
+        "//vendor:k8s.io/client-go/pkg/apis/authentication/v1beta1",
         "//vendor:k8s.io/client-go/rest",
         "//vendor:k8s.io/client-go/testing",
     ],
@@ -8735,13 +8837,16 @@ go_library(
         "k8s.io/client-go/kubernetes/typed/authorization/v1beta1/doc.go",
         "k8s.io/client-go/kubernetes/typed/authorization/v1beta1/generated_expansion.go",
         "k8s.io/client-go/kubernetes/typed/authorization/v1beta1/localsubjectaccessreview.go",
+        "k8s.io/client-go/kubernetes/typed/authorization/v1beta1/localsubjectaccessreview_expansion.go",
         "k8s.io/client-go/kubernetes/typed/authorization/v1beta1/selfsubjectaccessreview.go",
+        "k8s.io/client-go/kubernetes/typed/authorization/v1beta1/selfsubjectaccessreview_expansion.go",
         "k8s.io/client-go/kubernetes/typed/authorization/v1beta1/subjectaccessreview.go",
         "k8s.io/client-go/kubernetes/typed/authorization/v1beta1/subjectaccessreview_expansion.go",
     ],
     tags = ["automanaged"],
     deps = [
         "//vendor:k8s.io/client-go/pkg/api",
+        "//vendor:k8s.io/client-go/pkg/api/unversioned",
         "//vendor:k8s.io/client-go/pkg/apimachinery/registered",
         "//vendor:k8s.io/client-go/pkg/apis/authorization/v1beta1",
         "//vendor:k8s.io/client-go/pkg/runtime/serializer",
@@ -8754,8 +8859,11 @@ go_library(
     srcs = [
         "k8s.io/client-go/kubernetes/typed/authorization/v1beta1/fake/doc.go",
         "k8s.io/client-go/kubernetes/typed/authorization/v1beta1/fake/fake_authorization_client.go",
+        "k8s.io/client-go/kubernetes/typed/authorization/v1beta1/fake/fake_generated_expansion.go",
         "k8s.io/client-go/kubernetes/typed/authorization/v1beta1/fake/fake_localsubjectaccessreview.go",
+        "k8s.io/client-go/kubernetes/typed/authorization/v1beta1/fake/fake_localsubjectaccessreview_expansion.go",
         "k8s.io/client-go/kubernetes/typed/authorization/v1beta1/fake/fake_selfsubjectaccessreview.go",
+        "k8s.io/client-go/kubernetes/typed/authorization/v1beta1/fake/fake_selfsubjectaccessreview_expansion.go",
         "k8s.io/client-go/kubernetes/typed/authorization/v1beta1/fake/fake_subjectaccessreview.go",
         "k8s.io/client-go/kubernetes/typed/authorization/v1beta1/fake/fake_subjectaccessreview_expansion.go",
     ],
@@ -8779,6 +8887,7 @@ go_library(
     tags = ["automanaged"],
     deps = [
         "//vendor:k8s.io/client-go/pkg/api",
+        "//vendor:k8s.io/client-go/pkg/api/unversioned",
         "//vendor:k8s.io/client-go/pkg/api/v1",
         "//vendor:k8s.io/client-go/pkg/apimachinery/registered",
         "//vendor:k8s.io/client-go/pkg/apis/autoscaling/v1",
@@ -8820,6 +8929,7 @@ go_library(
     tags = ["automanaged"],
     deps = [
         "//vendor:k8s.io/client-go/pkg/api",
+        "//vendor:k8s.io/client-go/pkg/api/unversioned",
         "//vendor:k8s.io/client-go/pkg/api/v1",
         "//vendor:k8s.io/client-go/pkg/apimachinery/registered",
         "//vendor:k8s.io/client-go/pkg/apis/batch/v1",
@@ -8851,16 +8961,62 @@ go_library(
 )
 
 go_library(
+    name = "k8s.io/client-go/kubernetes/typed/batch/v2alpha1",
+    srcs = [
+        "k8s.io/client-go/kubernetes/typed/batch/v2alpha1/batch_client.go",
+        "k8s.io/client-go/kubernetes/typed/batch/v2alpha1/cronjob.go",
+        "k8s.io/client-go/kubernetes/typed/batch/v2alpha1/doc.go",
+        "k8s.io/client-go/kubernetes/typed/batch/v2alpha1/generated_expansion.go",
+        "k8s.io/client-go/kubernetes/typed/batch/v2alpha1/job.go",
+    ],
+    tags = ["automanaged"],
+    deps = [
+        "//vendor:k8s.io/client-go/pkg/api",
+        "//vendor:k8s.io/client-go/pkg/api/v1",
+        "//vendor:k8s.io/client-go/pkg/apimachinery/registered",
+        "//vendor:k8s.io/client-go/pkg/apis/batch/v2alpha1",
+        "//vendor:k8s.io/client-go/pkg/runtime/schema",
+        "//vendor:k8s.io/client-go/pkg/runtime/serializer",
+        "//vendor:k8s.io/client-go/pkg/watch",
+        "//vendor:k8s.io/client-go/rest",
+    ],
+)
+
+go_library(
+    name = "k8s.io/client-go/kubernetes/typed/batch/v2alpha1/fake",
+    srcs = [
+        "k8s.io/client-go/kubernetes/typed/batch/v2alpha1/fake/doc.go",
+        "k8s.io/client-go/kubernetes/typed/batch/v2alpha1/fake/fake_batch_client.go",
+        "k8s.io/client-go/kubernetes/typed/batch/v2alpha1/fake/fake_cronjob.go",
+        "k8s.io/client-go/kubernetes/typed/batch/v2alpha1/fake/fake_job.go",
+    ],
+    tags = ["automanaged"],
+    deps = [
+        "//vendor:k8s.io/client-go/kubernetes/typed/batch/v2alpha1",
+        "//vendor:k8s.io/client-go/pkg/api",
+        "//vendor:k8s.io/client-go/pkg/api/v1",
+        "//vendor:k8s.io/client-go/pkg/apis/batch/v2alpha1",
+        "//vendor:k8s.io/client-go/pkg/labels",
+        "//vendor:k8s.io/client-go/pkg/runtime/schema",
+        "//vendor:k8s.io/client-go/pkg/watch",
+        "//vendor:k8s.io/client-go/rest",
+        "//vendor:k8s.io/client-go/testing",
+    ],
+)
+
+go_library(
     name = "k8s.io/client-go/kubernetes/typed/certificates/v1alpha1",
     srcs = [
         "k8s.io/client-go/kubernetes/typed/certificates/v1alpha1/certificates_client.go",
         "k8s.io/client-go/kubernetes/typed/certificates/v1alpha1/certificatesigningrequest.go",
+        "k8s.io/client-go/kubernetes/typed/certificates/v1alpha1/certificatesigningrequest_expansion.go",
         "k8s.io/client-go/kubernetes/typed/certificates/v1alpha1/doc.go",
         "k8s.io/client-go/kubernetes/typed/certificates/v1alpha1/generated_expansion.go",
     ],
     tags = ["automanaged"],
     deps = [
         "//vendor:k8s.io/client-go/pkg/api",
+        "//vendor:k8s.io/client-go/pkg/api/unversioned",
         "//vendor:k8s.io/client-go/pkg/api/v1",
         "//vendor:k8s.io/client-go/pkg/apimachinery/registered",
         "//vendor:k8s.io/client-go/pkg/apis/certificates/v1alpha1",
@@ -8876,6 +9032,7 @@ go_library(
         "k8s.io/client-go/kubernetes/typed/certificates/v1alpha1/fake/doc.go",
         "k8s.io/client-go/kubernetes/typed/certificates/v1alpha1/fake/fake_certificates_client.go",
         "k8s.io/client-go/kubernetes/typed/certificates/v1alpha1/fake/fake_certificatesigningrequest.go",
+        "k8s.io/client-go/kubernetes/typed/certificates/v1alpha1/fake/fake_certificatesigningrequest_expansion.go",
     ],
     tags = ["automanaged"],
     deps = [
@@ -8906,6 +9063,7 @@ go_library(
         "k8s.io/client-go/kubernetes/typed/core/v1/namespace.go",
         "k8s.io/client-go/kubernetes/typed/core/v1/namespace_expansion.go",
         "k8s.io/client-go/kubernetes/typed/core/v1/node.go",
+        "k8s.io/client-go/kubernetes/typed/core/v1/node_expansion.go",
         "k8s.io/client-go/kubernetes/typed/core/v1/persistentvolume.go",
         "k8s.io/client-go/kubernetes/typed/core/v1/persistentvolumeclaim.go",
         "k8s.io/client-go/kubernetes/typed/core/v1/pod.go",
@@ -8921,9 +9079,10 @@ go_library(
     tags = ["automanaged"],
     deps = [
         "//vendor:k8s.io/client-go/pkg/api",
+        "//vendor:k8s.io/client-go/pkg/api/unversioned",
         "//vendor:k8s.io/client-go/pkg/api/v1",
         "//vendor:k8s.io/client-go/pkg/apimachinery/registered",
-        "//vendor:k8s.io/client-go/pkg/apis/policy/v1alpha1",
+        "//vendor:k8s.io/client-go/pkg/apis/policy/v1beta1",
         "//vendor:k8s.io/client-go/pkg/fields",
         "//vendor:k8s.io/client-go/pkg/runtime",
         "//vendor:k8s.io/client-go/pkg/runtime/serializer",
@@ -8947,6 +9106,7 @@ go_library(
         "k8s.io/client-go/kubernetes/typed/core/v1/fake/fake_namespace.go",
         "k8s.io/client-go/kubernetes/typed/core/v1/fake/fake_namespace_expansion.go",
         "k8s.io/client-go/kubernetes/typed/core/v1/fake/fake_node.go",
+        "k8s.io/client-go/kubernetes/typed/core/v1/fake/fake_node_expansion.go",
         "k8s.io/client-go/kubernetes/typed/core/v1/fake/fake_persistentvolume.go",
         "k8s.io/client-go/kubernetes/typed/core/v1/fake/fake_persistentvolumeclaim.go",
         "k8s.io/client-go/kubernetes/typed/core/v1/fake/fake_pod.go",
@@ -8965,7 +9125,7 @@ go_library(
         "//vendor:k8s.io/client-go/pkg/api",
         "//vendor:k8s.io/client-go/pkg/api/unversioned",
         "//vendor:k8s.io/client-go/pkg/api/v1",
-        "//vendor:k8s.io/client-go/pkg/apis/policy/v1alpha1",
+        "//vendor:k8s.io/client-go/pkg/apis/policy/v1beta1",
         "//vendor:k8s.io/client-go/pkg/fields",
         "//vendor:k8s.io/client-go/pkg/labels",
         "//vendor:k8s.io/client-go/pkg/runtime",
@@ -9047,6 +9207,7 @@ go_library(
     tags = ["automanaged"],
     deps = [
         "//vendor:k8s.io/client-go/pkg/api",
+        "//vendor:k8s.io/client-go/pkg/api/unversioned",
         "//vendor:k8s.io/client-go/pkg/api/v1",
         "//vendor:k8s.io/client-go/pkg/apimachinery/registered",
         "//vendor:k8s.io/client-go/pkg/apis/policy/v1alpha1",
@@ -9078,6 +9239,48 @@ go_library(
 )
 
 go_library(
+    name = "k8s.io/client-go/kubernetes/typed/policy/v1beta1",
+    srcs = [
+        "k8s.io/client-go/kubernetes/typed/policy/v1beta1/doc.go",
+        "k8s.io/client-go/kubernetes/typed/policy/v1beta1/generated_expansion.go",
+        "k8s.io/client-go/kubernetes/typed/policy/v1beta1/poddisruptionbudget.go",
+        "k8s.io/client-go/kubernetes/typed/policy/v1beta1/policy_client.go",
+    ],
+    tags = ["automanaged"],
+    deps = [
+        "//vendor:k8s.io/client-go/pkg/api",
+        "//vendor:k8s.io/client-go/pkg/api/v1",
+        "//vendor:k8s.io/client-go/pkg/apimachinery/registered",
+        "//vendor:k8s.io/client-go/pkg/apis/policy/v1beta1",
+        "//vendor:k8s.io/client-go/pkg/runtime/schema",
+        "//vendor:k8s.io/client-go/pkg/runtime/serializer",
+        "//vendor:k8s.io/client-go/pkg/watch",
+        "//vendor:k8s.io/client-go/rest",
+    ],
+)
+
+go_library(
+    name = "k8s.io/client-go/kubernetes/typed/policy/v1beta1/fake",
+    srcs = [
+        "k8s.io/client-go/kubernetes/typed/policy/v1beta1/fake/doc.go",
+        "k8s.io/client-go/kubernetes/typed/policy/v1beta1/fake/fake_poddisruptionbudget.go",
+        "k8s.io/client-go/kubernetes/typed/policy/v1beta1/fake/fake_policy_client.go",
+    ],
+    tags = ["automanaged"],
+    deps = [
+        "//vendor:k8s.io/client-go/kubernetes/typed/policy/v1beta1",
+        "//vendor:k8s.io/client-go/pkg/api",
+        "//vendor:k8s.io/client-go/pkg/api/v1",
+        "//vendor:k8s.io/client-go/pkg/apis/policy/v1beta1",
+        "//vendor:k8s.io/client-go/pkg/labels",
+        "//vendor:k8s.io/client-go/pkg/runtime/schema",
+        "//vendor:k8s.io/client-go/pkg/watch",
+        "//vendor:k8s.io/client-go/rest",
+        "//vendor:k8s.io/client-go/testing",
+    ],
+)
+
+go_library(
     name = "k8s.io/client-go/kubernetes/typed/rbac/v1alpha1",
     srcs = [
         "k8s.io/client-go/kubernetes/typed/rbac/v1alpha1/clusterrole.go",
@@ -9091,6 +9294,7 @@ go_library(
     tags = ["automanaged"],
     deps = [
         "//vendor:k8s.io/client-go/pkg/api",
+        "//vendor:k8s.io/client-go/pkg/api/unversioned",
         "//vendor:k8s.io/client-go/pkg/api/v1",
         "//vendor:k8s.io/client-go/pkg/apimachinery/registered",
         "//vendor:k8s.io/client-go/pkg/apis/rbac/v1alpha1",
@@ -9135,6 +9339,7 @@ go_library(
     tags = ["automanaged"],
     deps = [
         "//vendor:k8s.io/client-go/pkg/api",
+        "//vendor:k8s.io/client-go/pkg/api/unversioned",
         "//vendor:k8s.io/client-go/pkg/api/v1",
         "//vendor:k8s.io/client-go/pkg/apimachinery/registered",
         "//vendor:k8s.io/client-go/pkg/apis/storage/v1beta1",
@@ -9311,6 +9516,7 @@ go_library(
         "//vendor:k8s.io/client-go/pkg/apis/apps",
         "//vendor:k8s.io/client-go/pkg/apis/apps/install",
         "//vendor:k8s.io/client-go/pkg/apis/authentication/install",
+        "//vendor:k8s.io/client-go/pkg/apis/authorization",
         "//vendor:k8s.io/client-go/pkg/apis/authorization/install",
         "//vendor:k8s.io/client-go/pkg/apis/autoscaling",
         "//vendor:k8s.io/client-go/pkg/apis/autoscaling/install",
@@ -9489,34 +9695,31 @@ go_library(
     deps = [
         "//vendor:k8s.io/client-go/pkg/apimachinery/announced",
         "//vendor:k8s.io/client-go/pkg/apis/apps",
-        "//vendor:k8s.io/client-go/pkg/apis/apps/v1alpha1",
+        "//vendor:k8s.io/client-go/pkg/apis/apps/v1beta1",
     ],
 )
 
 go_library(
-    name = "k8s.io/client-go/pkg/apis/apps/v1alpha1",
+    name = "k8s.io/client-go/pkg/apis/apps/v1beta1",
     srcs = [
-        "k8s.io/client-go/pkg/apis/apps/v1alpha1/conversion.go",
-        "k8s.io/client-go/pkg/apis/apps/v1alpha1/defaults.go",
-        "k8s.io/client-go/pkg/apis/apps/v1alpha1/doc.go",
-        "k8s.io/client-go/pkg/apis/apps/v1alpha1/generated.pb.go",
-        "k8s.io/client-go/pkg/apis/apps/v1alpha1/register.go",
-        "k8s.io/client-go/pkg/apis/apps/v1alpha1/types.generated.go",
-        "k8s.io/client-go/pkg/apis/apps/v1alpha1/types.go",
-        "k8s.io/client-go/pkg/apis/apps/v1alpha1/types_swagger_doc_generated.go",
-        "k8s.io/client-go/pkg/apis/apps/v1alpha1/zz_generated.conversion.go",
-        "k8s.io/client-go/pkg/apis/apps/v1alpha1/zz_generated.deepcopy.go",
-        "k8s.io/client-go/pkg/apis/apps/v1alpha1/zz_generated.defaults.go",
+        "k8s.io/client-go/pkg/apis/apps/v1beta1/conversion.go",
+        "k8s.io/client-go/pkg/apis/apps/v1beta1/defaults.go",
+        "k8s.io/client-go/pkg/apis/apps/v1beta1/doc.go",
+        "k8s.io/client-go/pkg/apis/apps/v1beta1/generated.pb.go",
+        "k8s.io/client-go/pkg/apis/apps/v1beta1/register.go",
+        "k8s.io/client-go/pkg/apis/apps/v1beta1/types.generated.go",
+        "k8s.io/client-go/pkg/apis/apps/v1beta1/types.go",
+        "k8s.io/client-go/pkg/apis/apps/v1beta1/types_swagger_doc_generated.go",
+        "k8s.io/client-go/pkg/apis/apps/v1beta1/zz_generated.conversion.go",
+        "k8s.io/client-go/pkg/apis/apps/v1beta1/zz_generated.deepcopy.go",
+        "k8s.io/client-go/pkg/apis/apps/v1beta1/zz_generated.defaults.go",
     ],
     tags = ["automanaged"],
     deps = [
         "//vendor:github.com/gogo/protobuf/proto",
         "//vendor:github.com/ugorji/go/codec",
         "//vendor:k8s.io/client-go/pkg/api",
-        "//vendor:k8s.io/client-go/pkg/api/resource",
         "//vendor:k8s.io/client-go/pkg/api/unversioned",
-        "//vendor:k8s.io/client-go/pkg/api/v1",
-        "//vendor:k8s.io/client-go/pkg/apis/apps",
         "//vendor:k8s.io/client-go/pkg/conversion",
         "//vendor:k8s.io/client-go/pkg/runtime",
         "//vendor:k8s.io/client-go/pkg/types",
@@ -10053,7 +10256,6 @@ go_library(
 go_library(
     name = "k8s.io/client-go/pkg/apis/kubeadm",
     srcs = [
-        "k8s.io/client-go/pkg/apis/kubeadm/defaults.go",
         "k8s.io/client-go/pkg/apis/kubeadm/doc.go",
         "k8s.io/client-go/pkg/apis/kubeadm/env.go",
         "k8s.io/client-go/pkg/apis/kubeadm/register.go",
@@ -10084,9 +10286,11 @@ go_library(
 go_library(
     name = "k8s.io/client-go/pkg/apis/kubeadm/v1alpha1",
     srcs = [
+        "k8s.io/client-go/pkg/apis/kubeadm/v1alpha1/defaults.go",
         "k8s.io/client-go/pkg/apis/kubeadm/v1alpha1/doc.go",
         "k8s.io/client-go/pkg/apis/kubeadm/v1alpha1/register.go",
         "k8s.io/client-go/pkg/apis/kubeadm/v1alpha1/types.go",
+        "k8s.io/client-go/pkg/apis/kubeadm/v1alpha1/zz_generated.defaults.go",
     ],
     tags = ["automanaged"],
     deps = [
@@ -10124,7 +10328,7 @@ go_library(
     deps = [
         "//vendor:k8s.io/client-go/pkg/apimachinery/announced",
         "//vendor:k8s.io/client-go/pkg/apis/policy",
-        "//vendor:k8s.io/client-go/pkg/apis/policy/v1alpha1",
+        "//vendor:k8s.io/client-go/pkg/apis/policy/v1beta1",
     ],
 )
 
@@ -10132,24 +10336,43 @@ go_library(
     name = "k8s.io/client-go/pkg/apis/policy/v1alpha1",
     srcs = [
         "k8s.io/client-go/pkg/apis/policy/v1alpha1/doc.go",
-        "k8s.io/client-go/pkg/apis/policy/v1alpha1/generated.pb.go",
         "k8s.io/client-go/pkg/apis/policy/v1alpha1/register.go",
-        "k8s.io/client-go/pkg/apis/policy/v1alpha1/types.generated.go",
         "k8s.io/client-go/pkg/apis/policy/v1alpha1/types.go",
-        "k8s.io/client-go/pkg/apis/policy/v1alpha1/types_swagger_doc_generated.go",
-        "k8s.io/client-go/pkg/apis/policy/v1alpha1/zz_generated.conversion.go",
-        "k8s.io/client-go/pkg/apis/policy/v1alpha1/zz_generated.deepcopy.go",
+    ],
+    tags = ["automanaged"],
+    deps = [
+        "//vendor:k8s.io/client-go/pkg/api/unversioned",
+        "//vendor:k8s.io/client-go/pkg/api/v1",
+        "//vendor:k8s.io/client-go/pkg/runtime",
+        "//vendor:k8s.io/client-go/pkg/util/intstr",
+        "//vendor:k8s.io/client-go/pkg/watch/versioned",
+    ],
+)
+
+go_library(
+    name = "k8s.io/client-go/pkg/apis/policy/v1beta1",
+    srcs = [
+        "k8s.io/client-go/pkg/apis/policy/v1beta1/doc.go",
+        "k8s.io/client-go/pkg/apis/policy/v1beta1/generated.pb.go",
+        "k8s.io/client-go/pkg/apis/policy/v1beta1/register.go",
+        "k8s.io/client-go/pkg/apis/policy/v1beta1/types.generated.go",
+        "k8s.io/client-go/pkg/apis/policy/v1beta1/types.go",
+        "k8s.io/client-go/pkg/apis/policy/v1beta1/types_swagger_doc_generated.go",
+        "k8s.io/client-go/pkg/apis/policy/v1beta1/zz_generated.conversion.go",
+        "k8s.io/client-go/pkg/apis/policy/v1beta1/zz_generated.deepcopy.go",
     ],
     tags = ["automanaged"],
     deps = [
         "//vendor:github.com/gogo/protobuf/proto",
+        "//vendor:github.com/gogo/protobuf/sortkeys",
         "//vendor:github.com/ugorji/go/codec",
         "//vendor:k8s.io/client-go/pkg/api",
-        "//vendor:k8s.io/client-go/pkg/api/unversioned",
         "//vendor:k8s.io/client-go/pkg/api/v1",
+        "//vendor:k8s.io/client-go/pkg/apis/meta/v1",
         "//vendor:k8s.io/client-go/pkg/apis/policy",
         "//vendor:k8s.io/client-go/pkg/conversion",
         "//vendor:k8s.io/client-go/pkg/runtime",
+        "//vendor:k8s.io/client-go/pkg/runtime/schema",
         "//vendor:k8s.io/client-go/pkg/types",
         "//vendor:k8s.io/client-go/pkg/util/intstr",
         "//vendor:k8s.io/client-go/pkg/watch/versioned",
@@ -10600,10 +10823,25 @@ go_library(
 )
 
 go_library(
+    name = "k8s.io/client-go/pkg/third_party/forked/golang/netutil",
+    srcs = ["k8s.io/client-go/pkg/third_party/forked/golang/netutil/addr.go"],
+    tags = ["automanaged"],
+)
+
+go_library(
     name = "k8s.io/client-go/pkg/third_party/forked/golang/reflect",
     srcs = [
         "k8s.io/client-go/pkg/third_party/forked/golang/reflect/deep_equal.go",
         "k8s.io/client-go/pkg/third_party/forked/golang/reflect/type.go",
+    ],
+    tags = ["automanaged"],
+)
+
+go_library(
+    name = "k8s.io/client-go/pkg/third_party/forked/golang/template",
+    srcs = [
+        "k8s.io/client-go/pkg/third_party/forked/golang/template/exec.go",
+        "k8s.io/client-go/pkg/third_party/forked/golang/template/funcs.go",
     ],
     tags = ["automanaged"],
 )
@@ -10659,6 +10897,7 @@ go_library(
         "k8s.io/client-go/pkg/util/config/configuration_map.go",
         "k8s.io/client-go/pkg/util/config/doc.go",
         "k8s.io/client-go/pkg/util/config/feature_gate.go",
+        "k8s.io/client-go/pkg/util/config/namedcertkey_flag.go",
     ],
     tags = ["automanaged"],
     deps = [
@@ -10695,9 +10934,9 @@ go_library(
     ],
     tags = ["automanaged"],
     deps = [
-        "//vendor:github.com/juju/ratelimit",
         "//vendor:k8s.io/client-go/pkg/util/clock",
         "//vendor:k8s.io/client-go/pkg/util/integer",
+        "//vendor:k8s.io/client-go/pkg/util/ratelimit",
     ],
 )
 
@@ -10720,6 +10959,26 @@ go_library(
         "k8s.io/client-go/pkg/util/httpstream/httpstream.go",
     ],
     tags = ["automanaged"],
+)
+
+go_library(
+    name = "k8s.io/client-go/pkg/util/httpstream/spdy",
+    srcs = [
+        "k8s.io/client-go/pkg/util/httpstream/spdy/connection.go",
+        "k8s.io/client-go/pkg/util/httpstream/spdy/roundtripper.go",
+        "k8s.io/client-go/pkg/util/httpstream/spdy/upgrade.go",
+    ],
+    tags = ["automanaged"],
+    deps = [
+        "//vendor:github.com/docker/spdystream",
+        "//vendor:github.com/golang/glog",
+        "//vendor:k8s.io/client-go/pkg/api",
+        "//vendor:k8s.io/client-go/pkg/api/errors",
+        "//vendor:k8s.io/client-go/pkg/api/unversioned",
+        "//vendor:k8s.io/client-go/pkg/third_party/forked/golang/netutil",
+        "//vendor:k8s.io/client-go/pkg/util/httpstream",
+        "//vendor:k8s.io/client-go/pkg/util/runtime",
+    ],
 )
 
 go_library(
@@ -10747,6 +11006,18 @@ go_library(
     name = "k8s.io/client-go/pkg/util/json",
     srcs = ["k8s.io/client-go/pkg/util/json/json.go"],
     tags = ["automanaged"],
+)
+
+go_library(
+    name = "k8s.io/client-go/pkg/util/jsonpath",
+    srcs = [
+        "k8s.io/client-go/pkg/util/jsonpath/doc.go",
+        "k8s.io/client-go/pkg/util/jsonpath/jsonpath.go",
+        "k8s.io/client-go/pkg/util/jsonpath/node.go",
+        "k8s.io/client-go/pkg/util/jsonpath/parser.go",
+    ],
+    tags = ["automanaged"],
+    deps = ["//vendor:k8s.io/client-go/pkg/third_party/forked/golang/template"],
 )
 
 go_library(
@@ -10786,6 +11057,12 @@ go_library(
 go_library(
     name = "k8s.io/client-go/pkg/util/rand",
     srcs = ["k8s.io/client-go/pkg/util/rand/rand.go"],
+    tags = ["automanaged"],
+)
+
+go_library(
+    name = "k8s.io/client-go/pkg/util/ratelimit",
+    srcs = ["k8s.io/client-go/pkg/util/ratelimit/bucket.go"],
     tags = ["automanaged"],
 )
 
@@ -10904,8 +11181,6 @@ go_library(
     tags = ["automanaged"],
     deps = [
         "//vendor:github.com/golang/glog",
-        "//vendor:k8s.io/client-go/pkg/api",
-        "//vendor:k8s.io/client-go/pkg/api/meta",
         "//vendor:k8s.io/client-go/pkg/api/unversioned",
         "//vendor:k8s.io/client-go/pkg/runtime",
         "//vendor:k8s.io/client-go/pkg/util/net",
@@ -10964,6 +11239,8 @@ go_library(
         "//vendor:golang.org/x/net/context",
         "//vendor:golang.org/x/oauth2",
         "//vendor:golang.org/x/oauth2/google",
+        "//vendor:k8s.io/client-go/pkg/util/jsonpath",
+        "//vendor:k8s.io/client-go/pkg/util/yaml",
         "//vendor:k8s.io/client-go/rest",
     ],
 )
@@ -11016,6 +11293,21 @@ go_library(
         "//vendor:k8s.io/client-go/tools/clientcmd/api",
         "//vendor:k8s.io/client-go/tools/metrics",
         "//vendor:k8s.io/client-go/transport",
+    ],
+)
+
+go_library(
+    name = "k8s.io/client-go/rest/fake",
+    srcs = ["k8s.io/client-go/rest/fake/fake.go"],
+    tags = ["automanaged"],
+    deps = [
+        "//vendor:k8s.io/client-go/pkg/api",
+        "//vendor:k8s.io/client-go/pkg/api/testapi",
+        "//vendor:k8s.io/client-go/pkg/api/unversioned",
+        "//vendor:k8s.io/client-go/pkg/apimachinery/registered",
+        "//vendor:k8s.io/client-go/pkg/runtime",
+        "//vendor:k8s.io/client-go/pkg/util/flowcontrol",
+        "//vendor:k8s.io/client-go/rest",
     ],
 )
 
@@ -11081,7 +11373,6 @@ go_library(
         "//vendor:k8s.io/client-go/pkg/api/meta",
         "//vendor:k8s.io/client-go/pkg/api/unversioned",
         "//vendor:k8s.io/client-go/pkg/apis/apps",
-        "//vendor:k8s.io/client-go/pkg/apis/batch",
         "//vendor:k8s.io/client-go/pkg/apis/certificates",
         "//vendor:k8s.io/client-go/pkg/apis/extensions",
         "//vendor:k8s.io/client-go/pkg/apis/policy",
@@ -11410,66 +11701,559 @@ go_library(
 )
 
 go_library(
-    name = "k8s.io/client-go/_vendor/github.com/docker/spdystream",
+    name = "github.com/vmware/photon-controller-go-sdk/photon",
     srcs = [
-        "k8s.io/client-go/_vendor/github.com/docker/spdystream/connection.go",
-        "k8s.io/client-go/_vendor/github.com/docker/spdystream/handlers.go",
-        "k8s.io/client-go/_vendor/github.com/docker/spdystream/priority.go",
-        "k8s.io/client-go/_vendor/github.com/docker/spdystream/stream.go",
-        "k8s.io/client-go/_vendor/github.com/docker/spdystream/utils.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/apitypes.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/auth.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/availabilityzones.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/client.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/clusters.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/deployments.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/disks.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/flavors.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/hosts.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/images.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/info.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/networks.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/projects.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/resourcetickets.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/restclient.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/status.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/tasks.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/tenants.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/util.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/virtualnetworks.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/vms.go",
     ],
     tags = ["automanaged"],
-    deps = ["//vendor:github.com/docker/spdystream/spdy"],
+    deps = ["//vendor:github.com/vmware/photon-controller-go-sdk/photon/lightwave"],
 )
 
 go_library(
-    name = "k8s.io/client-go/_vendor/github.com/docker/spdystream/spdy",
+    name = "github.com/vmware/photon-controller-go-sdk/photon/lightwave",
     srcs = [
-        "k8s.io/client-go/_vendor/github.com/docker/spdystream/spdy/dictionary.go",
-        "k8s.io/client-go/_vendor/github.com/docker/spdystream/spdy/read.go",
-        "k8s.io/client-go/_vendor/github.com/docker/spdystream/spdy/types.go",
-        "k8s.io/client-go/_vendor/github.com/docker/spdystream/spdy/write.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/lightwave/jwttoken.go",
+        "github.com/vmware/photon-controller-go-sdk/photon/lightwave/oidcclient.go",
     ],
     tags = ["automanaged"],
 )
 
 go_library(
-    name = "k8s.io/client-go/pkg/third_party/forked/golang/netutil",
-    srcs = ["k8s.io/client-go/pkg/third_party/forked/golang/netutil/addr.go"],
+    name = "k8s.io/client-go/_vendor/github.com/pmezard/go-difflib/difflib",
+    srcs = ["k8s.io/client-go/_vendor/github.com/pmezard/go-difflib/difflib/difflib.go"],
     tags = ["automanaged"],
 )
 
 go_library(
-    name = "k8s.io/client-go/pkg/util/httpstream/spdy",
+    name = "k8s.io/client-go/_vendor/github.com/stretchr/testify/assert",
     srcs = [
-        "k8s.io/client-go/pkg/util/httpstream/spdy/connection.go",
-        "k8s.io/client-go/pkg/util/httpstream/spdy/roundtripper.go",
-        "k8s.io/client-go/pkg/util/httpstream/spdy/upgrade.go",
+        "k8s.io/client-go/_vendor/github.com/stretchr/testify/assert/assertions.go",
+        "k8s.io/client-go/_vendor/github.com/stretchr/testify/assert/doc.go",
+        "k8s.io/client-go/_vendor/github.com/stretchr/testify/assert/errors.go",
+        "k8s.io/client-go/_vendor/github.com/stretchr/testify/assert/forward_assertions.go",
+        "k8s.io/client-go/_vendor/github.com/stretchr/testify/assert/http_assertions.go",
     ],
     tags = ["automanaged"],
     deps = [
-        "//vendor:github.com/docker/spdystream",
-        "//vendor:github.com/golang/glog",
+        "//vendor:github.com/davecgh/go-spew/spew",
+        "//vendor:github.com/pmezard/go-difflib/difflib",
+    ],
+)
+
+go_library(
+    name = "k8s.io/client-go/kubernetes/typed/apps/v1beta1",
+    srcs = [
+        "k8s.io/client-go/kubernetes/typed/apps/v1beta1/apps_client.go",
+        "k8s.io/client-go/kubernetes/typed/apps/v1beta1/doc.go",
+        "k8s.io/client-go/kubernetes/typed/apps/v1beta1/generated_expansion.go",
+        "k8s.io/client-go/kubernetes/typed/apps/v1beta1/statefulset.go",
+    ],
+    tags = ["automanaged"],
+    deps = [
         "//vendor:k8s.io/client-go/pkg/api",
+        "//vendor:k8s.io/client-go/pkg/api/unversioned",
+        "//vendor:k8s.io/client-go/pkg/api/v1",
+        "//vendor:k8s.io/client-go/pkg/apimachinery/registered",
+        "//vendor:k8s.io/client-go/pkg/apis/apps/v1beta1",
+        "//vendor:k8s.io/client-go/pkg/runtime/serializer",
+        "//vendor:k8s.io/client-go/pkg/watch",
+        "//vendor:k8s.io/client-go/rest",
+    ],
+)
+
+go_library(
+    name = "k8s.io/client-go/kubernetes/typed/apps/v1beta1/fake",
+    srcs = [
+        "k8s.io/client-go/kubernetes/typed/apps/v1beta1/fake/doc.go",
+        "k8s.io/client-go/kubernetes/typed/apps/v1beta1/fake/fake_apps_client.go",
+        "k8s.io/client-go/kubernetes/typed/apps/v1beta1/fake/fake_statefulset.go",
+    ],
+    tags = ["automanaged"],
+    deps = [
+        "//vendor:k8s.io/client-go/kubernetes/typed/apps/v1beta1",
+        "//vendor:k8s.io/client-go/pkg/api",
+        "//vendor:k8s.io/client-go/pkg/api/unversioned",
+        "//vendor:k8s.io/client-go/pkg/api/v1",
+        "//vendor:k8s.io/client-go/pkg/apis/apps/v1beta1",
+        "//vendor:k8s.io/client-go/pkg/labels",
+        "//vendor:k8s.io/client-go/pkg/watch",
+        "//vendor:k8s.io/client-go/rest",
+        "//vendor:k8s.io/client-go/testing",
+    ],
+)
+
+go_library(
+    name = "k8s.io/client-go/kubernetes/typed/batch/v2alpha1",
+    srcs = [
+        "k8s.io/client-go/kubernetes/typed/batch/v2alpha1/batch_client.go",
+        "k8s.io/client-go/kubernetes/typed/batch/v2alpha1/cronjob.go",
+        "k8s.io/client-go/kubernetes/typed/batch/v2alpha1/doc.go",
+        "k8s.io/client-go/kubernetes/typed/batch/v2alpha1/generated_expansion.go",
+        "k8s.io/client-go/kubernetes/typed/batch/v2alpha1/job.go",
+    ],
+    tags = ["automanaged"],
+    deps = [
+        "//vendor:k8s.io/client-go/pkg/api",
+        "//vendor:k8s.io/client-go/pkg/api/unversioned",
+        "//vendor:k8s.io/client-go/pkg/api/v1",
+        "//vendor:k8s.io/client-go/pkg/apimachinery/registered",
+        "//vendor:k8s.io/client-go/pkg/apis/batch/v2alpha1",
+        "//vendor:k8s.io/client-go/pkg/runtime/serializer",
+        "//vendor:k8s.io/client-go/pkg/watch",
+        "//vendor:k8s.io/client-go/rest",
+    ],
+)
+
+go_library(
+    name = "k8s.io/client-go/kubernetes/typed/batch/v2alpha1/fake",
+    srcs = [
+        "k8s.io/client-go/kubernetes/typed/batch/v2alpha1/fake/doc.go",
+        "k8s.io/client-go/kubernetes/typed/batch/v2alpha1/fake/fake_batch_client.go",
+        "k8s.io/client-go/kubernetes/typed/batch/v2alpha1/fake/fake_cronjob.go",
+        "k8s.io/client-go/kubernetes/typed/batch/v2alpha1/fake/fake_job.go",
+    ],
+    tags = ["automanaged"],
+    deps = [
+        "//vendor:k8s.io/client-go/kubernetes/typed/batch/v2alpha1",
+        "//vendor:k8s.io/client-go/pkg/api",
+        "//vendor:k8s.io/client-go/pkg/api/unversioned",
+        "//vendor:k8s.io/client-go/pkg/api/v1",
+        "//vendor:k8s.io/client-go/pkg/apis/batch/v2alpha1",
+        "//vendor:k8s.io/client-go/pkg/labels",
+        "//vendor:k8s.io/client-go/pkg/watch",
+        "//vendor:k8s.io/client-go/rest",
+        "//vendor:k8s.io/client-go/testing",
+    ],
+)
+
+go_library(
+    name = "k8s.io/client-go/kubernetes/typed/policy/v1beta1",
+    srcs = [
+        "k8s.io/client-go/kubernetes/typed/policy/v1beta1/doc.go",
+        "k8s.io/client-go/kubernetes/typed/policy/v1beta1/generated_expansion.go",
+        "k8s.io/client-go/kubernetes/typed/policy/v1beta1/poddisruptionbudget.go",
+        "k8s.io/client-go/kubernetes/typed/policy/v1beta1/policy_client.go",
+    ],
+    tags = ["automanaged"],
+    deps = [
+        "//vendor:k8s.io/client-go/pkg/api",
+        "//vendor:k8s.io/client-go/pkg/api/unversioned",
+        "//vendor:k8s.io/client-go/pkg/api/v1",
+        "//vendor:k8s.io/client-go/pkg/apimachinery/registered",
+        "//vendor:k8s.io/client-go/pkg/apis/policy/v1beta1",
+        "//vendor:k8s.io/client-go/pkg/runtime/serializer",
+        "//vendor:k8s.io/client-go/pkg/watch",
+        "//vendor:k8s.io/client-go/rest",
+    ],
+)
+
+go_library(
+    name = "k8s.io/client-go/kubernetes/typed/policy/v1beta1/fake",
+    srcs = [
+        "k8s.io/client-go/kubernetes/typed/policy/v1beta1/fake/doc.go",
+        "k8s.io/client-go/kubernetes/typed/policy/v1beta1/fake/fake_poddisruptionbudget.go",
+        "k8s.io/client-go/kubernetes/typed/policy/v1beta1/fake/fake_policy_client.go",
+    ],
+    tags = ["automanaged"],
+    deps = [
+        "//vendor:k8s.io/client-go/kubernetes/typed/policy/v1beta1",
+        "//vendor:k8s.io/client-go/pkg/api",
+        "//vendor:k8s.io/client-go/pkg/api/unversioned",
+        "//vendor:k8s.io/client-go/pkg/api/v1",
+        "//vendor:k8s.io/client-go/pkg/apis/policy/v1beta1",
+        "//vendor:k8s.io/client-go/pkg/labels",
+        "//vendor:k8s.io/client-go/pkg/watch",
+        "//vendor:k8s.io/client-go/rest",
+        "//vendor:k8s.io/client-go/testing",
+    ],
+)
+
+go_library(
+    name = "k8s.io/client-go/pkg/apis/apps/v1beta1",
+    srcs = [
+        "k8s.io/client-go/pkg/apis/apps/v1beta1/conversion.go",
+        "k8s.io/client-go/pkg/apis/apps/v1beta1/defaults.go",
+        "k8s.io/client-go/pkg/apis/apps/v1beta1/doc.go",
+        "k8s.io/client-go/pkg/apis/apps/v1beta1/generated.pb.go",
+        "k8s.io/client-go/pkg/apis/apps/v1beta1/register.go",
+        "k8s.io/client-go/pkg/apis/apps/v1beta1/types.generated.go",
+        "k8s.io/client-go/pkg/apis/apps/v1beta1/types.go",
+        "k8s.io/client-go/pkg/apis/apps/v1beta1/types_swagger_doc_generated.go",
+        "k8s.io/client-go/pkg/apis/apps/v1beta1/zz_generated.conversion.go",
+        "k8s.io/client-go/pkg/apis/apps/v1beta1/zz_generated.deepcopy.go",
+        "k8s.io/client-go/pkg/apis/apps/v1beta1/zz_generated.defaults.go",
+    ],
+    tags = ["automanaged"],
+    deps = [
+        "//vendor:github.com/gogo/protobuf/proto",
+        "//vendor:github.com/ugorji/go/codec",
+        "//vendor:k8s.io/client-go/pkg/api",
+        "//vendor:k8s.io/client-go/pkg/api/resource",
+        "//vendor:k8s.io/client-go/pkg/api/unversioned",
+        "//vendor:k8s.io/client-go/pkg/api/v1",
+        "//vendor:k8s.io/client-go/pkg/apis/apps",
+        "//vendor:k8s.io/client-go/pkg/conversion",
+        "//vendor:k8s.io/client-go/pkg/runtime",
+        "//vendor:k8s.io/client-go/pkg/types",
+        "//vendor:k8s.io/client-go/pkg/util/intstr",
+        "//vendor:k8s.io/client-go/pkg/watch/versioned",
+    ],
+)
+
+go_library(
+    name = "k8s.io/client-go/pkg/apis/policy/v1beta1",
+    srcs = [
+        "k8s.io/client-go/pkg/apis/policy/v1beta1/doc.go",
+        "k8s.io/client-go/pkg/apis/policy/v1beta1/generated.pb.go",
+        "k8s.io/client-go/pkg/apis/policy/v1beta1/register.go",
+        "k8s.io/client-go/pkg/apis/policy/v1beta1/types.generated.go",
+        "k8s.io/client-go/pkg/apis/policy/v1beta1/types.go",
+        "k8s.io/client-go/pkg/apis/policy/v1beta1/types_swagger_doc_generated.go",
+        "k8s.io/client-go/pkg/apis/policy/v1beta1/zz_generated.conversion.go",
+        "k8s.io/client-go/pkg/apis/policy/v1beta1/zz_generated.deepcopy.go",
+    ],
+    tags = ["automanaged"],
+    deps = [
+        "//vendor:github.com/gogo/protobuf/proto",
+        "//vendor:github.com/gogo/protobuf/sortkeys",
+        "//vendor:github.com/ugorji/go/codec",
+        "//vendor:k8s.io/client-go/pkg/api",
+        "//vendor:k8s.io/client-go/pkg/api/unversioned",
+        "//vendor:k8s.io/client-go/pkg/api/v1",
+        "//vendor:k8s.io/client-go/pkg/apis/policy",
+        "//vendor:k8s.io/client-go/pkg/conversion",
+        "//vendor:k8s.io/client-go/pkg/runtime",
+        "//vendor:k8s.io/client-go/pkg/types",
+        "//vendor:k8s.io/client-go/pkg/util/intstr",
+        "//vendor:k8s.io/client-go/pkg/watch/versioned",
+    ],
+)
+
+go_library(
+    name = "k8s.io/client-go/pkg/third_party/forked/golang/template",
+    srcs = [
+        "k8s.io/client-go/pkg/third_party/forked/golang/template/exec.go",
+        "k8s.io/client-go/pkg/third_party/forked/golang/template/funcs.go",
+    ],
+    tags = ["automanaged"],
+)
+
+go_library(
+    name = "k8s.io/client-go/pkg/util/jsonpath",
+    srcs = [
+        "k8s.io/client-go/pkg/util/jsonpath/doc.go",
+        "k8s.io/client-go/pkg/util/jsonpath/jsonpath.go",
+        "k8s.io/client-go/pkg/util/jsonpath/node.go",
+        "k8s.io/client-go/pkg/util/jsonpath/parser.go",
+    ],
+    tags = ["automanaged"],
+    deps = ["//vendor:k8s.io/client-go/pkg/third_party/forked/golang/template"],
+)
+
+go_library(
+    name = "k8s.io/client-go/pkg/util/ratelimit",
+    srcs = ["k8s.io/client-go/pkg/util/ratelimit/bucket.go"],
+    tags = ["automanaged"],
+)
+
+go_binary(
+    name = "github.com/jteeuwen/go-bindata/go-bindata_bin",
+    srcs = [
+        "github.com/jteeuwen/go-bindata/go-bindata/AppendSliceValue.go",
+        "github.com/jteeuwen/go-bindata/go-bindata/main.go",
+        "github.com/jteeuwen/go-bindata/go-bindata/version.go",
+    ],
+    tags = ["automanaged"],
+    deps = ["//vendor:github.com/jteeuwen/go-bindata"],
+)
+
+go_binary(
+    name = "github.com/onsi/ginkgo/ginkgo_bin",
+    srcs = [
+        "github.com/onsi/ginkgo/ginkgo/bootstrap_command.go",
+        "github.com/onsi/ginkgo/ginkgo/build_command.go",
+        "github.com/onsi/ginkgo/ginkgo/convert_command.go",
+        "github.com/onsi/ginkgo/ginkgo/generate_command.go",
+        "github.com/onsi/ginkgo/ginkgo/help_command.go",
+        "github.com/onsi/ginkgo/ginkgo/main.go",
+        "github.com/onsi/ginkgo/ginkgo/nodot_command.go",
+        "github.com/onsi/ginkgo/ginkgo/notifications.go",
+        "github.com/onsi/ginkgo/ginkgo/run_command.go",
+        "github.com/onsi/ginkgo/ginkgo/run_watch_and_build_command_flags.go",
+        "github.com/onsi/ginkgo/ginkgo/suite_runner.go",
+        "github.com/onsi/ginkgo/ginkgo/unfocus_command.go",
+        "github.com/onsi/ginkgo/ginkgo/version_command.go",
+        "github.com/onsi/ginkgo/ginkgo/watch_command.go",
+    ],
+    tags = ["automanaged"],
+    deps = [
+        "//vendor:github.com/onsi/ginkgo/config",
+        "//vendor:github.com/onsi/ginkgo/ginkgo/convert",
+        "//vendor:github.com/onsi/ginkgo/ginkgo/interrupthandler",
+        "//vendor:github.com/onsi/ginkgo/ginkgo/nodot",
+        "//vendor:github.com/onsi/ginkgo/ginkgo/testrunner",
+        "//vendor:github.com/onsi/ginkgo/ginkgo/testsuite",
+        "//vendor:github.com/onsi/ginkgo/ginkgo/watch",
+        "//vendor:github.com/onsi/ginkgo/types",
+    ],
+)
+
+go_binary(
+    name = "github.com/ugorji/go/codec/codecgen_bin",
+    srcs = [
+        "github.com/ugorji/go/codec/codecgen/gen.go",
+        "github.com/ugorji/go/codec/codecgen/z.go",
+    ],
+    tags = ["automanaged"],
+)
+
+go_test(
+    name = "k8s.io/client-go/discovery_test",
+    srcs = [
+        "discovery_client_test.go",
+        "restmapper_test.go",
+    ],
+    library = "k8s.io/client-go/discovery",
+    tags = ["automanaged"],
+    deps = [
+        "//vendor:github.com/emicklei/go-restful/swagger",
+        "//vendor:github.com/stretchr/testify/assert",
         "//vendor:k8s.io/client-go/pkg/api/errors",
         "//vendor:k8s.io/client-go/pkg/api/unversioned",
-        "//vendor:k8s.io/client-go/pkg/third_party/forked/golang/netutil",
-        "//vendor:k8s.io/client-go/pkg/util/httpstream",
-        "//vendor:k8s.io/client-go/pkg/util/runtime",
+        "//vendor:k8s.io/client-go/pkg/api/v1",
+        "//vendor:k8s.io/client-go/pkg/apimachinery/registered",
+        "//vendor:k8s.io/client-go/pkg/version",
+        "//vendor:k8s.io/client-go/rest",
+        "//vendor:k8s.io/client-go/rest/fake",
     ],
 )
 
-go_library(
-    name = "k8s.io/client-go/rest/fake",
-    srcs = ["k8s.io/client-go/rest/fake/fake.go"],
+go_test(
+    name = "k8s.io/client-go/discovery_xtest",
+    srcs = ["helper_blackbox_test.go"],
     tags = ["automanaged"],
     deps = [
+        "//vendor:k8s.io/client-go/discovery",
         "//vendor:k8s.io/client-go/pkg/api",
         "//vendor:k8s.io/client-go/pkg/api/testapi",
         "//vendor:k8s.io/client-go/pkg/api/unversioned",
         "//vendor:k8s.io/client-go/pkg/apimachinery/registered",
         "//vendor:k8s.io/client-go/pkg/runtime",
-        "//vendor:k8s.io/client-go/pkg/util/flowcontrol",
+        "//vendor:k8s.io/client-go/rest",
+        "//vendor:k8s.io/client-go/rest/fake",
+    ],
+)
+
+go_test(
+    name = "k8s.io/client-go/dynamic_test",
+    srcs = [
+        "client_test.go",
+        "dynamic_util_test.go",
+    ],
+    library = "k8s.io/client-go/dynamic",
+    tags = ["automanaged"],
+    deps = [
+        "//vendor:k8s.io/client-go/pkg/api",
+        "//vendor:k8s.io/client-go/pkg/api/unversioned",
+        "//vendor:k8s.io/client-go/pkg/api/v1",
+        "//vendor:k8s.io/client-go/pkg/runtime",
+        "//vendor:k8s.io/client-go/pkg/runtime/serializer/streaming",
+        "//vendor:k8s.io/client-go/pkg/watch",
+        "//vendor:k8s.io/client-go/pkg/watch/versioned",
         "//vendor:k8s.io/client-go/rest",
     ],
+)
+
+go_test(
+    name = "k8s.io/client-go/plugin/pkg/client/auth/gcp_test",
+    srcs = ["gcp_test.go"],
+    library = "k8s.io/client-go/plugin/pkg/client/auth/gcp",
+    tags = ["automanaged"],
+    deps = ["//vendor:golang.org/x/oauth2"],
+)
+
+go_test(
+    name = "k8s.io/client-go/plugin/pkg/client/auth/oidc_test",
+    srcs = ["oidc_test.go"],
+    library = "k8s.io/client-go/plugin/pkg/client/auth/oidc",
+    tags = ["automanaged"],
+    deps = [
+        "//vendor:github.com/coreos/go-oidc/jose",
+        "//vendor:github.com/coreos/go-oidc/key",
+        "//vendor:github.com/coreos/go-oidc/oauth2",
+        "//vendor:k8s.io/client-go/pkg/util/diff",
+        "//vendor:k8s.io/client-go/pkg/util/wait",
+        "//vendor:k8s.io/client-go/plugin/pkg/auth/authenticator/token/oidc/testing",
+    ],
+)
+
+go_test(
+    name = "k8s.io/client-go/rest_test",
+    srcs = [
+        "client_test.go",
+        "config_test.go",
+        "plugin_test.go",
+        "request_test.go",
+        "url_utils_test.go",
+        "urlbackoff_test.go",
+    ],
+    library = "k8s.io/client-go/rest",
+    tags = ["automanaged"],
+    deps = [
+        "//vendor:github.com/google/gofuzz",
+        "//vendor:k8s.io/client-go/pkg/api",
+        "//vendor:k8s.io/client-go/pkg/api/errors",
+        "//vendor:k8s.io/client-go/pkg/api/testapi",
+        "//vendor:k8s.io/client-go/pkg/api/unversioned",
+        "//vendor:k8s.io/client-go/pkg/api/v1",
+        "//vendor:k8s.io/client-go/pkg/apimachinery/registered",
+        "//vendor:k8s.io/client-go/pkg/labels",
+        "//vendor:k8s.io/client-go/pkg/runtime",
+        "//vendor:k8s.io/client-go/pkg/runtime/serializer/streaming",
+        "//vendor:k8s.io/client-go/pkg/util/clock",
+        "//vendor:k8s.io/client-go/pkg/util/diff",
+        "//vendor:k8s.io/client-go/pkg/util/flowcontrol",
+        "//vendor:k8s.io/client-go/pkg/util/httpstream",
+        "//vendor:k8s.io/client-go/pkg/util/intstr",
+        "//vendor:k8s.io/client-go/pkg/util/testing",
+        "//vendor:k8s.io/client-go/pkg/watch",
+        "//vendor:k8s.io/client-go/pkg/watch/versioned",
+        "//vendor:k8s.io/client-go/tools/clientcmd/api",
+    ],
+)
+
+go_test(
+    name = "k8s.io/client-go/tools/auth_xtest",
+    srcs = ["clientauth_test.go"],
+    tags = ["automanaged"],
+    deps = ["//vendor:k8s.io/client-go/tools/auth"],
+)
+
+go_test(
+    name = "k8s.io/client-go/tools/cache_test",
+    srcs = [
+        "controller_test.go",
+        "delta_fifo_test.go",
+        "expiration_cache_test.go",
+        "fifo_test.go",
+        "index_test.go",
+        "listers_test.go",
+        "mutation_detector_test.go",
+        "processor_listener_test.go",
+        "reflector_test.go",
+        "store_test.go",
+        "undelta_store_test.go",
+    ],
+    library = "k8s.io/client-go/tools/cache",
+    tags = ["automanaged"],
+    deps = [
+        "//vendor:github.com/google/gofuzz",
+        "//vendor:k8s.io/client-go/pkg/api",
+        "//vendor:k8s.io/client-go/pkg/api/errors",
+        "//vendor:k8s.io/client-go/pkg/api/unversioned",
+        "//vendor:k8s.io/client-go/pkg/apis/extensions",
+        "//vendor:k8s.io/client-go/pkg/labels",
+        "//vendor:k8s.io/client-go/pkg/runtime",
+        "//vendor:k8s.io/client-go/pkg/util/clock",
+        "//vendor:k8s.io/client-go/pkg/util/sets",
+        "//vendor:k8s.io/client-go/pkg/util/wait",
+        "//vendor:k8s.io/client-go/pkg/watch",
+        "//vendor:k8s.io/client-go/tools/cache/testing",
+    ],
+)
+
+go_test(
+    name = "k8s.io/client-go/tools/cache/testing_test",
+    srcs = ["fake_controller_source_test.go"],
+    library = "k8s.io/client-go/tools/cache/testing",
+    tags = ["automanaged"],
+    deps = [
+        "//vendor:k8s.io/client-go/pkg/api",
+        "//vendor:k8s.io/client-go/pkg/watch",
+    ],
+)
+
+go_test(
+    name = "k8s.io/client-go/tools/clientcmd_test",
+    srcs = [
+        "client_config_test.go",
+        "loader_test.go",
+        "merged_client_builder_test.go",
+        "validation_test.go",
+    ],
+    library = "k8s.io/client-go/tools/clientcmd",
+    tags = ["automanaged"],
+    deps = [
+        "//vendor:github.com/ghodss/yaml",
+        "//vendor:github.com/imdario/mergo",
+        "//vendor:k8s.io/client-go/pkg/runtime",
+        "//vendor:k8s.io/client-go/pkg/util/errors",
+        "//vendor:k8s.io/client-go/rest",
+        "//vendor:k8s.io/client-go/tools/clientcmd/api",
+        "//vendor:k8s.io/client-go/tools/clientcmd/api/latest",
+    ],
+)
+
+go_test(
+    name = "k8s.io/client-go/tools/clientcmd/api_test",
+    srcs = [
+        "helpers_test.go",
+        "types_test.go",
+    ],
+    library = "k8s.io/client-go/tools/clientcmd/api",
+    tags = ["automanaged"],
+    deps = ["//vendor:github.com/ghodss/yaml"],
+)
+
+go_test(
+    name = "k8s.io/client-go/tools/record_test",
+    srcs = [
+        "event_test.go",
+        "events_cache_test.go",
+    ],
+    library = "k8s.io/client-go/tools/record",
+    tags = ["automanaged"],
+    deps = [
+        "//vendor:k8s.io/client-go/pkg/api/errors",
+        "//vendor:k8s.io/client-go/pkg/api/install",
+        "//vendor:k8s.io/client-go/pkg/api/unversioned",
+        "//vendor:k8s.io/client-go/pkg/api/v1",
+        "//vendor:k8s.io/client-go/pkg/runtime",
+        "//vendor:k8s.io/client-go/pkg/util/clock",
+        "//vendor:k8s.io/client-go/pkg/util/diff",
+        "//vendor:k8s.io/client-go/pkg/util/strategicpatch",
+        "//vendor:k8s.io/client-go/rest",
+    ],
+)
+
+go_test(
+    name = "k8s.io/client-go/transport_test",
+    srcs = [
+        "cache_test.go",
+        "round_trippers_test.go",
+        "transport_test.go",
+    ],
+    library = "k8s.io/client-go/transport",
+    tags = ["automanaged"],
+    deps = [],
 )

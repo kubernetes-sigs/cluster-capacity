@@ -15,33 +15,27 @@
 package bigtable
 
 import (
-	"reflect"
 	"sort"
 	"testing"
 	"time"
 
-	"cloud.google.com/go/bigtable/bttest"
 	"golang.org/x/net/context"
-	"google.golang.org/api/option"
-	"google.golang.org/grpc"
 )
 
 func TestAdminIntegration(t *testing.T) {
-	srv, err := bttest.NewServer("127.0.0.1:0")
+	testEnv, err := NewIntegrationEnv()
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("IntegrationEnv: %v", err)
 	}
-	defer srv.Close()
-	t.Logf("bttest.Server running on %s", srv.Addr)
+	defer testEnv.Close()
 
-	ctx, _ := context.WithTimeout(context.Background(), 2*time.Second)
-
-	conn, err := grpc.Dial(srv.Addr, grpc.WithInsecure())
-	if err != nil {
-		t.Fatalf("grpc.Dial: %v", err)
+	timeout := 2 * time.Second
+	if testEnv.Config().UseProd {
+		timeout = 5 * time.Minute
 	}
+	ctx, _ := context.WithTimeout(context.Background(), timeout)
 
-	adminClient, err := NewAdminClient(ctx, "proj", "instance", option.WithGRPCConn(conn))
+	adminClient, err := testEnv.NewAdminClient()
 	if err != nil {
 		t.Fatalf("NewAdminClient: %v", err)
 	}
@@ -55,19 +49,43 @@ func TestAdminIntegration(t *testing.T) {
 		sort.Strings(tbls)
 		return tbls
 	}
+	containsAll := func(got, want []string) bool {
+		gotSet := make(map[string]bool)
+
+		for _, s := range got {
+			gotSet[s] = true
+		}
+		for _, s := range want {
+			if !gotSet[s] {
+				return false
+			}
+		}
+		return true
+	}
+
+	defer adminClient.DeleteTable(ctx, "mytable")
+
 	if err := adminClient.CreateTable(ctx, "mytable"); err != nil {
 		t.Fatalf("Creating table: %v", err)
 	}
+
+	defer adminClient.DeleteTable(ctx, "myothertable")
+
 	if err := adminClient.CreateTable(ctx, "myothertable"); err != nil {
 		t.Fatalf("Creating table: %v", err)
 	}
-	if got, want := list(), []string{"myothertable", "mytable"}; !reflect.DeepEqual(got, want) {
+
+	if got, want := list(), []string{"myothertable", "mytable"}; !containsAll(got, want) {
 		t.Errorf("adminClient.Tables returned %#v, want %#v", got, want)
 	}
 	if err := adminClient.DeleteTable(ctx, "myothertable"); err != nil {
 		t.Fatalf("Deleting table: %v", err)
 	}
-	if got, want := list(), []string{"mytable"}; !reflect.DeepEqual(got, want) {
+	tables := list()
+	if got, want := tables, []string{"mytable"}; !containsAll(got, want) {
 		t.Errorf("adminClient.Tables returned %#v, want %#v", got, want)
+	}
+	if got, unwanted := tables, []string{"myothertable"}; containsAll(got, unwanted) {
+		t.Errorf("adminClient.Tables return %#v. unwanted %#v", got, unwanted)
 	}
 }

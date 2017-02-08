@@ -38,7 +38,6 @@ const opAcceptCertificateTransfer = "AcceptCertificateTransfer"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) AcceptCertificateTransferRequest(input *AcceptCertificateTransferInput) (req *request.Request, output *AcceptCertificateTransferOutput) {
 	op := &request.Operation{
 		Name:       opAcceptCertificateTransfer,
@@ -50,11 +49,10 @@ func (c *IoT) AcceptCertificateTransferRequest(input *AcceptCertificateTransferI
 		input = &AcceptCertificateTransferInput{}
 	}
 
+	output = &AcceptCertificateTransferOutput{}
 	req = c.newRequest(op, input, output)
 	req.Handlers.Unmarshal.Remove(restjson.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
-	output = &AcceptCertificateTransferOutput{}
-	req.Data = output
 	return
 }
 
@@ -74,26 +72,26 @@ func (c *IoT) AcceptCertificateTransferRequest(input *AcceptCertificateTransferI
 // API operation AcceptCertificateTransfer for usage and error information.
 //
 // Returned Error Codes:
-//   * ResourceNotFoundException
+//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
 //   The specified resource does not exist.
 //
-//   * TransferAlreadyCompletedException
+//   * ErrCodeTransferAlreadyCompletedException "TransferAlreadyCompletedException"
 //   You can't revert the certificate transfer because the transfer is already
 //   complete.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) AcceptCertificateTransfer(input *AcceptCertificateTransferInput) (*AcceptCertificateTransferOutput, error) {
@@ -127,7 +125,6 @@ const opAttachPrincipalPolicy = "AttachPrincipalPolicy"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) AttachPrincipalPolicyRequest(input *AttachPrincipalPolicyInput) (req *request.Request, output *AttachPrincipalPolicyOutput) {
 	op := &request.Operation{
 		Name:       opAttachPrincipalPolicy,
@@ -139,11 +136,10 @@ func (c *IoT) AttachPrincipalPolicyRequest(input *AttachPrincipalPolicyInput) (r
 		input = &AttachPrincipalPolicyInput{}
 	}
 
+	output = &AttachPrincipalPolicyOutput{}
 	req = c.newRequest(op, input, output)
 	req.Handlers.Unmarshal.Remove(restjson.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
-	output = &AttachPrincipalPolicyOutput{}
-	req.Data = output
 	return
 }
 
@@ -160,25 +156,25 @@ func (c *IoT) AttachPrincipalPolicyRequest(input *AttachPrincipalPolicyInput) (r
 // API operation AttachPrincipalPolicy for usage and error information.
 //
 // Returned Error Codes:
-//   * ResourceNotFoundException
+//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
 //   The specified resource does not exist.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
-//   * LimitExceededException
+//   * ErrCodeLimitExceededException "LimitExceededException"
 //   The number of attached entities exceeds the limit.
 //
 func (c *IoT) AttachPrincipalPolicy(input *AttachPrincipalPolicyInput) (*AttachPrincipalPolicyOutput, error) {
@@ -212,7 +208,6 @@ const opAttachThingPrincipal = "AttachThingPrincipal"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) AttachThingPrincipalRequest(input *AttachThingPrincipalInput) (req *request.Request, output *AttachThingPrincipalOutput) {
 	op := &request.Operation{
 		Name:       opAttachThingPrincipal,
@@ -224,9 +219,8 @@ func (c *IoT) AttachThingPrincipalRequest(input *AttachThingPrincipalInput) (req
 		input = &AttachThingPrincipalInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &AttachThingPrincipalOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -242,22 +236,22 @@ func (c *IoT) AttachThingPrincipalRequest(input *AttachThingPrincipalInput) (req
 // API operation AttachThingPrincipal for usage and error information.
 //
 // Returned Error Codes:
-//   * ResourceNotFoundException
+//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
 //   The specified resource does not exist.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) AttachThingPrincipal(input *AttachThingPrincipalInput) (*AttachThingPrincipalOutput, error) {
@@ -291,7 +285,6 @@ const opCancelCertificateTransfer = "CancelCertificateTransfer"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) CancelCertificateTransferRequest(input *CancelCertificateTransferInput) (req *request.Request, output *CancelCertificateTransferOutput) {
 	op := &request.Operation{
 		Name:       opCancelCertificateTransfer,
@@ -303,11 +296,10 @@ func (c *IoT) CancelCertificateTransferRequest(input *CancelCertificateTransferI
 		input = &CancelCertificateTransferInput{}
 	}
 
+	output = &CancelCertificateTransferOutput{}
 	req = c.newRequest(op, input, output)
 	req.Handlers.Unmarshal.Remove(restjson.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
-	output = &CancelCertificateTransferOutput{}
-	req.Data = output
 	return
 }
 
@@ -332,26 +324,26 @@ func (c *IoT) CancelCertificateTransferRequest(input *CancelCertificateTransferI
 // API operation CancelCertificateTransfer for usage and error information.
 //
 // Returned Error Codes:
-//   * ResourceNotFoundException
+//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
 //   The specified resource does not exist.
 //
-//   * TransferAlreadyCompletedException
+//   * ErrCodeTransferAlreadyCompletedException "TransferAlreadyCompletedException"
 //   You can't revert the certificate transfer because the transfer is already
 //   complete.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) CancelCertificateTransfer(input *CancelCertificateTransferInput) (*CancelCertificateTransferOutput, error) {
@@ -385,7 +377,6 @@ const opCreateCertificateFromCsr = "CreateCertificateFromCsr"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) CreateCertificateFromCsrRequest(input *CreateCertificateFromCsrInput) (req *request.Request, output *CreateCertificateFromCsrOutput) {
 	op := &request.Operation{
 		Name:       opCreateCertificateFromCsr,
@@ -397,9 +388,8 @@ func (c *IoT) CreateCertificateFromCsrRequest(input *CreateCertificateFromCsrInp
 		input = &CreateCertificateFromCsrInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &CreateCertificateFromCsrOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -452,19 +442,19 @@ func (c *IoT) CreateCertificateFromCsrRequest(input *CreateCertificateFromCsrInp
 // API operation CreateCertificateFromCsr for usage and error information.
 //
 // Returned Error Codes:
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) CreateCertificateFromCsr(input *CreateCertificateFromCsrInput) (*CreateCertificateFromCsrOutput, error) {
@@ -498,7 +488,6 @@ const opCreateKeysAndCertificate = "CreateKeysAndCertificate"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) CreateKeysAndCertificateRequest(input *CreateKeysAndCertificateInput) (req *request.Request, output *CreateKeysAndCertificateOutput) {
 	op := &request.Operation{
 		Name:       opCreateKeysAndCertificate,
@@ -510,9 +499,8 @@ func (c *IoT) CreateKeysAndCertificateRequest(input *CreateKeysAndCertificateInp
 		input = &CreateKeysAndCertificateInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &CreateKeysAndCertificateOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -532,19 +520,19 @@ func (c *IoT) CreateKeysAndCertificateRequest(input *CreateKeysAndCertificateInp
 // API operation CreateKeysAndCertificate for usage and error information.
 //
 // Returned Error Codes:
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) CreateKeysAndCertificate(input *CreateKeysAndCertificateInput) (*CreateKeysAndCertificateOutput, error) {
@@ -578,7 +566,6 @@ const opCreatePolicy = "CreatePolicy"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) CreatePolicyRequest(input *CreatePolicyInput) (req *request.Request, output *CreatePolicyOutput) {
 	op := &request.Operation{
 		Name:       opCreatePolicy,
@@ -590,9 +577,8 @@ func (c *IoT) CreatePolicyRequest(input *CreatePolicyInput) (req *request.Reques
 		input = &CreatePolicyInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &CreatePolicyOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -612,25 +598,25 @@ func (c *IoT) CreatePolicyRequest(input *CreatePolicyInput) (req *request.Reques
 // API operation CreatePolicy for usage and error information.
 //
 // Returned Error Codes:
-//   * ResourceAlreadyExistsException
+//   * ErrCodeResourceAlreadyExistsException "ResourceAlreadyExistsException"
 //   The resource already exists.
 //
-//   * MalformedPolicyException
+//   * ErrCodeMalformedPolicyException "MalformedPolicyException"
 //   The policy documentation is not valid.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) CreatePolicy(input *CreatePolicyInput) (*CreatePolicyOutput, error) {
@@ -664,7 +650,6 @@ const opCreatePolicyVersion = "CreatePolicyVersion"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) CreatePolicyVersionRequest(input *CreatePolicyVersionInput) (req *request.Request, output *CreatePolicyVersionOutput) {
 	op := &request.Operation{
 		Name:       opCreatePolicyVersion,
@@ -676,9 +661,8 @@ func (c *IoT) CreatePolicyVersionRequest(input *CreatePolicyVersionInput) (req *
 		input = &CreatePolicyVersionInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &CreatePolicyVersionOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -701,28 +685,28 @@ func (c *IoT) CreatePolicyVersionRequest(input *CreatePolicyVersionInput) (req *
 // API operation CreatePolicyVersion for usage and error information.
 //
 // Returned Error Codes:
-//   * ResourceNotFoundException
+//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
 //   The specified resource does not exist.
 //
-//   * MalformedPolicyException
+//   * ErrCodeMalformedPolicyException "MalformedPolicyException"
 //   The policy documentation is not valid.
 //
-//   * VersionsLimitExceededException
+//   * ErrCodeVersionsLimitExceededException "VersionsLimitExceededException"
 //   The number of policy versions exceeds the limit.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) CreatePolicyVersion(input *CreatePolicyVersionInput) (*CreatePolicyVersionOutput, error) {
@@ -756,7 +740,6 @@ const opCreateThing = "CreateThing"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) CreateThingRequest(input *CreateThingInput) (req *request.Request, output *CreateThingOutput) {
 	op := &request.Operation{
 		Name:       opCreateThing,
@@ -768,9 +751,8 @@ func (c *IoT) CreateThingRequest(input *CreateThingInput) (req *request.Request,
 		input = &CreateThingInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &CreateThingOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -786,25 +768,25 @@ func (c *IoT) CreateThingRequest(input *CreateThingInput) (req *request.Request,
 // API operation CreateThing for usage and error information.
 //
 // Returned Error Codes:
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
-//   * ResourceAlreadyExistsException
+//   * ErrCodeResourceAlreadyExistsException "ResourceAlreadyExistsException"
 //   The resource already exists.
 //
-//   * ResourceNotFoundException
+//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
 //   The specified resource does not exist.
 //
 func (c *IoT) CreateThing(input *CreateThingInput) (*CreateThingOutput, error) {
@@ -838,7 +820,6 @@ const opCreateThingType = "CreateThingType"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) CreateThingTypeRequest(input *CreateThingTypeInput) (req *request.Request, output *CreateThingTypeOutput) {
 	op := &request.Operation{
 		Name:       opCreateThingType,
@@ -850,9 +831,8 @@ func (c *IoT) CreateThingTypeRequest(input *CreateThingTypeInput) (req *request.
 		input = &CreateThingTypeInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &CreateThingTypeOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -868,22 +848,22 @@ func (c *IoT) CreateThingTypeRequest(input *CreateThingTypeInput) (req *request.
 // API operation CreateThingType for usage and error information.
 //
 // Returned Error Codes:
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
-//   * ResourceAlreadyExistsException
+//   * ErrCodeResourceAlreadyExistsException "ResourceAlreadyExistsException"
 //   The resource already exists.
 //
 func (c *IoT) CreateThingType(input *CreateThingTypeInput) (*CreateThingTypeOutput, error) {
@@ -917,7 +897,6 @@ const opCreateTopicRule = "CreateTopicRule"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) CreateTopicRuleRequest(input *CreateTopicRuleInput) (req *request.Request, output *CreateTopicRuleOutput) {
 	op := &request.Operation{
 		Name:       opCreateTopicRule,
@@ -929,11 +908,10 @@ func (c *IoT) CreateTopicRuleRequest(input *CreateTopicRuleInput) (req *request.
 		input = &CreateTopicRuleInput{}
 	}
 
+	output = &CreateTopicRuleOutput{}
 	req = c.newRequest(op, input, output)
 	req.Handlers.Unmarshal.Remove(restjson.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
-	output = &CreateTopicRuleOutput{}
-	req.Data = output
 	return
 }
 
@@ -951,19 +929,19 @@ func (c *IoT) CreateTopicRuleRequest(input *CreateTopicRuleInput) (req *request.
 // API operation CreateTopicRule for usage and error information.
 //
 // Returned Error Codes:
-//   * SqlParseException
+//   * ErrCodeSqlParseException "SqlParseException"
 //   The Rule-SQL expression can't be parsed correctly.
 //
-//   * InternalException
+//   * ErrCodeInternalException "InternalException"
 //   An unexpected error has occurred.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ResourceAlreadyExistsException
+//   * ErrCodeResourceAlreadyExistsException "ResourceAlreadyExistsException"
 //   The resource already exists.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
 func (c *IoT) CreateTopicRule(input *CreateTopicRuleInput) (*CreateTopicRuleOutput, error) {
@@ -997,7 +975,6 @@ const opDeleteCACertificate = "DeleteCACertificate"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) DeleteCACertificateRequest(input *DeleteCACertificateInput) (req *request.Request, output *DeleteCACertificateOutput) {
 	op := &request.Operation{
 		Name:       opDeleteCACertificate,
@@ -1009,9 +986,8 @@ func (c *IoT) DeleteCACertificateRequest(input *DeleteCACertificateInput) (req *
 		input = &DeleteCACertificateInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &DeleteCACertificateOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -1027,25 +1003,25 @@ func (c *IoT) DeleteCACertificateRequest(input *DeleteCACertificateInput) (req *
 // API operation DeleteCACertificate for usage and error information.
 //
 // Returned Error Codes:
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * CertificateStateException
+//   * ErrCodeCertificateStateException "CertificateStateException"
 //   The certificate operation is not allowed.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
-//   * ResourceNotFoundException
+//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
 //   The specified resource does not exist.
 //
 func (c *IoT) DeleteCACertificate(input *DeleteCACertificateInput) (*DeleteCACertificateOutput, error) {
@@ -1079,7 +1055,6 @@ const opDeleteCertificate = "DeleteCertificate"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) DeleteCertificateRequest(input *DeleteCertificateInput) (req *request.Request, output *DeleteCertificateOutput) {
 	op := &request.Operation{
 		Name:       opDeleteCertificate,
@@ -1091,11 +1066,10 @@ func (c *IoT) DeleteCertificateRequest(input *DeleteCertificateInput) (req *requ
 		input = &DeleteCertificateInput{}
 	}
 
+	output = &DeleteCertificateOutput{}
 	req = c.newRequest(op, input, output)
 	req.Handlers.Unmarshal.Remove(restjson.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
-	output = &DeleteCertificateOutput{}
-	req.Data = output
 	return
 }
 
@@ -1116,28 +1090,28 @@ func (c *IoT) DeleteCertificateRequest(input *DeleteCertificateInput) (req *requ
 // API operation DeleteCertificate for usage and error information.
 //
 // Returned Error Codes:
-//   * CertificateStateException
+//   * ErrCodeCertificateStateException "CertificateStateException"
 //   The certificate operation is not allowed.
 //
-//   * DeleteConflictException
+//   * ErrCodeDeleteConflictException "DeleteConflictException"
 //   You can't delete the resource because it is attached to one or more resources.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
-//   * ResourceNotFoundException
+//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
 //   The specified resource does not exist.
 //
 func (c *IoT) DeleteCertificate(input *DeleteCertificateInput) (*DeleteCertificateOutput, error) {
@@ -1171,7 +1145,6 @@ const opDeletePolicy = "DeletePolicy"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) DeletePolicyRequest(input *DeletePolicyInput) (req *request.Request, output *DeletePolicyOutput) {
 	op := &request.Operation{
 		Name:       opDeletePolicy,
@@ -1183,11 +1156,10 @@ func (c *IoT) DeletePolicyRequest(input *DeletePolicyInput) (req *request.Reques
 		input = &DeletePolicyInput{}
 	}
 
+	output = &DeletePolicyOutput{}
 	req = c.newRequest(op, input, output)
 	req.Handlers.Unmarshal.Remove(restjson.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
-	output = &DeletePolicyOutput{}
-	req.Data = output
 	return
 }
 
@@ -1213,25 +1185,25 @@ func (c *IoT) DeletePolicyRequest(input *DeletePolicyInput) (req *request.Reques
 // API operation DeletePolicy for usage and error information.
 //
 // Returned Error Codes:
-//   * DeleteConflictException
+//   * ErrCodeDeleteConflictException "DeleteConflictException"
 //   You can't delete the resource because it is attached to one or more resources.
 //
-//   * ResourceNotFoundException
+//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
 //   The specified resource does not exist.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) DeletePolicy(input *DeletePolicyInput) (*DeletePolicyOutput, error) {
@@ -1265,7 +1237,6 @@ const opDeletePolicyVersion = "DeletePolicyVersion"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) DeletePolicyVersionRequest(input *DeletePolicyVersionInput) (req *request.Request, output *DeletePolicyVersionOutput) {
 	op := &request.Operation{
 		Name:       opDeletePolicyVersion,
@@ -1277,11 +1248,10 @@ func (c *IoT) DeletePolicyVersionRequest(input *DeletePolicyVersionInput) (req *
 		input = &DeletePolicyVersionInput{}
 	}
 
+	output = &DeletePolicyVersionOutput{}
 	req = c.newRequest(op, input, output)
 	req.Handlers.Unmarshal.Remove(restjson.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
-	output = &DeletePolicyVersionOutput{}
-	req.Data = output
 	return
 }
 
@@ -1300,25 +1270,25 @@ func (c *IoT) DeletePolicyVersionRequest(input *DeletePolicyVersionInput) (req *
 // API operation DeletePolicyVersion for usage and error information.
 //
 // Returned Error Codes:
-//   * DeleteConflictException
+//   * ErrCodeDeleteConflictException "DeleteConflictException"
 //   You can't delete the resource because it is attached to one or more resources.
 //
-//   * ResourceNotFoundException
+//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
 //   The specified resource does not exist.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) DeletePolicyVersion(input *DeletePolicyVersionInput) (*DeletePolicyVersionOutput, error) {
@@ -1352,7 +1322,6 @@ const opDeleteRegistrationCode = "DeleteRegistrationCode"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) DeleteRegistrationCodeRequest(input *DeleteRegistrationCodeInput) (req *request.Request, output *DeleteRegistrationCodeOutput) {
 	op := &request.Operation{
 		Name:       opDeleteRegistrationCode,
@@ -1364,9 +1333,8 @@ func (c *IoT) DeleteRegistrationCodeRequest(input *DeleteRegistrationCodeInput) 
 		input = &DeleteRegistrationCodeInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &DeleteRegistrationCodeOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -1382,19 +1350,19 @@ func (c *IoT) DeleteRegistrationCodeRequest(input *DeleteRegistrationCodeInput) 
 // API operation DeleteRegistrationCode for usage and error information.
 //
 // Returned Error Codes:
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * ResourceNotFoundException
+//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
 //   The specified resource does not exist.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) DeleteRegistrationCode(input *DeleteRegistrationCodeInput) (*DeleteRegistrationCodeOutput, error) {
@@ -1428,7 +1396,6 @@ const opDeleteThing = "DeleteThing"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) DeleteThingRequest(input *DeleteThingInput) (req *request.Request, output *DeleteThingOutput) {
 	op := &request.Operation{
 		Name:       opDeleteThing,
@@ -1440,9 +1407,8 @@ func (c *IoT) DeleteThingRequest(input *DeleteThingInput) (req *request.Request,
 		input = &DeleteThingInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &DeleteThingOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -1458,26 +1424,26 @@ func (c *IoT) DeleteThingRequest(input *DeleteThingInput) (req *request.Request,
 // API operation DeleteThing for usage and error information.
 //
 // Returned Error Codes:
-//   * ResourceNotFoundException
+//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
 //   The specified resource does not exist.
 //
-//   * VersionConflictException
+//   * ErrCodeVersionConflictException "VersionConflictException"
 //   An exception thrown when the version of a thing passed to a command is different
 //   than the version specified with the --version parameter.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) DeleteThing(input *DeleteThingInput) (*DeleteThingOutput, error) {
@@ -1511,7 +1477,6 @@ const opDeleteThingType = "DeleteThingType"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) DeleteThingTypeRequest(input *DeleteThingTypeInput) (req *request.Request, output *DeleteThingTypeOutput) {
 	op := &request.Operation{
 		Name:       opDeleteThingType,
@@ -1523,9 +1488,8 @@ func (c *IoT) DeleteThingTypeRequest(input *DeleteThingTypeInput) (req *request.
 		input = &DeleteThingTypeInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &DeleteThingTypeOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -1545,22 +1509,22 @@ func (c *IoT) DeleteThingTypeRequest(input *DeleteThingTypeInput) (req *request.
 // API operation DeleteThingType for usage and error information.
 //
 // Returned Error Codes:
-//   * ResourceNotFoundException
+//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
 //   The specified resource does not exist.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) DeleteThingType(input *DeleteThingTypeInput) (*DeleteThingTypeOutput, error) {
@@ -1594,7 +1558,6 @@ const opDeleteTopicRule = "DeleteTopicRule"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) DeleteTopicRuleRequest(input *DeleteTopicRuleInput) (req *request.Request, output *DeleteTopicRuleOutput) {
 	op := &request.Operation{
 		Name:       opDeleteTopicRule,
@@ -1606,11 +1569,10 @@ func (c *IoT) DeleteTopicRuleRequest(input *DeleteTopicRuleInput) (req *request.
 		input = &DeleteTopicRuleInput{}
 	}
 
+	output = &DeleteTopicRuleOutput{}
 	req = c.newRequest(op, input, output)
 	req.Handlers.Unmarshal.Remove(restjson.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
-	output = &DeleteTopicRuleOutput{}
-	req.Data = output
 	return
 }
 
@@ -1626,16 +1588,16 @@ func (c *IoT) DeleteTopicRuleRequest(input *DeleteTopicRuleInput) (req *request.
 // API operation DeleteTopicRule for usage and error information.
 //
 // Returned Error Codes:
-//   * InternalException
+//   * ErrCodeInternalException "InternalException"
 //   An unexpected error has occurred.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
 func (c *IoT) DeleteTopicRule(input *DeleteTopicRuleInput) (*DeleteTopicRuleOutput, error) {
@@ -1669,7 +1631,6 @@ const opDeprecateThingType = "DeprecateThingType"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) DeprecateThingTypeRequest(input *DeprecateThingTypeInput) (req *request.Request, output *DeprecateThingTypeOutput) {
 	op := &request.Operation{
 		Name:       opDeprecateThingType,
@@ -1681,9 +1642,8 @@ func (c *IoT) DeprecateThingTypeRequest(input *DeprecateThingTypeInput) (req *re
 		input = &DeprecateThingTypeInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &DeprecateThingTypeOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -1700,22 +1660,22 @@ func (c *IoT) DeprecateThingTypeRequest(input *DeprecateThingTypeInput) (req *re
 // API operation DeprecateThingType for usage and error information.
 //
 // Returned Error Codes:
-//   * ResourceNotFoundException
+//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
 //   The specified resource does not exist.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) DeprecateThingType(input *DeprecateThingTypeInput) (*DeprecateThingTypeOutput, error) {
@@ -1749,7 +1709,6 @@ const opDescribeCACertificate = "DescribeCACertificate"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) DescribeCACertificateRequest(input *DescribeCACertificateInput) (req *request.Request, output *DescribeCACertificateOutput) {
 	op := &request.Operation{
 		Name:       opDescribeCACertificate,
@@ -1761,9 +1720,8 @@ func (c *IoT) DescribeCACertificateRequest(input *DescribeCACertificateInput) (r
 		input = &DescribeCACertificateInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &DescribeCACertificateOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -1779,22 +1737,22 @@ func (c *IoT) DescribeCACertificateRequest(input *DescribeCACertificateInput) (r
 // API operation DescribeCACertificate for usage and error information.
 //
 // Returned Error Codes:
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
-//   * ResourceNotFoundException
+//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
 //   The specified resource does not exist.
 //
 func (c *IoT) DescribeCACertificate(input *DescribeCACertificateInput) (*DescribeCACertificateOutput, error) {
@@ -1828,7 +1786,6 @@ const opDescribeCertificate = "DescribeCertificate"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) DescribeCertificateRequest(input *DescribeCertificateInput) (req *request.Request, output *DescribeCertificateOutput) {
 	op := &request.Operation{
 		Name:       opDescribeCertificate,
@@ -1840,9 +1797,8 @@ func (c *IoT) DescribeCertificateRequest(input *DescribeCertificateInput) (req *
 		input = &DescribeCertificateInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &DescribeCertificateOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -1858,22 +1814,22 @@ func (c *IoT) DescribeCertificateRequest(input *DescribeCertificateInput) (req *
 // API operation DescribeCertificate for usage and error information.
 //
 // Returned Error Codes:
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
-//   * ResourceNotFoundException
+//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
 //   The specified resource does not exist.
 //
 func (c *IoT) DescribeCertificate(input *DescribeCertificateInput) (*DescribeCertificateOutput, error) {
@@ -1907,7 +1863,6 @@ const opDescribeEndpoint = "DescribeEndpoint"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) DescribeEndpointRequest(input *DescribeEndpointInput) (req *request.Request, output *DescribeEndpointOutput) {
 	op := &request.Operation{
 		Name:       opDescribeEndpoint,
@@ -1919,9 +1874,8 @@ func (c *IoT) DescribeEndpointRequest(input *DescribeEndpointInput) (req *reques
 		input = &DescribeEndpointInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &DescribeEndpointOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -1937,13 +1891,13 @@ func (c *IoT) DescribeEndpointRequest(input *DescribeEndpointInput) (req *reques
 // API operation DescribeEndpoint for usage and error information.
 //
 // Returned Error Codes:
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
 func (c *IoT) DescribeEndpoint(input *DescribeEndpointInput) (*DescribeEndpointOutput, error) {
@@ -1977,7 +1931,6 @@ const opDescribeThing = "DescribeThing"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) DescribeThingRequest(input *DescribeThingInput) (req *request.Request, output *DescribeThingOutput) {
 	op := &request.Operation{
 		Name:       opDescribeThing,
@@ -1989,9 +1942,8 @@ func (c *IoT) DescribeThingRequest(input *DescribeThingInput) (req *request.Requ
 		input = &DescribeThingInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &DescribeThingOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -2007,22 +1959,22 @@ func (c *IoT) DescribeThingRequest(input *DescribeThingInput) (req *request.Requ
 // API operation DescribeThing for usage and error information.
 //
 // Returned Error Codes:
-//   * ResourceNotFoundException
+//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
 //   The specified resource does not exist.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) DescribeThing(input *DescribeThingInput) (*DescribeThingOutput, error) {
@@ -2056,7 +2008,6 @@ const opDescribeThingType = "DescribeThingType"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) DescribeThingTypeRequest(input *DescribeThingTypeInput) (req *request.Request, output *DescribeThingTypeOutput) {
 	op := &request.Operation{
 		Name:       opDescribeThingType,
@@ -2068,9 +2019,8 @@ func (c *IoT) DescribeThingTypeRequest(input *DescribeThingTypeInput) (req *requ
 		input = &DescribeThingTypeInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &DescribeThingTypeOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -2086,22 +2036,22 @@ func (c *IoT) DescribeThingTypeRequest(input *DescribeThingTypeInput) (req *requ
 // API operation DescribeThingType for usage and error information.
 //
 // Returned Error Codes:
-//   * ResourceNotFoundException
+//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
 //   The specified resource does not exist.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) DescribeThingType(input *DescribeThingTypeInput) (*DescribeThingTypeOutput, error) {
@@ -2135,7 +2085,6 @@ const opDetachPrincipalPolicy = "DetachPrincipalPolicy"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) DetachPrincipalPolicyRequest(input *DetachPrincipalPolicyInput) (req *request.Request, output *DetachPrincipalPolicyOutput) {
 	op := &request.Operation{
 		Name:       opDetachPrincipalPolicy,
@@ -2147,11 +2096,10 @@ func (c *IoT) DetachPrincipalPolicyRequest(input *DetachPrincipalPolicyInput) (r
 		input = &DetachPrincipalPolicyInput{}
 	}
 
+	output = &DetachPrincipalPolicyOutput{}
 	req = c.newRequest(op, input, output)
 	req.Handlers.Unmarshal.Remove(restjson.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
-	output = &DetachPrincipalPolicyOutput{}
-	req.Data = output
 	return
 }
 
@@ -2167,22 +2115,22 @@ func (c *IoT) DetachPrincipalPolicyRequest(input *DetachPrincipalPolicyInput) (r
 // API operation DetachPrincipalPolicy for usage and error information.
 //
 // Returned Error Codes:
-//   * ResourceNotFoundException
+//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
 //   The specified resource does not exist.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) DetachPrincipalPolicy(input *DetachPrincipalPolicyInput) (*DetachPrincipalPolicyOutput, error) {
@@ -2216,7 +2164,6 @@ const opDetachThingPrincipal = "DetachThingPrincipal"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) DetachThingPrincipalRequest(input *DetachThingPrincipalInput) (req *request.Request, output *DetachThingPrincipalOutput) {
 	op := &request.Operation{
 		Name:       opDetachThingPrincipal,
@@ -2228,9 +2175,8 @@ func (c *IoT) DetachThingPrincipalRequest(input *DetachThingPrincipalInput) (req
 		input = &DetachThingPrincipalInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &DetachThingPrincipalOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -2246,22 +2192,22 @@ func (c *IoT) DetachThingPrincipalRequest(input *DetachThingPrincipalInput) (req
 // API operation DetachThingPrincipal for usage and error information.
 //
 // Returned Error Codes:
-//   * ResourceNotFoundException
+//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
 //   The specified resource does not exist.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) DetachThingPrincipal(input *DetachThingPrincipalInput) (*DetachThingPrincipalOutput, error) {
@@ -2295,7 +2241,6 @@ const opDisableTopicRule = "DisableTopicRule"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) DisableTopicRuleRequest(input *DisableTopicRuleInput) (req *request.Request, output *DisableTopicRuleOutput) {
 	op := &request.Operation{
 		Name:       opDisableTopicRule,
@@ -2307,11 +2252,10 @@ func (c *IoT) DisableTopicRuleRequest(input *DisableTopicRuleInput) (req *reques
 		input = &DisableTopicRuleInput{}
 	}
 
+	output = &DisableTopicRuleOutput{}
 	req = c.newRequest(op, input, output)
 	req.Handlers.Unmarshal.Remove(restjson.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
-	output = &DisableTopicRuleOutput{}
-	req.Data = output
 	return
 }
 
@@ -2327,16 +2271,16 @@ func (c *IoT) DisableTopicRuleRequest(input *DisableTopicRuleInput) (req *reques
 // API operation DisableTopicRule for usage and error information.
 //
 // Returned Error Codes:
-//   * InternalException
+//   * ErrCodeInternalException "InternalException"
 //   An unexpected error has occurred.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
 func (c *IoT) DisableTopicRule(input *DisableTopicRuleInput) (*DisableTopicRuleOutput, error) {
@@ -2370,7 +2314,6 @@ const opEnableTopicRule = "EnableTopicRule"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) EnableTopicRuleRequest(input *EnableTopicRuleInput) (req *request.Request, output *EnableTopicRuleOutput) {
 	op := &request.Operation{
 		Name:       opEnableTopicRule,
@@ -2382,11 +2325,10 @@ func (c *IoT) EnableTopicRuleRequest(input *EnableTopicRuleInput) (req *request.
 		input = &EnableTopicRuleInput{}
 	}
 
+	output = &EnableTopicRuleOutput{}
 	req = c.newRequest(op, input, output)
 	req.Handlers.Unmarshal.Remove(restjson.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
-	output = &EnableTopicRuleOutput{}
-	req.Data = output
 	return
 }
 
@@ -2402,16 +2344,16 @@ func (c *IoT) EnableTopicRuleRequest(input *EnableTopicRuleInput) (req *request.
 // API operation EnableTopicRule for usage and error information.
 //
 // Returned Error Codes:
-//   * InternalException
+//   * ErrCodeInternalException "InternalException"
 //   An unexpected error has occurred.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
 func (c *IoT) EnableTopicRule(input *EnableTopicRuleInput) (*EnableTopicRuleOutput, error) {
@@ -2445,7 +2387,6 @@ const opGetLoggingOptions = "GetLoggingOptions"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) GetLoggingOptionsRequest(input *GetLoggingOptionsInput) (req *request.Request, output *GetLoggingOptionsOutput) {
 	op := &request.Operation{
 		Name:       opGetLoggingOptions,
@@ -2457,9 +2398,8 @@ func (c *IoT) GetLoggingOptionsRequest(input *GetLoggingOptionsInput) (req *requ
 		input = &GetLoggingOptionsInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &GetLoggingOptionsOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -2475,13 +2415,13 @@ func (c *IoT) GetLoggingOptionsRequest(input *GetLoggingOptionsInput) (req *requ
 // API operation GetLoggingOptions for usage and error information.
 //
 // Returned Error Codes:
-//   * InternalException
+//   * ErrCodeInternalException "InternalException"
 //   An unexpected error has occurred.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
 func (c *IoT) GetLoggingOptions(input *GetLoggingOptionsInput) (*GetLoggingOptionsOutput, error) {
@@ -2515,7 +2455,6 @@ const opGetPolicy = "GetPolicy"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) GetPolicyRequest(input *GetPolicyInput) (req *request.Request, output *GetPolicyOutput) {
 	op := &request.Operation{
 		Name:       opGetPolicy,
@@ -2527,9 +2466,8 @@ func (c *IoT) GetPolicyRequest(input *GetPolicyInput) (req *request.Request, out
 		input = &GetPolicyInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &GetPolicyOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -2546,22 +2484,22 @@ func (c *IoT) GetPolicyRequest(input *GetPolicyInput) (req *request.Request, out
 // API operation GetPolicy for usage and error information.
 //
 // Returned Error Codes:
-//   * ResourceNotFoundException
+//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
 //   The specified resource does not exist.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) GetPolicy(input *GetPolicyInput) (*GetPolicyOutput, error) {
@@ -2595,7 +2533,6 @@ const opGetPolicyVersion = "GetPolicyVersion"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) GetPolicyVersionRequest(input *GetPolicyVersionInput) (req *request.Request, output *GetPolicyVersionOutput) {
 	op := &request.Operation{
 		Name:       opGetPolicyVersion,
@@ -2607,9 +2544,8 @@ func (c *IoT) GetPolicyVersionRequest(input *GetPolicyVersionInput) (req *reques
 		input = &GetPolicyVersionInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &GetPolicyVersionOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -2625,22 +2561,22 @@ func (c *IoT) GetPolicyVersionRequest(input *GetPolicyVersionInput) (req *reques
 // API operation GetPolicyVersion for usage and error information.
 //
 // Returned Error Codes:
-//   * ResourceNotFoundException
+//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
 //   The specified resource does not exist.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) GetPolicyVersion(input *GetPolicyVersionInput) (*GetPolicyVersionOutput, error) {
@@ -2674,7 +2610,6 @@ const opGetRegistrationCode = "GetRegistrationCode"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) GetRegistrationCodeRequest(input *GetRegistrationCodeInput) (req *request.Request, output *GetRegistrationCodeOutput) {
 	op := &request.Operation{
 		Name:       opGetRegistrationCode,
@@ -2686,9 +2621,8 @@ func (c *IoT) GetRegistrationCodeRequest(input *GetRegistrationCodeInput) (req *
 		input = &GetRegistrationCodeInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &GetRegistrationCodeOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -2704,19 +2638,19 @@ func (c *IoT) GetRegistrationCodeRequest(input *GetRegistrationCodeInput) (req *
 // API operation GetRegistrationCode for usage and error information.
 //
 // Returned Error Codes:
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
 func (c *IoT) GetRegistrationCode(input *GetRegistrationCodeInput) (*GetRegistrationCodeOutput, error) {
@@ -2750,7 +2684,6 @@ const opGetTopicRule = "GetTopicRule"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) GetTopicRuleRequest(input *GetTopicRuleInput) (req *request.Request, output *GetTopicRuleOutput) {
 	op := &request.Operation{
 		Name:       opGetTopicRule,
@@ -2762,9 +2695,8 @@ func (c *IoT) GetTopicRuleRequest(input *GetTopicRuleInput) (req *request.Reques
 		input = &GetTopicRuleInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &GetTopicRuleOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -2780,16 +2712,16 @@ func (c *IoT) GetTopicRuleRequest(input *GetTopicRuleInput) (req *request.Reques
 // API operation GetTopicRule for usage and error information.
 //
 // Returned Error Codes:
-//   * InternalException
+//   * ErrCodeInternalException "InternalException"
 //   An unexpected error has occurred.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
 func (c *IoT) GetTopicRule(input *GetTopicRuleInput) (*GetTopicRuleOutput, error) {
@@ -2823,7 +2755,6 @@ const opListCACertificates = "ListCACertificates"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) ListCACertificatesRequest(input *ListCACertificatesInput) (req *request.Request, output *ListCACertificatesOutput) {
 	op := &request.Operation{
 		Name:       opListCACertificates,
@@ -2835,9 +2766,8 @@ func (c *IoT) ListCACertificatesRequest(input *ListCACertificatesInput) (req *re
 		input = &ListCACertificatesInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &ListCACertificatesOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -2856,19 +2786,19 @@ func (c *IoT) ListCACertificatesRequest(input *ListCACertificatesInput) (req *re
 // API operation ListCACertificates for usage and error information.
 //
 // Returned Error Codes:
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) ListCACertificates(input *ListCACertificatesInput) (*ListCACertificatesOutput, error) {
@@ -2902,7 +2832,6 @@ const opListCertificates = "ListCertificates"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) ListCertificatesRequest(input *ListCertificatesInput) (req *request.Request, output *ListCertificatesOutput) {
 	op := &request.Operation{
 		Name:       opListCertificates,
@@ -2914,9 +2843,8 @@ func (c *IoT) ListCertificatesRequest(input *ListCertificatesInput) (req *reques
 		input = &ListCertificatesInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &ListCertificatesOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -2935,19 +2863,19 @@ func (c *IoT) ListCertificatesRequest(input *ListCertificatesInput) (req *reques
 // API operation ListCertificates for usage and error information.
 //
 // Returned Error Codes:
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) ListCertificates(input *ListCertificatesInput) (*ListCertificatesOutput, error) {
@@ -2981,7 +2909,6 @@ const opListCertificatesByCA = "ListCertificatesByCA"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) ListCertificatesByCARequest(input *ListCertificatesByCAInput) (req *request.Request, output *ListCertificatesByCAOutput) {
 	op := &request.Operation{
 		Name:       opListCertificatesByCA,
@@ -2993,9 +2920,8 @@ func (c *IoT) ListCertificatesByCARequest(input *ListCertificatesByCAInput) (req
 		input = &ListCertificatesByCAInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &ListCertificatesByCAOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -3011,19 +2937,19 @@ func (c *IoT) ListCertificatesByCARequest(input *ListCertificatesByCAInput) (req
 // API operation ListCertificatesByCA for usage and error information.
 //
 // Returned Error Codes:
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) ListCertificatesByCA(input *ListCertificatesByCAInput) (*ListCertificatesByCAOutput, error) {
@@ -3057,7 +2983,6 @@ const opListOutgoingCertificates = "ListOutgoingCertificates"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) ListOutgoingCertificatesRequest(input *ListOutgoingCertificatesInput) (req *request.Request, output *ListOutgoingCertificatesOutput) {
 	op := &request.Operation{
 		Name:       opListOutgoingCertificates,
@@ -3069,9 +2994,8 @@ func (c *IoT) ListOutgoingCertificatesRequest(input *ListOutgoingCertificatesInp
 		input = &ListOutgoingCertificatesInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &ListOutgoingCertificatesOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -3087,19 +3011,19 @@ func (c *IoT) ListOutgoingCertificatesRequest(input *ListOutgoingCertificatesInp
 // API operation ListOutgoingCertificates for usage and error information.
 //
 // Returned Error Codes:
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) ListOutgoingCertificates(input *ListOutgoingCertificatesInput) (*ListOutgoingCertificatesOutput, error) {
@@ -3133,7 +3057,6 @@ const opListPolicies = "ListPolicies"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) ListPoliciesRequest(input *ListPoliciesInput) (req *request.Request, output *ListPoliciesOutput) {
 	op := &request.Operation{
 		Name:       opListPolicies,
@@ -3145,9 +3068,8 @@ func (c *IoT) ListPoliciesRequest(input *ListPoliciesInput) (req *request.Reques
 		input = &ListPoliciesInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &ListPoliciesOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -3163,19 +3085,19 @@ func (c *IoT) ListPoliciesRequest(input *ListPoliciesInput) (req *request.Reques
 // API operation ListPolicies for usage and error information.
 //
 // Returned Error Codes:
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) ListPolicies(input *ListPoliciesInput) (*ListPoliciesOutput, error) {
@@ -3209,7 +3131,6 @@ const opListPolicyPrincipals = "ListPolicyPrincipals"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) ListPolicyPrincipalsRequest(input *ListPolicyPrincipalsInput) (req *request.Request, output *ListPolicyPrincipalsOutput) {
 	op := &request.Operation{
 		Name:       opListPolicyPrincipals,
@@ -3221,9 +3142,8 @@ func (c *IoT) ListPolicyPrincipalsRequest(input *ListPolicyPrincipalsInput) (req
 		input = &ListPolicyPrincipalsInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &ListPolicyPrincipalsOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -3239,22 +3159,22 @@ func (c *IoT) ListPolicyPrincipalsRequest(input *ListPolicyPrincipalsInput) (req
 // API operation ListPolicyPrincipals for usage and error information.
 //
 // Returned Error Codes:
-//   * ResourceNotFoundException
+//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
 //   The specified resource does not exist.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) ListPolicyPrincipals(input *ListPolicyPrincipalsInput) (*ListPolicyPrincipalsOutput, error) {
@@ -3288,7 +3208,6 @@ const opListPolicyVersions = "ListPolicyVersions"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) ListPolicyVersionsRequest(input *ListPolicyVersionsInput) (req *request.Request, output *ListPolicyVersionsOutput) {
 	op := &request.Operation{
 		Name:       opListPolicyVersions,
@@ -3300,9 +3219,8 @@ func (c *IoT) ListPolicyVersionsRequest(input *ListPolicyVersionsInput) (req *re
 		input = &ListPolicyVersionsInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &ListPolicyVersionsOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -3318,22 +3236,22 @@ func (c *IoT) ListPolicyVersionsRequest(input *ListPolicyVersionsInput) (req *re
 // API operation ListPolicyVersions for usage and error information.
 //
 // Returned Error Codes:
-//   * ResourceNotFoundException
+//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
 //   The specified resource does not exist.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) ListPolicyVersions(input *ListPolicyVersionsInput) (*ListPolicyVersionsOutput, error) {
@@ -3367,7 +3285,6 @@ const opListPrincipalPolicies = "ListPrincipalPolicies"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) ListPrincipalPoliciesRequest(input *ListPrincipalPoliciesInput) (req *request.Request, output *ListPrincipalPoliciesOutput) {
 	op := &request.Operation{
 		Name:       opListPrincipalPolicies,
@@ -3379,9 +3296,8 @@ func (c *IoT) ListPrincipalPoliciesRequest(input *ListPrincipalPoliciesInput) (r
 		input = &ListPrincipalPoliciesInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &ListPrincipalPoliciesOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -3398,22 +3314,22 @@ func (c *IoT) ListPrincipalPoliciesRequest(input *ListPrincipalPoliciesInput) (r
 // API operation ListPrincipalPolicies for usage and error information.
 //
 // Returned Error Codes:
-//   * ResourceNotFoundException
+//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
 //   The specified resource does not exist.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) ListPrincipalPolicies(input *ListPrincipalPoliciesInput) (*ListPrincipalPoliciesOutput, error) {
@@ -3447,7 +3363,6 @@ const opListPrincipalThings = "ListPrincipalThings"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) ListPrincipalThingsRequest(input *ListPrincipalThingsInput) (req *request.Request, output *ListPrincipalThingsOutput) {
 	op := &request.Operation{
 		Name:       opListPrincipalThings,
@@ -3459,9 +3374,8 @@ func (c *IoT) ListPrincipalThingsRequest(input *ListPrincipalThingsInput) (req *
 		input = &ListPrincipalThingsInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &ListPrincipalThingsOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -3477,22 +3391,22 @@ func (c *IoT) ListPrincipalThingsRequest(input *ListPrincipalThingsInput) (req *
 // API operation ListPrincipalThings for usage and error information.
 //
 // Returned Error Codes:
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
-//   * ResourceNotFoundException
+//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
 //   The specified resource does not exist.
 //
 func (c *IoT) ListPrincipalThings(input *ListPrincipalThingsInput) (*ListPrincipalThingsOutput, error) {
@@ -3526,7 +3440,6 @@ const opListThingPrincipals = "ListThingPrincipals"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) ListThingPrincipalsRequest(input *ListThingPrincipalsInput) (req *request.Request, output *ListThingPrincipalsOutput) {
 	op := &request.Operation{
 		Name:       opListThingPrincipals,
@@ -3538,9 +3451,8 @@ func (c *IoT) ListThingPrincipalsRequest(input *ListThingPrincipalsInput) (req *
 		input = &ListThingPrincipalsInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &ListThingPrincipalsOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -3556,22 +3468,22 @@ func (c *IoT) ListThingPrincipalsRequest(input *ListThingPrincipalsInput) (req *
 // API operation ListThingPrincipals for usage and error information.
 //
 // Returned Error Codes:
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
-//   * ResourceNotFoundException
+//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
 //   The specified resource does not exist.
 //
 func (c *IoT) ListThingPrincipals(input *ListThingPrincipalsInput) (*ListThingPrincipalsOutput, error) {
@@ -3605,7 +3517,6 @@ const opListThingTypes = "ListThingTypes"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) ListThingTypesRequest(input *ListThingTypesInput) (req *request.Request, output *ListThingTypesOutput) {
 	op := &request.Operation{
 		Name:       opListThingTypes,
@@ -3617,9 +3528,8 @@ func (c *IoT) ListThingTypesRequest(input *ListThingTypesInput) (req *request.Re
 		input = &ListThingTypesInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &ListThingTypesOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -3635,19 +3545,19 @@ func (c *IoT) ListThingTypesRequest(input *ListThingTypesInput) (req *request.Re
 // API operation ListThingTypes for usage and error information.
 //
 // Returned Error Codes:
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) ListThingTypes(input *ListThingTypesInput) (*ListThingTypesOutput, error) {
@@ -3681,7 +3591,6 @@ const opListThings = "ListThings"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) ListThingsRequest(input *ListThingsInput) (req *request.Request, output *ListThingsOutput) {
 	op := &request.Operation{
 		Name:       opListThings,
@@ -3693,9 +3602,8 @@ func (c *IoT) ListThingsRequest(input *ListThingsInput) (req *request.Request, o
 		input = &ListThingsInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &ListThingsOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -3714,19 +3622,19 @@ func (c *IoT) ListThingsRequest(input *ListThingsInput) (req *request.Request, o
 // API operation ListThings for usage and error information.
 //
 // Returned Error Codes:
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) ListThings(input *ListThingsInput) (*ListThingsOutput, error) {
@@ -3760,7 +3668,6 @@ const opListTopicRules = "ListTopicRules"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) ListTopicRulesRequest(input *ListTopicRulesInput) (req *request.Request, output *ListTopicRulesOutput) {
 	op := &request.Operation{
 		Name:       opListTopicRules,
@@ -3772,9 +3679,8 @@ func (c *IoT) ListTopicRulesRequest(input *ListTopicRulesInput) (req *request.Re
 		input = &ListTopicRulesInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &ListTopicRulesOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -3790,13 +3696,13 @@ func (c *IoT) ListTopicRulesRequest(input *ListTopicRulesInput) (req *request.Re
 // API operation ListTopicRules for usage and error information.
 //
 // Returned Error Codes:
-//   * InternalException
+//   * ErrCodeInternalException "InternalException"
 //   An unexpected error has occurred.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
 func (c *IoT) ListTopicRules(input *ListTopicRulesInput) (*ListTopicRulesOutput, error) {
@@ -3830,7 +3736,6 @@ const opRegisterCACertificate = "RegisterCACertificate"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) RegisterCACertificateRequest(input *RegisterCACertificateInput) (req *request.Request, output *RegisterCACertificateOutput) {
 	op := &request.Operation{
 		Name:       opRegisterCACertificate,
@@ -3842,9 +3747,8 @@ func (c *IoT) RegisterCACertificateRequest(input *RegisterCACertificateInput) (r
 		input = &RegisterCACertificateInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &RegisterCACertificateOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -3866,31 +3770,31 @@ func (c *IoT) RegisterCACertificateRequest(input *RegisterCACertificateInput) (r
 // API operation RegisterCACertificate for usage and error information.
 //
 // Returned Error Codes:
-//   * ResourceAlreadyExistsException
+//   * ErrCodeResourceAlreadyExistsException "ResourceAlreadyExistsException"
 //   The resource already exists.
 //
-//   * RegistrationCodeValidationException
+//   * ErrCodeRegistrationCodeValidationException "RegistrationCodeValidationException"
 //   The registration code is invalid.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * CertificateValidationException
+//   * ErrCodeCertificateValidationException "CertificateValidationException"
 //   The certificate is invalid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * LimitExceededException
+//   * ErrCodeLimitExceededException "LimitExceededException"
 //   The number of attached entities exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) RegisterCACertificate(input *RegisterCACertificateInput) (*RegisterCACertificateOutput, error) {
@@ -3924,7 +3828,6 @@ const opRegisterCertificate = "RegisterCertificate"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) RegisterCertificateRequest(input *RegisterCertificateInput) (req *request.Request, output *RegisterCertificateOutput) {
 	op := &request.Operation{
 		Name:       opRegisterCertificate,
@@ -3936,9 +3839,8 @@ func (c *IoT) RegisterCertificateRequest(input *RegisterCertificateInput) (req *
 		input = &RegisterCertificateInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &RegisterCertificateOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -3956,33 +3858,33 @@ func (c *IoT) RegisterCertificateRequest(input *RegisterCertificateInput) (req *
 // API operation RegisterCertificate for usage and error information.
 //
 // Returned Error Codes:
-//   * ResourceAlreadyExistsException
+//   * ErrCodeResourceAlreadyExistsException "ResourceAlreadyExistsException"
 //   The resource already exists.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * CertificateValidationException
+//   * ErrCodeCertificateValidationException "CertificateValidationException"
 //   The certificate is invalid.
 //
-//   * CertificateStateException
+//   * ErrCodeCertificateStateException "CertificateStateException"
 //   The certificate operation is not allowed.
 //
-//   * CertificateConflictException
+//   * ErrCodeCertificateConflictException "CertificateConflictException"
 //   Unable to verify the CA certificate used to sign the device certificate you
 //   are attempting to register. This is happens when you have registered more
 //   than one CA certificate that has the same subject field and public key.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) RegisterCertificate(input *RegisterCertificateInput) (*RegisterCertificateOutput, error) {
@@ -4016,7 +3918,6 @@ const opRejectCertificateTransfer = "RejectCertificateTransfer"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) RejectCertificateTransferRequest(input *RejectCertificateTransferInput) (req *request.Request, output *RejectCertificateTransferOutput) {
 	op := &request.Operation{
 		Name:       opRejectCertificateTransfer,
@@ -4028,11 +3929,10 @@ func (c *IoT) RejectCertificateTransferRequest(input *RejectCertificateTransferI
 		input = &RejectCertificateTransferInput{}
 	}
 
+	output = &RejectCertificateTransferOutput{}
 	req = c.newRequest(op, input, output)
 	req.Handlers.Unmarshal.Remove(restjson.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
-	output = &RejectCertificateTransferOutput{}
-	req.Data = output
 	return
 }
 
@@ -4056,26 +3956,26 @@ func (c *IoT) RejectCertificateTransferRequest(input *RejectCertificateTransferI
 // API operation RejectCertificateTransfer for usage and error information.
 //
 // Returned Error Codes:
-//   * ResourceNotFoundException
+//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
 //   The specified resource does not exist.
 //
-//   * TransferAlreadyCompletedException
+//   * ErrCodeTransferAlreadyCompletedException "TransferAlreadyCompletedException"
 //   You can't revert the certificate transfer because the transfer is already
 //   complete.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) RejectCertificateTransfer(input *RejectCertificateTransferInput) (*RejectCertificateTransferOutput, error) {
@@ -4109,7 +4009,6 @@ const opReplaceTopicRule = "ReplaceTopicRule"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) ReplaceTopicRuleRequest(input *ReplaceTopicRuleInput) (req *request.Request, output *ReplaceTopicRuleOutput) {
 	op := &request.Operation{
 		Name:       opReplaceTopicRule,
@@ -4121,11 +4020,10 @@ func (c *IoT) ReplaceTopicRuleRequest(input *ReplaceTopicRuleInput) (req *reques
 		input = &ReplaceTopicRuleInput{}
 	}
 
+	output = &ReplaceTopicRuleOutput{}
 	req = c.newRequest(op, input, output)
 	req.Handlers.Unmarshal.Remove(restjson.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
-	output = &ReplaceTopicRuleOutput{}
-	req.Data = output
 	return
 }
 
@@ -4143,19 +4041,19 @@ func (c *IoT) ReplaceTopicRuleRequest(input *ReplaceTopicRuleInput) (req *reques
 // API operation ReplaceTopicRule for usage and error information.
 //
 // Returned Error Codes:
-//   * SqlParseException
+//   * ErrCodeSqlParseException "SqlParseException"
 //   The Rule-SQL expression can't be parsed correctly.
 //
-//   * InternalException
+//   * ErrCodeInternalException "InternalException"
 //   An unexpected error has occurred.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
 func (c *IoT) ReplaceTopicRule(input *ReplaceTopicRuleInput) (*ReplaceTopicRuleOutput, error) {
@@ -4189,7 +4087,6 @@ const opSetDefaultPolicyVersion = "SetDefaultPolicyVersion"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) SetDefaultPolicyVersionRequest(input *SetDefaultPolicyVersionInput) (req *request.Request, output *SetDefaultPolicyVersionOutput) {
 	op := &request.Operation{
 		Name:       opSetDefaultPolicyVersion,
@@ -4201,11 +4098,10 @@ func (c *IoT) SetDefaultPolicyVersionRequest(input *SetDefaultPolicyVersionInput
 		input = &SetDefaultPolicyVersionInput{}
 	}
 
+	output = &SetDefaultPolicyVersionOutput{}
 	req = c.newRequest(op, input, output)
 	req.Handlers.Unmarshal.Remove(restjson.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
-	output = &SetDefaultPolicyVersionOutput{}
-	req.Data = output
 	return
 }
 
@@ -4224,22 +4120,22 @@ func (c *IoT) SetDefaultPolicyVersionRequest(input *SetDefaultPolicyVersionInput
 // API operation SetDefaultPolicyVersion for usage and error information.
 //
 // Returned Error Codes:
-//   * ResourceNotFoundException
+//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
 //   The specified resource does not exist.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) SetDefaultPolicyVersion(input *SetDefaultPolicyVersionInput) (*SetDefaultPolicyVersionOutput, error) {
@@ -4273,7 +4169,6 @@ const opSetLoggingOptions = "SetLoggingOptions"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) SetLoggingOptionsRequest(input *SetLoggingOptionsInput) (req *request.Request, output *SetLoggingOptionsOutput) {
 	op := &request.Operation{
 		Name:       opSetLoggingOptions,
@@ -4285,11 +4180,10 @@ func (c *IoT) SetLoggingOptionsRequest(input *SetLoggingOptionsInput) (req *requ
 		input = &SetLoggingOptionsInput{}
 	}
 
+	output = &SetLoggingOptionsOutput{}
 	req = c.newRequest(op, input, output)
 	req.Handlers.Unmarshal.Remove(restjson.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
-	output = &SetLoggingOptionsOutput{}
-	req.Data = output
 	return
 }
 
@@ -4305,13 +4199,13 @@ func (c *IoT) SetLoggingOptionsRequest(input *SetLoggingOptionsInput) (req *requ
 // API operation SetLoggingOptions for usage and error information.
 //
 // Returned Error Codes:
-//   * InternalException
+//   * ErrCodeInternalException "InternalException"
 //   An unexpected error has occurred.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
 func (c *IoT) SetLoggingOptions(input *SetLoggingOptionsInput) (*SetLoggingOptionsOutput, error) {
@@ -4345,7 +4239,6 @@ const opTransferCertificate = "TransferCertificate"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) TransferCertificateRequest(input *TransferCertificateInput) (req *request.Request, output *TransferCertificateOutput) {
 	op := &request.Operation{
 		Name:       opTransferCertificate,
@@ -4357,9 +4250,8 @@ func (c *IoT) TransferCertificateRequest(input *TransferCertificateInput) (req *
 		input = &TransferCertificateInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &TransferCertificateOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -4386,29 +4278,29 @@ func (c *IoT) TransferCertificateRequest(input *TransferCertificateInput) (req *
 // API operation TransferCertificate for usage and error information.
 //
 // Returned Error Codes:
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ResourceNotFoundException
+//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
 //   The specified resource does not exist.
 //
-//   * CertificateStateException
+//   * ErrCodeCertificateStateException "CertificateStateException"
 //   The certificate operation is not allowed.
 //
-//   * TransferConflictException
+//   * ErrCodeTransferConflictException "TransferConflictException"
 //   You can't transfer the certificate because authorization policies are still
 //   attached.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) TransferCertificate(input *TransferCertificateInput) (*TransferCertificateOutput, error) {
@@ -4442,7 +4334,6 @@ const opUpdateCACertificate = "UpdateCACertificate"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) UpdateCACertificateRequest(input *UpdateCACertificateInput) (req *request.Request, output *UpdateCACertificateOutput) {
 	op := &request.Operation{
 		Name:       opUpdateCACertificate,
@@ -4454,11 +4345,10 @@ func (c *IoT) UpdateCACertificateRequest(input *UpdateCACertificateInput) (req *
 		input = &UpdateCACertificateInput{}
 	}
 
+	output = &UpdateCACertificateOutput{}
 	req = c.newRequest(op, input, output)
 	req.Handlers.Unmarshal.Remove(restjson.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
-	output = &UpdateCACertificateOutput{}
-	req.Data = output
 	return
 }
 
@@ -4474,22 +4364,22 @@ func (c *IoT) UpdateCACertificateRequest(input *UpdateCACertificateInput) (req *
 // API operation UpdateCACertificate for usage and error information.
 //
 // Returned Error Codes:
-//   * ResourceNotFoundException
+//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
 //   The specified resource does not exist.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) UpdateCACertificate(input *UpdateCACertificateInput) (*UpdateCACertificateOutput, error) {
@@ -4523,7 +4413,6 @@ const opUpdateCertificate = "UpdateCertificate"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) UpdateCertificateRequest(input *UpdateCertificateInput) (req *request.Request, output *UpdateCertificateOutput) {
 	op := &request.Operation{
 		Name:       opUpdateCertificate,
@@ -4535,11 +4424,10 @@ func (c *IoT) UpdateCertificateRequest(input *UpdateCertificateInput) (req *requ
 		input = &UpdateCertificateInput{}
 	}
 
+	output = &UpdateCertificateOutput{}
 	req = c.newRequest(op, input, output)
 	req.Handlers.Unmarshal.Remove(restjson.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
-	output = &UpdateCertificateOutput{}
-	req.Data = output
 	return
 }
 
@@ -4561,25 +4449,25 @@ func (c *IoT) UpdateCertificateRequest(input *UpdateCertificateInput) (req *requ
 // API operation UpdateCertificate for usage and error information.
 //
 // Returned Error Codes:
-//   * ResourceNotFoundException
+//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
 //   The specified resource does not exist.
 //
-//   * CertificateStateException
+//   * ErrCodeCertificateStateException "CertificateStateException"
 //   The certificate operation is not allowed.
 //
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
 func (c *IoT) UpdateCertificate(input *UpdateCertificateInput) (*UpdateCertificateOutput, error) {
@@ -4613,7 +4501,6 @@ const opUpdateThing = "UpdateThing"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-//
 func (c *IoT) UpdateThingRequest(input *UpdateThingInput) (req *request.Request, output *UpdateThingOutput) {
 	op := &request.Operation{
 		Name:       opUpdateThing,
@@ -4625,9 +4512,8 @@ func (c *IoT) UpdateThingRequest(input *UpdateThingInput) (req *request.Request,
 		input = &UpdateThingInput{}
 	}
 
-	req = c.newRequest(op, input, output)
 	output = &UpdateThingOutput{}
-	req.Data = output
+	req = c.newRequest(op, input, output)
 	return
 }
 
@@ -4643,26 +4529,26 @@ func (c *IoT) UpdateThingRequest(input *UpdateThingInput) (req *request.Request,
 // API operation UpdateThing for usage and error information.
 //
 // Returned Error Codes:
-//   * InvalidRequestException
+//   * ErrCodeInvalidRequestException "InvalidRequestException"
 //   The request is not valid.
 //
-//   * VersionConflictException
+//   * ErrCodeVersionConflictException "VersionConflictException"
 //   An exception thrown when the version of a thing passed to a command is different
 //   than the version specified with the --version parameter.
 //
-//   * ThrottlingException
+//   * ErrCodeThrottlingException "ThrottlingException"
 //   The rate exceeds the limit.
 //
-//   * UnauthorizedException
+//   * ErrCodeUnauthorizedException "UnauthorizedException"
 //   You are not authorized to perform this operation.
 //
-//   * ServiceUnavailableException
+//   * ErrCodeServiceUnavailableException "ServiceUnavailableException"
 //   The service is temporarily unavailable.
 //
-//   * InternalFailureException
+//   * ErrCodeInternalFailureException "InternalFailureException"
 //   An unexpected error has occurred.
 //
-//   * ResourceNotFoundException
+//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
 //   The specified resource does not exist.
 //
 func (c *IoT) UpdateThing(input *UpdateThingInput) (*UpdateThingOutput, error) {

@@ -351,7 +351,8 @@ func (d *driver) List(ctx context.Context, opath string) ([]string, error) {
 		prefix = "/"
 	}
 
-	listResponse, err := d.Bucket.List(d.ossPath(path), "/", "", listMax)
+	ossPath := d.ossPath(path)
+	listResponse, err := d.Bucket.List(ossPath, "/", "", listMax)
 	if err != nil {
 		return nil, parseError(opath, err)
 	}
@@ -369,13 +370,18 @@ func (d *driver) List(ctx context.Context, opath string) ([]string, error) {
 		}
 
 		if listResponse.IsTruncated {
-			listResponse, err = d.Bucket.List(d.ossPath(path), "/", listResponse.NextMarker, listMax)
+			listResponse, err = d.Bucket.List(ossPath, "/", listResponse.NextMarker, listMax)
 			if err != nil {
 				return nil, err
 			}
 		} else {
 			break
 		}
+	}
+
+	// This is to cover for the cases when the first key equal to ossPath.
+	if len(files) > 0 && files[0] == strings.Replace(ossPath, d.ossPath(""), prefix, 1) {
+		files = files[1:]
 	}
 
 	if opath != "/" {
@@ -389,15 +395,17 @@ func (d *driver) List(ctx context.Context, opath string) ([]string, error) {
 	return append(files, directories...), nil
 }
 
+const maxConcurrency = 10
+
 // Move moves an object stored at sourcePath to destPath, removing the original
 // object.
 func (d *driver) Move(ctx context.Context, sourcePath string, destPath string) error {
 	logrus.Infof("Move from %s to %s", d.ossPath(sourcePath), d.ossPath(destPath))
-
-	err := d.Bucket.CopyLargeFile(d.ossPath(sourcePath), d.ossPath(destPath),
+	err := d.Bucket.CopyLargeFileInParallel(d.ossPath(sourcePath), d.ossPath(destPath),
 		d.getContentType(),
 		getPermissions(),
-		oss.Options{})
+		oss.Options{},
+		maxConcurrency)
 	if err != nil {
 		logrus.Errorf("Failed for move from %s to %s: %v", d.ossPath(sourcePath), d.ossPath(destPath), err)
 		return parseError(sourcePath, err)

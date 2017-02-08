@@ -15,7 +15,7 @@
 /*
 Package bigquery provides a client for the BigQuery service.
 
-Note: This package is a work-in-progress.  Backwards-incompatible changes should be expected.
+Note: This package is in beta.  Some backwards-incompatible changes may occur.
 
 The following assumes a basic familiarity with BigQuery concepts.
 See https://cloud.google.com/bigquery/docs.
@@ -36,23 +36,23 @@ Querying
 To query existing tables, create a Query and call its Read method:
 
     q := client.Query(`
-    SELECT year, SUM(number)
-    FROM [bigquery-public-data:usa_names.usa_1910_2013]
-    WHERE name = "William"
-    GROUP BY year
-    ORDER BY year
-`)
+        SELECT year, SUM(number) as num
+        FROM [bigquery-public-data:usa_names.usa_1910_2013]
+        WHERE name = "William"
+        GROUP BY year
+        ORDER BY year
+    `)
     it, err := q.Read(ctx)
     if err != nil {
         // TODO: Handle error.
     }
 
 Then iterate through the resulting rows. You can store a row using
-anything that implements the ValueLoader interface. This package provides
-one implementation in ValueList, a slice of values.
+anything that implements the ValueLoader interface, or with a slice or map of bigquery.Value.
+A slice is simplest:
 
     for {
-        var values bigquery.ValueList
+        var values []bigquery.Value
         err := it.Next(&values)
         if err == iterator.Done {
             break
@@ -61,6 +61,24 @@ one implementation in ValueList, a slice of values.
             // TODO: Handle error.
         }
         fmt.Println(values)
+    }
+
+You can also use a struct whose exported fields match the query:
+
+    type Count struct {
+        Year int
+        Num  int
+    }
+    for {
+        var c Count
+        err := it.Next(&c)
+        if err == iterator.Done {
+            break
+        }
+        if err != nil {
+            // TODO: Handle error.
+        }
+        fmt.Println(c)
     }
 
 You can also start the query running and get the results later.
@@ -147,6 +165,20 @@ Or you can infer the schema from a struct:
     }
     // schema1 and schema2 are identical.
 
+Struct inference supports tags like those of the encoding/json package,
+so you can change names or ignore fields:
+
+    type student2 struct {
+        Name   string `bigquery:"full_name"`
+        Grades []int
+        Secret string `bigquery:"-"`
+    }
+    schema3, err := bigquery.InferSchema(student2{})
+    if err != nil {
+        // TODO: Handle error.
+    }
+    // schema3 has fields "full_name" and "Grade".
+
 Having constructed a schema, you can pass it to Table.Create as an option:
 
     if err := table.Create(ctx, schema1); err != nil {
@@ -172,7 +204,15 @@ You can chain the call to Run if you don't want to set options:
         // TODO: Handle error.
     }
 
-You can poll for completion of the job if you wish:
+You can wait for your job to complete:
+
+    status, err := job.Wait(ctx)
+    if err != nil {
+        // TODO: Handle error.
+    }
+
+Job.Wait polls with exponential backoff. You can also poll yourself, if you
+wish:
 
     for {
         status, err := job.Status(ctx)
@@ -196,7 +236,7 @@ object, or upload rows directly from your program.
 For loading, first create a GCSReference, configuring it if desired. Then make a Loader, optionally configure
 it as well, and call its Run method.
 
-    gcsRef := client.NewGCSReference("gs://my-bucket/my-object")
+    gcsRef := bigquery.NewGCSReference("gs://my-bucket/my-object")
     gcsRef.AllowJaggedRows = true
     loader := myDataset.Table("dest").LoaderFrom(gcsRef)
     loader.CreateDisposition = bigquery.CreateNever
@@ -214,6 +254,25 @@ Then create an Uploader, and call its Put method with a slice of values.
         {Name: "n3", Size: 101.5, Count: 1},
     }
     if err := u.Put(ctx, items); err != nil {
+        // TODO: Handle error.
+    }
+
+You can also upload a struct that doesn't implement ValueSaver. Use the StructSaver type
+to specify the schema and insert ID by hand, or just supply the struct or struct pointer
+directly and the schema will be inferred:
+
+    type Item2 struct {
+        Name  string
+        Size  float64
+        Count int
+    }
+    // Item implements the ValueSaver interface.
+    items2 := []*Item2{
+        {Name: "n1", Size: 32.6, Count: 7},
+        {Name: "n2", Size: 4, Count: 2},
+        {Name: "n3", Size: 101.5, Count: 1},
+    }
+    if err := u.Put(ctx, items2); err != nil {
         // TODO: Handle error.
     }
 

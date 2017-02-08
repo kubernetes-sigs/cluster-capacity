@@ -17,8 +17,10 @@ limitations under the License.
 package apiserver
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
+	"net/url"
 	gpath "path"
 	"reflect"
 	"sort"
@@ -195,7 +197,7 @@ func (a *APIInstaller) registerResourceHandlers(path string, storage rest.Storag
 	if err != nil {
 		return nil, err
 	}
-	versionedObject := indirectArbitraryPointer(versionedPtr)
+	defaultVersionedObject := indirectArbitraryPointer(versionedPtr)
 	kind := fqKindToRegister.Kind
 	hasSubresource := len(subresource) > 0
 
@@ -250,14 +252,15 @@ func (a *APIInstaller) registerResourceHandlers(path string, storage rest.Storag
 		return nil, err
 	}
 
+	var versionedDeleteOptions runtime.Object
 	var versionedDeleterObject interface{}
 	switch {
 	case isGracefulDeleter:
-		objectPtr, err := a.group.Creater.New(optionsExternalVersion.WithKind("DeleteOptions"))
+		versionedDeleteOptions, err = a.group.Creater.New(optionsExternalVersion.WithKind("DeleteOptions"))
 		if err != nil {
 			return nil, err
 		}
-		versionedDeleterObject = indirectArbitraryPointer(objectPtr)
+		versionedDeleterObject = indirectArbitraryPointer(versionedDeleteOptions)
 		isDeleter = true
 	case isDeleter:
 		gracefulDeleter = rest.GracefulDeleteAdapter{Deleter: deleter}
@@ -356,15 +359,17 @@ func (a *APIInstaller) registerResourceHandlers(path string, storage rest.Storag
 		itemPath := resourcePath + "/{name}"
 		nameParams := append(params, nameParam)
 		proxyParams := append(nameParams, pathParam)
+		suffix := ""
 		if hasSubresource {
-			itemPath = itemPath + "/" + subresource
+			suffix = "/" + subresource
+			itemPath = itemPath + suffix
 			resourcePath = itemPath
 			resourceParams = nameParams
 		}
 		apiResource.Name = path
 		apiResource.Namespaced = false
 		apiResource.Kind = resourceKind
-		namer := rootScopeNaming{scope, a.group.Linker, gpath.Join(a.prefix, itemPath)}
+		namer := rootScopeNaming{scope, a.group.Linker, gpath.Join(a.prefix, resourcePath, "/"), suffix}
 
 		// Handler for standard REST verbs (GET, PUT, POST and DELETE).
 		// Add actions at the resource path: /api/apiVersion/resource
@@ -416,8 +421,14 @@ func (a *APIInstaller) registerResourceHandlers(path string, storage rest.Storag
 		apiResource.Namespaced = true
 		apiResource.Kind = resourceKind
 
-		itemPathFn := func(name, namespace string) string {
-			return itemPathPrefix + namespace + itemPathMiddle + name + itemPathSuffix
+		itemPathFn := func(name, namespace string) bytes.Buffer {
+			var buf bytes.Buffer
+			buf.WriteString(itemPathPrefix)
+			buf.WriteString(url.QueryEscape(namespace))
+			buf.WriteString(itemPathMiddle)
+			buf.WriteString(url.QueryEscape(name))
+			buf.WriteString(itemPathSuffix)
+			return buf
 		}
 		namer := scopeNaming{scope, a.group.Linker, itemPathFn, false}
 
@@ -492,6 +503,10 @@ func (a *APIInstaller) registerResourceHandlers(path string, storage rest.Storag
 		Kind:        fqKindToRegister,
 	}
 	for _, action := range actions {
+		versionedObject := storageMeta.ProducesObject(action.Verb)
+		if versionedObject == nil {
+			versionedObject = defaultVersionedObject
+		}
 		reqScope.Namer = action.Namer
 		namespaced := ""
 		if apiResource.Namespaced {
@@ -642,6 +657,9 @@ func (a *APIInstaller) registerResourceHandlers(path string, storage rest.Storag
 				Returns(http.StatusOK, "OK", versionedStatus)
 			if isGracefulDeleter {
 				route.Reads(versionedDeleterObject)
+				if err := addObjectParams(ws, route, versionedDeleteOptions); err != nil {
+					return nil, err
+				}
 			}
 			addParams(route, action.Params)
 			ws.Route(route)
@@ -747,7 +765,8 @@ func (a *APIInstaller) registerResourceHandlers(path string, storage rest.Storag
 type rootScopeNaming struct {
 	scope meta.RESTScope
 	runtime.SelfLinker
-	itemPath string
+	pathPrefix string
+	pathSuffix string
 }
 
 // rootScopeNaming implements ScopeNamer
@@ -769,25 +788,26 @@ func (n rootScopeNaming) Name(req *restful.Request) (namespace, name string, err
 }
 
 // GenerateLink returns the appropriate path and query to locate an object by its canonical path.
-func (n rootScopeNaming) GenerateLink(req *restful.Request, obj runtime.Object) (path, query string, err error) {
+func (n rootScopeNaming) GenerateLink(req *restful.Request, obj runtime.Object) (uri string, err error) {
 	_, name, err := n.ObjectName(obj)
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
 	if len(name) == 0 {
 		_, name, err = n.Name(req)
 		if err != nil {
-			return "", "", err
+			return "", err
 		}
 	}
-	path = strings.Replace(n.itemPath, "{name}", name, 1)
-	return path, "", nil
+	return n.pathPrefix + url.QueryEscape(name) + n.pathSuffix, nil
 }
 
 // GenerateListLink returns the appropriate path and query to locate a list by its canonical path.
-func (n rootScopeNaming) GenerateListLink(req *restful.Request) (path, query string, err error) {
-	path = req.Request.URL.Path
-	return path, "", nil
+func (n rootScopeNaming) GenerateListLink(req *restful.Request) (uri string, err error) {
+	if len(req.Request.URL.RawPath) > 0 {
+		return req.Request.URL.RawPath, nil
+	}
+	return req.Request.URL.EscapedPath(), nil
 }
 
 // ObjectName returns the name set on the object, or an error if the
@@ -809,7 +829,7 @@ func (n rootScopeNaming) ObjectName(obj runtime.Object) (namespace, name string,
 type scopeNaming struct {
 	scope meta.RESTScope
 	runtime.SelfLinker
-	itemPathFn    func(name, namespace string) string
+	itemPathFn    func(name, namespace string) bytes.Buffer
 	allNamespaces bool
 }
 
@@ -842,28 +862,30 @@ func (n scopeNaming) Name(req *restful.Request) (namespace, name string, err err
 }
 
 // GenerateLink returns the appropriate path and query to locate an object by its canonical path.
-func (n scopeNaming) GenerateLink(req *restful.Request, obj runtime.Object) (path, query string, err error) {
+func (n scopeNaming) GenerateLink(req *restful.Request, obj runtime.Object) (uri string, err error) {
 	namespace, name, err := n.ObjectName(obj)
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
 	if len(namespace) == 0 && len(name) == 0 {
 		namespace, name, err = n.Name(req)
 		if err != nil {
-			return "", "", err
+			return "", err
 		}
 	}
 	if len(name) == 0 {
-		return "", "", errEmptyName
+		return "", errEmptyName
 	}
-
-	return n.itemPathFn(name, namespace), "", nil
+	result := n.itemPathFn(name, namespace)
+	return result.String(), nil
 }
 
 // GenerateListLink returns the appropriate path and query to locate a list by its canonical path.
-func (n scopeNaming) GenerateListLink(req *restful.Request) (path, query string, err error) {
-	path = req.Request.URL.Path
-	return path, "", nil
+func (n scopeNaming) GenerateListLink(req *restful.Request) (uri string, err error) {
+	if len(req.Request.URL.RawPath) > 0 {
+		return req.Request.URL.RawPath, nil
+	}
+	return req.Request.URL.EscapedPath(), nil
 }
 
 // ObjectName returns the name and namespace set on the object, or an error if the
@@ -944,6 +966,12 @@ func addObjectParams(ws *restful.WebService, route *restful.RouteBuilder, obj in
 			}
 			switch sf.Type.Kind() {
 			case reflect.Interface, reflect.Struct:
+			case reflect.Ptr:
+				// TODO: This is a hack to let unversioned.Time through. This needs to be fixed in a more generic way eventually. bug #36191
+				if (sf.Type.Elem().Kind() == reflect.Interface || sf.Type.Elem().Kind() == reflect.Struct) && strings.TrimPrefix(sf.Type.String(), "*") != "unversioned.Time" {
+					continue
+				}
+				fallthrough
 			default:
 				jsonTag := sf.Tag.Get("json")
 				if len(jsonTag) == 0 {
@@ -995,6 +1023,10 @@ type defaultStorageMetadata struct{}
 var _ rest.StorageMetadata = defaultStorageMetadata{}
 
 func (defaultStorageMetadata) ProducesMIMETypes(verb string) []string {
+	return nil
+}
+
+func (defaultStorageMetadata) ProducesObject(verb string) interface{} {
 	return nil
 }
 

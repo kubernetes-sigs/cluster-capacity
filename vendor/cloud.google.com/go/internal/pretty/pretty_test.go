@@ -12,10 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package pretty implements a simple pretty-printer.
-//
-// The output is intended for debugging, so it generally looks
-// like the output of %+v.
 package pretty
 
 import (
@@ -58,6 +54,8 @@ func TestSprint(t *testing.T) {
 		{S{}, "pretty.S{\n}"},
 		{S{3, true, ptr("foo")},
 			"pretty.S{\n~X: 3,\n~Y: true,\n~z: &\"foo\",\n}"},
+		// interface
+		{[]interface{}{&i}, "[]interface {}{\n~&17,\n}"},
 		// nesting
 		{[]S{{1, false, ptr("a")}, {2, true, ptr("b")}},
 			`[]pretty.S{

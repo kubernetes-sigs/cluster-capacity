@@ -188,8 +188,11 @@ type Configuration struct {
 
 	// Validation configures validation options for the registry.
 	Validation struct {
-		// Enabled enables the other options in this section.
+		// Enabled enables the other options in this section. This field is
+		// deprecated in favor of Disabled.
 		Enabled bool `yaml:"enabled,omitempty"`
+		// Disabled disables the other options in this section.
+		Disabled bool `yaml:"disabled,omitempty"`
 		// Manifests configures manifest validation.
 		Manifests struct {
 			// URLs configures validation for URLs in pushed manifests.
@@ -203,6 +206,19 @@ type Configuration struct {
 			} `yaml:"urls,omitempty"`
 		} `yaml:"manifests,omitempty"`
 	} `yaml:"validation,omitempty"`
+
+	// Policy configures registry policy options.
+	Policy struct {
+		// Repository configures policies for repositories
+		Repository struct {
+			// Classes is a list of repository classes which the
+			// registry allows content for. This class is matched
+			// against the configuration media type inside uploaded
+			// manifests. When non-empty, the registry will enforce
+			// the class in authorized resources.
+			Classes []string `yaml:"classes"`
+		} `yaml:"repository,omitempty"`
+	} `yaml:"policy,omitempty"`
 }
 
 // LogHook is composed of hook Level and Type.

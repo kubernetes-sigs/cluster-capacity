@@ -87,6 +87,7 @@ const (
 	runJobTimeout            = 5 * time.Minute
 	busyboxImage             = "gcr.io/google_containers/busybox:1.24"
 	nginxImage               = "gcr.io/google_containers/nginx-slim:0.7"
+	newNginxImage            = "gcr.io/google_containers/nginx-slim:0.8"
 	kubeCtlManifestPath      = "test/e2e/testing-manifests/kubectl"
 	redisControllerFilename  = "redis-master-controller.json"
 	redisServiceFilename     = "redis-master-service.json"
@@ -144,7 +145,7 @@ func cleanupKubectlInputs(fileContents string, ns string, selectors ...string) {
 	}
 	// support backward compatibility : file paths or raw json - since we are removing file path
 	// dependencies from this test.
-	framework.RunKubectlOrDieInput(fileContents, "delete", "--grace-period=0", "-f", "-", nsArg)
+	framework.RunKubectlOrDieInput(fileContents, "delete", "--grace-period=0", "--force", "-f", "-", nsArg)
 	framework.AssertCleanup(ns, selectors...)
 }
 
@@ -155,9 +156,9 @@ func readTestFileOrDie(file string) []byte {
 func runKubectlRetryOrDie(args ...string) string {
 	var err error
 	var output string
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 5; i++ {
 		output, err = framework.RunKubectl(args...)
-		if err == nil || !strings.Contains(err.Error(), registry.OptimisticLockErrorMsg) {
+		if err == nil || (!strings.Contains(err.Error(), registry.OptimisticLockErrorMsg) && !strings.Contains(err.Error(), "Operation cannot be fulfilled")) {
 			break
 		}
 		time.Sleep(time.Second)
@@ -193,7 +194,7 @@ var _ = framework.KubeDescribe("Kubectl alpha client", func() {
 		})
 
 		AfterEach(func() {
-			framework.RunKubectlOrDie("delete", "scheduledjobs", sjName, nsFlag)
+			framework.RunKubectlOrDie("delete", "cronjobs", sjName, nsFlag)
 		})
 
 		It("should create a ScheduledJob", func() {
@@ -203,7 +204,7 @@ var _ = framework.KubeDescribe("Kubectl alpha client", func() {
 			framework.RunKubectlOrDie("run", sjName, "--restart=OnFailure", "--generator=scheduledjob/v2alpha1",
 				"--schedule="+schedule, "--image="+busyboxImage, nsFlag)
 			By("verifying the ScheduledJob " + sjName + " was created")
-			sj, err := c.Batch().ScheduledJobs(ns).Get(sjName)
+			sj, err := c.Batch().CronJobs(ns).Get(sjName)
 			if err != nil {
 				framework.Failf("Failed getting ScheduledJob %s: %v", sjName, err)
 			}
@@ -216,6 +217,43 @@ var _ = framework.KubeDescribe("Kubectl alpha client", func() {
 			}
 			if sj.Spec.JobTemplate.Spec.Template.Spec.RestartPolicy != api.RestartPolicyOnFailure {
 				framework.Failf("Failed creating a ScheduledJob with correct restart policy for --restart=OnFailure")
+			}
+		})
+	})
+
+	framework.KubeDescribe("Kubectl run CronJob", func() {
+		var nsFlag string
+		var cjName string
+
+		BeforeEach(func() {
+			nsFlag = fmt.Sprintf("--namespace=%v", ns)
+			cjName = "e2e-test-echo-cronjob"
+		})
+
+		AfterEach(func() {
+			framework.RunKubectlOrDie("delete", "cronjobs", cjName, nsFlag)
+		})
+
+		It("should create a CronJob", func() {
+			framework.SkipIfMissingResource(f.ClientPool, CronJobGroupVersionResource, f.Namespace.Name)
+
+			schedule := "*/5 * * * ?"
+			framework.RunKubectlOrDie("run", cjName, "--restart=OnFailure", "--generator=cronjob/v2alpha1",
+				"--schedule="+schedule, "--image="+busyboxImage, nsFlag)
+			By("verifying the CronJob " + cjName + " was created")
+			sj, err := c.Batch().CronJobs(ns).Get(cjName)
+			if err != nil {
+				framework.Failf("Failed getting CronJob %s: %v", cjName, err)
+			}
+			if sj.Spec.Schedule != schedule {
+				framework.Failf("Failed creating a CronJob with correct schedule %s", schedule)
+			}
+			containers := sj.Spec.JobTemplate.Spec.Template.Spec.Containers
+			if containers == nil || len(containers) != 1 || containers[0].Image != busyboxImage {
+				framework.Failf("Failed creating CronJob %s for 1 pod with expected image %s: %#v", cjName, busyboxImage, containers)
+			}
+			if sj.Spec.JobTemplate.Spec.Template.Spec.RestartPolicy != api.RestartPolicyOnFailure {
+				framework.Failf("Failed creating a CronJob with correct restart policy for --restart=OnFailure")
 			}
 		})
 	})
@@ -551,25 +589,25 @@ var _ = framework.KubeDescribe("Kubectl client", func() {
 			By("checking the result")
 			forEachReplicationController(c, ns, "app", "redis", validateReplicationControllerConfiguration)
 		})
-		It("should reuse nodePort when apply to an existing SVC", func() {
+		It("should reuse port when apply to an existing SVC", func() {
 			serviceJson := readTestFileOrDie(redisServiceFilename)
 			nsFlag := fmt.Sprintf("--namespace=%v", ns)
 
 			By("creating Redis SVC")
 			framework.RunKubectlOrDieInput(string(serviceJson[:]), "create", "-f", "-", nsFlag)
 
-			By("getting the original nodePort")
-			originalNodePort := framework.RunKubectlOrDie("get", "service", "redis-master", nsFlag, "-o", "jsonpath={.spec.ports[0].nodePort}")
+			By("getting the original port")
+			originalNodePort := framework.RunKubectlOrDie("get", "service", "redis-master", nsFlag, "-o", "jsonpath={.spec.ports[0].port}")
 
 			By("applying the same configuration")
 			framework.RunKubectlOrDieInput(string(serviceJson[:]), "apply", "-f", "-", nsFlag)
 
-			By("getting the nodePort after applying configuration")
-			currentNodePort := framework.RunKubectlOrDie("get", "service", "redis-master", nsFlag, "-o", "jsonpath={.spec.ports[0].nodePort}")
+			By("getting the port after applying configuration")
+			currentNodePort := framework.RunKubectlOrDie("get", "service", "redis-master", nsFlag, "-o", "jsonpath={.spec.ports[0].port}")
 
 			By("checking the result")
 			if originalNodePort != currentNodePort {
-				framework.Failf("nodePort should keep the same")
+				framework.Failf("port should keep the same")
 			}
 		})
 	})
@@ -1296,18 +1334,17 @@ var _ = framework.KubeDescribe("Kubectl client", func() {
 	framework.KubeDescribe("Kubectl taint", func() {
 		It("should update the taint on a node", func() {
 			testTaint := api.Taint{
-				Key:    fmt.Sprintf("kubernetes.io/e2e-taint-key-%s", string(uuid.NewUUID())),
+				Key:    fmt.Sprintf("kubernetes.io/e2e-taint-key-001-%s", string(uuid.NewUUID())),
 				Value:  "testing-taint-value",
 				Effect: api.TaintEffectNoSchedule,
 			}
 
-			nodes, err := c.Core().Nodes().List(api.ListOptions{})
-			Expect(err).NotTo(HaveOccurred())
-			node := nodes.Items[0]
-			nodeName := node.Name
+			nodeName := getNodeThatCanRunPod(f)
 
 			By("adding the taint " + testTaint.ToString() + " to a node")
 			runKubectlRetryOrDie("taint", "nodes", nodeName, testTaint.ToString())
+			defer framework.RemoveTaintOffNode(f.ClientSet, nodeName, testTaint)
+
 			By("verifying the node has the taint " + testTaint.ToString())
 			output := runKubectlRetryOrDie("describe", "node", nodeName)
 			requiredStrings := [][]string{
@@ -1328,18 +1365,17 @@ var _ = framework.KubeDescribe("Kubectl client", func() {
 
 		It("should remove all the taints with the same key off a node", func() {
 			testTaint := api.Taint{
-				Key:    fmt.Sprintf("kubernetes.io/e2e-taint-key-%s", string(uuid.NewUUID())),
+				Key:    fmt.Sprintf("kubernetes.io/e2e-taint-key-002-%s", string(uuid.NewUUID())),
 				Value:  "testing-taint-value",
 				Effect: api.TaintEffectNoSchedule,
 			}
 
-			nodes, err := c.Core().Nodes().List(api.ListOptions{})
-			Expect(err).NotTo(HaveOccurred())
-			node := nodes.Items[0]
-			nodeName := node.Name
+			nodeName := getNodeThatCanRunPod(f)
 
 			By("adding the taint " + testTaint.ToString() + " to a node")
 			runKubectlRetryOrDie("taint", "nodes", nodeName, testTaint.ToString())
+			defer framework.RemoveTaintOffNode(f.ClientSet, nodeName, testTaint)
+
 			By("verifying the node has the taint " + testTaint.ToString())
 			output := runKubectlRetryOrDie("describe", "node", nodeName)
 			requiredStrings := [][]string{
@@ -1356,6 +1392,8 @@ var _ = framework.KubeDescribe("Kubectl client", func() {
 			}
 			By("adding another taint " + newTestTaint.ToString() + " to the node")
 			runKubectlRetryOrDie("taint", "nodes", nodeName, newTestTaint.ToString())
+			defer framework.RemoveTaintOffNode(f.ClientSet, nodeName, newTestTaint)
+
 			By("verifying the node has the taint " + newTestTaint.ToString())
 			output = runKubectlRetryOrDie("describe", "node", nodeName)
 			requiredStrings = [][]string{

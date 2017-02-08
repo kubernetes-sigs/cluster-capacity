@@ -43,7 +43,7 @@ const (
 )
 
 func init() {
-	admission.RegisterPlugin("LimitRanger", func(client clientset.Interface, config io.Reader, stopCh chan struct{}) (admission.Interface, error) {
+	admission.RegisterPlugin("LimitRanger", func(client clientset.Interface, config io.Reader) (admission.Interface, error) {
 		return NewLimitRanger(client, &DefaultLimitRangerActions{})
 	})
 }
@@ -162,22 +162,6 @@ func NewLimitRanger(client clientset.Interface, actions LimitRangerActions) (adm
 		liveLookupCache: liveLookupCache,
 		liveTTL:         time.Duration(30 * time.Second),
 	}, nil
-}
-
-// Min returns the lesser of its 2 arguments
-func Min(a int64, b int64) int64 {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-// Max returns the greater of its 2 arguments
-func Max(a int64, b int64) int64 {
-	if a > b {
-		return a
-	}
-	return b
 }
 
 // defaultContainerResourceRequirements returns the default requirements for a container

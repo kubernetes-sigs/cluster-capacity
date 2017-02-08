@@ -133,6 +133,17 @@ func newExternalScheme() (*runtime.Scheme, meta.RESTMapper, runtime.Codec) {
 	return scheme, mapper, codec
 }
 
+type fakeCachedDiscoveryClient struct {
+	discovery.DiscoveryInterface
+}
+
+func (d *fakeCachedDiscoveryClient) Fresh() bool {
+	return true
+}
+
+func (d *fakeCachedDiscoveryClient) Invalidate() {
+}
+
 type TestFactory struct {
 	Mapper       meta.RESTMapper
 	Typer        runtime.ObjectTyper
@@ -164,6 +175,14 @@ func NewTestFactory() (cmdutil.Factory, *TestFactory, runtime.Codec, runtime.Neg
 	}, t, codec, negotiatedSerializer
 }
 
+func (f *FakeFactory) DiscoveryClient() (discovery.CachedDiscoveryInterface, error) {
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(f.tf.ClientConfig)
+	if err != nil {
+		return nil, err
+	}
+	return &fakeCachedDiscoveryClient{DiscoveryInterface: discoveryClient}, nil
+}
+
 func (f *FakeFactory) FlagSet() *pflag.FlagSet {
 	return nil
 }
@@ -182,7 +201,11 @@ func (f *FakeFactory) Object() (meta.RESTMapper, runtime.ObjectTyper) {
 }
 
 func (f *FakeFactory) UnstructuredObject() (meta.RESTMapper, runtime.ObjectTyper, error) {
-	return nil, nil, nil
+	groupResources := testDynamicResources()
+	mapper := discovery.NewRESTMapper(groupResources, meta.InterfacesForUnstructured)
+	typer := discovery.NewUnstructuredObjectTyper(groupResources)
+
+	return cmdutil.NewShortcutExpander(mapper, nil), typer, nil
 }
 
 func (f *FakeFactory) Decoder(bool) runtime.Decoder {
@@ -379,7 +402,7 @@ func (f *fakeMixedFactory) ClientForMapping(m *meta.RESTMapping) (resource.RESTC
 }
 
 func NewMixedFactory(apiClient resource.RESTClient) (cmdutil.Factory, *TestFactory, runtime.Codec) {
-	f, t, c, _ := NewTestFactory()
+	f, t, c, _ := NewAPIFactory()
 	return &fakeMixedFactory{
 		Factory:   f,
 		tf:        t,
@@ -413,14 +436,23 @@ func (f *fakeAPIFactory) JSONEncoder() runtime.Encoder {
 }
 
 func (f *fakeAPIFactory) ClientSet() (*internalclientset.Clientset, error) {
-	// Swap out the HTTP client out of the client with the fake's version.
+	// Swap the HTTP client out of the REST client with the fake
+	// version.
 	fakeClient := f.tf.Client.(*fake.RESTClient)
-	restClient, err := restclient.RESTClientFor(f.tf.ClientConfig)
-	if err != nil {
-		panic(err)
-	}
-	restClient.Client = fakeClient.Client
-	return internalclientset.New(restClient), f.tf.Err
+	clientset := internalclientset.NewForConfigOrDie(f.tf.ClientConfig)
+	clientset.CoreClient.RESTClient().(*restclient.RESTClient).Client = fakeClient.Client
+	clientset.AuthenticationClient.RESTClient().(*restclient.RESTClient).Client = fakeClient.Client
+	clientset.AuthorizationClient.RESTClient().(*restclient.RESTClient).Client = fakeClient.Client
+	clientset.AutoscalingClient.RESTClient().(*restclient.RESTClient).Client = fakeClient.Client
+	clientset.BatchClient.RESTClient().(*restclient.RESTClient).Client = fakeClient.Client
+	clientset.CertificatesClient.RESTClient().(*restclient.RESTClient).Client = fakeClient.Client
+	clientset.ExtensionsClient.RESTClient().(*restclient.RESTClient).Client = fakeClient.Client
+	clientset.RbacClient.RESTClient().(*restclient.RESTClient).Client = fakeClient.Client
+	clientset.StorageClient.RESTClient().(*restclient.RESTClient).Client = fakeClient.Client
+	clientset.AppsClient.RESTClient().(*restclient.RESTClient).Client = fakeClient.Client
+	clientset.PolicyClient.RESTClient().(*restclient.RESTClient).Client = fakeClient.Client
+	clientset.DiscoveryClient.RESTClient().(*restclient.RESTClient).Client = fakeClient.Client
+	return clientset, f.tf.Err
 }
 
 func (f *fakeAPIFactory) RESTClient() (*restclient.RESTClient, error) {
@@ -545,6 +577,9 @@ func testDynamicResources() []*discovery.APIGroupResources {
 					{Name: "pods", Namespaced: true, Kind: "Pod"},
 					{Name: "services", Namespaced: true, Kind: "Service"},
 					{Name: "replicationcontrollers", Namespaced: true, Kind: "ReplicationController"},
+					{Name: "componentstatuses", Namespaced: false, Kind: "ComponentStatus"},
+					{Name: "nodes", Namespaced: false, Kind: "Node"},
+					{Name: "type", Namespaced: false, Kind: "Type"},
 				},
 			},
 		},

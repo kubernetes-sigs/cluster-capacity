@@ -175,7 +175,6 @@ function echo-kube-env() {
   echo "ENABLE_CLUSTER_DNS='${ENABLE_CLUSTER_DNS:-false}'"
   echo "DNS_SERVER_IP='${DNS_SERVER_IP:-}'"
   echo "DNS_DOMAIN='${DNS_DOMAIN:-}'"
-  echo "DNS_REPLICAS='${DNS_REPLICAS:-}'"
   echo "RUNTIME_CONFIG='${RUNTIME_CONFIG:-}'"
   echo "ADMISSION_CONTROL='${ADMISSION_CONTROL:-}'"
   echo "DOCKER_OPTS='${EXTRA_DOCKER_OPTS:-}'"
@@ -331,7 +330,7 @@ function kube-push {
 # Execute prior to running tests to build a release if required for env
 function test-build-release {
   # Make a release
-  "${KUBE_ROOT}/build-tools/release.sh"
+  "${KUBE_ROOT}/build/release.sh"
 }
 
 # Execute prior to running tests to initialize required structure

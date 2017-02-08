@@ -86,7 +86,11 @@ func Run(s *options.ServerRunOptions) error {
 							ApplyOptions(s.GenericServerRunOptions). // apply the options selected
 							Complete()                               // set default values based on the known values
 
-	if err := genericConfig.MaybeGenerateServingCerts(); err != nil {
+	serviceIPRange, apiServerServiceIP, err := genericapiserver.DefaultServiceIPRange(s.GenericServerRunOptions.ServiceClusterIPRange)
+	if err != nil {
+		glog.Fatalf("Error determining service IP ranges: %v", err)
+	}
+	if err := genericConfig.MaybeGenerateServingCerts(apiServerServiceIP); err != nil {
 		glog.Fatalf("Failed to generate service certificate: %v", err)
 	}
 
@@ -168,7 +172,7 @@ func Run(s *options.ServerRunOptions) error {
 		s.GenericServerRunOptions.StorageConfig, s.GenericServerRunOptions.DefaultStorageMediaType, api.Codecs,
 		genericapiserver.NewDefaultResourceEncodingConfig(), storageGroupsToEncodingVersion,
 		// FIXME: this GroupVersionResource override should be configurable
-		[]unversioned.GroupVersionResource{batch.Resource("scheduledjobs").WithVersion("v2alpha1")},
+		[]unversioned.GroupVersionResource{batch.Resource("cronjobs").WithVersion("v2alpha1")},
 		master.DefaultAPIResourceConfigSource(), s.GenericServerRunOptions.RuntimeConfig)
 	if err != nil {
 		glog.Fatalf("error in initializing storage factory: %s", err)
@@ -230,6 +234,7 @@ func Run(s *options.ServerRunOptions) error {
 		ServiceAccountLookup:        s.ServiceAccountLookup,
 		ServiceAccountTokenGetter:   serviceAccountGetter,
 		KeystoneURL:                 s.GenericServerRunOptions.KeystoneURL,
+		KeystoneCAFile:              s.GenericServerRunOptions.KeystoneCAFile,
 		WebhookTokenAuthnConfigFile: s.WebhookTokenAuthnConfigFile,
 		WebhookTokenAuthnCacheTTL:   s.WebhookTokenAuthnCacheTTL,
 		RequestHeaderConfig:         s.GenericServerRunOptions.AuthenticationRequestHeaderConfig(),
@@ -305,6 +310,7 @@ func Run(s *options.ServerRunOptions) error {
 	genericConfig.OpenAPIConfig.Info.Title = "Kubernetes"
 	genericConfig.OpenAPIConfig.Definitions = generatedopenapi.OpenAPIDefinitions
 	genericConfig.EnableOpenAPISupport = true
+	genericConfig.EnableMetrics = true
 	genericConfig.OpenAPIConfig.SecurityDefinitions = securityDefinitions
 
 	config := &master.Config{
@@ -321,6 +327,15 @@ func Run(s *options.ServerRunOptions) error {
 		ProxyTransport:          proxyTransport,
 
 		Tunneler: tunneler,
+
+		ServiceIPRange:       serviceIPRange,
+		APIServerServiceIP:   apiServerServiceIP,
+		APIServerServicePort: 443,
+
+		ServiceNodePortRange:      s.GenericServerRunOptions.ServiceNodePortRange,
+		KubernetesServiceNodePort: s.GenericServerRunOptions.KubernetesServiceNodePort,
+
+		MasterCount: s.GenericServerRunOptions.MasterCount,
 	}
 
 	if s.GenericServerRunOptions.EnableWatchCache {

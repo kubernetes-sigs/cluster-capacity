@@ -7,17 +7,18 @@ import (
 
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/context"
-	"github.com/docker/distribution/digest"
 	"github.com/docker/distribution/manifest"
 	"github.com/docker/distribution/manifest/schema1"
 	"github.com/docker/distribution/reference"
 	"github.com/docker/distribution/registry/client/auth"
+	"github.com/docker/distribution/registry/client/auth/challenge"
 	"github.com/docker/distribution/registry/proxy/scheduler"
 	"github.com/docker/distribution/registry/storage"
 	"github.com/docker/distribution/registry/storage/cache/memory"
 	"github.com/docker/distribution/registry/storage/driver/inmemory"
 	"github.com/docker/distribution/testutil"
 	"github.com/docker/libtrust"
+	"github.com/opencontainers/go-digest"
 )
 
 type statsManifest struct {
@@ -77,12 +78,12 @@ func (m *mockChallenger) credentialStore() auth.CredentialStore {
 	return nil
 }
 
-func (m *mockChallenger) challengeManager() auth.ChallengeManager {
+func (m *mockChallenger) challengeManager() challenge.Manager {
 	return nil
 }
 
 func newManifestStoreTestEnv(t *testing.T, name, tag string) *manifestStoreTestEnv {
-	nameRef, err := reference.ParseNamed(name)
+	nameRef, err := reference.WithName(name)
 	if err != nil {
 		t.Fatalf("unable to parse reference: %s", err)
 	}

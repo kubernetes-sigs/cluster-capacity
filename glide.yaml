@@ -1,11 +1,13 @@
 package: github.com/ingvagabund/cluster-capacity
 import:
 - package: github.com/emicklei/go-restful
+  version: v1.2
 - package: github.com/ghodss/yaml
 - package: github.com/renstrom/dedent
 - package: github.com/spf13/cobra
 - package: github.com/spf13/pflag
 - package: k8s.io/kubernetes
+  version: v1.5.2
   subpackages:
   - pkg/api
   - pkg/api/meta

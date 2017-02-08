@@ -48,24 +48,7 @@ func (r *streamingRuntime) exec(containerID string, cmd []string, in io.Reader, 
 	if err != nil {
 		return err
 	}
-
-	// TODO(timstclair): Clean this up once PR#33366 merges.
-	if timeout <= 0 {
-		// Run until command exits.
-		return r.execHandler.ExecInContainer(r.client, container, cmd, in, out, errw, tty, resize)
-	}
-
-	errCh := make(chan error)
-	go func() {
-		errCh <- r.execHandler.ExecInContainer(r.client, container, cmd, in, out, errw, tty, resize)
-	}()
-
-	select {
-	case err := <-errCh:
-		return err
-	case <-time.After(timeout):
-		return streaming.ErrorTimeout("exec", timeout)
-	}
+	return r.execHandler.ExecInContainer(r.client, container, cmd, in, out, errw, tty, resize, timeout)
 }
 
 func (r *streamingRuntime) Attach(containerID string, in io.Reader, out, errw io.WriteCloser, resize <-chan term.Size) error {

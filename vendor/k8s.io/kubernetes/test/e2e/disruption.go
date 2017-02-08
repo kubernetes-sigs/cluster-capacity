@@ -26,14 +26,11 @@ import (
 	"k8s.io/client-go/pkg/api/unversioned"
 	api "k8s.io/client-go/pkg/api/v1"
 	extensions "k8s.io/client-go/pkg/apis/extensions/v1beta1"
-	policy "k8s.io/client-go/pkg/apis/policy/v1alpha1"
+	policy "k8s.io/client-go/pkg/apis/policy/v1beta1"
 	"k8s.io/client-go/pkg/util/intstr"
 	"k8s.io/kubernetes/pkg/util/wait"
 	"k8s.io/kubernetes/test/e2e/framework"
 )
-
-// timeout is used for most polling/waiting activities
-const timeout = 60 * time.Second
 
 // schedulingTimeout is longer specifically because sometimes we need to wait
 // awhile to guarantee that we've been patient waiting for something ordinary
@@ -46,9 +43,6 @@ var _ = framework.KubeDescribe("DisruptionController", func() {
 	var cs *kubernetes.Clientset
 
 	BeforeEach(func() {
-		// skip on GKE since alpha features are disabled
-		framework.SkipIfProviderIs("gke")
-
 		cs = f.StagingClient
 		ns = f.Namespace.Name
 	})
@@ -63,14 +57,14 @@ var _ = framework.KubeDescribe("DisruptionController", func() {
 		createPodsOrDie(cs, ns, 3)
 		waitForPodsOrDie(cs, ns, 3)
 
-		// Since disruptionAllowed starts out false, if we see it ever become true,
+		// Since disruptionAllowed starts out 0, if we see it ever become positive,
 		// that means the controller is working.
 		err := wait.PollImmediate(framework.Poll, timeout, func() (bool, error) {
 			pdb, err := cs.Policy().PodDisruptionBudgets(ns).Get("foo")
 			if err != nil {
 				return false, err
 			}
-			return pdb.Status.PodDisruptionAllowed, nil
+			return pdb.Status.PodDisruptionsAllowed > 0, nil
 		})
 		Expect(err).NotTo(HaveOccurred())
 

@@ -10,10 +10,22 @@ import (
 	"github.com/mailru/easyjson/buffer"
 )
 
+// Flags describe various encoding options. The behavior may be actually implemented in the encoder, but
+// Flags field in Writer is used to set and pass them around.
+type Flags int
+
+const (
+	NilMapAsEmpty   Flags = 1 << iota // Encode nil map as '{}' rather than 'null'.
+	NilSliceAsEmpty                   // Encode nil slice as '[]' rather than 'null'.
+)
+
 // Writer is a JSON writer.
 type Writer struct {
-	Error  error
-	Buffer buffer.Buffer
+	Flags Flags
+
+	Error        error
+	Buffer       buffer.Buffer
+	NoEscapeHTML bool
 }
 
 // Size returns the size of the data that was written out.
@@ -214,10 +226,14 @@ func (w *Writer) Bool(v bool) {
 
 const chars = "0123456789abcdef"
 
-func isNotEscapedSingleChar(c byte) bool {
+func isNotEscapedSingleChar(c byte, escapeHTML bool) bool {
 	// Note: might make sense to use a table if there are more chars to escape. With 4 chars
 	// it benchmarks the same.
-	return c != '<' && c != '\\' && c != '"' && c != '>' && c >= 0x20 && c < utf8.RuneSelf
+	if escapeHTML {
+		return c != '<' && c != '>' && c != '&' && c != '\\' && c != '"' && c >= 0x20 && c < utf8.RuneSelf
+	} else {
+		return c != '\\' && c != '"' && c >= 0x20 && c < utf8.RuneSelf
+	}
 }
 
 func (w *Writer) String(s string) {
@@ -231,7 +247,7 @@ func (w *Writer) String(s string) {
 	for i := 0; i < len(s); {
 		c := s[i]
 
-		if isNotEscapedSingleChar(c) {
+		if isNotEscapedSingleChar(c, !w.NoEscapeHTML) {
 			// single-width character, no escaping is required
 			i++
 			continue

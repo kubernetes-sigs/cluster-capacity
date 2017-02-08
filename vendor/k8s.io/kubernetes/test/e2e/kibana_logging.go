@@ -50,7 +50,7 @@ const (
 // ClusterLevelLoggingWithKibana is an end to end test that checks to see if Kibana is alive.
 func ClusterLevelLoggingWithKibana(f *framework.Framework) {
 	// graceTime is how long to keep retrying requests for status information.
-	const graceTime = 2 * time.Minute
+	const graceTime = 10 * time.Minute
 
 	// Check for the existence of the Kibana service.
 	By("Checking the Kibana service exists.")
@@ -83,6 +83,7 @@ func ClusterLevelLoggingWithKibana(f *framework.Framework) {
 		proxyRequest, errProxy := framework.GetServicesProxyRequest(f.ClientSet, f.ClientSet.Core().RESTClient().Get())
 		if errProxy != nil {
 			framework.Logf("After %v failed to get services proxy request: %v", time.Since(start), errProxy)
+			err = errProxy
 			continue
 		}
 		// Query against the root URL for Kibana.

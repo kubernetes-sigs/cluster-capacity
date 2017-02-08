@@ -1,10 +1,10 @@
-// Copyright 2016 Google Inc. All Rights Reserved.
+// Copyright 2016, Google Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//      http://www.apache.org/licenses/LICENSE-2.0
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"math"
 	"runtime"
+	"strings"
 	"time"
 
 	gax "github.com/googleapis/gax-go"
@@ -164,7 +165,8 @@ func (c *IamClient) Close() error {
 // the `x-goog-api-client` header passed on each request. Intended for
 // use by Google-written clients.
 func (c *IamClient) SetGoogleClientInfo(name, version string) {
-	v := fmt.Sprintf("%s/%s %s gax/%s go/%s", name, version, gapicNameVersion, gax.Version, runtime.Version())
+	goVersion := strings.Replace(runtime.Version(), " ", "_", -1)
+	v := fmt.Sprintf("%s/%s %s gax/%s go/%s", name, version, gapicNameVersion, gax.Version, goVersion)
 	c.metadata = metadata.Pairs("x-goog-api-client", v)
 }
 
@@ -209,8 +211,7 @@ func (c *IamClient) ListServiceAccounts(ctx context.Context, req *adminpb.ListSe
 	md, _ := metadata.FromContext(ctx)
 	ctx = metadata.NewContext(ctx, metadata.Join(md, c.metadata))
 	it := &ServiceAccountIterator{}
-
-	fetch := func(pageSize int, pageToken string) (string, error) {
+	it.InternalFetch = func(pageSize int, pageToken string) ([]*adminpb.ServiceAccount, string, error) {
 		var resp *adminpb.ListServiceAccountsResponse
 		req.PageToken = pageToken
 		if pageSize > math.MaxInt32 {
@@ -224,19 +225,19 @@ func (c *IamClient) ListServiceAccounts(ctx context.Context, req *adminpb.ListSe
 			return err
 		}, c.CallOptions.ListServiceAccounts...)
 		if err != nil {
+			return nil, "", err
+		}
+		return resp.Accounts, resp.NextPageToken, nil
+	}
+	fetch := func(pageSize int, pageToken string) (string, error) {
+		items, nextPageToken, err := it.InternalFetch(pageSize, pageToken)
+		if err != nil {
 			return "", err
 		}
-		it.items = append(it.items, resp.Accounts...)
-		return resp.NextPageToken, nil
+		it.items = append(it.items, items...)
+		return nextPageToken, nil
 	}
-	bufLen := func() int { return len(it.items) }
-	takeBuf := func() interface{} {
-		b := it.items
-		it.items = nil
-		return b
-	}
-
-	it.pageInfo, it.nextFunc = iterator.NewPageInfo(fetch, bufLen, takeBuf)
+	it.pageInfo, it.nextFunc = iterator.NewPageInfo(fetch, it.bufLen, it.takeBuf)
 	return it
 }
 
@@ -457,6 +458,14 @@ type ServiceAccountIterator struct {
 	items    []*adminpb.ServiceAccount
 	pageInfo *iterator.PageInfo
 	nextFunc func() error
+
+	// InternalFetch is for use by the Google Cloud Libraries only.
+	// It is not part of the stable interface of this package.
+	//
+	// InternalFetch returns results from a single call to the underlying RPC.
+	// The number of results is no greater than pageSize.
+	// If there are no more results, nextPageToken is empty and err is nil.
+	InternalFetch func(pageSize int, pageToken string) (results []*adminpb.ServiceAccount, nextPageToken string, err error)
 }
 
 // PageInfo supports pagination. See the google.golang.org/api/iterator package for details.
@@ -467,10 +476,21 @@ func (it *ServiceAccountIterator) PageInfo() *iterator.PageInfo {
 // Next returns the next result. Its second return value is iterator.Done if there are no more
 // results. Once Next returns Done, all subsequent calls will return Done.
 func (it *ServiceAccountIterator) Next() (*adminpb.ServiceAccount, error) {
+	var item *adminpb.ServiceAccount
 	if err := it.nextFunc(); err != nil {
-		return nil, err
+		return item, err
 	}
-	item := it.items[0]
+	item = it.items[0]
 	it.items = it.items[1:]
 	return item, nil
+}
+
+func (it *ServiceAccountIterator) bufLen() int {
+	return len(it.items)
+}
+
+func (it *ServiceAccountIterator) takeBuf() interface{} {
+	b := it.items
+	it.items = nil
+	return b
 }

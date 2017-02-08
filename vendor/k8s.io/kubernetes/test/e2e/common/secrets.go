@@ -31,12 +31,19 @@ var _ = framework.KubeDescribe("Secrets", func() {
 	f := framework.NewDefaultFramework("secrets")
 
 	It("should be consumable from pods in volume [Conformance]", func() {
-		doSecretE2EWithoutMapping(f, nil)
+		doSecretE2EWithoutMapping(f, nil /* default mode */, "secret-test-"+string(uuid.NewUUID()), nil, nil)
 	})
 
 	It("should be consumable from pods in volume with defaultMode set [Conformance]", func() {
 		defaultMode := int32(0400)
-		doSecretE2EWithoutMapping(f, &defaultMode)
+		doSecretE2EWithoutMapping(f, &defaultMode, "secret-test-"+string(uuid.NewUUID()), nil, nil)
+	})
+
+	It("should be consumable from pods in volume as non-root with defaultMode and fsGroup set [Conformance]", func() {
+		defaultMode := int32(0440) /* setting fsGroup sets mode to at least 440 */
+		fsGroup := int64(1001)
+		uid := int64(1000)
+		doSecretE2EWithoutMapping(f, &defaultMode, "secret-test-"+string(uuid.NewUUID()), &fsGroup, &uid)
 	})
 
 	It("should be consumable from pods in volume with mappings [Conformance]", func() {
@@ -46,6 +53,27 @@ var _ = framework.KubeDescribe("Secrets", func() {
 	It("should be consumable from pods in volume with mappings and Item Mode set [Conformance]", func() {
 		mode := int32(0400)
 		doSecretE2EWithMapping(f, &mode)
+	})
+
+	It("should be able to mount in a volume regardless of a different secret existing with same name in different namespace", func() {
+		var (
+			namespace2  *api.Namespace
+			err         error
+			secret2Name = "secret-test-" + string(uuid.NewUUID())
+		)
+
+		if namespace2, err = f.CreateNamespace("secret-namespace", nil); err != nil {
+			framework.Failf("unable to create new namespace %s: %v", namespace2.Name, err)
+		}
+
+		secret2 := secretForTest(namespace2.Name, secret2Name)
+		secret2.Data = map[string][]byte{
+			"this_should_not_match_content_of_other_secret": []byte("similarly_this_should_not_match_content_of_other_secret\n"),
+		}
+		if secret2, err = f.ClientSet.Core().Secrets(namespace2.Name).Create(secret2); err != nil {
+			framework.Failf("unable to create test secret %s: %v", secret2.Name, err)
+		}
+		doSecretE2EWithoutMapping(f, nil /* default mode */, secret2.Name, nil, nil)
 	})
 
 	It("should be consumable in multiple volumes in a pod [Conformance]", func() {
@@ -180,12 +208,11 @@ func secretForTest(namespace, name string) *api.Secret {
 	}
 }
 
-func doSecretE2EWithoutMapping(f *framework.Framework, defaultMode *int32) {
+func doSecretE2EWithoutMapping(f *framework.Framework, defaultMode *int32, secretName string, fsGroup *int64, uid *int64) {
 	var (
-		name            = "secret-test-" + string(uuid.NewUUID())
 		volumeName      = "secret-volume"
 		volumeMountPath = "/etc/secret-volume"
-		secret          = secretForTest(f.Namespace.Name, name)
+		secret          = secretForTest(f.Namespace.Name, secretName)
 	)
 
 	By(fmt.Sprintf("Creating secret with name %s", secret.Name))
@@ -196,7 +223,8 @@ func doSecretE2EWithoutMapping(f *framework.Framework, defaultMode *int32) {
 
 	pod := &api.Pod{
 		ObjectMeta: api.ObjectMeta{
-			Name: "pod-secrets-" + string(uuid.NewUUID()),
+			Name:      "pod-secrets-" + string(uuid.NewUUID()),
+			Namespace: f.Namespace.Name,
 		},
 		Spec: api.PodSpec{
 			Volumes: []api.Volume{
@@ -204,7 +232,7 @@ func doSecretE2EWithoutMapping(f *framework.Framework, defaultMode *int32) {
 					Name: volumeName,
 					VolumeSource: api.VolumeSource{
 						Secret: &api.SecretVolumeSource{
-							SecretName: name,
+							SecretName: secretName,
 						},
 					},
 				},
@@ -233,6 +261,13 @@ func doSecretE2EWithoutMapping(f *framework.Framework, defaultMode *int32) {
 	} else {
 		mode := int32(0644)
 		defaultMode = &mode
+	}
+
+	if fsGroup != nil || uid != nil {
+		pod.Spec.SecurityContext = &api.PodSecurityContext{
+			FSGroup:   fsGroup,
+			RunAsUser: uid,
+		}
 	}
 
 	modeString := fmt.Sprintf("%v", os.FileMode(*defaultMode))

@@ -1,10 +1,10 @@
-// Copyright 2016 Google Inc. All Rights Reserved.
+// Copyright 2016, Google Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//      http://www.apache.org/licenses/LICENSE-2.0
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"math"
 	"runtime"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/iam"
@@ -145,7 +146,8 @@ func (c *PublisherClient) Close() error {
 // the `x-goog-api-client` header passed on each request. Intended for
 // use by Google-written clients.
 func (c *PublisherClient) SetGoogleClientInfo(name, version string) {
-	v := fmt.Sprintf("%s/%s %s gax/%s go/%s", name, version, gapicNameVersion, gax.Version, runtime.Version())
+	goVersion := strings.Replace(runtime.Version(), " ", "_", -1)
+	v := fmt.Sprintf("%s/%s %s gax/%s go/%s", name, version, gapicNameVersion, gax.Version, goVersion)
 	c.metadata = metadata.Pairs("x-goog-api-client", v)
 }
 
@@ -235,8 +237,7 @@ func (c *PublisherClient) ListTopics(ctx context.Context, req *pubsubpb.ListTopi
 	md, _ := metadata.FromContext(ctx)
 	ctx = metadata.NewContext(ctx, metadata.Join(md, c.metadata))
 	it := &TopicIterator{}
-
-	fetch := func(pageSize int, pageToken string) (string, error) {
+	it.InternalFetch = func(pageSize int, pageToken string) ([]*pubsubpb.Topic, string, error) {
 		var resp *pubsubpb.ListTopicsResponse
 		req.PageToken = pageToken
 		if pageSize > math.MaxInt32 {
@@ -250,19 +251,19 @@ func (c *PublisherClient) ListTopics(ctx context.Context, req *pubsubpb.ListTopi
 			return err
 		}, c.CallOptions.ListTopics...)
 		if err != nil {
+			return nil, "", err
+		}
+		return resp.Topics, resp.NextPageToken, nil
+	}
+	fetch := func(pageSize int, pageToken string) (string, error) {
+		items, nextPageToken, err := it.InternalFetch(pageSize, pageToken)
+		if err != nil {
 			return "", err
 		}
-		it.items = append(it.items, resp.Topics...)
-		return resp.NextPageToken, nil
+		it.items = append(it.items, items...)
+		return nextPageToken, nil
 	}
-	bufLen := func() int { return len(it.items) }
-	takeBuf := func() interface{} {
-		b := it.items
-		it.items = nil
-		return b
-	}
-
-	it.pageInfo, it.nextFunc = iterator.NewPageInfo(fetch, bufLen, takeBuf)
+	it.pageInfo, it.nextFunc = iterator.NewPageInfo(fetch, it.bufLen, it.takeBuf)
 	return it
 }
 
@@ -271,8 +272,7 @@ func (c *PublisherClient) ListTopicSubscriptions(ctx context.Context, req *pubsu
 	md, _ := metadata.FromContext(ctx)
 	ctx = metadata.NewContext(ctx, metadata.Join(md, c.metadata))
 	it := &StringIterator{}
-
-	fetch := func(pageSize int, pageToken string) (string, error) {
+	it.InternalFetch = func(pageSize int, pageToken string) ([]string, string, error) {
 		var resp *pubsubpb.ListTopicSubscriptionsResponse
 		req.PageToken = pageToken
 		if pageSize > math.MaxInt32 {
@@ -286,19 +286,19 @@ func (c *PublisherClient) ListTopicSubscriptions(ctx context.Context, req *pubsu
 			return err
 		}, c.CallOptions.ListTopicSubscriptions...)
 		if err != nil {
+			return nil, "", err
+		}
+		return resp.Subscriptions, resp.NextPageToken, nil
+	}
+	fetch := func(pageSize int, pageToken string) (string, error) {
+		items, nextPageToken, err := it.InternalFetch(pageSize, pageToken)
+		if err != nil {
 			return "", err
 		}
-		it.items = append(it.items, resp.Subscriptions...)
-		return resp.NextPageToken, nil
+		it.items = append(it.items, items...)
+		return nextPageToken, nil
 	}
-	bufLen := func() int { return len(it.items) }
-	takeBuf := func() interface{} {
-		b := it.items
-		it.items = nil
-		return b
-	}
-
-	it.pageInfo, it.nextFunc = iterator.NewPageInfo(fetch, bufLen, takeBuf)
+	it.pageInfo, it.nextFunc = iterator.NewPageInfo(fetch, it.bufLen, it.takeBuf)
 	return it
 }
 
@@ -323,6 +323,14 @@ type StringIterator struct {
 	items    []string
 	pageInfo *iterator.PageInfo
 	nextFunc func() error
+
+	// InternalFetch is for use by the Google Cloud Libraries only.
+	// It is not part of the stable interface of this package.
+	//
+	// InternalFetch returns results from a single call to the underlying RPC.
+	// The number of results is no greater than pageSize.
+	// If there are no more results, nextPageToken is empty and err is nil.
+	InternalFetch func(pageSize int, pageToken string) (results []string, nextPageToken string, err error)
 }
 
 // PageInfo supports pagination. See the google.golang.org/api/iterator package for details.
@@ -333,12 +341,23 @@ func (it *StringIterator) PageInfo() *iterator.PageInfo {
 // Next returns the next result. Its second return value is iterator.Done if there are no more
 // results. Once Next returns Done, all subsequent calls will return Done.
 func (it *StringIterator) Next() (string, error) {
+	var item string
 	if err := it.nextFunc(); err != nil {
-		return "", err
+		return item, err
 	}
-	item := it.items[0]
+	item = it.items[0]
 	it.items = it.items[1:]
 	return item, nil
+}
+
+func (it *StringIterator) bufLen() int {
+	return len(it.items)
+}
+
+func (it *StringIterator) takeBuf() interface{} {
+	b := it.items
+	it.items = nil
+	return b
 }
 
 // TopicIterator manages a stream of *pubsubpb.Topic.
@@ -346,6 +365,14 @@ type TopicIterator struct {
 	items    []*pubsubpb.Topic
 	pageInfo *iterator.PageInfo
 	nextFunc func() error
+
+	// InternalFetch is for use by the Google Cloud Libraries only.
+	// It is not part of the stable interface of this package.
+	//
+	// InternalFetch returns results from a single call to the underlying RPC.
+	// The number of results is no greater than pageSize.
+	// If there are no more results, nextPageToken is empty and err is nil.
+	InternalFetch func(pageSize int, pageToken string) (results []*pubsubpb.Topic, nextPageToken string, err error)
 }
 
 // PageInfo supports pagination. See the google.golang.org/api/iterator package for details.
@@ -356,10 +383,21 @@ func (it *TopicIterator) PageInfo() *iterator.PageInfo {
 // Next returns the next result. Its second return value is iterator.Done if there are no more
 // results. Once Next returns Done, all subsequent calls will return Done.
 func (it *TopicIterator) Next() (*pubsubpb.Topic, error) {
+	var item *pubsubpb.Topic
 	if err := it.nextFunc(); err != nil {
-		return nil, err
+		return item, err
 	}
-	item := it.items[0]
+	item = it.items[0]
 	it.items = it.items[1:]
 	return item, nil
+}
+
+func (it *TopicIterator) bufLen() int {
+	return len(it.items)
+}
+
+func (it *TopicIterator) takeBuf() interface{} {
+	b := it.items
+	it.items = nil
+	return b
 }

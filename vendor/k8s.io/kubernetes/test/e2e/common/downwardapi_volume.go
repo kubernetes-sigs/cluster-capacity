@@ -81,6 +81,21 @@ var _ = framework.KubeDescribe("Downward API volume", func() {
 		})
 	})
 
+	It("should provide podname as non-root with fsgroup and defaultMode [Feature:FSGroup]", func() {
+		podName := "metadata-volume-" + string(uuid.NewUUID())
+		uid := int64(1001)
+		gid := int64(1234)
+		mode := int32(0440) /* setting fsGroup sets mode to at least 440 */
+		pod := downwardAPIVolumePodForModeTest(podName, "/etc/podname", &mode, nil)
+		pod.Spec.SecurityContext = &api.PodSecurityContext{
+			RunAsUser: &uid,
+			FSGroup:   &gid,
+		}
+		f.TestContainerOutput("downward API volume plugin", pod, 0, []string{
+			"mode of file \"/etc/podname\": -r--r-----",
+		})
+	})
+
 	It("should update labels on modification [Conformance]", func() {
 		labels := map[string]string{}
 		labels["key1"] = "value1"
@@ -137,7 +152,7 @@ var _ = framework.KubeDescribe("Downward API volume", func() {
 			podLogTimeout, framework.Poll).Should(ContainSubstring("builder=\"foo\"\n"))
 	})
 
-	It("should provide container's cpu limit", func() {
+	It("should provide container's cpu limit [Conformance]", func() {
 		podName := "downwardapi-volume-" + string(uuid.NewUUID())
 		pod := downwardAPIVolumeForContainerResources(podName, "/etc/cpu_limit")
 
@@ -146,7 +161,7 @@ var _ = framework.KubeDescribe("Downward API volume", func() {
 		})
 	})
 
-	It("should provide container's memory limit", func() {
+	It("should provide container's memory limit [Conformance]", func() {
 		podName := "downwardapi-volume-" + string(uuid.NewUUID())
 		pod := downwardAPIVolumeForContainerResources(podName, "/etc/memory_limit")
 
@@ -155,7 +170,7 @@ var _ = framework.KubeDescribe("Downward API volume", func() {
 		})
 	})
 
-	It("should provide container's cpu request", func() {
+	It("should provide container's cpu request [Conformance]", func() {
 		podName := "downwardapi-volume-" + string(uuid.NewUUID())
 		pod := downwardAPIVolumeForContainerResources(podName, "/etc/cpu_request")
 
@@ -164,7 +179,7 @@ var _ = framework.KubeDescribe("Downward API volume", func() {
 		})
 	})
 
-	It("should provide container's memory request", func() {
+	It("should provide container's memory request [Conformance]", func() {
 		podName := "downwardapi-volume-" + string(uuid.NewUUID())
 		pod := downwardAPIVolumeForContainerResources(podName, "/etc/memory_request")
 
@@ -173,14 +188,14 @@ var _ = framework.KubeDescribe("Downward API volume", func() {
 		})
 	})
 
-	It("should provide node allocatable (cpu) as default cpu limit if the limit is not set", func() {
+	It("should provide node allocatable (cpu) as default cpu limit if the limit is not set [Conformance]", func() {
 		podName := "downwardapi-volume-" + string(uuid.NewUUID())
 		pod := downwardAPIVolumeForDefaultContainerResources(podName, "/etc/cpu_limit")
 
 		f.TestContainerOutputRegexp("downward API volume plugin", pod, 0, []string{"[1-9]"})
 	})
 
-	It("should provide node allocatable (memory) as default memory limit if the limit is not set", func() {
+	It("should provide node allocatable (memory) as default memory limit if the limit is not set [Conformance]", func() {
 		podName := "downwardapi-volume-" + string(uuid.NewUUID())
 		pod := downwardAPIVolumeForDefaultContainerResources(podName, "/etc/memory_limit")
 

@@ -41,6 +41,7 @@ authorization-rbac-super-user
 authorization-webhook-cache-authorized-ttl
 authorization-webhook-cache-unauthorized-ttl
 authorization-webhook-config-file
+azure-container-registry-config
 babysit-daemons
 basic-auth-file
 bench-pods
@@ -59,7 +60,6 @@ cert-dir
 certificate-authority
 cgroup-driver
 cgroup-root
-cgroups-per-qos
 chaos-chance
 clean-start
 cleanup
@@ -74,6 +74,7 @@ clientset-path
 cloud-config
 cloud-provider
 cluster-cidr
+cluster-context
 cluster-dns
 cluster-domain
 cluster-ip
@@ -90,21 +91,25 @@ concurrent-gc-syncs
 concurrent-namespace-syncs
 concurrent-replicaset-syncs
 concurrent-resource-quota-syncs
-concurrent-service-syncs
 concurrent-serviceaccount-token-syncs
+concurrent-service-syncs
+config-map
+config-map-namespace
 config-sync-period
 configure-cloud-routes
 conntrack-max
 conntrack-max-per-core
 conntrack-min
+conntrack-tcp-timeout-close-wait
 conntrack-tcp-timeout-established
 consumer-port
 consumer-service-name
 consumer-service-namespace
-contain-pod-resources
 container-port
 container-runtime
 container-runtime-endpoint
+contain-pod-resources
+contention-profiling
 controller-start-interval
 cors-allowed-origins
 cpu-cfs-quota
@@ -135,6 +140,7 @@ dns-bind-address
 dns-port
 dns-provider
 dns-provider-config
+dns-zone-name
 docker-email
 docker-endpoint
 docker-exec-handler
@@ -150,6 +156,7 @@ duration-sec
 e2e-output-dir
 e2e-verify-service-account
 enable-controller-attach-detach
+enable-cri
 enable-custom-metrics
 enable-debugging-handlers
 enable-dynamic-provisioning
@@ -186,12 +193,15 @@ executor-suicide-timeout
 exit-on-lock-contention
 experimental-allowed-unsafe-sysctls
 experimental-bootstrap-kubeconfig
+experimental-cgroups-per-qos
 experimental-keystone-url
+experimental-keystone-ca-file
 experimental-mounter-path
-experimental-mounter-rootfs-path
 experimental-nvidia-gpus
 experimental-prefix
-experimental-runtime-integration-type
+experimental-cri
+experimental-check-node-capabilities-before-mount
+experimental-kernel-memcg-notification
 external-etcd-cafile
 external-etcd-certfile
 external-etcd-endpoints
@@ -199,6 +209,7 @@ external-etcd-keyfile
 external-hostname
 external-ip
 extra-peer-dirs
+experimental-fail-swap-on
 failover-timeout
 failure-domains
 fake-clientset
@@ -207,6 +218,7 @@ federated-api-burst
 federated-api-qps
 federated-kube-context
 federation-name
+federation-system-namespace
 file-check-frequency
 file-suffix
 file_content_in_loop
@@ -238,10 +250,12 @@ hard-pod-affinity-symmetric-weight
 healthz-bind-address
 healthz-port
 horizontal-pod-autoscaler-sync-period
+host-cluster-context
 host-ipc-sources
 host-network-sources
 host-pid-sources
 host-port-endpoints
+host-system-namespace
 hostname-override
 http-check-frequency
 http-port
@@ -267,6 +281,7 @@ instance-metadata
 instance-name-prefix
 iptables-drop-bit
 iptables-masquerade-bit
+iptables-min-sync-period
 iptables-sync-period
 ir-data-source
 ir-dbname
@@ -296,6 +311,7 @@ kube-master
 kube-master
 kube-master-url
 kube-reserved
+kubeadm-path
 kubecfg-file
 kubectl-path
 kubelet-address
@@ -307,6 +323,7 @@ kubelet-client-certificate
 kubelet-client-key
 kubelet-docker-endpoint
 kubelet-enable-debugging-handlers
+kubelet-flags
 kubelet-host-network-sources
 kubelet-https
 kubelet-kubeconfig
@@ -336,7 +353,6 @@ long-running-request-regexp
 low-diskspace-threshold-mb
 make-iptables-util-chains
 make-symlinks
-manifest-path
 manifest-url
 manifest-url-header
 masquerade-all
@@ -487,7 +503,6 @@ run-proxy
 run-services-mode
 runtime-cgroups
 runtime-config
-runtime-integration-type
 runtime-request-timeout
 save-config
 schedule-pods-here
@@ -497,6 +512,7 @@ schema-cache-dir
 scopes
 seccomp-profile-root
 secondary-node-eviction-rate
+secret-name
 secure-port
 serialize-image-pulls
 server-start-timeout
@@ -507,6 +523,7 @@ service-address
 service-cidr
 service-cluster-ip-range
 service-dns-domain
+service-dns-suffix
 service-generator
 service-node-port-range
 service-node-ports
@@ -546,6 +563,7 @@ system-cgroups
 system-container
 system-pods-startup-timeout
 system-reserved
+system-validate-mode
 target-port
 target-ram-mb
 tcp-services
@@ -568,6 +586,7 @@ unix-socket
 update-period
 upgrade-image
 upgrade-target
+use-service-account-credentials
 use-kubernetes-cluster-service
 use-kubernetes-version
 user-whitelist
@@ -582,8 +601,11 @@ watch-only
 whitelist-override-label
 windows-line-endings
 www-prefix
+zone-id
 zone-name
 garbage-collector-enabled
 viper-config
 log-lines-total
 run-duration
+attach-detach-reconcile-sync-period
+disable-attach-detach-reconcile-sync

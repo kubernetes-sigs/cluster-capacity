@@ -234,6 +234,31 @@ func ExampleCodeDeploy_BatchGetOnPremisesInstances() {
 	fmt.Println(resp)
 }
 
+func ExampleCodeDeploy_ContinueDeployment() {
+	sess, err := session.NewSession()
+	if err != nil {
+		fmt.Println("failed to create session,", err)
+		return
+	}
+
+	svc := codedeploy.New(sess)
+
+	params := &codedeploy.ContinueDeploymentInput{
+		DeploymentId: aws.String("DeploymentId"),
+	}
+	resp, err := svc.ContinueDeployment(params)
+
+	if err != nil {
+		// Print the error, cast err to awserr.Error to get the Code and
+		// Message from an error.
+		fmt.Println(err.Error())
+		return
+	}
+
+	// Pretty-print the response data.
+	fmt.Println(resp)
+}
+
 func ExampleCodeDeploy_CreateApplication() {
 	sess, err := session.NewSession()
 	if err != nil {
@@ -293,6 +318,20 @@ func ExampleCodeDeploy_CreateDeployment() {
 				ETag:       aws.String("ETag"),
 				Key:        aws.String("S3Key"),
 				Version:    aws.String("VersionId"),
+			},
+		},
+		TargetInstances: &codedeploy.TargetInstances{
+			AutoScalingGroups: []*string{
+				aws.String("AutoScalingGroupName"), // Required
+				// More values...
+			},
+			TagFilters: []*codedeploy.EC2TagFilter{
+				{ // Required
+					Key:   aws.String("Key"),
+					Type:  aws.String("EC2TagFilterType"),
+					Value: aws.String("Value"),
+				},
+				// More values...
 			},
 		},
 		UpdateOutdatedInstancesOnly: aws.Bool(true),
@@ -373,7 +412,24 @@ func ExampleCodeDeploy_CreateDeploymentGroup() {
 			aws.String("AutoScalingGroupName"), // Required
 			// More values...
 		},
+		BlueGreenDeploymentConfiguration: &codedeploy.BlueGreenDeploymentConfiguration{
+			DeploymentReadyOption: &codedeploy.DeploymentReadyOption{
+				ActionOnTimeout:   aws.String("DeploymentReadyAction"),
+				WaitTimeInMinutes: aws.Int64(1),
+			},
+			GreenFleetProvisioningOption: &codedeploy.GreenFleetProvisioningOption{
+				Action: aws.String("GreenFleetProvisioningAction"),
+			},
+			TerminateBlueInstancesOnDeploymentSuccess: &codedeploy.BlueInstanceTerminationOption{
+				Action: aws.String("InstanceAction"),
+				TerminationWaitTimeInMinutes: aws.Int64(1),
+			},
+		},
 		DeploymentConfigName: aws.String("DeploymentConfigName"),
+		DeploymentStyle: &codedeploy.DeploymentStyle{
+			DeploymentOption: aws.String("DeploymentOption"),
+			DeploymentType:   aws.String("DeploymentType"),
+		},
 		Ec2TagFilters: []*codedeploy.EC2TagFilter{
 			{ // Required
 				Key:   aws.String("Key"),
@@ -381,6 +437,14 @@ func ExampleCodeDeploy_CreateDeploymentGroup() {
 				Value: aws.String("Value"),
 			},
 			// More values...
+		},
+		LoadBalancerInfo: &codedeploy.LoadBalancerInfo{
+			ElbInfoList: []*codedeploy.ELBInfo{
+				{ // Required
+					Name: aws.String("ELBName"),
+				},
+				// More values...
+			},
 		},
 		OnPremisesInstanceTagFilters: []*codedeploy.TagFilter{
 			{ // Required
@@ -829,6 +893,10 @@ func ExampleCodeDeploy_ListDeploymentInstances() {
 			aws.String("InstanceStatus"), // Required
 			// More values...
 		},
+		InstanceTypeFilter: []*string{
+			aws.String("InstanceType"), // Required
+			// More values...
+		},
 		NextToken: aws.String("NextToken"),
 	}
 	resp, err := svc.ListDeploymentInstances(params)
@@ -963,8 +1031,9 @@ func ExampleCodeDeploy_RegisterOnPremisesInstance() {
 	svc := codedeploy.New(sess)
 
 	params := &codedeploy.RegisterOnPremisesInstanceInput{
-		IamUserArn:   aws.String("IamUserArn"),   // Required
-		InstanceName: aws.String("InstanceName"), // Required
+		InstanceName:  aws.String("InstanceName"), // Required
+		IamSessionArn: aws.String("IamSessionArn"),
+		IamUserArn:    aws.String("IamUserArn"),
 	}
 	resp, err := svc.RegisterOnPremisesInstance(params)
 
@@ -1002,6 +1071,31 @@ func ExampleCodeDeploy_RemoveTagsFromOnPremisesInstances() {
 		},
 	}
 	resp, err := svc.RemoveTagsFromOnPremisesInstances(params)
+
+	if err != nil {
+		// Print the error, cast err to awserr.Error to get the Code and
+		// Message from an error.
+		fmt.Println(err.Error())
+		return
+	}
+
+	// Pretty-print the response data.
+	fmt.Println(resp)
+}
+
+func ExampleCodeDeploy_SkipWaitTimeForInstanceTermination() {
+	sess, err := session.NewSession()
+	if err != nil {
+		fmt.Println("failed to create session,", err)
+		return
+	}
+
+	svc := codedeploy.New(sess)
+
+	params := &codedeploy.SkipWaitTimeForInstanceTerminationInput{
+		DeploymentId: aws.String("DeploymentId"),
+	}
+	resp, err := svc.SkipWaitTimeForInstanceTermination(params)
 
 	if err != nil {
 		// Print the error, cast err to awserr.Error to get the Code and
@@ -1099,7 +1193,24 @@ func ExampleCodeDeploy_UpdateDeploymentGroup() {
 			aws.String("AutoScalingGroupName"), // Required
 			// More values...
 		},
+		BlueGreenDeploymentConfiguration: &codedeploy.BlueGreenDeploymentConfiguration{
+			DeploymentReadyOption: &codedeploy.DeploymentReadyOption{
+				ActionOnTimeout:   aws.String("DeploymentReadyAction"),
+				WaitTimeInMinutes: aws.Int64(1),
+			},
+			GreenFleetProvisioningOption: &codedeploy.GreenFleetProvisioningOption{
+				Action: aws.String("GreenFleetProvisioningAction"),
+			},
+			TerminateBlueInstancesOnDeploymentSuccess: &codedeploy.BlueInstanceTerminationOption{
+				Action: aws.String("InstanceAction"),
+				TerminationWaitTimeInMinutes: aws.Int64(1),
+			},
+		},
 		DeploymentConfigName: aws.String("DeploymentConfigName"),
+		DeploymentStyle: &codedeploy.DeploymentStyle{
+			DeploymentOption: aws.String("DeploymentOption"),
+			DeploymentType:   aws.String("DeploymentType"),
+		},
 		Ec2TagFilters: []*codedeploy.EC2TagFilter{
 			{ // Required
 				Key:   aws.String("Key"),
@@ -1107,6 +1218,14 @@ func ExampleCodeDeploy_UpdateDeploymentGroup() {
 				Value: aws.String("Value"),
 			},
 			// More values...
+		},
+		LoadBalancerInfo: &codedeploy.LoadBalancerInfo{
+			ElbInfoList: []*codedeploy.ELBInfo{
+				{ // Required
+					Name: aws.String("ELBName"),
+				},
+				// More values...
+			},
 		},
 		NewDeploymentGroupName: aws.String("DeploymentGroupName"),
 		OnPremisesInstanceTagFilters: []*codedeploy.TagFilter{

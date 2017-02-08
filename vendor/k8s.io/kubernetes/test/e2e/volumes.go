@@ -370,7 +370,7 @@ var _ = framework.KubeDescribe("Volumes [Feature:Volumes]", func() {
 			config := VolumeTestConfig{
 				namespace:   namespace.Name,
 				prefix:      "nfs",
-				serverImage: "gcr.io/google_containers/volume-nfs:0.6",
+				serverImage: "gcr.io/google_containers/volume-nfs:0.8",
 				serverPorts: []int{2049},
 			}
 
@@ -556,6 +556,7 @@ var _ = framework.KubeDescribe("Volumes [Feature:Volumes]", func() {
 					// from test/images/volumes-tester/rbd/keyring
 					"key": []byte("AQDRrKNVbEevChAAEmRC+pW/KBVHxa0w/POILA=="),
 				},
+				Type: "kubernetes.io/rbd",
 			}
 
 			secClient := cs.Core().Secrets(config.namespace)
@@ -627,6 +628,7 @@ var _ = framework.KubeDescribe("Volumes [Feature:Volumes]", func() {
 				Data: map[string][]byte{
 					"key": []byte("AQAMgXhVwBCeDhAA9nlPaFyfUSatGD4drFWDvQ=="),
 				},
+				Type: "kubernetes.io/cephfs",
 			}
 
 			defer func() {

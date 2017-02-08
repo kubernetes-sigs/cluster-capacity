@@ -519,7 +519,7 @@ func New(s *soptions.SchedulerServer, simulatedPod *api.Pod, maxPods int, resour
 		}
 
 		pluginInitializer := admission.NewPluginInitializer(sharedInformers, apiAuthorizer)
-		admissionController, err := admission.NewFromPlugins(cc.kubeclient, admissionControlPluginNames, "", pluginInitializer, cc.admissionStopCh)
+		admissionController, err := admission.NewFromPlugins(cc.kubeclient, admissionControlPluginNames, "", pluginInitializer)
 		if err != nil {
 			log.Fatalf("Failed to initialize plugins: %v", err)
 		}
