@@ -5,7 +5,7 @@ import (
 	goruntime "runtime"
 	"testing"
 
-	"github.com/ingvagabund/cluster-capacity/pkg/framework/store"
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/meta"
 	"k8s.io/kubernetes/pkg/api/resource"

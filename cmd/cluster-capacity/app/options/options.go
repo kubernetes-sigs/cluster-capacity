@@ -11,9 +11,9 @@ import (
 
 	"path"
 
-	"github.com/ingvagabund/cluster-capacity/pkg/apiserver/cache"
-	"github.com/ingvagabund/cluster-capacity/pkg/framework"
-	"github.com/ingvagabund/cluster-capacity/pkg/framework/store"
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/apiserver/cache"
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework"
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
 	"github.com/spf13/pflag"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/validation"

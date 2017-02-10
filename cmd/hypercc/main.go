@@ -5,8 +5,8 @@ import (
 	"os"
 	"path"
 
-	capp "github.com/ingvagabund/cluster-capacity/cmd/cluster-capacity/app"
-	gapp "github.com/ingvagabund/cluster-capacity/cmd/genpod/app"
+	capp "github.com/kubernetes-incubator/cluster-capacity/cmd/cluster-capacity/app"
+	gapp "github.com/kubernetes-incubator/cluster-capacity/cmd/genpod/app"
 )
 
 func main() {

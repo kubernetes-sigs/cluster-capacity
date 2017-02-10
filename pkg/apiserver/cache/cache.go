@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ingvagabund/cluster-capacity/pkg/framework"
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework"
 )
 
 type Cache struct {
