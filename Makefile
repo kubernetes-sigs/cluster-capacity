@@ -8,5 +8,8 @@ run:
 test:
 	./test.sh
 
+integration-tests:
+	./integration-tests.sh
+
 image:
 	docker build -t docker.io/gofed/cluster-capacity .
