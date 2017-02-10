@@ -11,8 +11,8 @@ import (
 	"strings"
 
 	"github.com/emicklei/go-restful"
-	"github.com/ingvagabund/cluster-capacity/cmd/cluster-capacity/app/options"
-	"github.com/ingvagabund/cluster-capacity/pkg/framework"
+	"github.com/kubernetes-incubator/cluster-capacity/cmd/cluster-capacity/app/options"
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/validation"
 	"k8s.io/kubernetes/pkg/util/yaml"

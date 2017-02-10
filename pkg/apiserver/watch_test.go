@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ingvagabund/cluster-capacity/pkg/framework"
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework"
 )
 
 func exampleReport() *framework.Report {

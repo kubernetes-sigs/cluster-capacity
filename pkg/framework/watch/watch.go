@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	ccapi "github.com/ingvagabund/cluster-capacity/pkg/api"
+	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/testapi"
 	"k8s.io/kubernetes/pkg/api/unversioned"

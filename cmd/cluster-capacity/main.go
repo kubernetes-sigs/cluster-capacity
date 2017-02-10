@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/ingvagabund/cluster-capacity/cmd/cluster-capacity/app"
+	"github.com/kubernetes-incubator/cluster-capacity/cmd/cluster-capacity/app"
 )
 
 func main() {

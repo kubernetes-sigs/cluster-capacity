@@ -1,5 +1,5 @@
 build:
-	go build -o hypercc github.com/ingvagabund/cluster-capacity/cmd/hypercc
+	go build -o hypercc github.com/kubernetes-incubator/cluster-capacity/cmd/hypercc
 	ln -sf hypercc cluster-capacity
 	ln -sf hypercc genpod
 run:

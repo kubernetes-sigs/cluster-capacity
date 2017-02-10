@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/ingvagabund/cluster-capacity/cmd/genpod/app/options"
-	nspod "github.com/ingvagabund/cluster-capacity/pkg/client"
+	"github.com/kubernetes-incubator/cluster-capacity/cmd/genpod/app/options"
+	nspod "github.com/kubernetes-incubator/cluster-capacity/pkg/client"
 	"github.com/spf13/cobra"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"

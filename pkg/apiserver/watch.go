@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/ingvagabund/cluster-capacity/pkg/framework"
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework"
 )
 
 var MAXWATCHERS = 10

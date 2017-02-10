@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	ccapi "github.com/ingvagabund/cluster-capacity/pkg/api"
-	"github.com/ingvagabund/cluster-capacity/pkg/framework/store"
-	"github.com/ingvagabund/cluster-capacity/pkg/test"
+	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/test"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/client/cache"
 	"k8s.io/kubernetes/pkg/fields"
