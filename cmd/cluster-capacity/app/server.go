@@ -2,10 +2,17 @@ package app
 
 import (
 	"fmt"
-	"os"
-
 	"log"
+	"os"
 	"time"
+
+	"github.com/renstrom/dedent"
+	"github.com/spf13/cobra"
+
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
+	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
+	"k8s.io/kubernetes/pkg/util/wait"
+	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
 
 	"github.com/kubernetes-incubator/cluster-capacity/cmd/cluster-capacity/app/options"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/apiserver"
@@ -13,12 +20,6 @@ import (
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/utils"
-	"github.com/renstrom/dedent"
-	"github.com/spf13/cobra"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
-	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
-	"k8s.io/kubernetes/pkg/util/wait"
-	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
 )
 
 var (

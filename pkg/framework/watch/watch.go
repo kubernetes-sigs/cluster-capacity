@@ -8,12 +8,13 @@ import (
 	"sync"
 	"time"
 
-	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/testapi"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/runtime"
 	"k8s.io/kubernetes/pkg/watch"
+
+	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
 )
 
 // Every watcher expects infinite byte stream

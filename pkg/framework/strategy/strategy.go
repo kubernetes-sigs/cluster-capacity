@@ -3,10 +3,11 @@ package strategy
 import (
 	"fmt"
 
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/meta"
 	"k8s.io/kubernetes/plugin/pkg/scheduler/schedulercache"
+
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
 )
 
 type Strategy interface {

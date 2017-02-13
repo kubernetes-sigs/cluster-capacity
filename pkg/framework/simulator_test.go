@@ -5,7 +5,6 @@ import (
 	goruntime "runtime"
 	"testing"
 
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/meta"
 	"k8s.io/kubernetes/pkg/api/resource"
@@ -15,6 +14,8 @@ import (
 	"k8s.io/kubernetes/pkg/version"
 	soptions "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app/options"
 	"k8s.io/kubernetes/plugin/pkg/scheduler/factory"
+
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
 )
 
 func getGeneralNode(nodeName string) *api.Node {

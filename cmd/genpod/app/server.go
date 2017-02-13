@@ -4,17 +4,18 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/kubernetes-incubator/cluster-capacity/cmd/genpod/app/options"
-	nspod "github.com/kubernetes-incubator/cluster-capacity/pkg/client"
 	"github.com/spf13/cobra"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
-	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
-	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
 
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/testapi"
 	"k8s.io/kubernetes/pkg/api/unversioned"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
+	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
 	"k8s.io/kubernetes/pkg/runtime"
+	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
+
+	"github.com/kubernetes-incubator/cluster-capacity/cmd/genpod/app/options"
+	nspod "github.com/kubernetes-incubator/cluster-capacity/pkg/client"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/utils"
 )
 

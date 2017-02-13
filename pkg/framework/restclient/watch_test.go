@@ -6,13 +6,14 @@ import (
 	"testing"
 	"time"
 
-	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/test"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/client/cache"
 	"k8s.io/kubernetes/pkg/fields"
 	"k8s.io/kubernetes/pkg/watch"
+
+	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/test"
 )
 
 func newTestWatchRestClient() *RESTClient {

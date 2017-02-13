@@ -11,9 +11,6 @@ import (
 	"strings"
 	"sync"
 
-	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
-	ewatch "github.com/kubernetes-incubator/cluster-capacity/pkg/framework/watch"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/testapi"
 	"k8s.io/kubernetes/pkg/api/unversioned"
@@ -23,6 +20,10 @@ import (
 	"k8s.io/kubernetes/pkg/runtime"
 	"k8s.io/kubernetes/pkg/util/flowcontrol"
 	"k8s.io/kubernetes/pkg/watch"
+
+	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
+	ewatch "github.com/kubernetes-incubator/cluster-capacity/pkg/framework/watch"
 )
 
 type ObjectFieldsAccessor struct {

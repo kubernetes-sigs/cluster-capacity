@@ -2,17 +2,14 @@ package framework
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
+	"os"
 	"reflect"
 	"strings"
 	"sync"
 	"time"
 
-	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/record"
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/restclient"
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/strategy"
 	"k8s.io/kubernetes/pkg/admission"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/meta"
@@ -23,6 +20,7 @@ import (
 	"k8s.io/kubernetes/pkg/controller/informers"
 	"k8s.io/kubernetes/pkg/fields"
 	"k8s.io/kubernetes/pkg/genericapiserver/authorizer"
+	"k8s.io/kubernetes/pkg/runtime"
 	"k8s.io/kubernetes/pkg/util/sets"
 	"k8s.io/kubernetes/pkg/watch"
 	soptions "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app/options"
@@ -31,10 +29,6 @@ import (
 	latestschedulerapi "k8s.io/kubernetes/plugin/pkg/scheduler/api/latest"
 	"k8s.io/kubernetes/plugin/pkg/scheduler/factory"
 
-	"io/ioutil"
-	"os"
-
-	"k8s.io/kubernetes/pkg/runtime"
 	// register algorithm providers
 	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
 
@@ -58,6 +52,12 @@ import (
 	_ "k8s.io/kubernetes/plugin/pkg/admission/securitycontext/scdeny"
 	_ "k8s.io/kubernetes/plugin/pkg/admission/serviceaccount"
 	_ "k8s.io/kubernetes/plugin/pkg/admission/storageclass/default"
+
+	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/record"
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/restclient"
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/strategy"
 )
 
 // Main goal: given a pod with non-zero requested resources how many times the pod can be scheduled in the cluster

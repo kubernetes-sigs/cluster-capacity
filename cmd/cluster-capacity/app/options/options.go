@@ -6,21 +6,22 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
-	"path"
-
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/apiserver/cache"
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework"
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/utils"
 	"github.com/spf13/pflag"
+
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/validation"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 	"k8s.io/kubernetes/pkg/util/yaml"
 	schedopt "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app/options"
+
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/apiserver/cache"
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework"
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/utils"
 )
 
 type ClusterCapacityConfig struct {
