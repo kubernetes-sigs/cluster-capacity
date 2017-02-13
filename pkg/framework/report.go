@@ -12,16 +12,6 @@ import (
 	"k8s.io/kubernetes/pkg/labels"
 )
 
-const CLR_0 = "\x1b[30;1m"
-const CLR_R = "\x1b[31;1m"
-const CLR_G = "\x1b[32;1m"
-const CLR_Y = "\x1b[33;1m"
-const CLR_B = "\x1b[34;1m"
-const CLR_M = "\x1b[35;1m"
-const CLR_C = "\x1b[36;1m"
-const CLR_W = "\x1b[37;1m"
-const CLR_N = "\x1b[0m"
-
 type PodResources struct {
 	CPU                *resource.Quantity
 	Memory             *resource.Quantity
@@ -143,7 +133,7 @@ func createReport(pod *api.Pod, status Status) *Report {
 
 func (r *Report) prettyPrint(verbose bool) {
 	if verbose {
-		fmt.Printf("%vPod requirements:%v\n", CLR_W, CLR_N)
+		fmt.Println("Pod requirements:\n")
 		fmt.Printf("\t- CPU: %v\n", r.PodRequirements.PodResources.CPU.String())
 		fmt.Printf("\t- Memory: %v\n", r.PodRequirements.PodResources.Memory.String())
 		if !r.PodRequirements.PodResources.NvidiaGPU.IsZero() {
@@ -160,8 +150,8 @@ func (r *Report) prettyPrint(verbose bool) {
 		fmt.Printf("\n")
 	}
 
-	fmt.Printf("The cluster can schedule %v%v%v instance(s) of the pod.\n", CLR_W, r.TotalInstances, CLR_N)
-	fmt.Printf("%vTermination reason%v: %v: %v\n", CLR_G, CLR_N, r.FailReasons.FailType, r.FailReasons.FailMessage)
+	fmt.Printf("The cluster can schedule %v instance(s) of the pod.\n", r.TotalInstances)
+	fmt.Printf("Termination reason: %v: %v\n", r.FailReasons.FailType, r.FailReasons.FailMessage)
 
 	if verbose && r.TotalInstances > 0 {
 		for node, fail := range r.FailReasons.NodeFailures {
