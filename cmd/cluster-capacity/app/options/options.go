@@ -14,13 +14,13 @@ import (
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/apiserver/cache"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/utils"
 	"github.com/spf13/pflag"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/validation"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 	"k8s.io/kubernetes/pkg/util/yaml"
 	schedopt "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app/options"
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/utils"
 )
 
 type ClusterCapacityConfig struct {
@@ -60,7 +60,7 @@ func NewClusterCapacityOptions() *ClusterCapacityOptions {
 }
 
 func (s *ClusterCapacityOptions) AddFlags(fs *pflag.FlagSet) {
-	fs.StringVar(&s.Kubeconfig, "kubeconfig", s.Kubeconfig, "Path to kubeconfig file with authorization and master location information.")
+	fs.StringVar(&s.Kubeconfig, "kubeconfig", s.Kubeconfig, "Path to the kubeconfig file to use for the analysis.")
 	fs.StringVar(&s.PodSpecFile, "podspec", s.PodSpecFile, "Path to JSON or YAML file containing pod definition.")
 	fs.IntVar(&s.MaxLimit, "max-limit", 0, "Number of instances of pod to be scheduled after which analysis stops. By default unlimited.")
 

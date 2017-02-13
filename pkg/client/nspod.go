@@ -20,7 +20,7 @@ func RetrieveNamespacePod(client clientset.Interface, namespace string) (*api.Po
 	// Iterate through all limit ranges and pick the minimum of all related to pod constraints
 	limits, err := client.Core().LimitRanges(namespace).List(api.ListOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("Could not retrive limit ranges for %v namespaces: %v", namespace, err)
+		return nil, fmt.Errorf("Could not retrieve limit ranges for %v namespaces: %v", namespace, err)
 	}
 
 	resources := make(map[api.ResourceName]*resource.Quantity)

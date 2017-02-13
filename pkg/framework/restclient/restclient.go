@@ -56,7 +56,7 @@ func (o *ObjectFieldsAccessor) Get(field string) (value string) {
 	t := template.Must(template.New("fieldPath").Parse(fieldPath))
 	err := t.Execute(o, o.obj)
 	if err != nil {
-		fmt.Printf("Error during accessing object field %v: %v\n", fieldPath, err)
+		fmt.Printf("Error when accessing object field %v: %v\n", fieldPath, err)
 	}
 	return string(o.buf)
 }
@@ -215,7 +215,7 @@ func (c *RESTClient) ReplicaSets(fieldsSelector fields.Selector) *extensions.Rep
 	}
 }
 
-func (c *RESTClient) ResourceQouta(fieldsSelector fields.Selector) *api.ResourceQuotaList {
+func (c *RESTClient) ResourceQuota(fieldsSelector fields.Selector) *api.ResourceQuotaList {
 	items := c.resourceStore.List(ccapi.ResourceQuota)
 	typedItems := make([]api.ResourceQuota, 0, len(items))
 	for _, item := range items {
@@ -322,7 +322,7 @@ func (c *RESTClient) List(resource ccapi.ResourceType, fieldsSelector fields.Sel
 	case ccapi.ReplicaSets:
 		return c.ReplicaSets(fieldsSelector), nil
 	case ccapi.ResourceQuota:
-		return c.ResourceQouta(fieldsSelector), nil
+		return c.ResourceQuota(fieldsSelector), nil
 	case ccapi.Secrets:
 		return c.Secrets(fieldsSelector), nil
 	case ccapi.ServiceAccounts:
@@ -574,7 +574,7 @@ func (c *RESTClient) createWatchReadCloser(resource ccapi.ResourceType, fieldsSe
 			rg.EmitWatchEvent(watch.Added, runtime.Object(&item))
 		}
 	case ccapi.ResourceQuota:
-		for _, item := range c.ResourceQouta(fieldsSelector).Items {
+		for _, item := range c.ResourceQuota(fieldsSelector).Items {
 			rg.EmitWatchEvent(watch.Added, runtime.Object(&item))
 		}
 	case ccapi.Secrets:

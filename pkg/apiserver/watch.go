@@ -58,7 +58,7 @@ func (w *WatchChannelDistributor) NewChannel() (*WatchChannel, error) {
 	}
 
 	if len(w.outputChannels) >= MAXWATCHERS {
-		return nil, fmt.Errorf("Maximal number of watches exceeded\n")
+		return nil, fmt.Errorf("Maximum number of watches exceeded\n")
 	}
 
 	ch := make(chan *framework.Report, channel_cap)
