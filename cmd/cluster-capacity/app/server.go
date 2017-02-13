@@ -15,16 +15,16 @@ import (
 	"github.com/renstrom/dedent"
 	"github.com/spf13/cobra"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
-	"k8s.io/kubernetes/pkg/client/restclient"
 	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
 	"k8s.io/kubernetes/pkg/util/wait"
 	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/utils"
 )
 
 var (
 	clusterCapacityLong = dedent.Dedent(`
-		Cluster-capacity simulates API server with initial state copied from kubernetes enviroment running
-		on address MASTER with its configuration specified in KUBECONFIG. Simulated API server tries to schedule number of
+		Cluster-capacity simulates API server with initial state copied from kubernetes enviroment
+		with its configuration specified in KUBECONFIG. Simulated API server tries to schedule number of
 		pods specified by --maxLimits flag. If the --maxLimits flag is not specified, pods are scheduled till
 		the simulated API server runs out of resources.
 	`)
@@ -35,7 +35,7 @@ var (
 func NewClusterCapacityCommand() *cobra.Command {
 	opt := options.NewClusterCapacityOptions()
 	cmd := &cobra.Command{
-		Use:   "cluster-capacity --master MASTER --kubeconfig KUBECONFIG --podspec PODSPEC",
+		Use:   "cluster-capacity --kubeconfig KUBECONFIG --podspec PODSPEC",
 		Short: "Cluster-capacity is used for emulating scheduling of one or multiple pods",
 		Long:  clusterCapacityLong,
 		Run: func(cmd *cobra.Command, args []string) {
@@ -89,7 +89,11 @@ func Run(opt *options.ClusterCapacityOptions) error {
 		return fmt.Errorf("Failed to parse apiserver config file: %v ", err)
 	}
 
-	conf.KubeClient, err = getKubeClient(conf.Options.Master, conf.Options.Kubeconfig)
+	master, err := utils.GetMasterFromKubeConfig(conf.Options.Kubeconfig)
+	if err != nil {
+		return fmt.Errorf("Failed to parse kubeconfig file: %v ", err)
+	}
+	conf.KubeClient, err = getKubeClient(master, conf.Options.Kubeconfig)
 
 	if err != nil {
 		return err
@@ -142,18 +146,9 @@ func Run(opt *options.ClusterCapacityOptions) error {
 }
 
 func getKubeClient(master string, config string) (clientset.Interface, error) {
-	var cfg *restclient.Config
-	var err error
-	if master != "" && config != "" {
-		cfg, err = clientcmd.BuildConfigFromFlags(master, config)
-		if err != nil {
-			return nil, fmt.Errorf("unable to build config from flags: %v", err)
-		}
-	} else {
-		cfg, err = restclient.InClusterConfig()
-		if err != nil {
-			return nil, err
-		}
+	cfg, err := clientcmd.BuildConfigFromFlags(master, config)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to build config: %v", err)
 	}
 	kubeClient, err := clientset.NewForConfig(cfg)
 	if err != nil {

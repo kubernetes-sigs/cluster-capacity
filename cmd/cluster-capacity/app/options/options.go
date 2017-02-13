@@ -20,6 +20,7 @@ import (
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 	"k8s.io/kubernetes/pkg/util/yaml"
 	schedopt "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app/options"
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/utils"
 )
 
 type ClusterCapacityConfig struct {
@@ -34,7 +35,6 @@ type ClusterCapacityConfig struct {
 }
 
 type ClusterCapacityOptions struct {
-	Master                     string
 	Kubeconfig                 string
 	SchedulerConfigFile        []string
 	DefaultSchedulerConfigFile string
@@ -60,7 +60,6 @@ func NewClusterCapacityOptions() *ClusterCapacityOptions {
 }
 
 func (s *ClusterCapacityOptions) AddFlags(fs *pflag.FlagSet) {
-	fs.StringVar(&s.Master, "master", s.Master, "The address of the Kubernetes API server (overrides any value in kubeconfig)")
 	fs.StringVar(&s.Kubeconfig, "kubeconfig", s.Kubeconfig, "Path to kubeconfig file with authorization and master location information.")
 	fs.StringVar(&s.PodSpecFile, "podspec", s.PodSpecFile, "Path to JSON or YAML file containing pod definition.")
 	fs.IntVar(&s.MaxLimit, "max-limit", 0, "Number of instances of pod to be scheduled after which analysis stops. By default unlimited.")
@@ -123,7 +122,10 @@ func (s *ClusterCapacityConfig) ParseAdditionalSchedulerConfigs() error {
 		if err != nil {
 			return err
 		}
-		newScheduler.Master = s.Options.Master
+		newScheduler.Master, err = utils.GetMasterFromKubeConfig(s.Options.Kubeconfig)
+		if err != nil {
+			return err
+		}
 		newScheduler.Kubeconfig = s.Options.Kubeconfig
 		s.Schedulers = append(s.Schedulers, newScheduler)
 	}
@@ -187,7 +189,10 @@ func (s *ClusterCapacityConfig) SetDefaultScheduler() error {
 		return err
 	}
 
-	s.DefaultScheduler.Master = s.Options.Master
+	s.DefaultScheduler.Master, err = utils.GetMasterFromKubeConfig(s.Options.Kubeconfig)
+	if err != nil {
+		return err
+	}
 	s.DefaultScheduler.Kubeconfig = s.Options.Kubeconfig
 	return nil
 }
