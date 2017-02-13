@@ -9,6 +9,7 @@ import (
 	"k8s.io/kubernetes/pkg/api/testapi"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/runtime"
+	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
 )
 
 func PrintPod(pod *api.Pod, format string) error {
@@ -35,4 +36,15 @@ func PrintPod(pod *api.Pod, format string) error {
 	}
 	fmt.Print(string(stream))
 	return nil
+}
+
+func GetMasterFromKubeConfig(filename string) (string, error) {
+	config, err := clientcmd.LoadFromFile(filename)
+	if err != nil {
+		return "", err
+	}
+	if val, ok := config.Clusters[config.CurrentContext]; ok {
+		return val.Server, nil
+	}
+	return "", fmt.Errorf("Failed to get master address from kubeconfig")
 }

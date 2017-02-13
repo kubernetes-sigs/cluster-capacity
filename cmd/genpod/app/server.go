@@ -15,13 +15,13 @@ import (
 	"k8s.io/kubernetes/pkg/api/testapi"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/runtime"
-	"k8s.io/kubernetes/pkg/client/restclient"
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/utils"
 )
 
 func NewGenPodCommand() *cobra.Command {
 	opt := options.NewGenPodOptions()
 	cmd := &cobra.Command{
-		Use:   "genpod --master MASTER --kubeconfig KUBECONFIG --namespace NAMESPACE",
+		Use:   "genpod --kubeconfig KUBECONFIG --namespace NAMESPACE",
 		Short: "Generate pod based on namespace resource limits and node selector annotations",
 		Long:  "Generate pod based on namespace resource limits and node selector annotations",
 		Run: func(cmd *cobra.Command, args []string) {
@@ -54,6 +54,11 @@ func Validate(opt *options.GenPodOptions) error {
 }
 
 func Run(opt *options.GenPodOptions) error {
+	var err error
+	opt.Master, err = utils.GetMasterFromKubeConfig(opt.Kubeconfig)
+	if err != nil {
+		return fmt.Errorf("Failed to parse kubeconfig file: %v ", err)
+	}
 	client, err := getKubeClient(opt.Master, opt.Kubeconfig)
 	if err != nil {
 		return err
@@ -91,18 +96,9 @@ func Run(opt *options.GenPodOptions) error {
 }
 
 func getKubeClient(master string, config string) (clientset.Interface, error) {
-	var cfg *restclient.Config
-	var err error
-	if master != "" && config != "" {
-		cfg, err = clientcmd.BuildConfigFromFlags(master, config)
-		if err != nil {
-			return nil, fmt.Errorf("unable to build config from flags: %v", err)
-		}
-	} else {
-		cfg, err = restclient.InClusterConfig()
-		if err != nil {
-			return nil, err
-		}
+	cfg, err := clientcmd.BuildConfigFromFlags(master, config)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to build config: %v", err)
 	}
 	kubeClient, err := clientset.NewForConfig(cfg)
 	if err != nil {
