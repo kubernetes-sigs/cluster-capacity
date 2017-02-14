@@ -2,17 +2,14 @@ package framework
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
+	"os"
 	"reflect"
 	"strings"
 	"sync"
 	"time"
 
-	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/record"
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/restclient"
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/strategy"
 	"k8s.io/kubernetes/pkg/admission"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/meta"
@@ -23,6 +20,8 @@ import (
 	"k8s.io/kubernetes/pkg/controller/informers"
 	"k8s.io/kubernetes/pkg/fields"
 	"k8s.io/kubernetes/pkg/genericapiserver/authorizer"
+	"k8s.io/kubernetes/pkg/runtime"
+	"k8s.io/kubernetes/pkg/util/sets"
 	"k8s.io/kubernetes/pkg/watch"
 	soptions "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app/options"
 	"k8s.io/kubernetes/plugin/pkg/scheduler"
@@ -30,10 +29,6 @@ import (
 	latestschedulerapi "k8s.io/kubernetes/plugin/pkg/scheduler/api/latest"
 	"k8s.io/kubernetes/plugin/pkg/scheduler/factory"
 
-	"io/ioutil"
-	"os"
-
-	"k8s.io/kubernetes/pkg/runtime"
 	// register algorithm providers
 	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
 
@@ -57,6 +52,12 @@ import (
 	_ "k8s.io/kubernetes/plugin/pkg/admission/securitycontext/scdeny"
 	_ "k8s.io/kubernetes/plugin/pkg/admission/serviceaccount"
 	_ "k8s.io/kubernetes/plugin/pkg/admission/storageclass/default"
+
+	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/record"
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/restclient"
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/strategy"
 )
 
 // Main goal: given a pod with non-zero requested resources how many times the pod can be scheduled in the cluster
@@ -237,7 +238,7 @@ func (c *ClusterCapacity) Bind(binding *api.Binding, schedulerName string) error
 	}()
 
 	if c.maxSimulated > 0 && c.simulated >= c.maxSimulated {
-		c.status.StopReason = fmt.Sprintf("LimitReached: Maximal number %v of pods simulated", c.maxSimulated)
+		c.status.StopReason = fmt.Sprintf("LimitReached: Maximum number of pods simulated: %v", c.maxSimulated)
 		c.Close()
 		c.stop <- struct{}{}
 		return nil
@@ -488,20 +489,15 @@ func New(s *soptions.SchedulerServer, simulatedPod *api.Pod, maxPods int, resour
 	// initialize admission controllers if specified
 	if len(apiserverConfig.AdmissionControl) > 0 {
 		admissionsNames := strings.Split(apiserverConfig.AdmissionControl, ",")
+		admissionNamesSets := sets.NewString(admissionsNames...)
 
 		// filter out limitations that forbid the analysis to expand to entire resource space
-		var admissionControlPluginNames []string
 		if cc.resourceSpaceMode == ResourceSpaceFull {
 			// filter out ResourceQuota admission
-			for _, item := range admissionsNames {
-				if item == "ResourceQuota" {
-					continue
-				}
-				admissionControlPluginNames = append(admissionControlPluginNames, item)
-			}
-		} else {
-			admissionControlPluginNames = admissionsNames
+			admissionNamesSets.Delete("ResourceQuota")
 		}
+		admissionControlPluginNames := admissionNamesSets.List()
+
 		sharedInformers := informers.NewSharedInformerFactory(cc.kubeclient, 10*time.Minute)
 		authorizationConfig := authorizer.AuthorizationConfig{
 			PolicyFile:                  apiserverConfig.AuthorizationPolicyFile,

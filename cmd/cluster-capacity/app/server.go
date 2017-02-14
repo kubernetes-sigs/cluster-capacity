@@ -2,30 +2,31 @@ package app
 
 import (
 	"fmt"
-	"os"
-
 	"log"
+	"os"
 	"time"
+
+	"github.com/renstrom/dedent"
+	"github.com/spf13/cobra"
+
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
+	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
+	"k8s.io/kubernetes/pkg/util/wait"
+	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
 
 	"github.com/kubernetes-incubator/cluster-capacity/cmd/cluster-capacity/app/options"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/apiserver"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/apiserver/cache"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
-	"github.com/renstrom/dedent"
-	"github.com/spf13/cobra"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
-	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
-	"k8s.io/kubernetes/pkg/util/wait"
-	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/utils"
 )
 
 var (
 	clusterCapacityLong = dedent.Dedent(`
-		Cluster-capacity simulates API server with initial state copied from kubernetes enviroment
-		with its configuration specified in KUBECONFIG. Simulated API server tries to schedule number of
-		pods specified by --maxLimits flag. If the --maxLimits flag is not specified, pods are scheduled till
+		Cluster-capacity simulates an API server with initial state copied from the Kubernetes enviroment
+		with its configuration specified in KUBECONFIG. The simulated API server tries to schedule the number of
+		pods specified by --maxLimits flag. If the --maxLimits flag is not specified, pods are scheduled until
 		the simulated API server runs out of resources.
 	`)
 
@@ -36,7 +37,7 @@ func NewClusterCapacityCommand() *cobra.Command {
 	opt := options.NewClusterCapacityOptions()
 	cmd := &cobra.Command{
 		Use:   "cluster-capacity --kubeconfig KUBECONFIG --podspec PODSPEC",
-		Short: "Cluster-capacity is used for emulating scheduling of one or multiple pods",
+		Short: "Cluster-capacity is used for simulating scheduling of one or multiple pods",
 		Long:  clusterCapacityLong,
 		Run: func(cmd *cobra.Command, args []string) {
 			err := Validate(opt)

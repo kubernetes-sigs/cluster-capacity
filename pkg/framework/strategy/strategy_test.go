@@ -6,13 +6,14 @@ import (
 	goruntime "runtime"
 	"testing"
 
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/meta"
 	"k8s.io/kubernetes/pkg/api/resource"
 	apitesting "k8s.io/kubernetes/pkg/api/testing"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/version"
+
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
 )
 
 func getTestNode(nodeName string) *api.Node {

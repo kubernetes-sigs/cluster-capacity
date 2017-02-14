@@ -6,9 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/test"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/meta"
 	"k8s.io/kubernetes/pkg/api/testapi"
@@ -16,6 +13,10 @@ import (
 	"k8s.io/kubernetes/pkg/client/cache"
 	"k8s.io/kubernetes/pkg/fields"
 	"k8s.io/kubernetes/pkg/runtime"
+
+	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/test"
 )
 
 func testPodsData() []*api.Pod {
