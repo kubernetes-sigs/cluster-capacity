@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Kubernetes Authors.
+Copyright 2014 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -15,18 +15,3 @@ limitations under the License.
 */
 
 package main
-
-import (
-	"fmt"
-	"os"
-
-	"github.com/kubernetes-incubator/cluster-capacity/cmd/genpod/app"
-)
-
-func main() {
-	cmd := app.NewGenPodCommand()
-	if err := cmd.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(-1)
-	}
-}
