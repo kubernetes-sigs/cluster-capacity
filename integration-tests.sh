@@ -19,11 +19,9 @@
 # - KUBE_MASTER_API: master api url
 # - KUBE_MASTER_API_PORT: master api port
 
-KUBE_MASTER_API=${KUBE_MASTER_API:-http://localhost}
-KUBE_MASTER_API_PORT=${KUBE_MASTER_API_PORT:-443}
 KUBE_CONFIG=${KUBE_CONFIG:-~/.kube/config}
 
-alias kubectl="kubectl --kubeconfig=${KUBE_CONFIG} --server=${KUBE_MASTER_API}:${KUBE_MASTER_API_PORT}"
+alias kubectl="kubectl --kubeconfig=${KUBE_CONFIG}"
 alias cc="./cluster-capacity --kubeconfig ${KUBE_CONFIG}"
 #### pre-tests checks
 
