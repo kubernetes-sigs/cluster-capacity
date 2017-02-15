@@ -25,7 +25,7 @@ set -o pipefail
 
 REPO_ROOT=$(dirname "${BASH_SOURCE}")/../..
 
-boilerDir="${REPO_ROOT}/repo-infra/verify/boilerplate"
+boilerDir="${REPO_ROOT}/cluster-capacity/verify/boilerplate"
 boiler="${boilerDir}/boilerplate.py"
 
 files_need_boilerplate=($(${boiler} "$@"))
