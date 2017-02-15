@@ -10,6 +10,7 @@ KUBE_MASTER_API_PORT=${KUBE_MASTER_API_PORT:-443}
 KUBE_CONFIG=${KUBE_CONFIG:-~/.kube/config}
 
 alias kubectl="kubectl --kubeconfig=${KUBE_CONFIG} --server=${KUBE_MASTER_API}:${KUBE_MASTER_API_PORT}"
+alias cc="./cluster-capacity --kubeconfig ${KUBE_CONFIG}"
 #### pre-tests checks
 
 RED='\033[0;31m'
@@ -49,7 +50,7 @@ echo ""
 echo "####RUNNING TESTS"
 echo ""
 echo "# Running simple estimation of examples/pod.yaml"
-./cluster-capacity --kubeconfig ${KUBE_CONFIG} --master ${KUBE_MASTER_API}:${KUBE_MASTER_API_PORT} --podspec=examples/pod.yaml | tee estimation.log
+cc --podspec=examples/pod.yaml | tee estimation.log
 if [ -z "$(cat estimation.log | grep 'Termination reason')" ]; then
   printError "Missing termination reason"
   exit 1
@@ -57,7 +58,7 @@ fi
 
 echo ""
 echo "# Running simple estimation of examples/pod.yaml in verbose mode"
-./cluster-capacity --kubeconfig ${KUBE_CONFIG} --master ${KUBE_MASTER_API}:${KUBE_MASTER_API_PORT} --podspec=examples/pod.yaml --verbose | tee estimation.log
+cc --podspec=examples/pod.yaml --verbose | tee estimation.log
 if [ -z "$(cat estimation.log | grep 'Termination reason')" ]; then
   printError "Missing termination reason"
   exit 1
@@ -78,7 +79,7 @@ done
 
 echo ""
 echo "# Running simple estimation of examples/pod.yaml in verbose mode with less resources"
-./cluster-capacity --kubeconfig ${KUBE_CONFIG} --master ${KUBE_MASTER_API}:${KUBE_MASTER_API_PORT} --podspec=examples/pod.yaml --verbose | tee estimation.log
+cc --podspec=examples/pod.yaml --verbose | tee estimation.log
 if [ -z "$(cat estimation.log | grep 'Termination reason')" ]; then
   printError "Missing termination reason"
   exit 1

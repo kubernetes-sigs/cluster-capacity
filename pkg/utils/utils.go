@@ -42,7 +42,13 @@ func GetMasterFromKubeConfig(filename string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if val, ok := config.Clusters[config.CurrentContext]; ok {
+
+	context, ok := config.Contexts[config.CurrentContext]
+	if !ok {
+		return "", fmt.Errorf("Failed to get master address from kubeconfig")
+	}
+
+	if val, ok := config.Clusters[context.Cluster]; ok {
 		return val.Server, nil
 	}
 	return "", fmt.Errorf("Failed to get master address from kubeconfig")
