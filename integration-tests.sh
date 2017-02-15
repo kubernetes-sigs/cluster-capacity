@@ -16,8 +16,6 @@
 
 # Assumptions:
 # - cluster provisioned
-# - KUBE_MASTER_API: master api url
-# - KUBE_MASTER_API_PORT: master api port
 
 KUBE_CONFIG=${KUBE_CONFIG:-~/.kube/config}
 
@@ -59,6 +57,11 @@ echo ""
 echo ""
 
 #### TESTS
+echo ""
+echo ""
+echo ""
+echo ""
+echo ""
 echo "####RUNNING TESTS"
 echo ""
 echo "# Running simple estimation of examples/pod.yaml"
@@ -77,7 +80,7 @@ if [ -z "$(cat estimation.log | grep 'Termination reason')" ]; then
 fi
 
 echo ""
-echo "Decrease resource in the cluster by running new pods"
+echo "# Decrease resource in the cluster by running new pods"
 kubectl create -f examples/rc.yml
 if [ "$?" -ne 0 ]; then
   printError "Unable to create additional resources"
@@ -98,11 +101,19 @@ if [ -z "$(cat estimation.log | grep 'Termination reason')" ]; then
 fi
 
 echo ""
-echo "Delete resource in the cluster by deleting rc"
+echo "# Delete resource in the cluster by deleting rc"
 kubectl delete -f examples/rc.yml
 
 echo ""
 echo ""
 printSuccess "#### All tests passed"
 
-exit 0
+#### BOILERPLATE
+echo ""
+echo ""
+echo ""
+echo ""
+echo ""
+echo "####RUNNING BOILERPLATE"
+./verify/verify-boilerplate.sh
+
