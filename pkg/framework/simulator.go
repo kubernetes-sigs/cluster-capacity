@@ -130,7 +130,7 @@ type ClusterCapacity struct {
 	maxSimulated     int
 	simulated        int
 	status           Status
-	report           *Report
+	report           *ClusterCapacityReview
 
 	// analysis limitation
 	resourceSpaceMode   ResourceSpaceMode
@@ -151,10 +151,15 @@ type Status struct {
 	StopReason string
 }
 
-func (c *ClusterCapacity) Report() *Report {
+func (c *ClusterCapacity) Report() *ClusterCapacityReview {
 	if c.report == nil {
-		c.report = CreateFullReport(c.simulatedPod, c.status)
+		// Preparation before pod sequence scheduling is done
+		pods := make([]*api.Pod,0)
+		pods = append(pods, c.simulatedPod)
+		c.report = GetReport(pods, c.status)
+		c.report.Spec.Replicas = int32(c.maxSimulated)
 	}
+
 	return c.report
 }
 
