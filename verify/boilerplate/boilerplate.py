@@ -37,7 +37,7 @@ rootdir = os.path.abspath(rootdir)
 parser.add_argument(
     "--rootdir", default=rootdir, help="root directory to examine")
 
-default_boilerplate_dir = os.path.join(rootdir, "repo-infra/verify/boilerplate")
+default_boilerplate_dir = os.path.join(rootdir, "cluster-capacity/verify/boilerplate")
 parser.add_argument(
     "--boilerplate-dir", default=default_boilerplate_dir)
 
@@ -132,7 +132,7 @@ def file_extension(filename):
 
 skipped_dirs = ['Godeps', 'third_party', '_gopath', '_output', '.git', 
                 'cluster/env.sh', 'vendor', 'test/e2e/generated/bindata.go',
-                'repo-infra/verify/boilerplate/test', '.glide']
+                'cluster-capacity/verify/boilerplate/test', '.glide']
 
 def normalize_files(files):
     newfiles = []
