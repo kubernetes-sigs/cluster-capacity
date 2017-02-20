@@ -26,7 +26,7 @@ import (
 	"k8s.io/kubernetes/pkg/api/testapi"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
-	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/kubernetes/pkg/runtime"
 	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
 
