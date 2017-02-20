@@ -27,6 +27,7 @@ import (
 
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/kubernetes/pkg/util/sets"
 	"k8s.io/kubernetes/pkg/util/wait"
 	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
 
