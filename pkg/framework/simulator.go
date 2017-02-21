@@ -26,16 +26,15 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/kubernetes/pkg/admission"
+	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/meta"
 	"k8s.io/kubernetes/pkg/api/unversioned"
-	"k8s.io/kubernetes/pkg/client/cache"
+	"k8s.io/client-go/tools/cache"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 	clientsetextensions "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/typed/extensions/internalversion"
 	"k8s.io/kubernetes/pkg/controller/informers"
 	"k8s.io/kubernetes/pkg/fields"
-	"k8s.io/kubernetes/pkg/genericapiserver/authorizer"
 	"k8s.io/kubernetes/pkg/runtime"
 	"k8s.io/kubernetes/pkg/util/sets"
 	"k8s.io/kubernetes/pkg/watch"
@@ -44,6 +43,7 @@ import (
 	schedulerapi "k8s.io/kubernetes/plugin/pkg/scheduler/api"
 	latestschedulerapi "k8s.io/kubernetes/plugin/pkg/scheduler/api/latest"
 	"k8s.io/kubernetes/plugin/pkg/scheduler/factory"
+	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
 
 	// register algorithm providers
 	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
@@ -520,21 +520,22 @@ func New(s *soptions.SchedulerServer, simulatedPod *api.Pod, maxPods int, resour
 		admissionControlPluginNames := admissionNamesSets.List()
 
 		sharedInformers := informers.NewSharedInformerFactory(cc.kubeclient, 10*time.Minute)
-		authorizationConfig := authorizer.AuthorizationConfig{
-			InformerFactory:             sharedInformers,
-		}
 
-		authorizationConfig.WebhookCacheUnauthorizedTTL, _ = time.ParseDuration("30s")
-		authorizationConfig.WebhookCacheAuthorizedTTL, _ = time.ParseDuration("5m0s")
-		authorizationModeNames := []string{"AlwaysAllow"}
+		authopt := kubeoptions.NewBuiltInAuthorizationOptions()
+		authorizationConfig := authopt.ToAuthorizationConfig(sharedInformers)
+		//authorizationConfig := authorizer.AuthorizationConfig{
+		//	InformerFactory:             sharedInformers,
+		//}
 
-		apiAuthorizer, err := authorizer.NewAuthorizerFromAuthorizationConfig(authorizationModeNames, authorizationConfig)
+		apiAuthorizer, err := authorizationConfig.New()
 		if err != nil {
 			log.Fatalf("Invalid Authorization Config: %v", err)
 		}
 
 		pluginInitializer := admission.NewPluginInitializer(sharedInformers, apiAuthorizer)
-		admissionController, err := admission.NewFromPlugins(cc.kubeclient, admissionControlPluginNames, "", pluginInitializer, cc.admissionStopCh)
+		admissionConfigProvider, err := admission.ReadAdmissionConfiguration(admissionControlPluginNames, "")
+
+		admissionController, err := admission.NewFromPlugins(cc.kubeclient, admissionConfigProvider, pluginInitializer, cc.admissionStopCh)
 		if err != nil {
 			log.Fatalf("Failed to initialize plugins: %v", err)
 		}
