@@ -345,7 +345,7 @@ func (c *ClusterCapacity) nextPod() error {
 		err := c.admissionController.Admit(attr)
 		if err != nil {
 			c.status.StopReason = fmt.Sprintf("AdmissionControllerError: %v", err)
-			return fmt.Errorf("Admission controller error: %v", err)
+			return fmt.Errorf("AdmissionControllerError: %v", err)
 		}
 	}
 

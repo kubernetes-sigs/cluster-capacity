@@ -19,8 +19,8 @@
 
 KUBE_CONFIG=${KUBE_CONFIG:-~/.kube/config}
 
-alias kubectl="kubectl --kubeconfig=${KUBE_CONFIG}"
-alias cc="./cluster-capacity --kubeconfig ${KUBE_CONFIG}"
+KUBECTL="kubectl --kubeconfig=${KUBE_CONFIG}"
+CC="./cluster-capacity --kubeconfig ${KUBE_CONFIG}"
 #### pre-tests checks
 
 RED='\033[0;31m'
@@ -37,16 +37,16 @@ function printSuccess {
 
 echo "####PRE-TEST CHECKS"
 # check the cluster is available
-kubectl version
+$KUBECTL version
 if [ "$?" -ne 0 ]; then
   printError "Unable to connect to kubernetes cluster"
   exit 1
 fi
 
 # check the cluster-capacity namespace exists
-kubectl get ns cluster-capacity
+$KUBECTL get ns cluster-capacity
 if [ "$?" -ne 0 ]; then
-  kubectl create -f examples/namespace.yml
+  $KUBECTL create -f examples/namespace.yml
   if [ "$?" -ne 0 ]; then
     printError "Unable to create cluster-capacity namespace"
     exit 1
@@ -65,7 +65,7 @@ echo ""
 echo "####RUNNING TESTS"
 echo ""
 echo "# Running simple estimation of examples/pod.yaml"
-cc --podspec=examples/pod.yaml | tee estimation.log
+$CC --podspec=examples/pod.yaml | tee estimation.log
 if [ -z "$(cat estimation.log | grep 'Termination reason')" ]; then
   printError "Missing termination reason"
   exit 1
@@ -73,7 +73,7 @@ fi
 
 echo ""
 echo "# Running simple estimation of examples/pod.yaml in verbose mode"
-cc --podspec=examples/pod.yaml --verbose | tee estimation.log
+$CC --podspec=examples/pod.yaml --verbose | tee estimation.log
 if [ -z "$(cat estimation.log | grep 'Termination reason')" ]; then
   printError "Missing termination reason"
   exit 1
@@ -81,20 +81,20 @@ fi
 
 echo ""
 echo "# Decrease resource in the cluster by running new pods"
-kubectl create -f examples/rc.yml
+$KUBECTL create -f examples/rc.yml
 if [ "$?" -ne 0 ]; then
   printError "Unable to create additional resources"
   exit 1
 fi
 
-while [ $(kubectl get pods | grep nginx | grep "Running" | wc -l) -ne 3 ]; do
+while [ $($KUBECTL get pods | grep nginx | grep "Running" | wc -l) -ne 3 ]; do
   echo "waiting for pods to come up"
   sleep 1s
 done
 
 echo ""
 echo "# Running simple estimation of examples/pod.yaml in verbose mode with less resources"
-cc --podspec=examples/pod.yaml --verbose | tee estimation.log
+$CC --podspec=examples/pod.yaml --verbose | tee estimation.log
 if [ -z "$(cat estimation.log | grep 'Termination reason')" ]; then
   printError "Missing termination reason"
   exit 1
@@ -102,10 +102,65 @@ fi
 
 echo ""
 echo "# Delete resource in the cluster by deleting rc"
-kubectl delete -f examples/rc.yml
+$KUBECTL delete -f examples/rc.yml
+
 
 echo ""
 echo ""
+echo "# Running with ResourceQuota admission plugin"
+echo "## Creating resource quota"
+$KUBECTL create resourcequota pod-quota --namespace=cluster-capacity --hard=pods=1
+
+$CC --podspec=examples/pod.yaml --resource-space-mode=ResourceSpacePartial --admission-control="ResourceQuota" | tee estimation.log
+if [ -z "$(cat estimation.log | grep 'AdmissionControllerError')" ]; then
+  printError "Missing Admission controller error"
+  $KUBECTL delete resourcequota pod-quota --namespace=cluster-capacity
+  exit 1
+fi
+
+echo "## Deleting resource quota"
+$KUBECTL delete resourcequota pod-quota --namespace=cluster-capacity
+
+
+echo ""
+echo ""
+echo "# Running with LimitRange admission plugin"
+echo "## Creating limit range"
+lrspec=$(mktemp)
+cat << EOF > $lrspec
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: simple-limit
+  namespace: cluster-capacity
+spec:
+  limits:
+  - max:
+      cpu: "1m"
+    type: Pod
+EOF
+$KUBECTL create -f $lrspec
+rm $lrspec
+
+$CC --podspec=examples/pod.yaml --admission-control="LimitRanger" | tee estimation.log
+if [ -z "$(cat estimation.log | grep 'AdmissionControllerError')" ]; then
+  printError "Missing Admission controller error"
+  $KUBECTL delete limitrange simple-limit --namespace=cluster-capacity
+  exit 1
+fi
+
+echo "## Deleting limit range"
+$KUBECTL delete limitrange simple-limit --namespace=cluster-capacity
+
+echo ""
+echo ""
+echo "# Running with not supported admission plugin"
+$CC --podspec=examples/pod.yaml --admission-control="foo" | tee estimation.log
+if [ -z "$(cat estimation.log | grep 'not supported admission control plugin.')" ]; then
+  printError "Should fail with unsupported admission plugin"
+  exit 1
+fi
+
 printSuccess "#### All tests passed"
 
 #### BOILERPLATE
