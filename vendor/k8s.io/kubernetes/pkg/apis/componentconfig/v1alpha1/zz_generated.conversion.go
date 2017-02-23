@@ -21,11 +21,11 @@ limitations under the License.
 package v1alpha1
 
 import (
+	conversion "k8s.io/apimachinery/pkg/conversion"
+	runtime "k8s.io/apimachinery/pkg/runtime"
 	api "k8s.io/kubernetes/pkg/api"
+	v1 "k8s.io/kubernetes/pkg/api/v1"
 	componentconfig "k8s.io/kubernetes/pkg/apis/componentconfig"
-	conversion "k8s.io/kubernetes/pkg/conversion"
-	runtime "k8s.io/kubernetes/pkg/runtime"
-	config "k8s.io/kubernetes/pkg/util/config"
 	unsafe "unsafe"
 )
 
@@ -126,6 +126,7 @@ func autoConvert_v1alpha1_KubeSchedulerConfiguration_To_componentconfig_KubeSche
 	if err := api.Convert_Pointer_bool_To_bool(&in.EnableProfiling, &out.EnableProfiling, s); err != nil {
 		return err
 	}
+	out.EnableContentionProfiling = in.EnableContentionProfiling
 	out.ContentType = in.ContentType
 	out.KubeAPIQPS = in.KubeAPIQPS
 	out.KubeAPIBurst = int32(in.KubeAPIBurst)
@@ -150,6 +151,7 @@ func autoConvert_componentconfig_KubeSchedulerConfiguration_To_v1alpha1_KubeSche
 	if err := api.Convert_bool_To_Pointer_bool(&in.EnableProfiling, &out.EnableProfiling, s); err != nil {
 		return err
 	}
+	out.EnableContentionProfiling = in.EnableContentionProfiling
 	out.ContentType = in.ContentType
 	out.KubeAPIQPS = in.KubeAPIQPS
 	out.KubeAPIBurst = int(in.KubeAPIBurst)
@@ -330,7 +332,7 @@ func autoConvert_v1alpha1_KubeletConfiguration_To_componentconfig_KubeletConfigu
 	out.RuntimeCgroups = in.RuntimeCgroups
 	out.SystemCgroups = in.SystemCgroups
 	out.CgroupRoot = in.CgroupRoot
-	if err := api.Convert_Pointer_bool_To_bool(&in.ExperimentalCgroupsPerQOS, &out.ExperimentalCgroupsPerQOS, s); err != nil {
+	if err := api.Convert_Pointer_bool_To_bool(&in.CgroupsPerQOS, &out.CgroupsPerQOS, s); err != nil {
 		return err
 	}
 	out.CgroupDriver = in.CgroupDriver
@@ -338,6 +340,7 @@ func autoConvert_v1alpha1_KubeletConfiguration_To_componentconfig_KubeletConfigu
 	out.RemoteRuntimeEndpoint = in.RemoteRuntimeEndpoint
 	out.RemoteImageEndpoint = in.RemoteImageEndpoint
 	out.RuntimeRequestTimeout = in.RuntimeRequestTimeout
+	out.ImagePullProgressDeadline = in.ImagePullProgressDeadline
 	out.RktPath = in.RktPath
 	out.ExperimentalMounterPath = in.ExperimentalMounterPath
 	out.RktAPIEndpoint = in.RktAPIEndpoint
@@ -360,12 +363,10 @@ func autoConvert_v1alpha1_KubeletConfiguration_To_componentconfig_KubeletConfigu
 		return err
 	}
 	out.MaxOpenFiles = in.MaxOpenFiles
-	if err := api.Convert_Pointer_bool_To_bool(&in.ReconcileCIDR, &out.ReconcileCIDR, s); err != nil {
-		return err
-	}
 	if err := api.Convert_Pointer_bool_To_bool(&in.RegisterSchedulable, &out.RegisterSchedulable, s); err != nil {
 		return err
 	}
+	out.RegisterWithTaints = *(*[]api.Taint)(unsafe.Pointer(&in.RegisterWithTaints))
 	out.ContentType = in.ContentType
 	if err := api.Convert_Pointer_int32_To_int32(&in.KubeAPIQPS, &out.KubeAPIQPS, s); err != nil {
 		return err
@@ -394,8 +395,8 @@ func autoConvert_v1alpha1_KubeletConfiguration_To_componentconfig_KubeletConfigu
 	if err := api.Convert_Pointer_bool_To_bool(&in.EnableControllerAttachDetach, &out.EnableControllerAttachDetach, s); err != nil {
 		return err
 	}
-	out.SystemReserved = *(*config.ConfigurationMap)(unsafe.Pointer(&in.SystemReserved))
-	out.KubeReserved = *(*config.ConfigurationMap)(unsafe.Pointer(&in.KubeReserved))
+	out.SystemReserved = *(*componentconfig.ConfigurationMap)(unsafe.Pointer(&in.SystemReserved))
+	out.KubeReserved = *(*componentconfig.ConfigurationMap)(unsafe.Pointer(&in.KubeReserved))
 	out.ProtectKernelDefaults = in.ProtectKernelDefaults
 	if err := api.Convert_Pointer_bool_To_bool(&in.MakeIPTablesUtilChains, &out.MakeIPTablesUtilChains, s); err != nil {
 		return err
@@ -411,6 +412,7 @@ func autoConvert_v1alpha1_KubeletConfiguration_To_componentconfig_KubeletConfigu
 	out.EnableCRI = in.EnableCRI
 	out.ExperimentalFailSwapOn = in.ExperimentalFailSwapOn
 	out.ExperimentalCheckNodeCapabilitiesBeforeMount = in.ExperimentalCheckNodeCapabilitiesBeforeMount
+	out.KeepTerminatedPodVolumes = in.KeepTerminatedPodVolumes
 	return nil
 }
 
@@ -499,7 +501,7 @@ func autoConvert_componentconfig_KubeletConfiguration_To_v1alpha1_KubeletConfigu
 	out.CloudProvider = in.CloudProvider
 	out.CloudConfigFile = in.CloudConfigFile
 	out.KubeletCgroups = in.KubeletCgroups
-	if err := api.Convert_bool_To_Pointer_bool(&in.ExperimentalCgroupsPerQOS, &out.ExperimentalCgroupsPerQOS, s); err != nil {
+	if err := api.Convert_bool_To_Pointer_bool(&in.CgroupsPerQOS, &out.CgroupsPerQOS, s); err != nil {
 		return err
 	}
 	out.CgroupDriver = in.CgroupDriver
@@ -510,6 +512,7 @@ func autoConvert_componentconfig_KubeletConfiguration_To_v1alpha1_KubeletConfigu
 	out.RemoteRuntimeEndpoint = in.RemoteRuntimeEndpoint
 	out.RemoteImageEndpoint = in.RemoteImageEndpoint
 	out.RuntimeRequestTimeout = in.RuntimeRequestTimeout
+	out.ImagePullProgressDeadline = in.ImagePullProgressDeadline
 	out.RktPath = in.RktPath
 	out.ExperimentalMounterPath = in.ExperimentalMounterPath
 	out.RktAPIEndpoint = in.RktAPIEndpoint
@@ -532,12 +535,10 @@ func autoConvert_componentconfig_KubeletConfiguration_To_v1alpha1_KubeletConfigu
 		return err
 	}
 	out.MaxOpenFiles = in.MaxOpenFiles
-	if err := api.Convert_bool_To_Pointer_bool(&in.ReconcileCIDR, &out.ReconcileCIDR, s); err != nil {
-		return err
-	}
 	if err := api.Convert_bool_To_Pointer_bool(&in.RegisterSchedulable, &out.RegisterSchedulable, s); err != nil {
 		return err
 	}
+	out.RegisterWithTaints = *(*[]v1.Taint)(unsafe.Pointer(&in.RegisterWithTaints))
 	out.ContentType = in.ContentType
 	if err := api.Convert_int32_To_Pointer_int32(&in.KubeAPIQPS, &out.KubeAPIQPS, s); err != nil {
 		return err
@@ -583,6 +584,7 @@ func autoConvert_componentconfig_KubeletConfiguration_To_v1alpha1_KubeletConfigu
 	out.EnableCRI = in.EnableCRI
 	out.ExperimentalFailSwapOn = in.ExperimentalFailSwapOn
 	out.ExperimentalCheckNodeCapabilitiesBeforeMount = in.ExperimentalCheckNodeCapabilitiesBeforeMount
+	out.KeepTerminatedPodVolumes = in.KeepTerminatedPodVolumes
 	return nil
 }
 

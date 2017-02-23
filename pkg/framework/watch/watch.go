@@ -26,9 +26,9 @@ import (
 
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/testapi"
-	"k8s.io/kubernetes/pkg/api/unversioned"
-	"k8s.io/kubernetes/pkg/runtime"
-	"k8s.io/kubernetes/pkg/watch"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/watch"
 
 	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
 )
@@ -97,7 +97,7 @@ func (c *WatchBuffer) EmitWatchEvent(eType watch.EventType, object runtime.Objec
 
 	var encoder runtime.Encoder
 	if c.Resource == ccapi.ReplicaSets {
-		gvr := unversioned.GroupVersionResource{Group: "extensions", Version: "v1beta1", Resource: "replicasets"}
+		gvr := schema.GroupVersionResource{Group: "extensions", Version: "v1beta1", Resource: "replicasets"}
 		info, ok := runtime.SerializerInfoForMediaType(testapi.Default.NegotiatedSerializer().SupportedMediaTypes(), runtime.ContentTypeJSON)
 		if !ok {
 			return fmt.Errorf("serializer for %s not registered", runtime.ContentTypeJSON)

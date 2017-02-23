@@ -17,155 +17,134 @@ limitations under the License.
 package util
 
 import (
-	"bytes"
-	"strings"
 	"testing"
 
 	kubeadmapi "k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm"
 )
 
-func TestUsingEmptyTokenFails(t *testing.T) {
-	// Simulates what happens when you omit --token on the CLI
-	s := newSecretsWithToken("")
+func TestTokenParse(t *testing.T) {
+	var tests = []struct {
+		token    string
+		expected bool
+	}{
+		{token: "1234567890123456789012", expected: false},   // invalid parcel size
+		{token: "12345:1234567890123456", expected: false},   // invalid parcel size
+		{token: ".1234567890123456", expected: false},        // invalid parcel size
+		{token: "123456:1234567890.123456", expected: false}, // invalid separation
+		{token: "abcdef.1234567890123456", expected: false},  // invalid separation
+		{token: "Abcdef:1234567890123456", expected: false},  // invalid token id
+		{token: "123456:AABBCCDDEEFFGGHH", expected: false},  // invalid token secret
+		{token: "abcdef:1234567890123456", expected: true},
+		{token: "123456:aabbccddeeffgghh", expected: true},
+	}
 
-	given, err := UseGivenTokenIfValid(s)
-	if err != nil {
-		t.Errorf("UseGivenTokenIfValid returned an error when the token was omitted: %v", err)
+	for _, rt := range tests {
+		_, _, actual := ParseToken(rt.token)
+		if (actual == nil) != rt.expected {
+			t.Errorf(
+				"failed ParseToken for this token: [%s]\n\texpected: %t\n\t  actual: %t",
+				rt.token,
+				rt.expected,
+				(actual == nil),
+			)
+		}
 	}
-	if given {
-		t.Error("UseGivenTokenIfValid returned given = true when the token was omitted; expected false")
-	}
+
 }
 
-func TestTokenValidationFailures(t *testing.T) {
-	invalidTokens := []string{
-		"1234567890123456789012",
-		"12345.1234567890123456",
-		".1234567890123456",
-		"123456.1234567890.123456",
+func TestParseTokenID(t *testing.T) {
+	var tests = []struct {
+		tokenID  string
+		expected bool
+	}{
+		{tokenID: "", expected: false},
+		{tokenID: "1234567890123456789012", expected: false},
+		{tokenID: "12345", expected: false},
+		{tokenID: "Abcdef", expected: false},
+		{tokenID: "abcdef", expected: true},
+		{tokenID: "123456", expected: true},
 	}
-
-	for _, token := range invalidTokens {
-		s := newSecretsWithToken(token)
-		_, err := UseGivenTokenIfValid(s)
-
-		if err == nil {
-			t.Errorf("UseGivenTokenIfValid did not return an error for this invalid token: [%s]", token)
+	for _, rt := range tests {
+		actual := ParseTokenID(rt.tokenID)
+		if (actual == nil) != rt.expected {
+			t.Errorf(
+				"failed ParseTokenID for this token ID: [%s]\n\texpected: %t\n\t  actual: %t",
+				rt.tokenID,
+				rt.expected,
+				(actual == nil),
+			)
 		}
 	}
 }
 
-func TestValidTokenPopulatesSecrets(t *testing.T) {
-	s := newSecretsWithToken("123456.0123456789AbCdEf")
-	expectedToken := []byte("0123456789abcdef")
-	expectedTokenID := "123456"
-	expectedBearerToken := "0123456789abcdef"
-
-	given, err := UseGivenTokenIfValid(s)
-	if err != nil {
-		t.Errorf("UseGivenTokenIfValid gave an error for a valid token: %v", err)
+func TestValidateToken(t *testing.T) {
+	var tests = []struct {
+		token    *kubeadmapi.TokenDiscovery
+		expected bool
+	}{
+		{token: &kubeadmapi.TokenDiscovery{ID: "", Secret: ""}, expected: false},
+		{token: &kubeadmapi.TokenDiscovery{ID: "1234567890123456789012", Secret: ""}, expected: false},
+		{token: &kubeadmapi.TokenDiscovery{ID: "", Secret: "1234567890123456789012"}, expected: false},
+		{token: &kubeadmapi.TokenDiscovery{ID: "12345", Secret: "1234567890123456"}, expected: false},
+		{token: &kubeadmapi.TokenDiscovery{ID: "Abcdef", Secret: "1234567890123456"}, expected: false},
+		{token: &kubeadmapi.TokenDiscovery{ID: "123456", Secret: "AABBCCDDEEFFGGHH"}, expected: false},
+		{token: &kubeadmapi.TokenDiscovery{ID: "abc*ef", Secret: "1234567890123456"}, expected: false},
+		{token: &kubeadmapi.TokenDiscovery{ID: "abcdef", Secret: "123456789*123456"}, expected: false},
+		{token: &kubeadmapi.TokenDiscovery{ID: "abcdef", Secret: "1234567890123456"}, expected: true},
+		{token: &kubeadmapi.TokenDiscovery{ID: "123456", Secret: "aabbccddeeffgghh"}, expected: true},
+		{token: &kubeadmapi.TokenDiscovery{ID: "abc456", Secret: "1234567890123456"}, expected: true},
+		{token: &kubeadmapi.TokenDiscovery{ID: "abcdef", Secret: "123456ddeeffgghh"}, expected: true},
 	}
-	if !given {
-		t.Error("UseGivenTokenIfValid returned given = false when given a valid token")
+	for _, rt := range tests {
+		valid, actual := ValidateToken(rt.token)
+		if (actual == nil) != rt.expected {
+			t.Errorf(
+				"failed ValidateToken for this token ID: [%s]\n\texpected: %t\n\t  actual: %t",
+				rt.token,
+				rt.expected,
+				(actual == nil),
+			)
+		}
+		if (valid == true) != rt.expected {
+			t.Errorf(
+				"failed ValidateToken for this token ID: [%s]\n\texpected: %t\n\t  actual: %t",
+				rt.token,
+				rt.expected,
+				(actual == nil),
+			)
+		}
 	}
-	if s.TokenID != expectedTokenID {
-		t.Errorf("UseGivenTokenIfValid did not populate the TokenID correctly; expected [%s] but got [%s]", expectedTokenID, s.TokenID)
-	}
-	if s.BearerToken != expectedBearerToken {
-		t.Errorf("UseGivenTokenIfValid did not populate the BearerToken correctly; expected [%s] but got [%s]", expectedBearerToken, s.BearerToken)
-	}
-	if !bytes.Equal(s.Token, expectedToken) {
-		t.Errorf("UseGivenTokenIfValid did not populate the Token correctly; expected %v but got %v", expectedToken, s.Token)
-	}
-}
-
-func newSecretsWithToken(token string) *kubeadmapi.Secrets {
-	s := new(kubeadmapi.Secrets)
-	s.GivenToken = token
-	return s
 }
 
 func TestGenerateToken(t *testing.T) {
-	var genTest = []struct {
-		s kubeadmapi.Secrets
-		l int
-		n int
-	}{
-		{kubeadmapi.Secrets{}, 2, 6},
+	td := &kubeadmapi.TokenDiscovery{}
+	if err := GenerateToken(td); err != nil {
+		t.Fatalf("GenerateToken returned an unexpected error: %+v", err)
 	}
-
-	for _, rt := range genTest {
-		GenerateToken(&rt.s)
-		givenToken := strings.Split(strings.ToLower(rt.s.GivenToken), ".")
-		if len(givenToken) != rt.l {
-			t.Errorf(
-				"failed GenerateToken num parts:\n\texpected: %d\n\t  actual: %d",
-				rt.l,
-				len(givenToken),
-			)
-		}
-		if len(givenToken[0]) != rt.n {
-			t.Errorf(
-				"failed GenerateToken first part length:\n\texpected: %d\n\t  actual: %d",
-				rt.l,
-				len(givenToken),
-			)
-		}
+	if len(td.ID) != 6 {
+		t.Errorf("failed GenerateToken first part length:\n\texpected: 6\n\t  actual: %d", len(td.ID))
 	}
-}
-
-func TestUseGivenTokenIfValid(t *testing.T) {
-	var tokenTest = []struct {
-		s        kubeadmapi.Secrets
-		expected bool
-	}{
-		{kubeadmapi.Secrets{GivenToken: ""}, false},         // GivenToken == ""
-		{kubeadmapi.Secrets{GivenToken: "noperiod"}, false}, // not 2-part '.' format
-		{kubeadmapi.Secrets{GivenToken: "abcd.a"}, false},   // len(tokenID) != 6
-		{kubeadmapi.Secrets{GivenToken: "abcdef.a"}, true},
-	}
-
-	for _, rt := range tokenTest {
-		actual, _ := UseGivenTokenIfValid(&rt.s)
-		if actual != rt.expected {
-			t.Errorf(
-				"failed UseGivenTokenIfValid:\n\texpected: %t\n\t  actual: %t\n\t token:%s",
-				rt.expected,
-				actual,
-				rt.s.GivenToken,
-			)
-		}
+	if len(td.Secret) != 16 {
+		t.Errorf("failed GenerateToken second part length:\n\texpected: 16\n\t  actual: %d", len(td.Secret))
 	}
 }
 
 func TestRandBytes(t *testing.T) {
-	var randTest = []struct {
-		r        int
-		l        int
-		expected error
-	}{
-		{0, 0, nil},
-		{1, 1, nil},
-		{2, 2, nil},
-		{3, 3, nil},
-		{100, 100, nil},
+	var randTest = []int{
+		0,
+		1,
+		2,
+		3,
+		100,
 	}
 
 	for _, rt := range randTest {
-		actual, _, err := RandBytes(rt.r)
-		if err != rt.expected {
-			t.Errorf(
-				"failed RandBytes:\n\texpected: %s\n\t  actual: %s",
-				rt.expected,
-				err,
-			)
+		actual, err := randBytes(rt)
+		if err != nil {
+			t.Errorf("failed randBytes: %v", err)
 		}
-		if len(actual) != rt.l {
-			t.Errorf(
-				"failed RandBytes:\n\texpected: %d\n\t  actual: %d\n",
-				rt.l,
-				len(actual),
-			)
+		if len(actual) != rt*2 {
+			t.Errorf("failed randBytes:\n\texpected: %d\n\t  actual: %d\n", rt*2, len(actual))
 		}
 	}
 }

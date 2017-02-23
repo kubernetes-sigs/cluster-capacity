@@ -19,22 +19,31 @@
 package version
 
 import (
-	"regexp"
+	"bytes"
 	"runtime"
+	"unicode"
 )
 
 // Repo is the current version of the client libraries in this
 // repo. It should be a date in YYYYMMDD format.
-const Repo = "20161214"
+const Repo = "20170210"
 
 // Go returns the Go runtime version. The returned string
 // has no whitespace.
 func Go() string {
-	return removeWhitespace(runtime.Version())
+	return goVersion
 }
 
-var whitespace = regexp.MustCompile(`\s`)
+var goVersion = removeWhitespace(runtime.Version())
 
 func removeWhitespace(s string) string {
-	return whitespace.ReplaceAllString(s, "_")
+	var buf bytes.Buffer
+	for _, r := range s {
+		if unicode.IsSpace(r) {
+			buf.WriteByte('_')
+		} else {
+			buf.WriteRune(r)
+		}
+	}
+	return buf.String()
 }

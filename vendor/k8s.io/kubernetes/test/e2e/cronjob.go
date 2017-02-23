@@ -23,12 +23,18 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/unversioned"
-	"k8s.io/kubernetes/pkg/apis/batch"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
+	"k8s.io/kubernetes/pkg/api/v1"
+	batchinternal "k8s.io/kubernetes/pkg/apis/batch"
+	batchv1 "k8s.io/kubernetes/pkg/apis/batch/v1"
+	batch "k8s.io/kubernetes/pkg/apis/batch/v2alpha1"
+	"k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	"k8s.io/kubernetes/pkg/controller/job"
-	"k8s.io/kubernetes/pkg/util/wait"
+	"k8s.io/kubernetes/pkg/kubectl"
 	"k8s.io/kubernetes/test/e2e/framework"
 )
 
@@ -38,9 +44,9 @@ const (
 )
 
 var (
-	CronJobGroupVersionResource      = unversioned.GroupVersionResource{Group: batch.GroupName, Version: "v2alpha1", Resource: "cronjobs"}
-	ScheduledJobGroupVersionResource = unversioned.GroupVersionResource{Group: batch.GroupName, Version: "v2alpha1", Resource: "scheduledjobs"}
-	BatchV2Alpha1GroupVersion        = unversioned.GroupVersion{Group: batch.GroupName, Version: "v2alpha1"}
+	CronJobGroupVersionResource      = schema.GroupVersionResource{Group: batch.GroupName, Version: "v2alpha1", Resource: "cronjobs"}
+	ScheduledJobGroupVersionResource = schema.GroupVersionResource{Group: batch.GroupName, Version: "v2alpha1", Resource: "scheduledjobs"}
+	BatchV2Alpha1GroupVersion        = schema.GroupVersion{Group: batch.GroupName, Version: "v2alpha1"}
 )
 
 var _ = framework.KubeDescribe("CronJob", func() {
@@ -62,7 +68,7 @@ var _ = framework.KubeDescribe("CronJob", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Ensuring at least two running jobs exists by listing jobs explicitly")
-		jobs, err := f.ClientSet.Batch().Jobs(f.Namespace.Name).List(api.ListOptions{})
+		jobs, err := f.ClientSet.Batch().Jobs(f.Namespace.Name).List(metav1.ListOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		activeJobs := filterActiveJobs(jobs)
 		Expect(len(activeJobs) >= 2).To(BeTrue())
@@ -81,11 +87,11 @@ var _ = framework.KubeDescribe("CronJob", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Ensuring no jobs are scheduled")
-		err = waitForNoJobs(f.ClientSet, f.Namespace.Name, cronJob.Name)
+		err = waitForNoJobs(f.ClientSet, f.Namespace.Name, cronJob.Name, false)
 		Expect(err).To(HaveOccurred())
 
 		By("Ensuring no job exists by listing jobs explicitly")
-		jobs, err := f.ClientSet.Batch().Jobs(f.Namespace.Name).List(api.ListOptions{})
+		jobs, err := f.ClientSet.Batch().Jobs(f.Namespace.Name).List(metav1.ListOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(jobs.Items).To(HaveLen(0))
 
@@ -111,7 +117,7 @@ var _ = framework.KubeDescribe("CronJob", func() {
 		Expect(cronJob.Status.Active).Should(HaveLen(1))
 
 		By("Ensuring exaclty one running job exists by listing jobs explicitly")
-		jobs, err := f.ClientSet.Batch().Jobs(f.Namespace.Name).List(api.ListOptions{})
+		jobs, err := f.ClientSet.Batch().Jobs(f.Namespace.Name).List(metav1.ListOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		activeJobs := filterActiveJobs(jobs)
 		Expect(activeJobs).To(HaveLen(1))
@@ -142,7 +148,7 @@ var _ = framework.KubeDescribe("CronJob", func() {
 		Expect(cronJob.Status.Active).Should(HaveLen(1))
 
 		By("Ensuring exaclty one running job exists by listing jobs explicitly")
-		jobs, err := f.ClientSet.Batch().Jobs(f.Namespace.Name).List(api.ListOptions{})
+		jobs, err := f.ClientSet.Batch().Jobs(f.Namespace.Name).List(metav1.ListOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		activeJobs := filterActiveJobs(jobs)
 		Expect(activeJobs).To(HaveLen(1))
@@ -170,8 +176,50 @@ var _ = framework.KubeDescribe("CronJob", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Ensuring no unexpected event has happened")
-		err = checkNoUnexpectedEvents(f.ClientSet, f.Namespace.Name, cronJob.Name)
+		err = checkNoEventWithReason(f.ClientSet, f.Namespace.Name, cronJob.Name, []string{"MissingJob", "UnexpectedJob"})
 		Expect(err).NotTo(HaveOccurred())
+
+		By("Removing cronjob")
+		err = deleteCronJob(f.ClientSet, f.Namespace.Name, cronJob.Name)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	// deleted jobs should be removed from the active list
+	It("should remove from active list jobs that have been deleted", func() {
+		By("Creating a ForbidConcurrent cronjob")
+		cronJob := newTestCronJob("forbid", "*/1 * * * ?", batch.ForbidConcurrent, true)
+		cronJob, err := createCronJob(f.ClientSet, f.Namespace.Name, cronJob)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Ensuring a job is scheduled")
+		err = waitForActiveJobs(f.ClientSet, f.Namespace.Name, cronJob.Name, 1)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Ensuring exactly one is scheduled")
+		cronJob, err = getCronJob(f.ClientSet, f.Namespace.Name, cronJob.Name)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cronJob.Status.Active).Should(HaveLen(1))
+
+		By("Deleting the job")
+		job := cronJob.Status.Active[0]
+		reaper, err := kubectl.ReaperFor(batchinternal.Kind("Job"), f.InternalClientset)
+		Expect(err).NotTo(HaveOccurred())
+		timeout := 1 * time.Minute
+		err = reaper.Stop(f.Namespace.Name, job.Name, timeout, metav1.NewDeleteOptions(0))
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Ensuring job was deleted")
+		_, err = getJob(f.ClientSet, f.Namespace.Name, job.Name)
+		Expect(err).To(HaveOccurred())
+		Expect(errors.IsNotFound(err)).To(BeTrue())
+
+		By("Ensuring there are no active jobs in the cronjob")
+		err = waitForNoJobs(f.ClientSet, f.Namespace.Name, cronJob.Name, true)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Ensuring MissingJob event has occured")
+		err = checkNoEventWithReason(f.ClientSet, f.Namespace.Name, cronJob.Name, []string{"MissingJob"})
+		Expect(err).To(HaveOccurred())
 
 		By("Removing cronjob")
 		err = deleteCronJob(f.ClientSet, f.Namespace.Name, cronJob.Name)
@@ -184,7 +232,7 @@ func newTestCronJob(name, schedule string, concurrencyPolicy batch.ConcurrencyPo
 	parallelism := int32(1)
 	completions := int32(1)
 	sj := &batch.CronJob{
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
 		Spec: batch.CronJobSpec{
@@ -194,22 +242,22 @@ func newTestCronJob(name, schedule string, concurrencyPolicy batch.ConcurrencyPo
 				Spec: batch.JobSpec{
 					Parallelism: &parallelism,
 					Completions: &completions,
-					Template: api.PodTemplateSpec{
-						Spec: api.PodSpec{
-							RestartPolicy: api.RestartPolicyOnFailure,
-							Volumes: []api.Volume{
+					Template: v1.PodTemplateSpec{
+						Spec: v1.PodSpec{
+							RestartPolicy: v1.RestartPolicyOnFailure,
+							Volumes: []v1.Volume{
 								{
 									Name: "data",
-									VolumeSource: api.VolumeSource{
-										EmptyDir: &api.EmptyDirVolumeSource{},
+									VolumeSource: v1.VolumeSource{
+										EmptyDir: &v1.EmptyDirVolumeSource{},
 									},
 								},
 							},
-							Containers: []api.Container{
+							Containers: []v1.Container{
 								{
 									Name:  "c",
 									Image: "gcr.io/google_containers/busybox:1.24",
-									VolumeMounts: []api.VolumeMount{
+									VolumeMounts: []v1.VolumeMount{
 										{
 											MountPath: "/data",
 											Name:      "data",
@@ -230,21 +278,21 @@ func newTestCronJob(name, schedule string, concurrencyPolicy batch.ConcurrencyPo
 }
 
 func createCronJob(c clientset.Interface, ns string, cronJob *batch.CronJob) (*batch.CronJob, error) {
-	return c.Batch().CronJobs(ns).Create(cronJob)
+	return c.BatchV2alpha1().CronJobs(ns).Create(cronJob)
 }
 
 func getCronJob(c clientset.Interface, ns, name string) (*batch.CronJob, error) {
-	return c.Batch().CronJobs(ns).Get(name)
+	return c.BatchV2alpha1().CronJobs(ns).Get(name, metav1.GetOptions{})
 }
 
 func deleteCronJob(c clientset.Interface, ns, name string) error {
-	return c.Batch().CronJobs(ns).Delete(name, nil)
+	return c.BatchV2alpha1().CronJobs(ns).Delete(name, nil)
 }
 
 // Wait for at least given amount of active jobs.
 func waitForActiveJobs(c clientset.Interface, ns, cronJobName string, active int) error {
 	return wait.Poll(framework.Poll, cronJobTimeout, func() (bool, error) {
-		curr, err := c.Batch().CronJobs(ns).Get(cronJobName)
+		curr, err := c.BatchV2alpha1().CronJobs(ns).Get(cronJobName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -252,22 +300,29 @@ func waitForActiveJobs(c clientset.Interface, ns, cronJobName string, active int
 	})
 }
 
-// Wait for no jobs to appear.
-func waitForNoJobs(c clientset.Interface, ns, jobName string) error {
+// Wait for jobs to appear in the active list of a cronjob or not.
+// When failIfNonEmpty is set, this fails if the active set of jobs is still non-empty after
+// the timeout. When failIfNonEmpty is not set, this fails if the active set of jobs is still
+// empty after the timeout.
+func waitForNoJobs(c clientset.Interface, ns, jobName string, failIfNonEmpty bool) error {
 	return wait.Poll(framework.Poll, cronJobTimeout, func() (bool, error) {
-		curr, err := c.Batch().CronJobs(ns).Get(jobName)
+		curr, err := c.BatchV2alpha1().CronJobs(ns).Get(jobName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
 
-		return len(curr.Status.Active) != 0, nil
+		if failIfNonEmpty {
+			return len(curr.Status.Active) == 0, nil
+		} else {
+			return len(curr.Status.Active) != 0, nil
+		}
 	})
 }
 
 // Wait for a job to be replaced with a new one.
 func waitForJobReplaced(c clientset.Interface, ns, previousJobName string) error {
 	return wait.Poll(framework.Poll, cronJobTimeout, func() (bool, error) {
-		jobs, err := c.Batch().Jobs(ns).List(api.ListOptions{})
+		jobs, err := c.Batch().Jobs(ns).List(metav1.ListOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -284,7 +339,7 @@ func waitForJobReplaced(c clientset.Interface, ns, previousJobName string) error
 // waitForJobsAtLeast waits for at least a number of jobs to appear.
 func waitForJobsAtLeast(c clientset.Interface, ns string, atLeast int) error {
 	return wait.Poll(framework.Poll, cronJobTimeout, func() (bool, error) {
-		jobs, err := c.Batch().Jobs(ns).List(api.ListOptions{})
+		jobs, err := c.Batch().Jobs(ns).List(metav1.ListOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -295,7 +350,7 @@ func waitForJobsAtLeast(c clientset.Interface, ns string, atLeast int) error {
 // waitForAnyFinishedJob waits for any completed job to appear.
 func waitForAnyFinishedJob(c clientset.Interface, ns string) error {
 	return wait.Poll(framework.Poll, cronJobTimeout, func() (bool, error) {
-		jobs, err := c.Batch().Jobs(ns).List(api.ListOptions{})
+		jobs, err := c.Batch().Jobs(ns).List(metav1.ListOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -308,26 +363,27 @@ func waitForAnyFinishedJob(c clientset.Interface, ns string) error {
 	})
 }
 
-// checkNoUnexpectedEvents checks unexpected events didn't happen.
-// Currently only "UnexpectedJob" is checked.
-func checkNoUnexpectedEvents(c clientset.Interface, ns, cronJobName string) error {
-	sj, err := c.Batch().CronJobs(ns).Get(cronJobName)
+// checkNoEventWithReason checks no events with a reason within a list has occured
+func checkNoEventWithReason(c clientset.Interface, ns, cronJobName string, reasons []string) error {
+	sj, err := c.BatchV2alpha1().CronJobs(ns).Get(cronJobName, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("error in getting cronjob %s/%s: %v", ns, cronJobName, err)
+		return fmt.Errorf("Error in getting cronjob %s/%s: %v", ns, cronJobName, err)
 	}
-	events, err := c.Core().Events(ns).Search(sj)
+	events, err := c.Core().Events(ns).Search(api.Scheme, sj)
 	if err != nil {
-		return fmt.Errorf("error in listing events: %s", err)
+		return fmt.Errorf("Error in listing events: %s", err)
 	}
 	for _, e := range events.Items {
-		if e.Reason == "UnexpectedJob" {
-			return fmt.Errorf("found unexpected event: %#v", e)
+		for _, reason := range reasons {
+			if e.Reason == reason {
+				return fmt.Errorf("Found event with reason %s: %#v", reason, e)
+			}
 		}
 	}
 	return nil
 }
 
-func filterActiveJobs(jobs *batch.JobList) (active []*batch.Job) {
+func filterActiveJobs(jobs *batchv1.JobList) (active []*batchv1.Job) {
 	for i := range jobs.Items {
 		j := jobs.Items[i]
 		if !job.IsJobFinished(&j) {

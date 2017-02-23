@@ -33,26 +33,31 @@ package init
 import (
 	"fmt"
 	"io"
+	"net"
+	"strconv"
 	"strings"
 	"time"
 
-	kubeadmutil "k8s.io/kubernetes/cmd/kubeadm/app/util"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	certutil "k8s.io/client-go/util/cert"
+	triple "k8s.io/client-go/util/cert/triple"
+	kubeadmkubeconfigphase "k8s.io/kubernetes/cmd/kubeadm/app/phases/kubeconfig"
 	"k8s.io/kubernetes/federation/pkg/kubefed/util"
 	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/resource"
+	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/apis/extensions"
+	"k8s.io/kubernetes/pkg/apis/rbac"
 	client "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
-	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
-	clientcmdapi "k8s.io/kubernetes/pkg/client/unversioned/clientcmd/api"
 	"k8s.io/kubernetes/pkg/kubectl/cmd/templates"
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
-	certutil "k8s.io/kubernetes/pkg/util/cert"
-	triple "k8s.io/kubernetes/pkg/util/cert/triple"
-	"k8s.io/kubernetes/pkg/util/intstr"
-	"k8s.io/kubernetes/pkg/util/wait"
 	"k8s.io/kubernetes/pkg/version"
 
 	"github.com/spf13/cobra"
+	"sort"
 )
 
 const (
@@ -61,7 +66,22 @@ const (
 	AdminCN                     = "admin"
 	HostClusterLocalDNSZoneName = "cluster.local."
 
+	// User name used by federation controller manager to make
+	// calls to federation API server.
+	ControllerManagerUser = "federation-controller-manager"
+
+	// Name of the ServiceAccount used by the federation controller manager
+	// to access the secrets in the host cluster.
+	ControllerManagerSA = "federation-controller-manager"
+
+	// Group name of the legacy/core API group
+	legacyAPIGroup = ""
+
 	lbAddrRetryInterval = 5 * time.Second
+	podWaitInterval     = 2 * time.Second
+
+	apiserverServiceTypeFlag      = "api-server-service-type"
+	apiserverAdvertiseAddressFlag = "api-server-advertise-address"
 )
 
 var (
@@ -119,6 +139,14 @@ func NewCmdInit(cmdOut io.Writer, config util.AdminConfig) *cobra.Command {
 	cmd.Flags().String("dns-zone-name", "", "DNS suffix for this federation. Federated Service DNS names are published with this suffix.")
 	cmd.Flags().String("image", defaultImage, "Image to use for federation API server and controller manager binaries.")
 	cmd.Flags().String("dns-provider", "google-clouddns", "Dns provider to be used for this deployment.")
+	cmd.Flags().String("etcd-pv-capacity", "10Gi", "Size of persistent volume claim to be used for etcd.")
+	cmd.Flags().Bool("etcd-persistent-storage", true, "Use persistent volume for etcd. Defaults to 'true'.")
+	cmd.Flags().Bool("dry-run", false, "dry run without sending commands to server.")
+	cmd.Flags().String("apiserver-arg-overrides", "", "comma separated list of federation-apiserver arguments to override: Example \"--arg1=value1,--arg2=value2...\"")
+	cmd.Flags().String("controllermanager-arg-overrides", "", "comma separated list of federation-controller-manager arguments to override: Example \"--arg1=value1,--arg2=value2...\"")
+	cmd.Flags().String("storage-backend", "etcd2", "The storage backend for persistence. Options: 'etcd2' (default), 'etcd3'.")
+	cmd.Flags().String(apiserverServiceTypeFlag, string(v1.ServiceTypeLoadBalancer), "The type of service to create for federation API server. Options: 'LoadBalancer' (default), 'NodePort'.")
+	cmd.Flags().String(apiserverAdvertiseAddressFlag, "", "Preferred address to advertise api server nodeport service. Valid only if '"+apiserverServiceTypeFlag+"=NodePort'.")
 	return cmd
 }
 
@@ -140,6 +168,33 @@ func initFederation(cmdOut io.Writer, config util.AdminConfig, cmd *cobra.Comman
 	dnsZoneName := cmdutil.GetFlagString(cmd, "dns-zone-name")
 	image := cmdutil.GetFlagString(cmd, "image")
 	dnsProvider := cmdutil.GetFlagString(cmd, "dns-provider")
+	etcdPVCapacity := cmdutil.GetFlagString(cmd, "etcd-pv-capacity")
+	etcdPersistence := cmdutil.GetFlagBool(cmd, "etcd-persistent-storage")
+	dryRun := cmdutil.GetDryRunFlag(cmd)
+	storageBackend := cmdutil.GetFlagString(cmd, "storage-backend")
+	apiserverServiceType := v1.ServiceType(cmdutil.GetFlagString(cmd, apiserverServiceTypeFlag))
+	apiserverAdvertiseAddress := cmdutil.GetFlagString(cmd, apiserverAdvertiseAddressFlag)
+
+	if apiserverServiceType != v1.ServiceTypeLoadBalancer && apiserverServiceType != v1.ServiceTypeNodePort {
+		return fmt.Errorf("invalid %s: %s, should be either %s or %s", apiserverServiceTypeFlag, apiserverServiceType, v1.ServiceTypeLoadBalancer, v1.ServiceTypeNodePort)
+	}
+	if apiserverAdvertiseAddress != "" {
+		ip := net.ParseIP(apiserverAdvertiseAddress)
+		if ip == nil {
+			return fmt.Errorf("invalid %s: %s, should be a valid ip address", apiserverAdvertiseAddressFlag, apiserverAdvertiseAddress)
+		}
+		if apiserverServiceType != v1.ServiceTypeNodePort {
+			return fmt.Errorf("%s should be passed only with '%s=NodePort'", apiserverAdvertiseAddressFlag, apiserverServiceTypeFlag)
+		}
+	}
+	apiserverArgOverrides, err := marshallOverrides(cmdutil.GetFlagString(cmd, "apiserver-arg-overrides"))
+	if err != nil {
+		return fmt.Errorf("Error marshalling --apiserver-arg-overrides: %v", err)
+	}
+	cmArgOverrides, err := marshallOverrides(cmdutil.GetFlagString(cmd, "controllermanager-arg-overrides"))
+	if err != nil {
+		return fmt.Errorf("Error marshalling --controllermanager-arg-overrides: %v", err)
+	}
 
 	hostFactory := config.HostFactory(initFlags.Host, initFlags.Kubeconfig)
 	hostClientset, err := hostFactory.ClientSet()
@@ -153,17 +208,13 @@ func initFederation(cmdOut io.Writer, config util.AdminConfig, cmd *cobra.Comman
 	cmKubeconfigName := fmt.Sprintf("%s-kubeconfig", cmName)
 
 	// 1. Create a namespace for federation system components
-	_, err = createNamespace(hostClientset, initFlags.FederationSystemNamespace)
+	_, err = createNamespace(hostClientset, initFlags.FederationSystemNamespace, dryRun)
 	if err != nil {
 		return err
 	}
 
 	// 2. Expose a network endpoint for the federation API server
-	svc, err := createService(hostClientset, initFlags.FederationSystemNamespace, serverName)
-	if err != nil {
-		return err
-	}
-	ips, hostnames, err := waitForLoadBalancerAddress(hostClientset, svc)
+	svc, ips, hostnames, err := createService(hostClientset, initFlags.FederationSystemNamespace, serverName, apiserverAdvertiseAddress, apiserverServiceType, dryRun)
 	if err != nil {
 		return err
 	}
@@ -174,13 +225,13 @@ func initFederation(cmdOut io.Writer, config util.AdminConfig, cmd *cobra.Comman
 		return err
 	}
 
-	_, err = createAPIServerCredentialsSecret(hostClientset, initFlags.FederationSystemNamespace, serverCredName, entKeyPairs)
+	_, err = createAPIServerCredentialsSecret(hostClientset, initFlags.FederationSystemNamespace, serverCredName, entKeyPairs, dryRun)
 	if err != nil {
 		return err
 	}
 
 	// 4. Create a kubeconfig secret
-	_, err = createControllerManagerKubeconfigSecret(hostClientset, initFlags.FederationSystemNamespace, initFlags.Name, svc.Name, cmKubeconfigName, entKeyPairs)
+	_, err = createControllerManagerKubeconfigSecret(hostClientset, initFlags.FederationSystemNamespace, initFlags.Name, svc.Name, cmKubeconfigName, entKeyPairs, dryRun)
 	if err != nil {
 		return err
 	}
@@ -188,85 +239,178 @@ func initFederation(cmdOut io.Writer, config util.AdminConfig, cmd *cobra.Comman
 	// 5. Create a persistent volume and a claim to store the federation
 	// API server's state. This is where federation API server's etcd
 	// stores its data.
-	pvc, err := createPVC(hostClientset, initFlags.FederationSystemNamespace, svc.Name)
-	if err != nil {
-		return err
+	var pvc *api.PersistentVolumeClaim
+	if etcdPersistence {
+		pvc, err = createPVC(hostClientset, initFlags.FederationSystemNamespace, svc.Name, etcdPVCapacity, dryRun)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Since only one IP address can be specified as advertise address,
-	// we arbitrarily pick the first availabe IP address
-	advertiseAddress := ""
-	if len(ips) > 0 {
+	// we arbitrarily pick the first available IP address
+	// Pick user provided apiserverAdvertiseAddress over other available IP addresses.
+	advertiseAddress := apiserverAdvertiseAddress
+	if advertiseAddress == "" && len(ips) > 0 {
 		advertiseAddress = ips[0]
 	}
 
-	endpoint := advertiseAddress
-	if advertiseAddress == "" && len(hostnames) > 0 {
-		endpoint = hostnames[0]
-	}
-
 	// 6. Create federation API server
-	_, err = createAPIServer(hostClientset, initFlags.FederationSystemNamespace, serverName, image, serverCredName, pvc.Name, advertiseAddress)
+	_, err = createAPIServer(hostClientset, initFlags.FederationSystemNamespace, serverName, image, serverCredName, advertiseAddress, storageBackend, apiserverArgOverrides, pvc, dryRun)
 	if err != nil {
 		return err
 	}
 
 	// 7. Create federation controller manager
-	_, err = createControllerManager(hostClientset, initFlags.FederationSystemNamespace, initFlags.Name, svc.Name, cmName, image, cmKubeconfigName, dnsZoneName, dnsProvider)
+	// 7a. Create a service account in the host cluster for federation
+	// controller manager.
+	sa, err := createControllerManagerSA(hostClientset, initFlags.FederationSystemNamespace, dryRun)
 	if err != nil {
 		return err
+	}
+
+	// 7b. Create RBAC role and role binding for federation controller
+	// manager service account.
+	_, _, err = createRoleBindings(hostClientset, initFlags.FederationSystemNamespace, sa.Name, dryRun)
+	if err != nil {
+		return err
+	}
+
+	// 7c. Create federation controller manager deployment.
+	_, err = createControllerManager(hostClientset, initFlags.FederationSystemNamespace, initFlags.Name, svc.Name, cmName, image, cmKubeconfigName, dnsZoneName, dnsProvider, sa.Name, cmArgOverrides, dryRun)
+	if err != nil {
+		return err
+	}
+
+	// Pick the first ip/hostname to update the api server endpoint in kubeconfig and also to give information to user
+	// In case of NodePort Service for api server, ips are node external ips.
+	endpoint := ""
+	if len(ips) > 0 {
+		endpoint = ips[0]
+	} else if len(hostnames) > 0 {
+		endpoint = hostnames[0]
+	}
+	// If the service is nodeport, need to append the port to endpoint as it is non-standard port
+	if apiserverServiceType == v1.ServiceTypeNodePort {
+		endpoint = endpoint + ":" + strconv.Itoa(int(svc.Spec.Ports[0].NodePort))
 	}
 
 	// 8. Write the federation API server endpoint info, credentials
 	// and context to kubeconfig
-	err = updateKubeconfig(config, initFlags.Name, endpoint, entKeyPairs)
+	err = updateKubeconfig(config, initFlags.Name, endpoint, entKeyPairs, dryRun)
 	if err != nil {
 		return err
 	}
 
-	return printSuccess(cmdOut, ips, hostnames)
+	if !dryRun {
+		fedPods := []string{serverName, cmName}
+		err = waitForPods(hostClientset, fedPods, initFlags.FederationSystemNamespace)
+		if err != nil {
+			return err
+		}
+		err = waitSrvHealthy(config, initFlags.Name, initFlags.Kubeconfig)
+		if err != nil {
+			return err
+		}
+		return printSuccess(cmdOut, ips, hostnames, svc)
+	}
+	_, err = fmt.Fprintf(cmdOut, "Federation control plane runs (dry run)\n")
+	return err
 }
 
-func createNamespace(clientset *client.Clientset, namespace string) (*api.Namespace, error) {
+func createNamespace(clientset *client.Clientset, namespace string, dryRun bool) (*api.Namespace, error) {
 	ns := &api.Namespace{
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: namespace,
 		},
+	}
+
+	if dryRun {
+		return ns, nil
 	}
 
 	return clientset.Core().Namespaces().Create(ns)
 }
 
-func createService(clientset *client.Clientset, namespace, svcName string) (*api.Service, error) {
+func createService(clientset *client.Clientset, namespace, svcName, apiserverAdvertiseAddress string, apiserverServiceType v1.ServiceType, dryRun bool) (*api.Service, []string, []string, error) {
 	svc := &api.Service{
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      svcName,
 			Namespace: namespace,
 			Labels:    componentLabel,
 		},
 		Spec: api.ServiceSpec{
-			Type:     api.ServiceTypeLoadBalancer,
+			Type:     api.ServiceType(apiserverServiceType),
 			Selector: apiserverSvcSelector,
 			Ports: []api.ServicePort{
 				{
-					Name:       "https",
-					Protocol:   "TCP",
-					Port:       443,
-					TargetPort: intstr.FromInt(443),
+					Name:     "https",
+					Protocol: "TCP",
+					Port:     443,
 				},
 			},
 		},
 	}
 
-	return clientset.Core().Services(namespace).Create(svc)
+	if dryRun {
+		return svc, nil, nil, nil
+	}
+
+	var err error
+	svc, err = clientset.Core().Services(namespace).Create(svc)
+
+	ips := []string{}
+	hostnames := []string{}
+	if apiserverServiceType == v1.ServiceTypeLoadBalancer {
+		ips, hostnames, err = waitForLoadBalancerAddress(clientset, svc, dryRun)
+	} else {
+		if apiserverAdvertiseAddress != "" {
+			ips = append(ips, apiserverAdvertiseAddress)
+		} else {
+			ips, err = getClusterNodeIPs(clientset)
+		}
+	}
+	if err != nil {
+		return svc, nil, nil, err
+	}
+
+	return svc, ips, hostnames, err
 }
 
-func waitForLoadBalancerAddress(clientset *client.Clientset, svc *api.Service) ([]string, []string, error) {
+func getClusterNodeIPs(clientset *client.Clientset) ([]string, error) {
+	preferredAddressTypes := []api.NodeAddressType{
+		api.NodeExternalIP,
+	}
+	nodeList, err := clientset.Nodes().List(metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	nodeAddresses := []string{}
+	for _, node := range nodeList.Items {
+	OuterLoop:
+		for _, addressType := range preferredAddressTypes {
+			for _, address := range node.Status.Addresses {
+				if address.Type == addressType {
+					nodeAddresses = append(nodeAddresses, address.Address)
+					break OuterLoop
+				}
+			}
+		}
+	}
+
+	return nodeAddresses, nil
+}
+
+func waitForLoadBalancerAddress(clientset *client.Clientset, svc *api.Service, dryRun bool) ([]string, []string, error) {
 	ips := []string{}
 	hostnames := []string{}
 
+	if dryRun {
+		return ips, hostnames, nil
+	}
+
 	err := wait.PollImmediateInfinite(lbAddrRetryInterval, func() (bool, error) {
-		pollSvc, err := clientset.Core().Services(svc.Namespace).Get(svc.Name)
+		pollSvc, err := clientset.Core().Services(svc.Namespace).Get(svc.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, nil
 		}
@@ -301,11 +445,11 @@ func genCerts(svcNamespace, name, svcName, localDNSZoneName string, ips, hostnam
 	if err != nil {
 		return nil, fmt.Errorf("failed to create federation API server key and certificate: %v", err)
 	}
-	cm, err := triple.NewClientKeyPair(ca, ControllerManagerCN)
+	cm, err := triple.NewClientKeyPair(ca, ControllerManagerCN, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create federation controller manager client key and certificate: %v", err)
 	}
-	admin, err := triple.NewClientKeyPair(ca, AdminCN)
+	admin, err := triple.NewClientKeyPair(ca, AdminCN, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create client key and certificate for an admin: %v", err)
 	}
@@ -317,10 +461,10 @@ func genCerts(svcNamespace, name, svcName, localDNSZoneName string, ips, hostnam
 	}, nil
 }
 
-func createAPIServerCredentialsSecret(clientset *client.Clientset, namespace, credentialsName string, entKeyPairs *entityKeyPairs) (*api.Secret, error) {
+func createAPIServerCredentialsSecret(clientset *client.Clientset, namespace, credentialsName string, entKeyPairs *entityKeyPairs, dryRun bool) (*api.Secret, error) {
 	// Build the secret object with API server credentials.
 	secret := &api.Secret{
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      credentialsName,
 			Namespace: namespace,
 		},
@@ -331,36 +475,34 @@ func createAPIServerCredentialsSecret(clientset *client.Clientset, namespace, cr
 		},
 	}
 
+	if dryRun {
+		return secret, nil
+	}
 	// Boilerplate to create the secret in the host cluster.
 	return clientset.Core().Secrets(namespace).Create(secret)
 }
 
-func createControllerManagerKubeconfigSecret(clientset *client.Clientset, namespace, name, svcName, kubeconfigName string, entKeyPairs *entityKeyPairs) (*api.Secret, error) {
-	basicClientConfig := kubeadmutil.CreateBasicClientConfig(
-		name,
+func createControllerManagerKubeconfigSecret(clientset *client.Clientset, namespace, name, svcName, kubeconfigName string, entKeyPairs *entityKeyPairs, dryRun bool) (*api.Secret, error) {
+	config := kubeadmkubeconfigphase.MakeClientConfigWithCerts(
 		fmt.Sprintf("https://%s", svcName),
-		certutil.EncodeCertPEM(entKeyPairs.ca.Cert),
-	)
-
-	config := kubeadmutil.MakeClientConfigWithCerts(
-		basicClientConfig,
 		name,
-		"federation-controller-manager",
+		ControllerManagerUser,
+		certutil.EncodeCertPEM(entKeyPairs.ca.Cert),
 		certutil.EncodePrivateKeyPEM(entKeyPairs.controllerManager.Key),
 		certutil.EncodeCertPEM(entKeyPairs.controllerManager.Cert),
 	)
 
-	return util.CreateKubeconfigSecret(clientset, config, namespace, kubeconfigName, false)
+	return util.CreateKubeconfigSecret(clientset, config, namespace, kubeconfigName, dryRun)
 }
 
-func createPVC(clientset *client.Clientset, namespace, svcName string) (*api.PersistentVolumeClaim, error) {
-	capacity, err := resource.ParseQuantity("10Gi")
+func createPVC(clientset *client.Clientset, namespace, svcName, etcdPVCapacity string, dryRun bool) (*api.PersistentVolumeClaim, error) {
+	capacity, err := resource.ParseQuantity(etcdPVCapacity)
 	if err != nil {
 		return nil, err
 	}
 
 	pvc := &api.PersistentVolumeClaim{
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-etcd-claim", svcName),
 			Namespace: namespace,
 			Labels:    componentLabel,
@@ -380,30 +522,38 @@ func createPVC(clientset *client.Clientset, namespace, svcName string) (*api.Per
 		},
 	}
 
+	if dryRun {
+		return pvc, nil
+	}
+
 	return clientset.Core().PersistentVolumeClaims(namespace).Create(pvc)
 }
 
-func createAPIServer(clientset *client.Clientset, namespace, name, image, credentialsName, pvcName, advertiseAddress string) (*extensions.Deployment, error) {
+func createAPIServer(clientset *client.Clientset, namespace, name, image, credentialsName, advertiseAddress, storageBackend string, argOverrides map[string]string, pvc *api.PersistentVolumeClaim, dryRun bool) (*extensions.Deployment, error) {
 	command := []string{
 		"/hyperkube",
 		"federation-apiserver",
-		"--bind-address=0.0.0.0",
-		"--etcd-servers=http://localhost:2379",
-		"--service-cluster-ip-range=10.0.0.0/16",
-		"--secure-port=443",
-		"--client-ca-file=/etc/federation/apiserver/ca.crt",
-		"--tls-cert-file=/etc/federation/apiserver/server.crt",
-		"--tls-private-key-file=/etc/federation/apiserver/server.key",
+	}
+	argsMap := map[string]string{
+		"--bind-address":         "0.0.0.0",
+		"--etcd-servers":         "http://localhost:2379",
+		"--secure-port":          "443",
+		"--client-ca-file":       "/etc/federation/apiserver/ca.crt",
+		"--tls-cert-file":        "/etc/federation/apiserver/server.crt",
+		"--tls-private-key-file": "/etc/federation/apiserver/server.key",
+		"--admission-control":    "NamespaceLifecycle",
 	}
 
+	argsMap["--storage-backend"] = storageBackend
 	if advertiseAddress != "" {
-		command = append(command, fmt.Sprintf("--advertise-address=%s", advertiseAddress))
+		argsMap["--advertise-address"] = advertiseAddress
 	}
 
-	dataVolumeName := "etcddata"
+	args := argMapsToArgStrings(argsMap, argOverrides)
+	command = append(command, args...)
 
 	dep := &extensions.Deployment{
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 			Labels:    componentLabel,
@@ -411,7 +561,7 @@ func createAPIServer(clientset *client.Clientset, namespace, name, image, creden
 		Spec: extensions.DeploymentSpec{
 			Replicas: 1,
 			Template: api.PodTemplateSpec{
-				ObjectMeta: api.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:   name,
 					Labels: apiserverPodLabels,
 				},
@@ -441,17 +591,11 @@ func createAPIServer(clientset *client.Clientset, namespace, name, image, creden
 						},
 						{
 							Name:  "etcd",
-							Image: "quay.io/coreos/etcd:v2.3.3",
+							Image: "gcr.io/google_containers/etcd:3.0.14-alpha.1",
 							Command: []string{
-								"/etcd",
+								"/usr/local/bin/etcd",
 								"--data-dir",
 								"/var/etcd/data",
-							},
-							VolumeMounts: []api.VolumeMount{
-								{
-									Name:      dataVolumeName,
-									MountPath: "/var/etcd",
-								},
 							},
 						},
 					},
@@ -464,26 +608,110 @@ func createAPIServer(clientset *client.Clientset, namespace, name, image, creden
 								},
 							},
 						},
-						{
-							Name: dataVolumeName,
-							VolumeSource: api.VolumeSource{
-								PersistentVolumeClaim: &api.PersistentVolumeClaimVolumeSource{
-									ClaimName: pvcName,
-								},
-							},
-						},
 					},
 				},
 			},
 		},
 	}
 
+	if pvc != nil {
+		dataVolumeName := "etcddata"
+		etcdVolume := api.Volume{
+			Name: dataVolumeName,
+			VolumeSource: api.VolumeSource{
+				PersistentVolumeClaim: &api.PersistentVolumeClaimVolumeSource{
+					ClaimName: pvc.Name,
+				},
+			},
+		}
+		etcdVolumeMount := api.VolumeMount{
+			Name:      dataVolumeName,
+			MountPath: "/var/etcd",
+		}
+
+		dep.Spec.Template.Spec.Volumes = append(dep.Spec.Template.Spec.Volumes, etcdVolume)
+		for i, container := range dep.Spec.Template.Spec.Containers {
+			if container.Name == "etcd" {
+				dep.Spec.Template.Spec.Containers[i].VolumeMounts = append(dep.Spec.Template.Spec.Containers[i].VolumeMounts, etcdVolumeMount)
+			}
+		}
+	}
+
+	if dryRun {
+		return dep, nil
+	}
+
 	return clientset.Extensions().Deployments(namespace).Create(dep)
 }
 
-func createControllerManager(clientset *client.Clientset, namespace, name, svcName, cmName, image, kubeconfigName, dnsZoneName, dnsProvider string) (*extensions.Deployment, error) {
+func createControllerManagerSA(clientset *client.Clientset, namespace string, dryRun bool) (*api.ServiceAccount, error) {
+	sa := &api.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ControllerManagerSA,
+			Namespace: namespace,
+			Labels:    componentLabel,
+		},
+	}
+	if dryRun {
+		return sa, nil
+	}
+	return clientset.Core().ServiceAccounts(namespace).Create(sa)
+}
+
+func createRoleBindings(clientset *client.Clientset, namespace, saName string, dryRun bool) (*rbac.Role, *rbac.RoleBinding, error) {
+	roleName := "federation-system:federation-controller-manager"
+	role := &rbac.Role{
+		// a role to use for bootstrapping the federation-controller-manager so it can access
+		// secrets in the host cluster to access other clusters.
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      roleName,
+			Namespace: namespace,
+			Labels:    componentLabel,
+		},
+		Rules: []rbac.PolicyRule{
+			rbac.NewRule("get", "list", "watch").Groups(legacyAPIGroup).Resources("secrets").RuleOrDie(),
+		},
+	}
+
+	rolebinding, err := rbac.NewRoleBinding(roleName, namespace).SAs(namespace, saName).Binding()
+	if err != nil {
+		return nil, nil, err
+	}
+	rolebinding.Labels = componentLabel
+
+	if dryRun {
+		return role, &rolebinding, nil
+	}
+
+	newRole, err := clientset.Rbac().Roles(namespace).Create(role)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	newRolebinding, err := clientset.Rbac().RoleBindings(namespace).Create(&rolebinding)
+	return newRole, newRolebinding, err
+}
+
+func createControllerManager(clientset *client.Clientset, namespace, name, svcName, cmName, image, kubeconfigName, dnsZoneName, dnsProvider, saName string, argOverrides map[string]string, dryRun bool) (*extensions.Deployment, error) {
+	command := []string{
+		"/hyperkube",
+		"federation-controller-manager",
+	}
+	argsMap := map[string]string{
+		"--kubeconfig":          "/etc/federation/controller-manager/kubeconfig",
+		"--dns-provider-config": "",
+	}
+
+	argsMap["--master"] = fmt.Sprintf("https://%s", svcName)
+	argsMap["--dns-provider"] = dnsProvider
+	argsMap["--federation-name"] = name
+	argsMap["--zone-name"] = dnsZoneName
+
+	args := argMapsToArgStrings(argsMap, argOverrides)
+	command = append(command, args...)
+
 	dep := &extensions.Deployment{
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      cmName,
 			Namespace: namespace,
 			Labels:    componentLabel,
@@ -491,25 +719,16 @@ func createControllerManager(clientset *client.Clientset, namespace, name, svcNa
 		Spec: extensions.DeploymentSpec{
 			Replicas: 1,
 			Template: api.PodTemplateSpec{
-				ObjectMeta: api.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:   cmName,
 					Labels: controllerManagerPodLabels,
 				},
 				Spec: api.PodSpec{
 					Containers: []api.Container{
 						{
-							Name:  "controller-manager",
-							Image: image,
-							Command: []string{
-								"/hyperkube",
-								"federation-controller-manager",
-								fmt.Sprintf("--master=https://%s", svcName),
-								"--kubeconfig=/etc/federation/controller-manager/kubeconfig",
-								fmt.Sprintf("--dns-provider=%s", dnsProvider),
-								"--dns-provider-config=",
-								fmt.Sprintf("--federation-name=%s", name),
-								fmt.Sprintf("--zone-name=%s", dnsZoneName),
-							},
+							Name:    "controller-manager",
+							Image:   image,
+							Command: command,
 							VolumeMounts: []api.VolumeMount{
 								{
 									Name:      kubeconfigName,
@@ -539,21 +758,110 @@ func createControllerManager(clientset *client.Clientset, namespace, name, svcNa
 							},
 						},
 					},
+					ServiceAccountName: saName,
 				},
 			},
 		},
 	}
 
+	if dryRun {
+		return dep, nil
+	}
 	return clientset.Extensions().Deployments(namespace).Create(dep)
 }
 
-func printSuccess(cmdOut io.Writer, ips, hostnames []string) error {
-	svcEndpoints := append(ips, hostnames...)
-	_, err := fmt.Fprintf(cmdOut, "Federation API server is running at: %s\n", strings.Join(svcEndpoints, ", "))
+func marshallOverrides(overrideArgString string) (map[string]string, error) {
+	if overrideArgString == "" {
+		return nil, nil
+	}
+
+	argsMap := make(map[string]string)
+	overrideArgs := strings.Split(overrideArgString, ",")
+	for _, overrideArg := range overrideArgs {
+		splitArg := strings.Split(overrideArg, "=")
+		if len(splitArg) != 2 {
+			return nil, fmt.Errorf("wrong format for override arg: %s", overrideArg)
+		}
+		key := strings.TrimSpace(splitArg[0])
+		val := strings.TrimSpace(splitArg[1])
+		if len(key) == 0 {
+			return nil, fmt.Errorf("wrong format for override arg: %s, arg name cannot be empty", overrideArg)
+		}
+		argsMap[key] = val
+	}
+	return argsMap, nil
+}
+
+func argMapsToArgStrings(argsMap, overrides map[string]string) []string {
+	for key, val := range overrides {
+		argsMap[key] = val
+	}
+	args := []string{}
+	for key, value := range argsMap {
+		args = append(args, fmt.Sprintf("%s=%s", key, value))
+	}
+	// This is needed for the unit test deep copy to get an exact match
+	sort.Strings(args)
+	return args
+}
+
+func waitForPods(clientset *client.Clientset, fedPods []string, namespace string) error {
+	err := wait.PollInfinite(podWaitInterval, func() (bool, error) {
+		podCheck := len(fedPods)
+		podList, err := clientset.Core().Pods(namespace).List(metav1.ListOptions{})
+		if err != nil {
+			return false, nil
+		}
+		for _, pod := range podList.Items {
+			for _, fedPod := range fedPods {
+				if strings.HasPrefix(pod.Name, fedPod) && pod.Status.Phase == "Running" {
+					podCheck -= 1
+				}
+			}
+			//ensure that all pods are in running state or keep waiting
+			if podCheck == 0 {
+				return true, nil
+			}
+		}
+		return false, nil
+	})
 	return err
 }
 
-func updateKubeconfig(config util.AdminConfig, name, endpoint string, entKeyPairs *entityKeyPairs) error {
+func waitSrvHealthy(config util.AdminConfig, context, kubeconfig string) error {
+	fedClientSet, err := config.FederationClientset(context, kubeconfig)
+	if err != nil {
+		return err
+	}
+	fedDiscoveryClient := fedClientSet.Discovery()
+	err = wait.PollInfinite(podWaitInterval, func() (bool, error) {
+		body, err := fedDiscoveryClient.RESTClient().Get().AbsPath("/healthz").Do().Raw()
+		if err != nil {
+			return false, nil
+		}
+		if strings.EqualFold(string(body), "ok") {
+			return true, nil
+		}
+		return false, nil
+	})
+	return err
+}
+
+func printSuccess(cmdOut io.Writer, ips, hostnames []string, svc *api.Service) error {
+	svcEndpoints := append(ips, hostnames...)
+	endpoints := strings.Join(svcEndpoints, ", ")
+	if svc.Spec.Type == api.ServiceTypeNodePort {
+		endpoints = ips[0] + ":" + strconv.Itoa(int(svc.Spec.Ports[0].NodePort))
+		if len(ips) > 1 {
+			endpoints = endpoints + ", ..."
+		}
+	}
+
+	_, err := fmt.Fprintf(cmdOut, "Federation API server is running at: %s\n", endpoints)
+	return err
+}
+
+func updateKubeconfig(config util.AdminConfig, name, endpoint string, entKeyPairs *entityKeyPairs, dryRun bool) error {
 	po := config.PathOptions()
 	kubeconfig, err := po.GetStartingConfig()
 	if err != nil {
@@ -586,9 +894,11 @@ func updateKubeconfig(config util.AdminConfig, name, endpoint string, entKeyPair
 	kubeconfig.AuthInfos[name] = authInfo
 	kubeconfig.Contexts[name] = context
 
-	// Write the update kubeconfig.
-	if err := clientcmd.ModifyConfig(po, *kubeconfig, true); err != nil {
-		return err
+	if !dryRun {
+		// Write the update kubeconfig.
+		if err := clientcmd.ModifyConfig(po, *kubeconfig, true); err != nil {
+			return err
+		}
 	}
 
 	return nil

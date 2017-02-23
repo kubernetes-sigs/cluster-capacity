@@ -18,7 +18,7 @@ package test
 
 import (
 	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/api/resource"
 	apitesting "k8s.io/kubernetes/pkg/api/testing"
 )
 

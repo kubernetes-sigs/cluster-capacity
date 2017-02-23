@@ -74,20 +74,18 @@ type fakeDatastoreServer struct {
 
 func (f *fakeDatastoreServer) Lookup(ctx context.Context, req *dspb.LookupRequest) (*dspb.LookupResponse, error) {
 	if f.fail {
-		return nil, errors.New("failed!")
+		return nil, errors.New("lookup failed")
 	}
 	return &dspb.LookupResponse{}, nil
 }
 
 // makeRequests makes some requests.
-// req is an incoming request used to construct the trace.  traceClient is the
-// client used to upload the trace.  rt is the trace client's http client's
-// transport.  This is used to retrieve the trace uploaded by the client, if
-// any.  If expectTrace is true, we expect a trace will be uploaded.  If
-// synchronous is true, the call to Finish is expected not to return before the
-// client has uploaded any traces.
-func makeRequests(t *testing.T, req *http.Request, traceClient *Client, rt *fakeRoundTripper, synchronous bool, expectTrace bool) *http.Request {
-	span := traceClient.SpanFromRequest(req)
+// span is the root span.  rt is the trace client's http client's transport.
+// This is used to retrieve the trace uploaded by the client, if any.  If
+// expectTrace is true, we expect a trace will be uploaded.  If synchronous is
+// true, the call to Finish is expected not to return before the client has
+// uploaded any traces.
+func makeRequests(t *testing.T, span *Span, rt *fakeRoundTripper, synchronous bool, expectTrace bool) *http.Request {
 	ctx := NewContext(context.Background(), span)
 
 	// An HTTP request.
@@ -196,24 +194,31 @@ func makeRequests(t *testing.T, req *http.Request, traceClient *Client, rt *fake
 
 func TestTrace(t *testing.T) {
 	t.Parallel()
-	testTrace(t, false)
+	testTrace(t, false, true)
 }
 
 func TestTraceWithWait(t *testing.T) {
-	testTrace(t, true)
+	testTrace(t, true, true)
 }
 
-func testTrace(t *testing.T, synchronous bool) {
-	req, err := http.NewRequest("GET", "http://example.com/foo", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	req.Header["X-Cloud-Trace-Context"] = []string{`0123456789ABCDEF0123456789ABCDEF/42;o=3`}
+func TestTraceFromHeader(t *testing.T) {
+	t.Parallel()
+	testTrace(t, false, false)
+}
+
+func TestTraceFromHeaderWithWait(t *testing.T) {
+	testTrace(t, false, true)
+}
+
+func TestNewSpan(t *testing.T) {
+	const traceID = "0123456789ABCDEF0123456789ABCDEF"
 
 	rt := newFakeRoundTripper()
 	traceClient := newTestClient(rt)
+	span := traceClient.NewSpan("/foo")
+	span.trace.traceID = traceID
 
-	uploaded := makeRequests(t, req, traceClient, rt, synchronous, true)
+	uploaded := makeRequests(t, span, rt, true, true)
 
 	if uploaded == nil {
 		t.Fatalf("No trace uploaded, expected one.")
@@ -265,13 +270,172 @@ func testTrace(t *testing.T, synchronous bool) {
 						Name:   "/google.datastore.v1.Datastore/Lookup",
 					},
 					{
-						Kind: "RPC_SERVER",
+						Kind:   "RPC_SERVER",
+						Labels: map[string]string{},
+						Name:   "/foo",
+					},
+				},
+				TraceId: traceID,
+			},
+		},
+	}
+
+	body, err := ioutil.ReadAll(uploaded.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var patch api.Traces
+	err = json.Unmarshal(body, &patch)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(patch.Traces) != len(expected.Traces) || len(patch.Traces[0].Spans) != len(expected.Traces[0].Spans) {
+		got, _ := json.Marshal(patch)
+		want, _ := json.Marshal(expected)
+		t.Fatalf("PatchTraces request: got %s want %s", got, want)
+	}
+
+	n := len(patch.Traces[0].Spans)
+	rootSpan := patch.Traces[0].Spans[n-1]
+	for i, s := range patch.Traces[0].Spans {
+		if a, b := s.StartTime, s.EndTime; a > b {
+			t.Errorf("span %d start time is later than its end time (%q, %q)", i, a, b)
+		}
+		if a, b := rootSpan.StartTime, s.StartTime; a > b {
+			t.Errorf("trace start time is later than span %d start time (%q, %q)", i, a, b)
+		}
+		if a, b := s.EndTime, rootSpan.EndTime; a > b {
+			t.Errorf("span %d end time is later than trace end time (%q, %q)", i, a, b)
+		}
+		if i > 1 && i < n-1 {
+			if a, b := patch.Traces[0].Spans[i-1].EndTime, s.StartTime; a > b {
+				t.Errorf("span %d end time is later than span %d start time (%q, %q)", i-1, i, a, b)
+			}
+		}
+	}
+
+	if x := rootSpan.ParentSpanId; x != 0 {
+		t.Errorf("Incorrect ParentSpanId: got %d want %d", x, 0)
+	}
+	for i, s := range patch.Traces[0].Spans {
+		if x, y := rootSpan.SpanId, s.ParentSpanId; i < n-1 && x != y {
+			t.Errorf("Incorrect ParentSpanId in span %d: got %d want %d", i, y, x)
+		}
+	}
+	for i, s := range patch.Traces[0].Spans {
+		s.EndTime = ""
+		labels := &expected.Traces[0].Spans[i].Labels
+		for key, value := range *labels {
+			if v, ok := s.Labels[key]; !ok {
+				t.Errorf("Span %d is missing Label %q:%q", i, key, value)
+			} else if key == "trace.cloud.google.com/http/url" {
+				if !strings.HasPrefix(v, value) {
+					t.Errorf("Span %d Label %q: got value %q want prefix %q", i, key, v, value)
+				}
+			} else if v != value {
+				t.Errorf("Span %d Label %q: got value %q want %q", i, key, v, value)
+			}
+		}
+		for key := range s.Labels {
+			if _, ok := (*labels)[key]; key != "trace.cloud.google.com/stacktrace" && !ok {
+				t.Errorf("Span %d: unexpected label %q", i, key)
+			}
+		}
+		*labels = nil
+		s.Labels = nil
+		s.ParentSpanId = 0
+		if s.SpanId == 0 {
+			t.Errorf("Incorrect SpanId: got 0 want nonzero")
+		}
+		s.SpanId = 0
+		s.StartTime = ""
+	}
+	if !reflect.DeepEqual(patch, expected) {
+		got, _ := json.Marshal(patch)
+		want, _ := json.Marshal(expected)
+		t.Errorf("PatchTraces request: got %s want %s", got, want)
+	}
+}
+
+func testTrace(t *testing.T, synchronous bool, fromRequest bool) {
+	const header = `0123456789ABCDEF0123456789ABCDEF/42;o=3`
+	rt := newFakeRoundTripper()
+	traceClient := newTestClient(rt)
+
+	span := traceClient.SpanFromHeader("/foo", header)
+	headerOrReqLabels := map[string]string{}
+	headerOrReqName := "/foo"
+
+	if fromRequest {
+		req, err := http.NewRequest("GET", "http://example.com/foo", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("X-Cloud-Trace-Context", header)
+		span = traceClient.SpanFromRequest(req)
+		headerOrReqLabels = map[string]string{
+			"trace.cloud.google.com/http/host":   "example.com",
+			"trace.cloud.google.com/http/method": "GET",
+			"trace.cloud.google.com/http/url":    "http://example.com/foo",
+		}
+		headerOrReqName = "example.com/foo"
+	}
+
+	uploaded := makeRequests(t, span, rt, synchronous, true)
+	if uploaded == nil {
+		t.Fatalf("No trace uploaded, expected one.")
+	}
+
+	expected := api.Traces{
+		Traces: []*api.Trace{
+			{
+				ProjectId: testProjectID,
+				Spans: []*api.TraceSpan{
+					{
+						Kind: "RPC_CLIENT",
 						Labels: map[string]string{
-							"trace.cloud.google.com/http/host":   "example.com",
-							"trace.cloud.google.com/http/method": "GET",
-							"trace.cloud.google.com/http/url":    "http://example.com/foo",
+							"trace.cloud.google.com/http/host":        "example.com",
+							"trace.cloud.google.com/http/method":      "GET",
+							"trace.cloud.google.com/http/status_code": "200",
+							"trace.cloud.google.com/http/url":         "http://example.com/bar",
 						},
-						Name: "/foo",
+						Name: "example.com/bar",
+					},
+					{
+						Kind: "RPC_CLIENT",
+						Labels: map[string]string{
+							"trace.cloud.google.com/http/host":        "www.googleapis.com",
+							"trace.cloud.google.com/http/method":      "GET",
+							"trace.cloud.google.com/http/status_code": "200",
+							"trace.cloud.google.com/http/url":         "https://www.googleapis.com/compute/v1/projects/testproject/zones",
+						},
+						Name: "www.googleapis.com/compute/v1/projects/testproject/zones",
+					},
+					{
+						Kind: "RPC_CLIENT",
+						Labels: map[string]string{
+							"trace.cloud.google.com/http/host":        "www.googleapis.com",
+							"trace.cloud.google.com/http/method":      "GET",
+							"trace.cloud.google.com/http/status_code": "200",
+							"trace.cloud.google.com/http/url":         "https://www.googleapis.com/storage/v1/b/testbucket/o",
+						},
+						Name: "www.googleapis.com/storage/v1/b/testbucket/o",
+					},
+					&api.TraceSpan{
+						Kind:   "RPC_CLIENT",
+						Labels: nil,
+						Name:   "/google.datastore.v1.Datastore/Lookup",
+					},
+					&api.TraceSpan{
+						Kind:   "RPC_CLIENT",
+						Labels: map[string]string{"error": "rpc error: code = 2 desc = failed!"},
+						Name:   "/google.datastore.v1.Datastore/Lookup",
+					},
+					{
+						Kind:   "RPC_SERVER",
+						Labels: headerOrReqLabels,
+						Name:   headerOrReqName,
 					},
 				},
 				TraceId: "0123456789ABCDEF0123456789ABCDEF",
@@ -353,19 +517,27 @@ func testTrace(t *testing.T, synchronous bool) {
 	if !reflect.DeepEqual(patch, expected) {
 		got, _ := json.Marshal(patch)
 		want, _ := json.Marshal(expected)
-		t.Errorf("PatchTraces request: got %s want %s", got, want)
+		t.Errorf("PatchTraces request: got %s \n\n want %s", got, want)
 	}
 }
 
 func TestNoTrace(t *testing.T) {
-	testNoTrace(t, false)
+	testNoTrace(t, false, true)
 }
 
 func TestNoTraceWithWait(t *testing.T) {
-	testNoTrace(t, true)
+	testNoTrace(t, true, true)
 }
 
-func testNoTrace(t *testing.T, synchronous bool) {
+func TestNoTraceFromHeader(t *testing.T) {
+	testNoTrace(t, false, false)
+}
+
+func TestNoTraceFromHeaderWithWait(t *testing.T) {
+	testNoTrace(t, true, false)
+}
+
+func testNoTrace(t *testing.T, synchronous bool, fromRequest bool) {
 	for _, header := range []string{
 		`0123456789ABCDEF0123456789ABCDEF/42;o=2`,
 		`0123456789ABCDEF0123456789ABCDEF/42;o=0`,
@@ -373,16 +545,22 @@ func testNoTrace(t *testing.T, synchronous bool) {
 		`0123456789ABCDEF0123456789ABCDEF`,
 		``,
 	} {
-		req, err := http.NewRequest("GET", "http://example.com/foo", nil)
-		if header != "" {
-			req.Header["X-Cloud-Trace-Context"] = []string{header}
-		}
-		if err != nil {
-			t.Fatal(err)
-		}
 		rt := newFakeRoundTripper()
 		traceClient := newTestClient(rt)
-		uploaded := makeRequests(t, req, traceClient, rt, synchronous, false)
+		var span *Span
+		if fromRequest {
+			req, err := http.NewRequest("GET", "http://example.com/foo", nil)
+			if header != "" {
+				req.Header.Set("X-Cloud-Trace-Context", header)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			span = traceClient.SpanFromRequest(req)
+		} else {
+			span = traceClient.SpanFromHeader("/foo", header)
+		}
+		uploaded := makeRequests(t, span, rt, synchronous, false)
 		if uploaded != nil {
 			t.Errorf("Got a trace, expected none.")
 		}
@@ -609,7 +787,7 @@ func TestPropagation(t *testing.T) {
 				t.Fatal(err)
 			}
 			if header != "" {
-				req.Header["X-Cloud-Trace-Context"] = []string{header}
+				req.Header.Set("X-Cloud-Trace-Context", header)
 			}
 
 			span := traceClient.SpanFromRequest(req)

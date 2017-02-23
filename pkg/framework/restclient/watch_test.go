@@ -24,8 +24,8 @@ import (
 
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/kubernetes/pkg/fields"
-	"k8s.io/kubernetes/pkg/watch"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/watch"
 
 	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"

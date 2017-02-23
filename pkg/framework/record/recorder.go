@@ -19,9 +19,9 @@ package record
 import (
 	"fmt"
 
-	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/kubernetes/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type Event struct {
@@ -46,7 +46,7 @@ func (e *Recorder) Eventf(object runtime.Object, eventtype, reason, messageFmt s
 	}
 }
 
-func (e *Recorder) PastEventf(object runtime.Object, timestamp unversioned.Time, eventtype, reason, messageFmt string, args ...interface{}) {
+func (e *Recorder) PastEventf(object runtime.Object, timestamp metav1.Time, eventtype, reason, messageFmt string, args ...interface{}) {
 
 }
 

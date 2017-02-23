@@ -119,37 +119,11 @@ func BenchmarkHistogramWrite8(b *testing.B) {
 	benchmarkHistogramWrite(8, b)
 }
 
-func TestHistogramNonMonotonicBuckets(t *testing.T) {
-	testCases := map[string][]float64{
-		"not strictly monotonic":  {1, 2, 2, 3},
-		"not monotonic at all":    {1, 2, 4, 3, 5},
-		"have +Inf in the middle": {1, 2, math.Inf(+1), 3},
-	}
-	for name, buckets := range testCases {
-		func() {
-			defer func() {
-				if r := recover(); r == nil {
-					t.Errorf("Buckets %v are %s but NewHistogram did not panic.", buckets, name)
-				}
-			}()
-			_ = NewHistogram(HistogramOpts{
-				Name:    "test_histogram",
-				Help:    "helpless",
-				Buckets: buckets,
-			})
-		}()
-	}
-}
-
 // Intentionally adding +Inf here to test if that case is handled correctly.
 // Also, getCumulativeCounts depends on it.
 var testBuckets = []float64{-2, -1, -0.5, 0, 0.5, 1, 2, math.Inf(+1)}
 
 func TestHistogramConcurrency(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping test in short mode.")
-	}
-
 	rand.Seed(42)
 
 	it := func(n uint32) bool {
@@ -224,10 +198,6 @@ func TestHistogramConcurrency(t *testing.T) {
 }
 
 func TestHistogramVecConcurrency(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping test in short mode.")
-	}
-
 	rand.Seed(42)
 
 	objectives := make([]float64, 0, len(DefObjectives))

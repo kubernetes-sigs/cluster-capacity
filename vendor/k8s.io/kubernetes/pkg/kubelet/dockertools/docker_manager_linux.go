@@ -20,8 +20,20 @@ package dockertools
 
 import (
 	dockertypes "github.com/docker/engine-api/types"
-	"k8s.io/kubernetes/pkg/api"
+	dockercontainer "github.com/docker/engine-api/types/container"
+
+	"k8s.io/kubernetes/pkg/api/v1"
+	kubecontainer "k8s.io/kubernetes/pkg/kubelet/container"
 )
+
+// These two functions are OS specific (for now at least)
+func updateHostConfig(hc *dockercontainer.HostConfig, opts *kubecontainer.RunContainerOptions) {
+	// no-op, there is a windows implementation that is different.
+}
+
+func DefaultMemorySwap() int64 {
+	return 0
+}
 
 func getContainerIP(container *dockertypes.ContainerJSON) string {
 	result := ""
@@ -45,7 +57,7 @@ func containerProvidesPodIP(name *KubeletContainerName) bool {
 }
 
 // Returns Seccomp and AppArmor Security options
-func (dm *DockerManager) getSecurityOpts(pod *api.Pod, ctrName string) ([]dockerOpt, error) {
+func (dm *DockerManager) getSecurityOpts(pod *v1.Pod, ctrName string) ([]dockerOpt, error) {
 	var securityOpts []dockerOpt
 	if seccompOpts, err := dm.getSeccompOpts(pod, ctrName); err != nil {
 		return nil, err

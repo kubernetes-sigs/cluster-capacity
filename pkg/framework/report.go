@@ -25,14 +25,16 @@ import (
 
 	"github.com/ghodss/yaml"
 	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/resource"
-	"k8s.io/kubernetes/pkg/api/unversioned"
-	"k8s.io/kubernetes/pkg/conversion"
-	"k8s.io/kubernetes/pkg/labels"
+
+	"k8s.io/apimachinery/pkg/conversion"
+	"k8s.io/apimachinery/pkg/labels"
+
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type ClusterCapacityReview struct {
-	unversioned.TypeMeta
+	metav1.TypeMeta
 	Spec   ClusterCapacityReviewSpec
 	Status ClusterCapacityReviewStatus
 }
@@ -202,7 +204,7 @@ func getReviewStatus(pods []*api.Pod, status Status) ClusterCapacityReviewStatus
 
 func GetReport(pods []*api.Pod, status Status) *ClusterCapacityReview {
 	return &ClusterCapacityReview{
-		TypeMeta: unversioned.TypeMeta{
+		TypeMeta: metav1.TypeMeta{
 			Kind:       "ClusterCapacityReview",
 			APIVersion: "",
 		},

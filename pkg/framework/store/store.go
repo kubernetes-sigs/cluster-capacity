@@ -22,7 +22,7 @@ import (
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/client-go/tools/cache"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
-	"k8s.io/kubernetes/pkg/fields"
+	"k8s.io/apimachinery/pkg/fields"
 
 	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
 )

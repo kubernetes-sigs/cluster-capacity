@@ -20,7 +20,7 @@ import (
 	"github.com/influxdata/influxdb/influxql"
 	"github.com/influxdata/influxdb/models"
 	"github.com/influxdata/influxdb/tsdb"
-	"go.uber.org/zap"
+	"github.com/uber-go/zap"
 )
 
 //go:generate tmpl -data=@iterator.gen.go.tmpldata iterator.gen.go.tmpl
@@ -652,7 +652,7 @@ func (e *Engine) addToIndexFromKey(shardID uint64, key []byte, fieldType influxq
 	_, tags, _ := models.ParseKey(seriesKey)
 
 	s := tsdb.NewSeries(string(seriesKey), tags)
-	index.CreateSeriesIndexIfNotExists(measurement, s)
+	index.CreateSeriesIndexIfNotExists(measurement, s, false)
 	s.AssignShard(shardID)
 
 	return nil
@@ -1229,8 +1229,6 @@ func (e *Engine) cleanupTempTSMFiles() error {
 
 // KeyCursor returns a KeyCursor for the given key starting at time t.
 func (e *Engine) KeyCursor(key string, t int64, ascending bool) *KeyCursor {
-	e.mu.RLock()
-	defer e.mu.RUnlock()
 	return e.FileStore.KeyCursor(key, t, ascending)
 }
 

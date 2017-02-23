@@ -142,6 +142,23 @@ for k,v in yaml.load(sys.stdin).iteritems():
   ' < """${kube_env_yaml}""")"
 }
 
+function set-kube-master-certs() {
+  local kube_master_certs_yaml="${INSTALL_DIR}/kube_master_certs.yaml"
+
+  until curl-metadata kube-master-certs > "${kube_master_certs_yaml}"; do
+    echo 'Waiting for kube-master-certs...'
+    sleep 3
+  done
+
+  eval "$(python -c '
+import pipes,sys,yaml
+
+for k,v in yaml.load(sys.stdin).iteritems():
+  print("""readonly {var}={value}""".format(var = k, value = pipes.quote(str(v))))
+  print("""export {var}""".format(var = k))
+  ' < """${kube_master_certs_yaml}""")"
+}
+
 function remove-docker-artifacts() {
   echo "== Deleting docker0 =="
   apt-get-install bridge-utils
@@ -460,6 +477,7 @@ kube_uid: '$(echo "${KUBE_UID}" | sed -e "s/'/''/g")'
 initial_etcd_cluster: '$(echo "${INITIAL_ETCD_CLUSTER:-}" | sed -e "s/'/''/g")'
 
 hostname: $(hostname -s)
+enable_default_storage_class: '$(echo "$ENABLE_DEFAULT_STORAGE_CLASS" | sed -e "s/'/''/g")'
 EOF
     if [ -n "${STORAGE_BACKEND:-}" ]; then
       cat <<EOF >>/srv/salt-overlay/pillar/cluster-params.sls
@@ -658,6 +676,13 @@ function create-salt-master-auth() {
         echo "${KUBECFG_KEY:-}" | base64 --decode > /srv/kubernetes/kubecfg.key)
     fi
   fi
+  if [ ! -e /srv/kubernetes/kubeapiserver.cert ]; then
+    if [[ ! -z "${KUBEAPISERVER_CERT:-}" ]] && [[ ! -z "${KUBEAPISERVER_KEY:-}" ]]; then
+      (umask 077;
+        echo "${KUBEAPISERVER_CERT}" | base64 --decode > /srv/kubernetes/kubeapiserver.cert;
+        echo "${KUBEAPISERVER_KEY}" | base64 --decode > /srv/kubernetes/kubeapiserver.key)
+    fi
+  fi
   if [ ! -e "${BASIC_AUTH_FILE}" ]; then
     mkdir -p /srv/salt-overlay/salt/kube-apiserver
     (umask 077;
@@ -725,6 +750,9 @@ current-context: service-account-context
 EOF
 )
   fi
+  local -r client_ca_file="/srv/salt-overlay/salt/kubelet/ca.crt"
+  (umask 077;
+    echo "${KUBELET_CA_CERT}" | base64 --decode > "${client_ca_file}")
 }
 
 # This should happen both on cluster initialization and node upgrades.
@@ -1098,6 +1126,7 @@ if [[ -z "${is_push}" ]]; then
   [[ "${KUBERNETES_MASTER}" == "true" ]] && mount-master-pd
   create-salt-pillar
   if [[ "${KUBERNETES_MASTER}" == "true" ]]; then
+    set-kube-master-certs
     create-salt-master-auth
     create-salt-master-etcd-auth
     create-salt-master-kubelet-auth

@@ -27,8 +27,7 @@ import (
 
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/kubernetes/pkg/util/sets"
-	"k8s.io/kubernetes/pkg/util/wait"
+	"k8s.io/apimachinery/pkg/util/wait"
 	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
 
 	"github.com/kubernetes-incubator/cluster-capacity/cmd/cluster-capacity/app/options"
@@ -99,12 +98,6 @@ func Run(opt *options.ClusterCapacityOptions) error {
 	err = conf.ParseAdditionalSchedulerConfigs()
 	if err != nil {
 		return fmt.Errorf("Failed to parse config file: %v ", err)
-	}
-
-	// only of the apiserver config file is set
-	err = conf.ParseApiServerConfig()
-	if err != nil {
-		return fmt.Errorf("Failed to parse apiserver config file: %v ", err)
 	}
 
 	master, err := utils.GetMasterFromKubeConfig(conf.Options.Kubeconfig)
@@ -186,7 +179,7 @@ func runSimulator(s *options.ClusterCapacityConfig, syncWithClient bool) (*frame
 		return nil, err
 	}
 
-	cc, err := framework.New(s.DefaultScheduler, s.Pod, s.Options.MaxLimit, mode, s.ApiServerOptions)
+	cc, err := framework.New(s.DefaultScheduler, s.Pod, s.Options.MaxLimit, mode, s.Options.AdmissionControl)
 	if err != nil {
 		return nil, err
 	}

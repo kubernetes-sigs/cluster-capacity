@@ -10,7 +10,7 @@ import (
 
 	"github.com/influxdata/influxdb/models"
 	"github.com/influxdata/influxdb/tsdb"
-	"go.uber.org/zap"
+	"github.com/uber-go/zap"
 )
 
 // ringShards specifies the number of partitions that the hash ring used to
@@ -18,7 +18,7 @@ import (
 // testing, a value above the number of cores on the machine does not provide
 // any additional benefit. For now we'll set it to the number of cores on the
 // largest box we could imagine running influx.
-const ringShards = 128
+const ringShards = 4096
 
 var (
 	// ErrSnapshotInProgress is returned if a snapshot is attempted while one is already running.

@@ -23,12 +23,11 @@ import (
 	"testing"
 
 	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/meta"
-	"k8s.io/kubernetes/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/api/resource"
 	apitesting "k8s.io/kubernetes/pkg/api/testing"
-	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/version"
-
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
 )
 
@@ -43,32 +42,32 @@ func getTestNode(nodeName string) *api.Node {
 					Status:             api.ConditionFalse,
 					Reason:             "KubeletHasSufficientDisk",
 					Message:            fmt.Sprintf("kubelet has sufficient disk space available"),
-					LastHeartbeatTime:  unversioned.Time{},
-					LastTransitionTime: unversioned.Time{},
+					LastHeartbeatTime:  metav1.Time{},
+					LastTransitionTime: metav1.Time{},
 				},
 				{
 					Type:               api.NodeMemoryPressure,
 					Status:             api.ConditionFalse,
 					Reason:             "KubeletHasSufficientMemory",
 					Message:            fmt.Sprintf("kubelet has sufficient memory available"),
-					LastHeartbeatTime:  unversioned.Time{},
-					LastTransitionTime: unversioned.Time{},
+					LastHeartbeatTime:  metav1.Time{},
+					LastTransitionTime: metav1.Time{},
 				},
 				{
 					Type:               api.NodeDiskPressure,
 					Status:             api.ConditionFalse,
 					Reason:             "KubeletHasNoDiskPressure",
 					Message:            fmt.Sprintf("kubelet has no disk pressure"),
-					LastHeartbeatTime:  unversioned.Time{},
-					LastTransitionTime: unversioned.Time{},
+					LastHeartbeatTime:  metav1.Time{},
+					LastTransitionTime: metav1.Time{},
 				},
 				{
 					Type:               api.NodeReady,
 					Status:             api.ConditionTrue,
 					Reason:             "KubeletReady",
 					Message:            fmt.Sprintf("kubelet is posting ready status"),
-					LastHeartbeatTime:  unversioned.Time{},
-					LastTransitionTime: unversioned.Time{},
+					LastHeartbeatTime:  metav1.Time{},
+					LastTransitionTime: metav1.Time{},
 				},
 			},
 			NodeInfo: api.NodeSystemInfo{
@@ -155,7 +154,7 @@ func TestAddPodStrategy(t *testing.T) {
 	}
 
 	// 4. check both the update node and the pod is stored back into the resource store
-	foundPod, exists, err := resourceStore.Get("pods", meta.Object(scheduledPod))
+	foundPod, exists, err := resourceStore.Get("pods", runtime.Object(scheduledPod))
 	if err != nil {
 		t.Errorf("Unexpected error when retrieving scheduled pod: %v", err)
 	}
@@ -172,7 +171,7 @@ func TestAddPodStrategy(t *testing.T) {
 		ObjectMeta: api.ObjectMeta{Name: testStrategyNode},
 	}
 
-	foundNode, exists, err := resourceStore.Get("nodes", meta.Object(node))
+	foundNode, exists, err := resourceStore.Get("nodes", runtime.Object(node))
 	if err != nil {
 		t.Errorf("Unexpected error when retrieving scheduled node: %v", err)
 	}

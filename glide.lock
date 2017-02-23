@@ -1,13 +1,15 @@
-hash: 0a6aaec4e8b86a391fa489028256028e0d32e6b4f5810e7b4cdb30c26cd9049c
-updated: 2017-02-08T14:53:31.790227342+01:00
+hash: 8fbb1fed0be9c3b32aa06f499b88df18e24d56a14a40f41caedb971e5d828b0c
+updated: 2017-02-23T10:49:17.018555585+01:00
 imports:
+- name: bitbucket.org/ww/goautoneg
+  version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
 - name: cloud.google.com/go
-  version: ce650573d812270c64426f3df9fd220324d24b2f
+  version: 1ed2f0abb2869a51b3a5b9daec801bf9791f95d0
   subpackages:
   - compute/metadata
   - internal
 - name: github.com/aws/aws-sdk-go
-  version: b5d549c8b24bf097dc539a63c4f91e6122740e3a
+  version: 08762661fb8f2c081b434de78a363daf6e8615a0
   subpackages:
   - aws
   - aws/awserr
@@ -43,13 +45,18 @@ imports:
   version: 4c0e84591b9aa9e6dcfdf3e020114cd81f89d5f9
   subpackages:
   - quantile
-- name: github.com/blang/semver
-  version: 4a1e882c79dcf4ec00d2e29fac74b9c8938d5052
 - name: github.com/coreos/etcd
-  version: 9b72c8ba1ba484802e155c9f6f0ddc21e9c256ce
+  version: 86c9bf5c3f68707048e2cea63101e0d8d156331d
   subpackages:
+  - auth/authpb
   - client
+  - clientv3
+  - etcdserver/api/v3rpc/rpctypes
+  - etcdserver/etcdserverpb
+  - mvcc/mvccpb
   - pkg/pathutil
+  - pkg/tlsutil
+  - pkg/transport
   - pkg/types
   - version
 - name: github.com/coreos/go-oidc
@@ -61,9 +68,13 @@ imports:
   - oauth2
   - oidc
 - name: github.com/coreos/go-semver
-  version: 9474efc580562cce8f761659fbce31b6feb8ce88
+  version: 5e3acbb5668c4c3deb4842615c4098eb61fb6b1e
   subpackages:
   - semver
+- name: github.com/coreos/go-systemd
+  version: b9b5f5970662ce700ab6ee41f56186e5b131490c
+  subpackages:
+  - daemon
 - name: github.com/coreos/pkg
   version: 1c941d73110817a80b9fa6e14d5d2b00d977ce2a
   subpackages:
@@ -77,7 +88,7 @@ imports:
 - name: github.com/dgrijalva/jwt-go
   version: 2268707a8f0843315e2004ee4f1d021dc08baedf
 - name: github.com/docker/distribution
-  version: b1993c95303df3d0214129d85382c3c573e4df20
+  version: 50133d63723f8fa376e632a853739990a133be16
   subpackages:
   - digestset
   - reference
@@ -95,22 +106,27 @@ imports:
   - types/swarm
   - types/versions
 - name: github.com/docker/go-connections
-  version: 7da10c8c50cad14494ec818dcdfb6506265c0086
+  version: 1b14b2d192e2f91cdc2bc6bf9aee0b0e116eed42
   subpackages:
   - nat
 - name: github.com/docker/go-units
   version: 0dadbb0345b35ec7ef35e228dabb8de89a65bf52
+- name: github.com/elazarl/go-bindata-assetfs
+  version: 9a6736ed45b44bf3835afeebb3034b57ed329f3e
 - name: github.com/emicklei/go-restful
-  version: 777bb3f19bcafe2575ffb2a3e46af92509ae9594
+  version: 89ef8af493ab468a45a42bb0d89a06fccdd2fb22
+  vcs: git
   subpackages:
   - log
   - swagger
+- name: github.com/evanphx/json-patch
+  version: ba18e35c5c1b36ef6334cad706eb681153d2d379
 - name: github.com/exponent-io/jsonpath
   version: d6023ce2651d8eafb5c75bb0c7167536102ec9f5
 - name: github.com/ghodss/yaml
   version: 04f313413ffd65ce25f2541bfd2b2ceec5c0908c
 - name: github.com/go-ini/ini
-  version: e3c2d47c61e5333f9aa2974695dd94396eb69c75
+  version: 74bdc99692c3408cb103221e38675ce8fda0a718
 - name: github.com/go-openapi/jsonpointer
   version: 779f45308c19820f1a69e9a4cd965f496e0da10f
 - name: github.com/go-openapi/jsonreference
@@ -120,7 +136,7 @@ imports:
 - name: github.com/go-openapi/swag
   version: d5f8ebc3b1c55a4cf6489eeae7354f338cfe299e
 - name: github.com/gogo/protobuf
-  version: 9c5b7bafbfccf2b40d274e0496f3a09418a87af4
+  version: 3ea128ab69017b2bb9720f38a32e2dcfc22c0546
   subpackages:
   - proto
   - sortkeys
@@ -131,13 +147,20 @@ imports:
   subpackages:
   - lru
 - name: github.com/golang/protobuf
-  version: 8ee79997227bf9b34611aee7946ae64735e6fd93
+  version: 69b215d01a5606c843240eab4937eab3acee6530
   subpackages:
+  - jsonpb
   - proto
 - name: github.com/google/gofuzz
   version: 44d81051d367757e1c7c6a5a86423ece9afcf63c
 - name: github.com/googleapis/gax-go
   version: da06d194a00e19ce00d9011a13931c3f6f6887c7
+- name: github.com/grpc-ecosystem/grpc-gateway
+  version: b855144721c1eeda1c8c78215662d14da4cf1700
+  subpackages:
+  - runtime
+  - runtime/internal
+  - utilities
 - name: github.com/hashicorp/golang-lru
   version: 0a025b7e63adc15a622f29b0b2c4c3848243bbf6
   subpackages:
@@ -153,7 +176,7 @@ imports:
 - name: github.com/inconshreveable/mousetrap
   version: 76626ae9c91c4f2a10f34cad8ce83ea42c93bb75
 - name: github.com/influxdata/influxdb
-  version: 8c25f0104eba8c0060e44a489f9d549e7d6a7a4d
+  version: c83c742b49f2a22ab997081c19ea0fb44f2bb8fc
   subpackages:
   - client
   - models
@@ -165,7 +188,7 @@ imports:
 - name: github.com/juju/ratelimit
   version: 77ed1c8a01217656d2080ad51981f6e99adaa177
 - name: github.com/mailru/easyjson
-  version: 99e922cf9de1bc0ab38310c277cff32c2147e747
+  version: d89c33ca38a143e5190297c6252fcc75f01694ed
   subpackages:
   - buffer
   - jlexer
@@ -180,22 +203,22 @@ imports:
   version: aa2ec055abd10d26d539eb630a92241b781ce4bc
 - name: github.com/pborman/uuid
   version: 1b00554d822231195d1babd97ff4a781231955c9
+- name: github.com/pkg/errors
+  version: 248dadf4e9068a0b3e79f02ed0a610d935de5302
 - name: github.com/prometheus/client_golang
-  version: c317fb74746eac4fc65fe3909195f4cf67c5562a
+  version: 6dbab8106ed3ed77359ac85d9cf08e30290df864
   subpackages:
+  - model
   - prometheus
+  - text
 - name: github.com/prometheus/client_model
-  version: fa8ad6fec33561be4280a8f0514318c79d7f6cb6
+  version: 6f3806018612930941127f2a7c6c453ba2c527d2
   subpackages:
   - go
-- name: github.com/prometheus/common
-  version: dd2f054febf4a6c00f2343686efb775948a8bff4
-  subpackages:
-  - expfmt
-  - internal/bitbucket.org/ww/goautoneg
-  - model
 - name: github.com/prometheus/procfs
-  version: 1878d9fbb537119d24b21ca07effd591627cd160
+  version: a1dba9ce8baed984a2495b658c82687f8157b98f
+  subpackages:
+  - xfs
 - name: github.com/PuerkitoBio/purell
   version: 0bcb03f4b4d0a9428594752bd2a3b9aa0a9d4bd4
 - name: github.com/PuerkitoBio/urlesc
@@ -214,47 +237,51 @@ imports:
 - name: github.com/renstrom/dedent
   version: 020d11c3b9c0c7a3c2efcc8e5cf5b9ef7bcea21f
 - name: github.com/spf13/cobra
-  version: 99600f6874c95daab762dc2373dc3ee1f6a48575
+  version: ee4055870c2d5f7ce112642377e32c9929c3bbaf
 - name: github.com/spf13/pflag
-  version: 9ff6c6923cfffbcd502984b8e0c80539a94968b7
+  version: 5ccb023bc27df288a957c5e994cd44fd19619465
+  vcs: git
 - name: github.com/ugorji/go
-  version: d23841a297e5489e787e72fceffabf9d2994b52a
+  version: c88ee250d0221a57af388746f5cf03768c21d6e2
   subpackages:
   - codec
 - name: golang.org/x/crypto
-  version: 22ddb68eccda408bbf17759ac18d3120ce0d4f3f
+  version: 453249f01cfeb54c3d549ddb75ff152ca243f9d8
   subpackages:
   - ssh/terminal
 - name: golang.org/x/net
-  version: 236b8f043b920452504e263bc21d354427127473
+  version: 6b27048ae5e6ad1ef927e72e437531493de612fe
   subpackages:
   - context
   - context/ctxhttp
+  - html
+  - html/atom
   - http2
   - http2/hpack
   - idna
   - internal/timeseries
   - lex/httplex
   - trace
+  - websocket
 - name: golang.org/x/oauth2
-  version: 4464e7848382e6f39db55097f70e1460bdf944b3
+  version: b9780ec78894ab900c062d58ee3076cd9b2a4501
   subpackages:
   - google
   - internal
   - jws
   - jwt
 - name: golang.org/x/sys
-  version: 7a6e5648d140666db5d920909e082ca00a87ba2c
+  version: 075e574b89e4c2d22f2286a7e2b919519c6f3547
   subpackages:
   - unix
 - name: golang.org/x/text
-  version: dafb3384ad25363d928a9e97ce4ad3a2f0667e34
+  version: 4687d739464a2d0af89a25be0318456e0776f3ef
   subpackages:
   - transform
   - unicode/norm
   - width
 - name: google.golang.org/api
-  version: 3d017632ea100549bbb3ae74c567d59f437ece0f
+  version: bc20c61134e1d25265dd60049f5735381e79b631
   subpackages:
   - cloudmonitoring/v2beta2
   - compute/v1
@@ -263,7 +290,7 @@ imports:
   - googleapi
   - googleapi/internal/uritemplates
 - name: google.golang.org/appengine
-  version: 2e4a801b39fc199db615bfca7d0b9f8cd9580599
+  version: 3a452f9e00122ead39586d68ffdb9c6e1326af3c
   subpackages:
   - internal
   - internal/app_identity
@@ -275,7 +302,7 @@ imports:
   - internal/urlfetch
   - urlfetch
 - name: google.golang.org/grpc
-  version: 2a6bf6142e96942e4fb9c0dfb157ee5d3cecafaa
+  version: 20633fa172ac711ac6a77fd573ed13f23ec56dcb
   subpackages:
   - codes
   - credentials
@@ -295,12 +322,178 @@ imports:
   - types
 - name: gopkg.in/inf.v0
   version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
+- name: gopkg.in/natefinch/lumberjack.v2
+  version: dd45e6a67c53f673bb49ca8a001fd3a63ceb640e
 - name: gopkg.in/warnings.v0
   version: 8a331561fe74dadba6edfc59f3be66c22c3b065d
 - name: gopkg.in/yaml.v2
-  version: 4c78c975fe7c825c6d1466c42be594d1d6f3aba6
+  version: a3f3340b5840cee44f372bddb5880fcbc419b46a
+- name: k8s.io/apimachinery
+  version: 0f8a3af747f81547246d79ca00c20af330868fa6
+  subpackages:
+  - pkg/api/equality
+  - pkg/api/errors
+  - pkg/api/meta
+  - pkg/api/resource
+  - pkg/api/testing
+  - pkg/api/validation
+  - pkg/api/validation/path
+  - pkg/apimachinery
+  - pkg/apimachinery/announced
+  - pkg/apimachinery/registered
+  - pkg/apis/meta/internalversion
+  - pkg/apis/meta/v1
+  - pkg/apis/meta/v1/unstructured
+  - pkg/apis/meta/v1/validation
+  - pkg/conversion
+  - pkg/conversion/queryparams
+  - pkg/fields
+  - pkg/labels
+  - pkg/openapi
+  - pkg/runtime
+  - pkg/runtime/schema
+  - pkg/runtime/serializer
+  - pkg/runtime/serializer/json
+  - pkg/runtime/serializer/protobuf
+  - pkg/runtime/serializer/recognizer
+  - pkg/runtime/serializer/streaming
+  - pkg/runtime/serializer/versioning
+  - pkg/selection
+  - pkg/types
+  - pkg/util/diff
+  - pkg/util/errors
+  - pkg/util/framer
+  - pkg/util/httpstream
+  - pkg/util/intstr
+  - pkg/util/json
+  - pkg/util/mergepatch
+  - pkg/util/net
+  - pkg/util/rand
+  - pkg/util/runtime
+  - pkg/util/sets
+  - pkg/util/strategicpatch
+  - pkg/util/uuid
+  - pkg/util/validation
+  - pkg/util/validation/field
+  - pkg/util/wait
+  - pkg/util/yaml
+  - pkg/version
+  - pkg/watch
+  - third_party/forked/golang/json
+  - third_party/forked/golang/netutil
+  - third_party/forked/golang/reflect
+- name: k8s.io/apiserver
+  version: b516a2b26a5881cba38afe47f6bf20c9d314ff15
+  subpackages:
+  - pkg/admission
+  - pkg/apis/apiserver
+  - pkg/apis/apiserver/install
+  - pkg/apis/apiserver/v1alpha1
+  - pkg/authentication/authenticator
+  - pkg/authentication/authenticatorfactory
+  - pkg/authentication/group
+  - pkg/authentication/request/anonymous
+  - pkg/authentication/request/bearertoken
+  - pkg/authentication/request/headerrequest
+  - pkg/authentication/request/union
+  - pkg/authentication/request/x509
+  - pkg/authentication/serviceaccount
+  - pkg/authentication/token/tokenfile
+  - pkg/authentication/user
+  - pkg/authorization/authorizer
+  - pkg/authorization/authorizerfactory
+  - pkg/authorization/union
+  - pkg/endpoints
+  - pkg/endpoints/filters
+  - pkg/endpoints/handlers
+  - pkg/endpoints/handlers/negotiation
+  - pkg/endpoints/handlers/responsewriters
+  - pkg/endpoints/metrics
+  - pkg/endpoints/openapi
+  - pkg/endpoints/request
+  - pkg/features
+  - pkg/registry/generic
+  - pkg/registry/generic/registry
+  - pkg/registry/rest
+  - pkg/server
+  - pkg/server/filters
+  - pkg/server/healthz
+  - pkg/server/httplog
+  - pkg/server/mux
+  - pkg/server/openapi
+  - pkg/server/options
+  - pkg/server/routes
+  - pkg/server/routes/data/swagger
+  - pkg/server/storage
+  - pkg/storage
+  - pkg/storage/errors
+  - pkg/storage/etcd
+  - pkg/storage/etcd/metrics
+  - pkg/storage/etcd/util
+  - pkg/storage/etcd3
+  - pkg/storage/names
+  - pkg/storage/storagebackend
+  - pkg/storage/storagebackend/factory
+  - pkg/util/cache
+  - pkg/util/feature
+  - pkg/util/flag
+  - pkg/util/flushwriter
+  - pkg/util/proxy
+  - pkg/util/trace
+  - pkg/util/trie
+  - pkg/util/webhook
+  - pkg/util/wsstream
+  - plugin/pkg/authenticator/password/keystone
+  - plugin/pkg/authenticator/password/passwordfile
+  - plugin/pkg/authenticator/request/basicauth
+  - plugin/pkg/authenticator/token/anytoken
+  - plugin/pkg/authenticator/token/oidc
+  - plugin/pkg/authenticator/token/webhook
+  - plugin/pkg/authorizer/webhook
+- name: k8s.io/client-go
+  version: 82a657e3904b1f8506d4d3c8ebd8f11bdb9f3694
+  subpackages:
+  - discovery
+  - kubernetes/typed/authentication/v1beta1
+  - kubernetes/typed/authorization/v1beta1
+  - pkg/api
+  - pkg/api/v1
+  - pkg/apis/authentication
+  - pkg/apis/authentication/install
+  - pkg/apis/authentication/v1beta1
+  - pkg/apis/authorization
+  - pkg/apis/authorization/install
+  - pkg/apis/authorization/v1beta1
+  - pkg/apis/autoscaling
+  - pkg/apis/extensions
+  - pkg/util
+  - pkg/util/labels
+  - pkg/util/parsers
+  - pkg/version
+  - plugin/pkg/client/auth
+  - plugin/pkg/client/auth/gcp
+  - plugin/pkg/client/auth/oidc
+  - rest
+  - rest/watch
+  - third_party/forked/golang/template
+  - tools/auth
+  - tools/cache
+  - tools/clientcmd
+  - tools/clientcmd/api
+  - tools/clientcmd/api/latest
+  - tools/clientcmd/api/v1
+  - tools/metrics
+  - tools/record
+  - transport
+  - util/cert
+  - util/clock
+  - util/flowcontrol
+  - util/homedir
+  - util/integer
+  - util/jsonpath
+  - util/workqueue
 - name: k8s.io/kubernetes
-  version: 08e099554f3c31f6e6f07b448ab3ed78d0520507
+  version: 7738f41b958bd8a8018333b9c3eb86c563e1ee1a
   subpackages:
   - cmd/kubeadm/app/apis/kubeadm
   - cmd/kubeadm/app/apis/kubeadm/install
@@ -308,28 +501,19 @@ imports:
   - federation/apis/federation
   - federation/apis/federation/install
   - federation/apis/federation/v1beta1
-  - pkg/admission
   - pkg/api
-  - pkg/api/endpoints
-  - pkg/api/errors
   - pkg/api/install
   - pkg/api/meta
-  - pkg/api/meta/metatypes
   - pkg/api/pod
   - pkg/api/resource
-  - pkg/api/rest
   - pkg/api/service
   - pkg/api/testapi
   - pkg/api/testing
   - pkg/api/unversioned
-  - pkg/api/unversioned/validation
   - pkg/api/util
   - pkg/api/v1
+  - pkg/api/v1/service
   - pkg/api/validation
-  - pkg/api/validation/path
-  - pkg/apimachinery
-  - pkg/apimachinery/announced
-  - pkg/apimachinery/registered
   - pkg/apis/abac
   - pkg/apis/abac/latest
   - pkg/apis/abac/v0
@@ -339,20 +523,23 @@ imports:
   - pkg/apis/apps/v1beta1
   - pkg/apis/authentication
   - pkg/apis/authentication/install
+  - pkg/apis/authentication/v1
   - pkg/apis/authentication/v1beta1
   - pkg/apis/authorization
   - pkg/apis/authorization/install
+  - pkg/apis/authorization/v1
   - pkg/apis/authorization/v1beta1
   - pkg/apis/autoscaling
   - pkg/apis/autoscaling/install
   - pkg/apis/autoscaling/v1
+  - pkg/apis/autoscaling/v2alpha1
   - pkg/apis/batch
   - pkg/apis/batch/install
   - pkg/apis/batch/v1
   - pkg/apis/batch/v2alpha1
   - pkg/apis/certificates
   - pkg/apis/certificates/install
-  - pkg/apis/certificates/v1alpha1
+  - pkg/apis/certificates/v1beta1
   - pkg/apis/componentconfig
   - pkg/apis/componentconfig/install
   - pkg/apis/componentconfig/v1alpha1
@@ -368,21 +555,31 @@ imports:
   - pkg/apis/rbac
   - pkg/apis/rbac/install
   - pkg/apis/rbac/v1alpha1
-  - pkg/apis/rbac/validation
+  - pkg/apis/rbac/v1beta1
   - pkg/apis/storage
   - pkg/apis/storage/install
   - pkg/apis/storage/util
   - pkg/apis/storage/v1beta1
-  - pkg/apiserver/authenticator
-  - pkg/auth/authenticator
-  - pkg/auth/authenticator/bearertoken
-  - pkg/auth/authorizer
   - pkg/auth/authorizer/abac
-  - pkg/auth/authorizer/union
-  - pkg/auth/group
-  - pkg/auth/user
   - pkg/capabilities
   - pkg/client/cache
+  - pkg/client/clientset_generated/clientset
+  - pkg/client/clientset_generated/clientset/typed/apps/v1beta1
+  - pkg/client/clientset_generated/clientset/typed/authentication/v1
+  - pkg/client/clientset_generated/clientset/typed/authentication/v1beta1
+  - pkg/client/clientset_generated/clientset/typed/authorization/v1
+  - pkg/client/clientset_generated/clientset/typed/authorization/v1beta1
+  - pkg/client/clientset_generated/clientset/typed/autoscaling/v1
+  - pkg/client/clientset_generated/clientset/typed/autoscaling/v2alpha1
+  - pkg/client/clientset_generated/clientset/typed/batch/v1
+  - pkg/client/clientset_generated/clientset/typed/batch/v2alpha1
+  - pkg/client/clientset_generated/clientset/typed/certificates/v1beta1
+  - pkg/client/clientset_generated/clientset/typed/core/v1
+  - pkg/client/clientset_generated/clientset/typed/extensions/v1beta1
+  - pkg/client/clientset_generated/clientset/typed/policy/v1beta1
+  - pkg/client/clientset_generated/clientset/typed/rbac/v1alpha1
+  - pkg/client/clientset_generated/clientset/typed/rbac/v1beta1
+  - pkg/client/clientset_generated/clientset/typed/storage/v1beta1
   - pkg/client/clientset_generated/internalclientset
   - pkg/client/clientset_generated/internalclientset/typed/apps/internalversion
   - pkg/client/clientset_generated/internalclientset/typed/authentication/internalversion
@@ -398,32 +595,25 @@ imports:
   - pkg/client/clientset_generated/internalclientset/typed/storage/internalversion
   - pkg/client/leaderelection
   - pkg/client/leaderelection/resourcelock
-  - pkg/client/listers/batch/internalversion
+  - pkg/client/legacylisters
+  - pkg/client/listers/batch/v1
   - pkg/client/listers/core/internalversion
-  - pkg/client/metrics
   - pkg/client/record
   - pkg/client/restclient
-  - pkg/client/transport
-  - pkg/client/typed/discovery
   - pkg/client/unversioned
-  - pkg/client/unversioned/auth
   - pkg/client/unversioned/clientcmd
-  - pkg/client/unversioned/clientcmd/api
-  - pkg/client/unversioned/clientcmd/api/latest
-  - pkg/client/unversioned/clientcmd/api/v1
   - pkg/cloudprovider
   - pkg/cloudprovider/providers/aws
   - pkg/cloudprovider/providers/gce
   - pkg/controller/informers
-  - pkg/conversion
-  - pkg/conversion/queryparams
   - pkg/credentialprovider
   - pkg/credentialprovider/aws
+  - pkg/features
   - pkg/fields
-  - pkg/genericapiserver/authorizer
-  - pkg/genericapiserver/openapi/common
-  - pkg/genericapiserver/options
-  - pkg/kubelet/leaky
+  - pkg/kubeapiserver/admission
+  - pkg/kubeapiserver/authenticator
+  - pkg/kubeapiserver/authorizer
+  - pkg/kubeapiserver/options
   - pkg/kubelet/qos
   - pkg/kubelet/types
   - pkg/labels
@@ -432,13 +622,8 @@ imports:
   - pkg/quota/evaluator/core
   - pkg/quota/generic
   - pkg/quota/install
+  - pkg/registry/rbac/validation
   - pkg/runtime
-  - pkg/runtime/serializer
-  - pkg/runtime/serializer/json
-  - pkg/runtime/serializer/protobuf
-  - pkg/runtime/serializer/recognizer
-  - pkg/runtime/serializer/streaming
-  - pkg/runtime/serializer/versioning
   - pkg/security/apparmor
   - pkg/security/podsecuritypolicy
   - pkg/security/podsecuritypolicy/apparmor
@@ -450,56 +635,26 @@ imports:
   - pkg/security/podsecuritypolicy/user
   - pkg/security/podsecuritypolicy/util
   - pkg/securitycontext
-  - pkg/selection
   - pkg/serviceaccount
-  - pkg/storage
-  - pkg/storage/etcd
-  - pkg/storage/etcd/metrics
-  - pkg/storage/etcd/util
-  - pkg/storage/storagebackend
-  - pkg/types
   - pkg/util
-  - pkg/util/cache
-  - pkg/util/cert
   - pkg/util/chmod
   - pkg/util/chown
-  - pkg/util/clock
-  - pkg/util/config
-  - pkg/util/diff
-  - pkg/util/errors
   - pkg/util/exec
-  - pkg/util/flowcontrol
-  - pkg/util/framer
   - pkg/util/hash
-  - pkg/util/homedir
-  - pkg/util/integer
-  - pkg/util/intstr
   - pkg/util/io
-  - pkg/util/json
-  - pkg/util/jsonpath
   - pkg/util/labels
   - pkg/util/maps
   - pkg/util/mount
-  - pkg/util/net
   - pkg/util/net/sets
   - pkg/util/node
   - pkg/util/parsers
-  - pkg/util/rand
-  - pkg/util/runtime
-  - pkg/util/sets
-  - pkg/util/strategicpatch
-  - pkg/util/uuid
-  - pkg/util/validation
-  - pkg/util/validation/field
   - pkg/util/wait
-  - pkg/util/workqueue
   - pkg/util/workqueue/prometheus
   - pkg/util/yaml
   - pkg/version
   - pkg/volume
   - pkg/volume/util
   - pkg/watch
-  - pkg/watch/versioned
   - plugin/cmd/kube-scheduler/app/options
   - plugin/pkg/admission/admit
   - plugin/pkg/admission/alwayspullimages
@@ -520,22 +675,7 @@ imports:
   - plugin/pkg/admission/securitycontext/scdeny
   - plugin/pkg/admission/serviceaccount
   - plugin/pkg/admission/storageclass/default
-  - plugin/pkg/auth/authenticator/password/keystone
-  - plugin/pkg/auth/authenticator/password/passwordfile
-  - plugin/pkg/auth/authenticator/request/anonymous
-  - plugin/pkg/auth/authenticator/request/basicauth
-  - plugin/pkg/auth/authenticator/request/headerrequest
-  - plugin/pkg/auth/authenticator/request/union
-  - plugin/pkg/auth/authenticator/request/x509
-  - plugin/pkg/auth/authenticator/token/anytoken
-  - plugin/pkg/auth/authenticator/token/oidc
-  - plugin/pkg/auth/authenticator/token/tokenfile
-  - plugin/pkg/auth/authenticator/token/webhook
   - plugin/pkg/auth/authorizer/rbac
-  - plugin/pkg/auth/authorizer/webhook
-  - plugin/pkg/client/auth
-  - plugin/pkg/client/auth/gcp
-  - plugin/pkg/client/auth/oidc
   - plugin/pkg/scheduler
   - plugin/pkg/scheduler/algorithm
   - plugin/pkg/scheduler/algorithm/predicates
@@ -550,8 +690,5 @@ imports:
   - plugin/pkg/scheduler/factory
   - plugin/pkg/scheduler/metrics
   - plugin/pkg/scheduler/schedulercache
-  - plugin/pkg/webhook
-  - third_party/forked/golang/json
-  - third_party/forked/golang/reflect
-  - third_party/forked/golang/template
+  - plugin/pkg/scheduler/util
 testImports: []

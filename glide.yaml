@@ -1,13 +1,20 @@
 package: github.com/kubernetes-incubator/cluster-capacity
 import:
+- package: github.com/coreos/go-systemd/
+  version: v8
 - package: github.com/emicklei/go-restful
-  version: v1.2
+  vcs: git
+  version: 89ef8af493ab468a45a42bb0d89a06fccdd2fb22
 - package: github.com/ghodss/yaml
+- package: github.com/prometheus/client_golang
+  version: 0.7.0
 - package: github.com/renstrom/dedent
 - package: github.com/spf13/cobra
 - package: github.com/spf13/pflag
+  vcs: git
+  version: 5ccb023bc27df288a957c5e994cd44fd19619465
 - package: k8s.io/kubernetes
-  version: v1.6.0-alpha.3
+  version: v1.6.0-alpha.2
   subpackages:
   - pkg/api
   - pkg/api/meta
@@ -27,7 +34,6 @@ import:
   - pkg/fields
   - pkg/labels
   - pkg/runtime
-  - pkg/util/flowcontrol
   - pkg/util/yaml
   - pkg/watch
   - plugin/cmd/kube-scheduler/app/options

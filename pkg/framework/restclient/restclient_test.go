@@ -23,12 +23,12 @@ import (
 	"testing"
 
 	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/kubernetes/pkg/api/testapi"
 	"k8s.io/kubernetes/pkg/apis/extensions"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/kubernetes/pkg/fields"
-	"k8s.io/kubernetes/pkg/runtime"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"

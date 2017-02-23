@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"math"
 	"regexp"
 	"regexp/syntax"
 	"sort"
@@ -72,6 +73,16 @@ func InspectDataTypes(a []interface{}) []DataType {
 		dta[i] = InspectDataType(v)
 	}
 	return dta
+}
+
+// LessThan returns true if the other DataType has greater precedence than the
+// current data type. Unknown has the lowest precedence.
+//
+// NOTE: This is not the same as using the `<` or `>` operator because the
+// integers used decrease with higher precedence, but Unknown is the lowest
+// precedence at the zero value.
+func (d DataType) LessThan(other DataType) bool {
+	return d == Unknown || (other != Unknown && other < d)
 }
 
 // String returns the human-readable string representation of the DataType.
@@ -2672,7 +2683,10 @@ func (s *ShowDatabasesStatement) String() string { return "SHOW DATABASES" }
 
 // RequiredPrivileges returns the privilege required to execute a ShowDatabasesStatement.
 func (s *ShowDatabasesStatement) RequiredPrivileges() (ExecutionPrivileges, error) {
-	return ExecutionPrivileges{{Admin: true, Name: "", Privilege: AllPrivileges}}, nil
+	// SHOW DATABASES is one of few statements that have no required privileges.
+	// Anyone is allowed to execute it, but the returned results depend on the user's
+	// individual database permissions.
+	return ExecutionPrivileges{{Admin: false, Name: "", Privilege: NoPrivileges}}, nil
 }
 
 // CreateContinuousQueryStatement represents a command for creating a continuous query.
@@ -4301,6 +4315,11 @@ func evalBinaryExpr(expr *BinaryExpr, m map[string]interface{}) interface{} {
 				return float64(0)
 			}
 			return lhs / rhs
+		case MOD:
+			if !ok {
+				return nil
+			}
+			return math.Mod(lhs, rhs)
 		}
 	case int64:
 		// Try as a float64 to see if a float cast is required.
@@ -4332,6 +4351,8 @@ func evalBinaryExpr(expr *BinaryExpr, m map[string]interface{}) interface{} {
 					return float64(0)
 				}
 				return lhs / rhs
+			case MOD:
+				return math.Mod(lhs, rhs)
 			}
 		} else {
 			rhs, ok := rhs.(int64)
@@ -4370,6 +4391,13 @@ func evalBinaryExpr(expr *BinaryExpr, m map[string]interface{}) interface{} {
 					return float64(0)
 				}
 				return lhs / rhs
+			case MOD:
+				if !ok {
+					return nil
+				} else if rhs == 0 {
+					return int64(0)
+				}
+				return lhs % rhs
 			}
 		}
 	case string:
@@ -4709,6 +4737,11 @@ func reduceBinaryExprIntegerLHS(op Token, lhs *IntegerLiteral, rhs Expr) Expr {
 				return &NumberLiteral{Val: 0}
 			}
 			return &NumberLiteral{Val: float64(lhs.Val) / float64(rhs.Val)}
+		case MOD:
+			if rhs.Val == 0 {
+				return &IntegerLiteral{Val: 0}
+			}
+			return &IntegerLiteral{Val: lhs.Val % rhs.Val}
 		case EQ:
 			return &BooleanLiteral{Val: lhs.Val == rhs.Val}
 		case NEQ:
@@ -4775,6 +4808,8 @@ func reduceBinaryExprNumberLHS(op Token, lhs *NumberLiteral, rhs Expr) Expr {
 				return &NumberLiteral{Val: 0}
 			}
 			return &NumberLiteral{Val: lhs.Val / rhs.Val}
+		case MOD:
+			return &NumberLiteral{Val: math.Mod(lhs.Val, rhs.Val)}
 		case EQ:
 			return &BooleanLiteral{Val: lhs.Val == rhs.Val}
 		case NEQ:
@@ -4801,6 +4836,8 @@ func reduceBinaryExprNumberLHS(op Token, lhs *NumberLiteral, rhs Expr) Expr {
 				return &NumberLiteral{Val: 0}
 			}
 			return &NumberLiteral{Val: lhs.Val / float64(rhs.Val)}
+		case MOD:
+			return &NumberLiteral{Val: math.Mod(lhs.Val, float64(rhs.Val))}
 		case EQ:
 			return &BooleanLiteral{Val: lhs.Val == float64(rhs.Val)}
 		case NEQ:

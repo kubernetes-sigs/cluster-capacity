@@ -29,17 +29,20 @@ import (
 
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/testapi"
-	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/apis/extensions"
 	restclient "k8s.io/client-go/rest"
-	"k8s.io/kubernetes/pkg/fields"
-	"k8s.io/kubernetes/pkg/runtime"
-	"k8s.io/client-go/util/flowcontrol"
-	"k8s.io/kubernetes/pkg/watch"
 
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/util/flowcontrol"
+	"k8s.io/apimachinery/pkg/watch"
+
+	"k8s.io/apimachinery/pkg/fields"
 	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
 	ewatch "github.com/kubernetes-incubator/cluster-capacity/pkg/framework/watch"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 type ObjectFieldsAccessor struct {
@@ -114,7 +117,7 @@ func (c *RESTClient) Pods(fieldsSelector fields.Selector) *api.PodList {
 	}
 
 	return &api.PodList{
-		ListMeta: unversioned.ListMeta{
+		ListMeta: metav1.ListMeta{
 			// choose arbitrary value as the cache does not store the ResourceVersion
 			ResourceVersion: "0",
 		},
@@ -133,7 +136,7 @@ func (c *RESTClient) Services(fieldsSelector fields.Selector) *api.ServiceList {
 	}
 
 	return &api.ServiceList{
-		ListMeta: unversioned.ListMeta{
+		ListMeta: metav1.ListMeta{
 			// choose arbitrary value as the cache does not store the ResourceVersion
 			ResourceVersion: "0",
 		},
@@ -152,7 +155,7 @@ func (c *RESTClient) ReplicationControllers(fieldsSelector fields.Selector) *api
 	}
 
 	return &api.ReplicationControllerList{
-		ListMeta: unversioned.ListMeta{
+		ListMeta: metav1.ListMeta{
 			// choose arbitrary value as the cache does not store the ResourceVersion
 			ResourceVersion: "0",
 		},
@@ -171,7 +174,7 @@ func (c *RESTClient) PersistentVolumes(fieldsSelector fields.Selector) *api.Pers
 	}
 
 	return &api.PersistentVolumeList{
-		ListMeta: unversioned.ListMeta{
+		ListMeta: metav1.ListMeta{
 			ResourceVersion: "0",
 		},
 		Items: typedItems,
@@ -189,7 +192,7 @@ func (c *RESTClient) PersistentVolumeClaims(fieldsSelector fields.Selector) *api
 	}
 
 	return &api.PersistentVolumeClaimList{
-		ListMeta: unversioned.ListMeta{
+		ListMeta: metav1.ListMeta{
 			ResourceVersion: "0",
 		},
 		Items: typedItems,
@@ -207,7 +210,7 @@ func (c *RESTClient) Nodes(fieldsSelector fields.Selector) *api.NodeList {
 	}
 
 	return &api.NodeList{
-		ListMeta: unversioned.ListMeta{
+		ListMeta: metav1.ListMeta{
 			ResourceVersion: "0",
 		},
 		Items: typedItems,
@@ -225,7 +228,7 @@ func (c *RESTClient) ReplicaSets(fieldsSelector fields.Selector) *extensions.Rep
 	}
 
 	return &extensions.ReplicaSetList{
-		ListMeta: unversioned.ListMeta{
+		ListMeta: metav1.ListMeta{
 			ResourceVersion: "0",
 		},
 		Items: typedItems,
@@ -243,7 +246,7 @@ func (c *RESTClient) ResourceQuota(fieldsSelector fields.Selector) *api.Resource
 	}
 
 	return &api.ResourceQuotaList{
-		ListMeta: unversioned.ListMeta{
+		ListMeta: metav1.ListMeta{
 			ResourceVersion: "0",
 		},
 		Items: typedItems,
@@ -261,7 +264,7 @@ func (c *RESTClient) Secrets(fieldsSelector fields.Selector) *api.SecretList {
 	}
 
 	return &api.SecretList{
-		ListMeta: unversioned.ListMeta{
+		ListMeta: metav1.ListMeta{
 			ResourceVersion: "0",
 		},
 		Items: typedItems,
@@ -279,7 +282,7 @@ func (c *RESTClient) ServiceAccounts(fieldsSelector fields.Selector) *api.Servic
 	}
 
 	return &api.ServiceAccountList{
-		ListMeta: unversioned.ListMeta{
+		ListMeta: metav1.ListMeta{
 			ResourceVersion: "0",
 		},
 		Items: typedItems,
@@ -297,7 +300,7 @@ func (c *RESTClient) LimitRanges(fieldsSelector fields.Selector) *api.LimitRange
 	}
 
 	return &api.LimitRangeList{
-		ListMeta: unversioned.ListMeta{
+		ListMeta: metav1.ListMeta{
 			ResourceVersion: "0",
 		},
 		Items: typedItems,
@@ -315,7 +318,7 @@ func (c *RESTClient) Namespaces(fieldsSelector fields.Selector) *api.NamespaceLi
 	}
 
 	return &api.NamespaceList{
-		ListMeta: unversioned.ListMeta{
+		ListMeta: metav1.ListMeta{
 			ResourceVersion: "0",
 		},
 		Items: typedItems,
@@ -391,7 +394,7 @@ func (c *RESTClient) Verb(verb string) *restclient.Request {
 	return c.request(verb)
 }
 
-func (c *RESTClient) APIVersion() unversioned.GroupVersion {
+func (c *RESTClient) APIVersion() schema.GroupVersion {
 	return *(testapi.Default.GroupVersion())
 }
 
@@ -403,7 +406,7 @@ func (c *RESTClient) Put() *restclient.Request {
 	return c.request("PUT")
 }
 
-func (c *RESTClient) Patch(_ api.PatchType) *restclient.Request {
+func (c *RESTClient) Patch(_ types.PatchType) *restclient.Request {
 	return c.request("PATCH")
 }
 
@@ -424,12 +427,12 @@ func (c *RESTClient) request(verb string) *restclient.Request {
 	ns := c.NegotiatedSerializer
 	info, _ := runtime.SerializerInfoForMediaType(ns.SupportedMediaTypes(), runtime.ContentTypeJSON)
 
-	var targetVersion unversioned.GroupVersion
+	var targetVersion schema.GroupVersion
 	if c.name == "extensions" {
-		gvr := unversioned.GroupVersionResource{Group: "extensions", Version: "v1beta1", Resource: "replicasets"}
+		gvr := schema.GroupVersionResource{Group: "extensions", Version: "v1beta1", Resource: "replicasets"}
 		targetVersion = gvr.GroupVersion()
 	} else {
-		targetVersion = unversioned.GroupVersion{
+		targetVersion = schema.GroupVersion{
 			Group:   testapi.Default.GroupVersion().Group,
 			Version: runtime.APIVersionInternal,
 		}
@@ -464,7 +467,7 @@ func (c *RESTClient) createListReadCloser(resource ccapi.ResourceType, fieldsSel
 	}
 
 	if resource == ccapi.ReplicaSets {
-		gvr := unversioned.GroupVersionResource{Group: "extensions", Version: "v1beta1", Resource: "replicasets"}
+		gvr := schema.GroupVersionResource{Group: "extensions", Version: "v1beta1", Resource: "replicasets"}
 		info, ok := runtime.SerializerInfoForMediaType(c.NegotiatedSerializer.SupportedMediaTypes(), runtime.ContentTypeJSON)
 		if !ok {
 			return nil, fmt.Errorf("serializer for %s not registered", runtime.ContentTypeJSON)
@@ -634,7 +637,7 @@ func (c *RESTClient) Do(req *http.Request) (*http.Response, error) {
 	// check all fields
 	//fmt.Printf("URL request path: %v, rawQuery: %v, fields selector: %v\n", req.URL.Path, queryParams, fieldsSelector)
 	// is field selector on?
-	value, ok := queryParams[unversioned.FieldSelectorQueryParam(testapi.Default.GroupVersion().String())]
+	value, ok := queryParams[metav1.FieldSelectorQueryParam(testapi.Default.GroupVersion().String())]
 	if ok {
 		fieldsSelector = fields.ParseSelectorOrDie(value[0])
 	}
