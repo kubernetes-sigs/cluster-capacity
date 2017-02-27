@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/watch"
@@ -38,11 +38,11 @@ func newTestWatchRestClient() *RESTClient {
 
 func getResourceWatcher(client cache.Getter, resource ccapi.ResourceType) watch.Interface {
 	// client listerWatcher
-	listerWatcher := cache.NewListWatchFromClient(client, resource.String(), api.NamespaceAll, fields.ParseSelectorOrDie(""))
+	listerWatcher := cache.NewListWatchFromClient(client, resource.String(), v1.NamespaceAll, fields.ParseSelectorOrDie(""))
 	// ask for watcher data
 	timemoutseconds := int64(10)
 
-	options := api.ListOptions{
+	options := v1.ListOptions{
 		ResourceVersion: "0",
 		// We want to avoid situations of hanging watchers. Stop any wachers that do not
 		// receive any events within the timeout window.
@@ -56,17 +56,17 @@ func getResourceWatcher(client cache.Getter, resource ccapi.ResourceType) watch.
 func emitEvent(client *RESTClient, resource ccapi.ResourceType, test eventTest) {
 	switch resource {
 	case ccapi.Pods:
-		client.EmitObjectWatchEvent(resource, test.event, test.item.(*api.Pod))
+		client.EmitObjectWatchEvent(resource, test.event, test.item.(*v1.Pod))
 	case ccapi.Services:
-		client.EmitObjectWatchEvent(resource, test.event, test.item.(*api.Service))
+		client.EmitObjectWatchEvent(resource, test.event, test.item.(*v1.Service))
 	case ccapi.ReplicationControllers:
-		client.EmitObjectWatchEvent(resource, test.event, test.item.(*api.ReplicationController))
+		client.EmitObjectWatchEvent(resource, test.event, test.item.(*v1.ReplicationController))
 	case ccapi.PersistentVolumes:
-		client.EmitObjectWatchEvent(resource, test.event, test.item.(*api.PersistentVolume))
+		client.EmitObjectWatchEvent(resource, test.event, test.item.(*v1.PersistentVolume))
 	case ccapi.Nodes:
-		client.EmitObjectWatchEvent(resource, test.event, test.item.(*api.Node))
+		client.EmitObjectWatchEvent(resource, test.event, test.item.(*v1.Node))
 	case ccapi.PersistentVolumeClaims:
-		client.EmitObjectWatchEvent(resource, test.event, test.item.(*api.PersistentVolumeClaim))
+		client.EmitObjectWatchEvent(resource, test.event, test.item.(*v1.PersistentVolumeClaim))
 	default:
 		fmt.Printf("Unsupported resource %s", resource)
 		// TODO(jchaloup): log the error

@@ -29,7 +29,7 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/client-go/tools/cache"
 
-	"k8s.io/kubernetes/pkg/api"
+	//"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	"k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
@@ -45,6 +45,7 @@ import (
 	"k8s.io/kubernetes/plugin/pkg/scheduler/factory"
 	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
 	kubeadmission "k8s.io/kubernetes/pkg/kubeapiserver/admission"
+	//"k8s.io/kubernetes/pkg/api/v1"
 
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -151,8 +152,8 @@ type ClusterCapacity struct {
 	defaultScheduler string
 
 	// pod to schedule
-	simulatedPod     *api.Pod
-	lastSimulatedPod *api.Pod
+	simulatedPod     *v1.Pod
+	lastSimulatedPod *v1.Pod
 	maxSimulated     int
 	simulated        int
 	status           Status
@@ -173,14 +174,14 @@ type ClusterCapacity struct {
 
 // capture all scheduled pods with reason why the analysis could not continue
 type Status struct {
-	Pods       []*api.Pod
+	Pods       []*v1.Pod
 	StopReason string
 }
 
 func (c *ClusterCapacity) Report() *ClusterCapacityReview {
 	if c.report == nil {
 		// Preparation before pod sequence scheduling is done
-		pods := make([]*api.Pod,0)
+		pods := make([]*v1.Pod,0)
 		pods = append(pods, c.simulatedPod)
 		c.report = GetReport(pods, c.status)
 		c.report.Spec.Replicas = int32(c.maxSimulated)
@@ -189,13 +190,13 @@ func (c *ClusterCapacity) Report() *ClusterCapacityReview {
 	return c.report
 }
 
-func (c *ClusterCapacity) SyncWithClient(client internalclientset.Interface) error {
+func (c *ClusterCapacity) SyncWithClient(client clientset.Interface) error {
 	for _, resource := range c.resourceStore.Resources() {
 		var listWatcher *cache.ListWatch
 		if resource == ccapi.ReplicaSets {
-			listWatcher = cache.NewListWatchFromClient(client.Extensions().RESTClient(), resource.String(), api.NamespaceAll, fields.ParseSelectorOrDie(""))
+			listWatcher = cache.NewListWatchFromClient(client.Extensions().RESTClient(), resource.String(), v1.NamespaceAll, fields.ParseSelectorOrDie(""))
 		} else {
-			listWatcher = cache.NewListWatchFromClient(client.Core().RESTClient(), resource.String(), api.NamespaceAll, fields.ParseSelectorOrDie(""))
+			listWatcher = cache.NewListWatchFromClient(client.Core().RESTClient(), resource.String(), v1.NamespaceAll, fields.ParseSelectorOrDie(""))
 		}
 
 		options := metav1.ListOptions{ResourceVersion: "0"}
@@ -242,7 +243,7 @@ func (c *ClusterCapacity) Bind(binding *v1.Binding, schedulerName string) error 
 	// fmt.Printf("\nPod: %v, node: %v, scheduler: %v\n", binding.Name, binding.Target.Name, schedulerName)
 
 	// run the pod through strategy
-	key := &api.Pod{
+	key := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{Name: binding.Name, Namespace: binding.Namespace},
 	}
 	pod, exists, err := c.resourceStore.Get(ccapi.Pods, runtime.Object(key))
@@ -252,9 +253,9 @@ func (c *ClusterCapacity) Bind(binding *v1.Binding, schedulerName string) error 
 	if !exists {
 		return fmt.Errorf("Unable to bind, pod %v not found", pod)
 	}
-	updatedPod := *pod.(*api.Pod)
+	updatedPod := *pod.(*v1.Pod)
 	updatedPod.Spec.NodeName = binding.Target.Name
-	updatedPod.Status.Phase = api.PodRunning
+	updatedPod.Status.Phase = v1.PodRunning
 	// fmt.Printf("Pod binding: %v\n", updatedPod)
 
 	// TODO(jchaloup): rename Add to Update as this actually updates the scheduled pod
@@ -306,10 +307,10 @@ func (c *ClusterCapacity) Close() {
 }
 
 func (c *ClusterCapacity) Update(pod *v1.Pod, podCondition *v1.PodCondition, schedulerName string) error {
-	// once the api.PodCondition
-	podUnschedulableCond := &api.PodCondition{
-		Type:   api.PodScheduled,
-		Status: api.ConditionFalse,
+	// once the v1.PodCondition
+	podUnschedulableCond := &v1.PodCondition{
+		Type:   v1.PodScheduled,
+		Status: v1.ConditionFalse,
 		Reason: "Unschedulable",
 	}
 
@@ -461,7 +462,7 @@ func createConfig(s *soptions.SchedulerServer, configFactory scheduler.Configura
 // Create new cluster capacity analysis
 // The analysis is completely independent of apiserver so no need
 // for kubeconfig nor for apiserver url
-func New(s *soptions.SchedulerServer, simulatedPod *api.Pod, maxPods int, resourceSpaceMode ResourceSpaceMode, admissionControl string) (*ClusterCapacity, error) {
+func New(s *soptions.SchedulerServer, simulatedPod *v1.Pod, maxPods int, resourceSpaceMode ResourceSpaceMode, admissionControl string) (*ClusterCapacity, error) {
 	resourceStore := store.NewResourceStore()
 	restClient := restclient.NewRESTClient(resourceStore, "core")
 	extensionsRestClient := restclient.NewRESTClient(resourceStore, "extensions")

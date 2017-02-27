@@ -28,9 +28,10 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/validation"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
+	//"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api/v1"
+	//"k8s.io/kubernetes/pkg/api/validation"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	schedopt "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app/options"
@@ -44,7 +45,7 @@ var SupportedAdmissionControllers = sets.NewString([]string{"LimitRanger", "Reso
 
 type ClusterCapacityConfig struct {
 	Schedulers       []*schedopt.SchedulerServer
-	Pod              *api.Pod
+	Pod              *v1.Pod
 	KubeClient       clientset.Interface
 	Options          *ClusterCapacityOptions
 	DefaultScheduler *schedopt.SchedulerServer
@@ -170,19 +171,19 @@ func (s *ClusterCapacityConfig) ParseAPISpec() error {
 	// hardcoded from kube api defaults and validation
 	// TODO: rewrite when object validation gets more available for non kubectl approaches in kube
 	if s.Pod.Spec.DNSPolicy == "" {
-		s.Pod.Spec.DNSPolicy = api.DNSClusterFirst
+		s.Pod.Spec.DNSPolicy = v1.DNSClusterFirst
 	}
 	if s.Pod.Spec.RestartPolicy == "" {
-		s.Pod.Spec.RestartPolicy = api.RestartPolicyAlways
+		s.Pod.Spec.RestartPolicy = v1.RestartPolicyAlways
 	}
 
-	if errs := validation.ValidatePod(s.Pod); len(errs) > 0 {
-		var errStrs []string
-		for _, err := range errs {
-			errStrs = append(errStrs, fmt.Sprintf("%v: %v", err.Type, err.Field))
-		}
-		return fmt.Errorf("Invalid pod: %#v", strings.Join(errStrs, ", "))
-	}
+	//if errs := validation.ValidatePod(s.Pod); len(errs) > 0 {
+	//	var errStrs []string
+	//	for _, err := range errs {
+	//		errStrs = append(errStrs, fmt.Sprintf("%v: %v", err.Type, err.Field))
+	//	}
+	//	return fmt.Errorf("Invalid pod: %#v", strings.Join(errStrs, ", "))
+	//}
 	return nil
 }
 

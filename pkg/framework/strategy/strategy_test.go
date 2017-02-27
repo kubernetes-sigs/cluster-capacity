@@ -22,7 +22,7 @@ import (
 	goruntime "runtime"
 	"testing"
 
-	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/api/resource"
 	apitesting "k8s.io/kubernetes/pkg/api/testing"
@@ -31,46 +31,46 @@ import (
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
 )
 
-func getTestNode(nodeName string) *api.Node {
-	return &api.Node{
-		ObjectMeta: api.ObjectMeta{Name: nodeName},
-		Spec:       api.NodeSpec{},
-		Status: api.NodeStatus{
-			Conditions: []api.NodeCondition{
+func getTestNode(nodeName string) *v1.Node {
+	return &v1.Node{
+		ObjectMeta: v1.ObjectMeta{Name: nodeName},
+		Spec:       v1.NodeSpec{},
+		Status: v1.NodeStatus{
+			Conditions: []v1.NodeCondition{
 				{
-					Type:               api.NodeOutOfDisk,
-					Status:             api.ConditionFalse,
+					Type:               v1.NodeOutOfDisk,
+					Status:             v1.ConditionFalse,
 					Reason:             "KubeletHasSufficientDisk",
 					Message:            fmt.Sprintf("kubelet has sufficient disk space available"),
 					LastHeartbeatTime:  metav1.Time{},
 					LastTransitionTime: metav1.Time{},
 				},
 				{
-					Type:               api.NodeMemoryPressure,
-					Status:             api.ConditionFalse,
+					Type:               v1.NodeMemoryPressure,
+					Status:             v1.ConditionFalse,
 					Reason:             "KubeletHasSufficientMemory",
 					Message:            fmt.Sprintf("kubelet has sufficient memory available"),
 					LastHeartbeatTime:  metav1.Time{},
 					LastTransitionTime: metav1.Time{},
 				},
 				{
-					Type:               api.NodeDiskPressure,
-					Status:             api.ConditionFalse,
+					Type:               v1.NodeDiskPressure,
+					Status:             v1.ConditionFalse,
 					Reason:             "KubeletHasNoDiskPressure",
 					Message:            fmt.Sprintf("kubelet has no disk pressure"),
 					LastHeartbeatTime:  metav1.Time{},
 					LastTransitionTime: metav1.Time{},
 				},
 				{
-					Type:               api.NodeReady,
-					Status:             api.ConditionTrue,
+					Type:               v1.NodeReady,
+					Status:             v1.ConditionTrue,
 					Reason:             "KubeletReady",
 					Message:            fmt.Sprintf("kubelet is posting ready status"),
 					LastHeartbeatTime:  metav1.Time{},
 					LastTransitionTime: metav1.Time{},
 				},
 			},
-			NodeInfo: api.NodeSystemInfo{
+			NodeInfo: v1.NodeSystemInfo{
 				MachineID:               "123",
 				SystemUUID:              "abc",
 				BootID:                  "1b3",
@@ -82,50 +82,50 @@ func getTestNode(nodeName string) *api.Node {
 				KubeletVersion:          version.Get().String(),
 				KubeProxyVersion:        version.Get().String(),
 			},
-			Capacity: api.ResourceList{
-				api.ResourceCPU:       *resource.NewMilliQuantity(2000, resource.DecimalSI),
-				api.ResourceMemory:    *resource.NewQuantity(10E9, resource.BinarySI),
-				api.ResourcePods:      *resource.NewQuantity(0, resource.DecimalSI),
-				api.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
+			Capacity: v1.ResourceList{
+				v1.ResourceCPU:       *resource.NewMilliQuantity(2000, resource.DecimalSI),
+				v1.ResourceMemory:    *resource.NewQuantity(10E9, resource.BinarySI),
+				v1.ResourcePods:      *resource.NewQuantity(0, resource.DecimalSI),
+				v1.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
 			},
-			Allocatable: api.ResourceList{
-				api.ResourceCPU:       *resource.NewMilliQuantity(300, resource.DecimalSI),
-				api.ResourceMemory:    *resource.NewQuantity(20E6, resource.BinarySI),
-				api.ResourcePods:      *resource.NewQuantity(0, resource.DecimalSI),
-				api.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
+			Allocatable: v1.ResourceList{
+				v1.ResourceCPU:       *resource.NewMilliQuantity(300, resource.DecimalSI),
+				v1.ResourceMemory:    *resource.NewQuantity(20E6, resource.BinarySI),
+				v1.ResourcePods:      *resource.NewQuantity(0, resource.DecimalSI),
+				v1.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
 			},
-			Addresses: []api.NodeAddress{
-				{Type: api.NodeLegacyHostIP, Address: "127.0.0.1"},
-				{Type: api.NodeInternalIP, Address: "127.0.0.1"},
+			Addresses: []v1.NodeAddress{
+				{Type: v1.NodeLegacyHostIP, Address: "127.0.0.1"},
+				{Type: v1.NodeInternalIP, Address: "127.0.0.1"},
 			},
-			Images: []api.ContainerImage{},
+			Images: []v1.ContainerImage{},
 		},
 	}
 }
 
 var testStrategyNode string = "node1"
 
-func newScheduledPod() *api.Pod {
-	pod := &api.Pod{
-		ObjectMeta: api.ObjectMeta{Name: "schedulerPod", Namespace: "test", ResourceVersion: "10"},
+func newScheduledPod() *v1.Pod {
+	pod := &v1.Pod{
+		ObjectMeta: v1.ObjectMeta{Name: "schedulerPod", Namespace: "test", ResourceVersion: "10"},
 		Spec:       apitesting.DeepEqualSafePodSpec(),
 	}
 
 	// set pod's resource consumption
-	pod.Spec.Containers = []api.Container{
+	pod.Spec.Containers = []v1.Container{
 		{
-			Resources: api.ResourceRequirements{
-				Limits: api.ResourceList{
-					api.ResourceCPU:       *resource.NewMilliQuantity(400, resource.DecimalSI),
-					api.ResourceMemory:    *resource.NewQuantity(10E6, resource.BinarySI),
-					api.ResourcePods:      *resource.NewQuantity(0, resource.DecimalSI),
-					api.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
+			Resources: v1.ResourceRequirements{
+				Limits: v1.ResourceList{
+					v1.ResourceCPU:       *resource.NewMilliQuantity(400, resource.DecimalSI),
+					v1.ResourceMemory:    *resource.NewQuantity(10E6, resource.BinarySI),
+					v1.ResourcePods:      *resource.NewQuantity(0, resource.DecimalSI),
+					v1.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
 				},
-				Requests: api.ResourceList{
-					api.ResourceCPU:       *resource.NewMilliQuantity(400, resource.DecimalSI),
-					api.ResourceMemory:    *resource.NewQuantity(10E6, resource.BinarySI),
-					api.ResourcePods:      *resource.NewQuantity(0, resource.DecimalSI),
-					api.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
+				Requests: v1.ResourceList{
+					v1.ResourceCPU:       *resource.NewMilliQuantity(400, resource.DecimalSI),
+					v1.ResourceMemory:    *resource.NewQuantity(10E6, resource.BinarySI),
+					v1.ResourcePods:      *resource.NewQuantity(0, resource.DecimalSI),
+					v1.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
 				},
 			},
 		},
@@ -162,13 +162,13 @@ func TestAddPodStrategy(t *testing.T) {
 		t.Errorf("Unable to find scheduled pod: %v", err)
 	}
 
-	actualPod := foundPod.(*api.Pod)
+	actualPod := foundPod.(*v1.Pod)
 	if !reflect.DeepEqual(scheduledPod, actualPod) {
 		t.Errorf("Unexpected object: expected: %#v\n actual: %#v", scheduledPod, actualPod)
 	}
 
-	node := &api.Node{
-		ObjectMeta: api.ObjectMeta{Name: testStrategyNode},
+	node := &v1.Node{
+		ObjectMeta: v1.ObjectMeta{Name: testStrategyNode},
 	}
 
 	foundNode, exists, err := resourceStore.Get("nodes", runtime.Object(node))
@@ -179,7 +179,7 @@ func TestAddPodStrategy(t *testing.T) {
 		t.Errorf("Unable to find scheduled node: %v", err)
 	}
 
-	actualNode := foundNode.(*api.Node)
+	actualNode := foundNode.(*v1.Node)
 	if reflect.DeepEqual(node, actualNode) {
 		t.Errorf("Expected %q node to be modified", testStrategyNode)
 	}

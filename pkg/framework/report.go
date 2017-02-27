@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
-	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api/v1"
 
 	"k8s.io/apimachinery/pkg/conversion"
 	"k8s.io/apimachinery/pkg/labels"
@@ -41,7 +41,7 @@ type ClusterCapacityReview struct {
 
 type ClusterCapacityReviewSpec struct {
 	// the pod desired for scheduling
-	Templates []api.Pod
+	Templates []v1.Pod
 
 	// desired number of replicas that should be scheduled
 	// +optional
@@ -74,7 +74,7 @@ type Resources struct {
 	CPU                *resource.Quantity
 	Memory             *resource.Quantity
 	NvidiaGPU          *resource.Quantity
-	OpaqueIntResources map[api.ResourceName]int64
+	OpaqueIntResources map[v1.ResourceName]int64
 }
 
 type Requirements struct {
@@ -99,7 +99,7 @@ func getMainFailReason(message string) *ClusterCapacityReviewScheduleFailReason 
 	return fail
 }
 
-func getResourceRequest(pod *api.Pod) *Resources {
+func getResourceRequest(pod *v1.Pod) *Resources {
 	result := Resources{
 		CPU:       resource.NewMilliQuantity(0, resource.DecimalSI),
 		Memory:    resource.NewQuantity(0, resource.BinarySI),
@@ -108,17 +108,17 @@ func getResourceRequest(pod *api.Pod) *Resources {
 	for _, container := range pod.Spec.Containers {
 		for rName, rQuantity := range container.Resources.Requests {
 			switch rName {
-			case api.ResourceMemory:
+			case v1.ResourceMemory:
 				result.Memory.Add(rQuantity)
-			case api.ResourceCPU:
+			case v1.ResourceCPU:
 				result.CPU.Add(rQuantity)
-			case api.ResourceNvidiaGPU:
+			case v1.ResourceNvidiaGPU:
 				result.NvidiaGPU.Add(rQuantity)
 			default:
-				if api.IsOpaqueIntResourceName(rName) {
+				if v1.IsOpaqueIntResourceName(rName) {
 					// Lazily allocate this map only if required.
 					if result.OpaqueIntResources == nil {
-						result.OpaqueIntResources = map[api.ResourceName]int64{}
+						result.OpaqueIntResources = map[v1.ResourceName]int64{}
 					}
 					result.OpaqueIntResources[rName] += rQuantity.Value()
 				}
@@ -128,7 +128,7 @@ func getResourceRequest(pod *api.Pod) *Resources {
 	return &result
 }
 
-func parsePodsReview(templatePods []*api.Pod, status Status) []*ClusterCapacityReviewResult {
+func parsePodsReview(templatePods []*v1.Pod, status Status) []*ClusterCapacityReviewResult {
 	templatesCount := len(templatePods)
 	result := make([]*ClusterCapacityReviewResult, 0)
 
@@ -163,7 +163,7 @@ func parsePodsReview(templatePods []*api.Pod, status Status) []*ClusterCapacityR
 	return result
 }
 
-func getPodsRequirements(pods []*api.Pod) []*Requirements {
+func getPodsRequirements(pods []*v1.Pod) []*Requirements {
 	result := make([]*Requirements, 0)
 	for _, pod := range pods {
 		podRequirements := &Requirements{
@@ -176,16 +176,16 @@ func getPodsRequirements(pods []*api.Pod) []*Requirements {
 	return result
 }
 
-func deepCopyPods(in []*api.Pod, out []api.Pod) {
+func deepCopyPods(in []*v1.Pod, out []v1.Pod) {
 	cloner := conversion.NewCloner()
 	for i, pod := range in {
-		api.DeepCopy_api_Pod(pod, &out[i], cloner)
+		v1.DeepCopy_v1_Pod(pod, &out[i], cloner)
 	}
 }
 
-func getReviewSpec(podTemplates []*api.Pod) ClusterCapacityReviewSpec {
+func getReviewSpec(podTemplates []*v1.Pod) ClusterCapacityReviewSpec {
 
-	podCopies := make([]api.Pod, len(podTemplates))
+	podCopies := make([]v1.Pod, len(podTemplates))
 	deepCopyPods(podTemplates, podCopies)
 	return ClusterCapacityReviewSpec{
 		Templates:       podCopies,
@@ -193,7 +193,7 @@ func getReviewSpec(podTemplates []*api.Pod) ClusterCapacityReviewSpec {
 	}
 }
 
-func getReviewStatus(pods []*api.Pod, status Status) ClusterCapacityReviewStatus {
+func getReviewStatus(pods []*v1.Pod, status Status) ClusterCapacityReviewStatus {
 	return ClusterCapacityReviewStatus{
 		CreationTimestamp: time.Now(),
 		Replicas:          int32(len(status.Pods)),
@@ -202,7 +202,7 @@ func getReviewStatus(pods []*api.Pod, status Status) ClusterCapacityReviewStatus
 	}
 }
 
-func GetReport(pods []*api.Pod, status Status) *ClusterCapacityReview {
+func GetReport(pods []*v1.Pod, status Status) *ClusterCapacityReview {
 	return &ClusterCapacityReview{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ClusterCapacityReview",

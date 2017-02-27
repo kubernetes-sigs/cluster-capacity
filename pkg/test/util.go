@@ -17,71 +17,71 @@ limitations under the License.
 package test
 
 import (
-	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	apitesting "k8s.io/kubernetes/pkg/api/testing"
 )
 
-func NodeExample(name string) api.Node {
-	return api.Node{
-		ObjectMeta: api.ObjectMeta{Name: name, Namespace: "test", ResourceVersion: "123"},
-		Spec: api.NodeSpec{
+func NodeExample(name string) v1.Node {
+	return v1.Node{
+		ObjectMeta: v1.ObjectMeta{Name: name, Namespace: "test", ResourceVersion: "123"},
+		Spec: v1.NodeSpec{
 			ExternalID: "ext",
 		},
 	}
 }
 
-func PodExample(name string) api.Pod {
-	return api.Pod{
-		ObjectMeta: api.ObjectMeta{Name: name, Namespace: "test", ResourceVersion: "10"},
+func PodExample(name string) v1.Pod {
+	return v1.Pod{
+		ObjectMeta: v1.ObjectMeta{Name: name, Namespace: "test", ResourceVersion: "10"},
 		Spec:       apitesting.DeepEqualSafePodSpec(),
 	}
 }
 
-func ServiceExample(name string) api.Service {
-	return api.Service{
-		ObjectMeta: api.ObjectMeta{Name: name, Namespace: "test", ResourceVersion: "12"},
-		Spec: api.ServiceSpec{
+func ServiceExample(name string) v1.Service {
+	return v1.Service{
+		ObjectMeta: v1.ObjectMeta{Name: name, Namespace: "test", ResourceVersion: "12"},
+		Spec: v1.ServiceSpec{
 			SessionAffinity: "None",
-			Type:            api.ServiceTypeClusterIP,
+			Type:            v1.ServiceTypeClusterIP,
 		},
 	}
 }
 
-func ReplicationControllerExample(name string) api.ReplicationController {
-	return api.ReplicationController{
-		ObjectMeta: api.ObjectMeta{Name: name, Namespace: "test", ResourceVersion: "18"},
-		Spec: api.ReplicationControllerSpec{
+func ReplicationControllerExample(name string) v1.ReplicationController {
+	return v1.ReplicationController{
+		ObjectMeta: v1.ObjectMeta{Name: name, Namespace: "test", ResourceVersion: "18"},
+		Spec: v1.ReplicationControllerSpec{
 			Replicas: 1,
 		},
 	}
 }
-func PersistentVolumeExample(name string) api.PersistentVolume {
-	return api.PersistentVolume{
-		ObjectMeta: api.ObjectMeta{Name: name, Namespace: name, ResourceVersion: "123"},
-		Spec: api.PersistentVolumeSpec{
-			Capacity: api.ResourceList{
-				api.ResourceName(api.ResourceStorage): resource.MustParse("10G"),
+func PersistentVolumeExample(name string) v1.PersistentVolume {
+	return v1.PersistentVolume{
+		ObjectMeta: v1.ObjectMeta{Name: name, Namespace: name, ResourceVersion: "123"},
+		Spec: v1.PersistentVolumeSpec{
+			Capacity: v1.ResourceList{
+				v1.ResourceName(v1.ResourceStorage): resource.MustParse("10G"),
 			},
-			PersistentVolumeSource: api.PersistentVolumeSource{
-				HostPath: &api.HostPathVolumeSource{Path: "/foo"},
+			PersistentVolumeSource: v1.PersistentVolumeSource{
+				HostPath: &v1.HostPathVolumeSource{Path: "/foo"},
 			},
 			PersistentVolumeReclaimPolicy: "Retain",
 		},
-		Status: api.PersistentVolumeStatus{
-			Phase: api.PersistentVolumePhase("Pending"),
+		Status: v1.PersistentVolumeStatus{
+			Phase: v1.PersistentVolumePhase("Pending"),
 		},
 	}
 }
 
-func PersistentVolumeClaimExample(name string) api.PersistentVolumeClaim {
-	return api.PersistentVolumeClaim{
-		ObjectMeta: api.ObjectMeta{Name: name, Namespace: "test", ResourceVersion: "123"},
-		Spec: api.PersistentVolumeClaimSpec{
+func PersistentVolumeClaimExample(name string) v1.PersistentVolumeClaim {
+	return v1.PersistentVolumeClaim{
+		ObjectMeta: v1.ObjectMeta{Name: name, Namespace: "test", ResourceVersion: "123"},
+		Spec: v1.PersistentVolumeClaimSpec{
 			VolumeName: "volume",
 		},
-		Status: api.PersistentVolumeClaimStatus{
-			Phase: api.PersistentVolumeClaimPhase("Pending"),
+		Status: v1.PersistentVolumeClaimStatus{
+			Phase: v1.PersistentVolumeClaimPhase("Pending"),
 		},
 	}
 }

@@ -25,7 +25,7 @@ import (
 	"github.com/renstrom/dedent"
 	"github.com/spf13/cobra"
 
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/apimachinery/pkg/util/wait"
 	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
@@ -191,14 +191,17 @@ func runSimulator(s *options.ClusterCapacityConfig, syncWithClient bool) (*frame
 	}
 
 	if syncWithClient {
+		fmt.Printf("syncing client\n")
 		err = cc.SyncWithClient(s.KubeClient)
 	} else {
+		fmt.Printf("syncing store\n")
 		err = cc.SyncWithStore(s.ResourceStore)
 	}
 	if err != nil {
 		return nil, err
 	}
 
+	fmt.Printf("running simulator\n")
 	err = cc.Run()
 	if err != nil {
 		return nil, err
