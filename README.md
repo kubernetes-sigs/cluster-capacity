@@ -27,7 +27,7 @@ $ make build
 and run the analysis:
 
 ```sh
-$ ./cluster-capacity --kubeconfig <path to kubeconfig> --master <API server address> --podspec=examples/pod.yaml
+$ ./cluster-capacity --kubeconfig <path to kubeconfig> --podspec=examples/pod.yaml
 ```
 
 For more information about available options run:
@@ -41,7 +41,7 @@ Assuming a cluster is running with 4 nodes and 1 master with each node with 2 CP
 With pod resource requirements to be `150m` of CPU and ``100Mi`` of Memory.
 
 ```sh
-$ ./cluster-capacity --kubeconfig <path to kubeconfig> --master <API server address> --podspec=pod.yaml --verbose
+$ ./cluster-capacity --kubeconfig <path to kubeconfig> --podspec=pod.yaml --verbose
 Pod requirements:
 	- cpu: 150m
 	- memory: 100Mi
@@ -77,7 +77,7 @@ Once the number of running pods in the cluster grows and the analysis is run aga
 the number of schedulable pods decreases as well:
 
 ```sh
-$ ./cluster-capacity --kubeconfig <path to kubeconfig> --master <API server address> --podspec=pod.yaml --verbose
+$ ./cluster-capacity --kubeconfig <path to kubeconfig> --podspec=pod.yaml --verbose
 Pod requirements:
 	- cpu: 150m
 	- memory: 100Mi
@@ -104,7 +104,7 @@ it is natural to analyse how many instances of a pod with maximal resource requi
 In order to generate the pod, you can run:
 
 ```sh
-$ genpod --kubeconfig <path to kubeconfig> --master <API server address> --namespace <namespace>
+$ genpod --kubeconfig <path to kubeconfig>  --namespace <namespace>
 ```
 
 Assuming at least one resource limits object is available with at least one maximum resource type per pod.
@@ -130,7 +130,7 @@ Container       cpu             10m     50m     10m             10m             
 ```
 
 ```sh
-$ genpod --kubeconfig <path to kubeconfig> --master <API server address> --namespace cluster-capacity
+$ genpod --kubeconfig <path to kubeconfig>  --namespace cluster-capacity
 apiVersion: v1
 kind: Pod
 metadata:
@@ -162,7 +162,7 @@ status: {}
 The analysis can be run with admissions enabled as well:
 
 ```sh
-./cluster-capacity --kubeconfig <path to kubeconfig> --master <API server address > --podspec=examples/pod.yaml --apiserver-config config/apiserver.yaml
+./cluster-capacity --kubeconfig <path to kubeconfig>  --podspec=examples/pod.yaml --apiserver-config config/apiserver.yaml
 ```
 
 The admissions are configured the same way as in the Apiserver:
@@ -249,7 +249,7 @@ spec:
 When running the analysis the number of instances of a pod is limited by the resource quota:
 
 ```sh
-$ ./cluster-capacity --kubeconfig <path to kubeconfig> --master <API server address > --podspec=examples/pod.yaml --apiserver-config config/apiserver.yaml --verbose --resource-space-mode ResourceSpacePartial
+$ ./cluster-capacity --kubeconfig <path to kubeconfig> --podspec=examples/pod.yaml --apiserver-config config/apiserver.yaml --verbose --resource-space-mode ResourceSpacePartial
 Pod requirements:
 	- cpu: 150m
 	- memory: 100Mi
@@ -269,7 +269,7 @@ The provided analysis can be run in loop to provide continuous stream of actual 
 To start the continuous analysis providing the capacity each second you can run:
 
 ```sh
-$ ./cluster-capacity --kubeconfig <path to kubeconfig> --master <API server address > --podspec=examples/pod.yaml --period 1
+$ ./cluster-capacity --kubeconfig <path to kubeconfig> --podspec=examples/pod.yaml --period 1
 ```
 
 With the ``period`` set to non-zero value, the ``cluster-capacity`` binary publishes the current capacity
