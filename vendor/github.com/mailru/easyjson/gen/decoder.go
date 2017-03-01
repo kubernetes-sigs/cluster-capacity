@@ -106,10 +106,14 @@ func (g *Generator) genTypeDecoderNoCheck(t reflect.Type, out string, tags field
 			fmt.Fprintln(g.out, ws+"  "+out+" = nil")
 			fmt.Fprintln(g.out, ws+"} else {")
 			fmt.Fprintln(g.out, ws+"  in.Delim('[')")
-			fmt.Fprintln(g.out, ws+"  if !in.IsDelim(']') {")
-			fmt.Fprintln(g.out, ws+"    "+out+" = make("+g.getType(t)+", 0, "+fmt.Sprint(capacity)+")")
-			fmt.Fprintln(g.out, ws+"  } else {")
-			fmt.Fprintln(g.out, ws+"    "+out+" = "+g.getType(t)+"{}")
+			fmt.Fprintln(g.out, ws+"  if "+out+" == nil {")
+			fmt.Fprintln(g.out, ws+"    if !in.IsDelim(']') {")
+			fmt.Fprintln(g.out, ws+"      "+out+" = make("+g.getType(t)+", 0, "+fmt.Sprint(capacity)+")")
+			fmt.Fprintln(g.out, ws+"    } else {")
+			fmt.Fprintln(g.out, ws+"      "+out+" = "+g.getType(t)+"{}")
+			fmt.Fprintln(g.out, ws+"    }")
+			fmt.Fprintln(g.out, ws+"  } else { ")
+			fmt.Fprintln(g.out, ws+"    "+out+" = ("+out+")[:0]")
 			fmt.Fprintln(g.out, ws+"  }")
 			fmt.Fprintln(g.out, ws+"  for !in.IsDelim(']') {")
 			fmt.Fprintln(g.out, ws+"    var "+tmpVar+" "+g.getType(elem))
@@ -430,7 +434,7 @@ func (g *Generator) genStructDecoder(t reflect.Type) error {
 	return nil
 }
 
-func (g *Generator) genStructUnmarshaller(t reflect.Type) error {
+func (g *Generator) genStructUnmarshaler(t reflect.Type) error {
 	switch t.Kind() {
 	case reflect.Slice, reflect.Array, reflect.Map, reflect.Struct:
 	default:

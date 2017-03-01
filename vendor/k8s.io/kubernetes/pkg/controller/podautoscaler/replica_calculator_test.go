@@ -25,26 +25,25 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	restclient "k8s.io/client-go/rest"
+	core "k8s.io/client-go/testing"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/api/v1"
-	_ "k8s.io/kubernetes/pkg/apimachinery/registered"
-	"k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/fake"
-	"k8s.io/kubernetes/pkg/client/restclient"
-	"k8s.io/kubernetes/pkg/client/testing/core"
+	"k8s.io/kubernetes/pkg/client/clientset_generated/clientset/fake"
 	"k8s.io/kubernetes/pkg/controller/podautoscaler/metrics"
-	"k8s.io/kubernetes/pkg/runtime"
 
 	heapster "k8s.io/heapster/metrics/api/v1/types"
-	metrics_api "k8s.io/heapster/metrics/apis/metrics/v1alpha1"
+	metricsapi "k8s.io/heapster/metrics/apis/metrics/v1alpha1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 type resourceInfo struct {
-	name     api.ResourceName
+	name     v1.ResourceName
 	requests []resource.Quantity
 	levels   []int64
 	// only applies to pod names returned from "heapster"
@@ -72,7 +71,7 @@ type replicaCalcTestCase struct {
 	resource *resourceInfo
 	metric   *metricInfo
 
-	podReadiness []api.ConditionStatus
+	podReadiness []v1.ConditionStatus
 }
 
 const (
@@ -84,43 +83,43 @@ func (tc *replicaCalcTestCase) prepareTestClient(t *testing.T) *fake.Clientset {
 
 	fakeClient := &fake.Clientset{}
 	fakeClient.AddReactor("list", "pods", func(action core.Action) (handled bool, ret runtime.Object, err error) {
-		obj := &api.PodList{}
+		obj := &v1.PodList{}
 		for i := 0; i < int(tc.currentReplicas); i++ {
-			podReadiness := api.ConditionTrue
+			podReadiness := v1.ConditionTrue
 			if tc.podReadiness != nil {
 				podReadiness = tc.podReadiness[i]
 			}
 			podName := fmt.Sprintf("%s-%d", podNamePrefix, i)
-			pod := api.Pod{
-				Status: api.PodStatus{
-					Phase: api.PodRunning,
-					Conditions: []api.PodCondition{
+			pod := v1.Pod{
+				Status: v1.PodStatus{
+					Phase: v1.PodRunning,
+					Conditions: []v1.PodCondition{
 						{
-							Type:   api.PodReady,
+							Type:   v1.PodReady,
 							Status: podReadiness,
 						},
 					},
 				},
-				ObjectMeta: api.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      podName,
 					Namespace: testNamespace,
 					Labels: map[string]string{
 						"name": podNamePrefix,
 					},
 				},
-				Spec: api.PodSpec{
-					Containers: []api.Container{{}, {}},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{{}, {}},
 				},
 			}
 
 			if tc.resource != nil && i < len(tc.resource.requests) {
-				pod.Spec.Containers[0].Resources = api.ResourceRequirements{
-					Requests: api.ResourceList{
+				pod.Spec.Containers[0].Resources = v1.ResourceRequirements{
+					Requests: v1.ResourceList{
 						tc.resource.name: tc.resource.requests[i],
 					},
 				}
-				pod.Spec.Containers[1].Resources = api.ResourceRequirements{
-					Requests: api.ResourceList{
+				pod.Spec.Containers[1].Resources = v1.ResourceRequirements{
+					Requests: v1.ResourceList{
 						tc.resource.name: tc.resource.requests[i],
 					},
 				}
@@ -134,19 +133,19 @@ func (tc *replicaCalcTestCase) prepareTestClient(t *testing.T) *fake.Clientset {
 		var heapsterRawMemResponse []byte
 
 		if tc.resource != nil {
-			metrics := metrics_api.PodMetricsList{}
+			metrics := metricsapi.PodMetricsList{}
 			for i, resValue := range tc.resource.levels {
 				podName := fmt.Sprintf("%s-%d", podNamePrefix, i)
 				if len(tc.resource.podNames) > i {
 					podName = tc.resource.podNames[i]
 				}
-				podMetric := metrics_api.PodMetrics{
+				podMetric := metricsapi.PodMetrics{
 					ObjectMeta: v1.ObjectMeta{
 						Name:      podName,
 						Namespace: testNamespace,
 					},
 					Timestamp: unversioned.Time{Time: tc.timestamp},
-					Containers: []metrics_api.ContainerMetrics{
+					Containers: []metricsapi.ContainerMetrics{
 						{
 							Name: "container1",
 							Usage: v1.ResourceList{
@@ -221,7 +220,7 @@ func (tc *replicaCalcTestCase) runTest(t *testing.T) {
 		podsGetter:    testClient.Core(),
 	}
 
-	selector, err := unversioned.LabelSelectorAsSelector(&unversioned.LabelSelector{
+	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
 		MatchLabels: map[string]string{"name": podNamePrefix},
 	})
 	if err != nil {
@@ -261,7 +260,7 @@ func TestReplicaCalcDisjointResourcesMetrics(t *testing.T) {
 		currentReplicas: 1,
 		expectedError:   fmt.Errorf("no metrics returned matched known pods"),
 		resource: &resourceInfo{
-			name:     api.ResourceCPU,
+			name:     v1.ResourceCPU,
 			requests: []resource.Quantity{resource.MustParse("1.0")},
 			levels:   []int64{100},
 			podNames: []string{"an-older-pod-name"},
@@ -277,7 +276,7 @@ func TestReplicaCalcScaleUp(t *testing.T) {
 		currentReplicas:  3,
 		expectedReplicas: 5,
 		resource: &resourceInfo{
-			name:     api.ResourceCPU,
+			name:     v1.ResourceCPU,
 			requests: []resource.Quantity{resource.MustParse("1.0"), resource.MustParse("1.0"), resource.MustParse("1.0")},
 			levels:   []int64{300, 500, 700},
 
@@ -292,9 +291,9 @@ func TestReplicaCalcScaleUpUnreadyLessScale(t *testing.T) {
 	tc := replicaCalcTestCase{
 		currentReplicas:  3,
 		expectedReplicas: 4,
-		podReadiness:     []api.ConditionStatus{api.ConditionFalse, api.ConditionTrue, api.ConditionTrue},
+		podReadiness:     []v1.ConditionStatus{v1.ConditionFalse, v1.ConditionTrue, v1.ConditionTrue},
 		resource: &resourceInfo{
-			name:     api.ResourceCPU,
+			name:     v1.ResourceCPU,
 			requests: []resource.Quantity{resource.MustParse("1.0"), resource.MustParse("1.0"), resource.MustParse("1.0")},
 			levels:   []int64{300, 500, 700},
 
@@ -309,9 +308,9 @@ func TestReplicaCalcScaleUpUnreadyNoScale(t *testing.T) {
 	tc := replicaCalcTestCase{
 		currentReplicas:  3,
 		expectedReplicas: 3,
-		podReadiness:     []api.ConditionStatus{api.ConditionTrue, api.ConditionFalse, api.ConditionFalse},
+		podReadiness:     []v1.ConditionStatus{v1.ConditionTrue, v1.ConditionFalse, v1.ConditionFalse},
 		resource: &resourceInfo{
-			name:     api.ResourceCPU,
+			name:     v1.ResourceCPU,
 			requests: []resource.Quantity{resource.MustParse("1.0"), resource.MustParse("1.0"), resource.MustParse("1.0")},
 			levels:   []int64{400, 500, 700},
 
@@ -340,7 +339,7 @@ func TestReplicaCalcScaleUpCMUnreadyLessScale(t *testing.T) {
 	tc := replicaCalcTestCase{
 		currentReplicas:  3,
 		expectedReplicas: 4,
-		podReadiness:     []api.ConditionStatus{api.ConditionTrue, api.ConditionTrue, api.ConditionFalse},
+		podReadiness:     []v1.ConditionStatus{v1.ConditionTrue, v1.ConditionTrue, v1.ConditionFalse},
 		metric: &metricInfo{
 			name:                "qps",
 			levels:              []float64{50.0, 10.0, 30.0},
@@ -355,7 +354,7 @@ func TestReplicaCalcScaleUpCMUnreadyNoScaleWouldScaleDown(t *testing.T) {
 	tc := replicaCalcTestCase{
 		currentReplicas:  3,
 		expectedReplicas: 3,
-		podReadiness:     []api.ConditionStatus{api.ConditionFalse, api.ConditionTrue, api.ConditionFalse},
+		podReadiness:     []v1.ConditionStatus{v1.ConditionFalse, v1.ConditionTrue, v1.ConditionFalse},
 		metric: &metricInfo{
 			name:                "qps",
 			levels:              []float64{50.0, 15.0, 30.0},
@@ -371,7 +370,7 @@ func TestReplicaCalcScaleDown(t *testing.T) {
 		currentReplicas:  5,
 		expectedReplicas: 3,
 		resource: &resourceInfo{
-			name:     api.ResourceCPU,
+			name:     v1.ResourceCPU,
 			requests: []resource.Quantity{resource.MustParse("1.0"), resource.MustParse("1.0"), resource.MustParse("1.0"), resource.MustParse("1.0"), resource.MustParse("1.0")},
 			levels:   []int64{100, 300, 500, 250, 250},
 
@@ -400,9 +399,9 @@ func TestReplicaCalcScaleDownIgnoresUnreadyPods(t *testing.T) {
 	tc := replicaCalcTestCase{
 		currentReplicas:  5,
 		expectedReplicas: 2,
-		podReadiness:     []api.ConditionStatus{api.ConditionTrue, api.ConditionTrue, api.ConditionTrue, api.ConditionFalse, api.ConditionFalse},
+		podReadiness:     []v1.ConditionStatus{v1.ConditionTrue, v1.ConditionTrue, v1.ConditionTrue, v1.ConditionFalse, v1.ConditionFalse},
 		resource: &resourceInfo{
-			name:     api.ResourceCPU,
+			name:     v1.ResourceCPU,
 			requests: []resource.Quantity{resource.MustParse("1.0"), resource.MustParse("1.0"), resource.MustParse("1.0"), resource.MustParse("1.0"), resource.MustParse("1.0")},
 			levels:   []int64{100, 300, 500, 250, 250},
 
@@ -418,7 +417,7 @@ func TestReplicaCalcTolerance(t *testing.T) {
 		currentReplicas:  3,
 		expectedReplicas: 3,
 		resource: &resourceInfo{
-			name:     api.ResourceCPU,
+			name:     v1.ResourceCPU,
 			requests: []resource.Quantity{resource.MustParse("0.9"), resource.MustParse("1.0"), resource.MustParse("1.1")},
 			levels:   []int64{1010, 1030, 1020},
 
@@ -448,7 +447,7 @@ func TestReplicaCalcSuperfluousMetrics(t *testing.T) {
 		currentReplicas:  4,
 		expectedReplicas: 24,
 		resource: &resourceInfo{
-			name:                api.ResourceCPU,
+			name:                v1.ResourceCPU,
 			requests:            []resource.Quantity{resource.MustParse("1.0"), resource.MustParse("1.0"), resource.MustParse("1.0"), resource.MustParse("1.0")},
 			levels:              []int64{4000, 9500, 3000, 7000, 3200, 2000},
 			targetUtilization:   100,
@@ -463,7 +462,7 @@ func TestReplicaCalcMissingMetrics(t *testing.T) {
 		currentReplicas:  4,
 		expectedReplicas: 3,
 		resource: &resourceInfo{
-			name:     api.ResourceCPU,
+			name:     v1.ResourceCPU,
 			requests: []resource.Quantity{resource.MustParse("1.0"), resource.MustParse("1.0"), resource.MustParse("1.0"), resource.MustParse("1.0")},
 			levels:   []int64{400, 95},
 
@@ -479,7 +478,7 @@ func TestReplicaCalcEmptyMetrics(t *testing.T) {
 		currentReplicas: 4,
 		expectedError:   fmt.Errorf("unable to get metrics for resource cpu: no metrics returned from heapster"),
 		resource: &resourceInfo{
-			name:     api.ResourceCPU,
+			name:     v1.ResourceCPU,
 			requests: []resource.Quantity{resource.MustParse("1.0"), resource.MustParse("1.0"), resource.MustParse("1.0")},
 			levels:   []int64{},
 
@@ -494,7 +493,7 @@ func TestReplicaCalcEmptyCPURequest(t *testing.T) {
 		currentReplicas: 1,
 		expectedError:   fmt.Errorf("missing request for"),
 		resource: &resourceInfo{
-			name:     api.ResourceCPU,
+			name:     v1.ResourceCPU,
 			requests: []resource.Quantity{},
 			levels:   []int64{200},
 
@@ -509,7 +508,7 @@ func TestReplicaCalcMissingMetricsNoChangeEq(t *testing.T) {
 		currentReplicas:  2,
 		expectedReplicas: 2,
 		resource: &resourceInfo{
-			name:     api.ResourceCPU,
+			name:     v1.ResourceCPU,
 			requests: []resource.Quantity{resource.MustParse("1.0"), resource.MustParse("1.0")},
 			levels:   []int64{1000},
 
@@ -525,7 +524,7 @@ func TestReplicaCalcMissingMetricsNoChangeGt(t *testing.T) {
 		currentReplicas:  2,
 		expectedReplicas: 2,
 		resource: &resourceInfo{
-			name:     api.ResourceCPU,
+			name:     v1.ResourceCPU,
 			requests: []resource.Quantity{resource.MustParse("1.0"), resource.MustParse("1.0")},
 			levels:   []int64{1900},
 
@@ -541,7 +540,7 @@ func TestReplicaCalcMissingMetricsNoChangeLt(t *testing.T) {
 		currentReplicas:  2,
 		expectedReplicas: 2,
 		resource: &resourceInfo{
-			name:     api.ResourceCPU,
+			name:     v1.ResourceCPU,
 			requests: []resource.Quantity{resource.MustParse("1.0"), resource.MustParse("1.0")},
 			levels:   []int64{600},
 
@@ -556,9 +555,9 @@ func TestReplicaCalcMissingMetricsUnreadyNoChange(t *testing.T) {
 	tc := replicaCalcTestCase{
 		currentReplicas:  3,
 		expectedReplicas: 3,
-		podReadiness:     []api.ConditionStatus{api.ConditionFalse, api.ConditionTrue, api.ConditionTrue},
+		podReadiness:     []v1.ConditionStatus{v1.ConditionFalse, v1.ConditionTrue, v1.ConditionTrue},
 		resource: &resourceInfo{
-			name:     api.ResourceCPU,
+			name:     v1.ResourceCPU,
 			requests: []resource.Quantity{resource.MustParse("1.0"), resource.MustParse("1.0"), resource.MustParse("1.0")},
 			levels:   []int64{100, 450},
 
@@ -573,9 +572,9 @@ func TestReplicaCalcMissingMetricsUnreadyScaleUp(t *testing.T) {
 	tc := replicaCalcTestCase{
 		currentReplicas:  3,
 		expectedReplicas: 4,
-		podReadiness:     []api.ConditionStatus{api.ConditionFalse, api.ConditionTrue, api.ConditionTrue},
+		podReadiness:     []v1.ConditionStatus{v1.ConditionFalse, v1.ConditionTrue, v1.ConditionTrue},
 		resource: &resourceInfo{
-			name:     api.ResourceCPU,
+			name:     v1.ResourceCPU,
 			requests: []resource.Quantity{resource.MustParse("1.0"), resource.MustParse("1.0"), resource.MustParse("1.0")},
 			levels:   []int64{100, 2000},
 
@@ -590,9 +589,9 @@ func TestReplicaCalcMissingMetricsUnreadyScaleDown(t *testing.T) {
 	tc := replicaCalcTestCase{
 		currentReplicas:  4,
 		expectedReplicas: 3,
-		podReadiness:     []api.ConditionStatus{api.ConditionFalse, api.ConditionTrue, api.ConditionTrue, api.ConditionTrue},
+		podReadiness:     []v1.ConditionStatus{v1.ConditionFalse, v1.ConditionTrue, v1.ConditionTrue, v1.ConditionTrue},
 		resource: &resourceInfo{
-			name:     api.ResourceCPU,
+			name:     v1.ResourceCPU,
 			requests: []resource.Quantity{resource.MustParse("1.0"), resource.MustParse("1.0"), resource.MustParse("1.0"), resource.MustParse("1.0")},
 			levels:   []int64{100, 100, 100},
 
@@ -631,7 +630,7 @@ func TestReplicaCalcComputedToleranceAlgImplementation(t *testing.T) {
 		currentReplicas:  startPods,
 		expectedReplicas: finalPods,
 		resource: &resourceInfo{
-			name: api.ResourceCPU,
+			name: v1.ResourceCPU,
 			levels: []int64{
 				totalUsedCPUOfAllPods / 10,
 				totalUsedCPUOfAllPods / 10,

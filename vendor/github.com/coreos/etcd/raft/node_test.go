@@ -453,9 +453,9 @@ func TestReadyContainUpdates(t *testing.T) {
 		{Ready{}, false},
 		{Ready{SoftState: &SoftState{Lead: 1}}, true},
 		{Ready{HardState: raftpb.HardState{Vote: 1}}, true},
-		{Ready{Entries: make([]raftpb.Entry, 1, 1)}, true},
-		{Ready{CommittedEntries: make([]raftpb.Entry, 1, 1)}, true},
-		{Ready{Messages: make([]raftpb.Message, 1, 1)}, true},
+		{Ready{Entries: make([]raftpb.Entry, 1)}, true},
+		{Ready{CommittedEntries: make([]raftpb.Entry, 1)}, true},
+		{Ready{Messages: make([]raftpb.Message, 1)}, true},
 		{Ready{Snapshot: raftpb.Snapshot{Metadata: raftpb.SnapshotMetadata{Index: 1}}}, true},
 	}
 
@@ -487,11 +487,13 @@ func TestNodeStart(t *testing.T) {
 			CommittedEntries: []raftpb.Entry{
 				{Type: raftpb.EntryConfChange, Term: 1, Index: 1, Data: ccdata},
 			},
+			MustSync: true,
 		},
 		{
 			HardState:        raftpb.HardState{Term: 2, Commit: 3, Vote: 1},
 			Entries:          []raftpb.Entry{{Term: 2, Index: 3, Data: []byte("foo")}},
 			CommittedEntries: []raftpb.Entry{{Term: 2, Index: 3, Data: []byte("foo")}},
+			MustSync:         true,
 		},
 	}
 	storage := NewMemoryStorage()
@@ -544,6 +546,7 @@ func TestNodeRestart(t *testing.T) {
 		HardState: st,
 		// commit up to index commit index in st
 		CommittedEntries: entries[:st.Commit],
+		MustSync:         true,
 	}
 
 	storage := NewMemoryStorage()
@@ -588,6 +591,7 @@ func TestNodeRestartFromSnapshot(t *testing.T) {
 		HardState: st,
 		// commit up to index commit index in st
 		CommittedEntries: entries,
+		MustSync:         true,
 	}
 
 	s := NewMemoryStorage()

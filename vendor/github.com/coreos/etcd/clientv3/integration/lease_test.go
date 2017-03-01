@@ -151,6 +151,30 @@ func TestLeaseKeepAlive(t *testing.T) {
 	}
 }
 
+func TestLeaseKeepAliveOneSecond(t *testing.T) {
+	defer testutil.AfterTest(t)
+
+	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 1})
+	defer clus.Terminate(t)
+
+	cli := clus.Client(0)
+
+	resp, err := cli.Grant(context.Background(), 1)
+	if err != nil {
+		t.Errorf("failed to create lease %v", err)
+	}
+	rc, kerr := cli.KeepAlive(context.Background(), resp.ID)
+	if kerr != nil {
+		t.Errorf("failed to keepalive lease %v", kerr)
+	}
+
+	for i := 0; i < 3; i++ {
+		if _, ok := <-rc; !ok {
+			t.Errorf("chan is closed, want not closed")
+		}
+	}
+}
+
 // TODO: add a client that can connect to all the members of cluster via unix sock.
 // TODO: test handle more complicated failures.
 func TestLeaseKeepAliveHandleFailure(t *testing.T) {
@@ -501,6 +525,42 @@ func TestLeaseTimeToLive(t *testing.T) {
 	}
 	if len(lresp.Keys) != 0 {
 		t.Fatalf("unexpected keys %+v", lresp.Keys)
+	}
+}
+
+func TestLeaseTimeToLiveLeaseNotFound(t *testing.T) {
+	defer testutil.AfterTest(t)
+
+	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 1})
+	defer clus.Terminate(t)
+
+	cli := clus.RandClient()
+	resp, err := cli.Grant(context.Background(), 10)
+	if err != nil {
+		t.Errorf("failed to create lease %v", err)
+	}
+	_, err = cli.Revoke(context.Background(), resp.ID)
+	if err != nil {
+		t.Errorf("failed to Revoke lease %v", err)
+	}
+
+	lresp, err := cli.TimeToLive(context.Background(), resp.ID)
+	// TimeToLive() doesn't return LeaseNotFound error
+	// but return a response with TTL to be -1
+	if err != nil {
+		t.Fatalf("expected err to be nil")
+	}
+	if lresp == nil {
+		t.Fatalf("expected lresp not to be nil")
+	}
+	if lresp.ResponseHeader == nil {
+		t.Fatalf("expected ResponseHeader not to be nil")
+	}
+	if lresp.ID != resp.ID {
+		t.Fatalf("expected Lease ID %v, but got %v", resp.ID, lresp.ID)
+	}
+	if lresp.TTL != -1 {
+		t.Fatalf("expected TTL %v, but got %v", lresp.TTL, lresp.TTL)
 	}
 }
 

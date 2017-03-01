@@ -30,21 +30,24 @@ TAGS?=2.2.1 2.3.7 3.0.14
 REGISTRY_TAG?=3.0.14
 ARCH?=amd64
 REGISTRY?=gcr.io/google_containers
-GOLANG_VERSION?=1.6.3
-GOARM=6
+GOLANG_VERSION?=1.7.4
+GOARM=7
 TEMP_DIR:=$(shell mktemp -d)
 
 ifeq ($(ARCH),amd64)
 	BASEIMAGE?=busybox
 endif
 ifeq ($(ARCH),arm)
-	BASEIMAGE?=armel/busybox
+	BASEIMAGE?=armhf/busybox
 endif
 ifeq ($(ARCH),arm64)
 	BASEIMAGE?=aarch64/busybox
 endif
 ifeq ($(ARCH),ppc64le)
 	BASEIMAGE?=ppc64le/busybox
+endif
+ifeq ($(ARCH),s390x)
+	BASEIMAGE?=s390x/busybox
 endif
 
 build:

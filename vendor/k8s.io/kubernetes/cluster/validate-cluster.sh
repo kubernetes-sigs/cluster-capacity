@@ -51,6 +51,7 @@ ALLOWED_NOTREADY_NODES="${ALLOWED_NOTREADY_NODES:-0}"
 CLUSTER_READY_ADDITIONAL_TIME_SECONDS="${CLUSTER_READY_ADDITIONAL_TIME_SECONDS:-30}"
 
 EXPECTED_NUM_NODES="${NUM_NODES}"
+
 if [[ "${KUBERNETES_PROVIDER:-}" == "gce" ]]; then
   echo "Validating gce cluster, MULTIZONE=${MULTIZONE:-}"
   # In multizone mode we need to add instances for all nodes in the region.

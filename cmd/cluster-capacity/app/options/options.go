@@ -28,26 +28,28 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/validation"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
-	"k8s.io/kubernetes/pkg/util/yaml"
+	//"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api/v1"
+	//"k8s.io/kubernetes/pkg/api/validation"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	schedopt "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app/options"
 
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/apiserver/cache"
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/utils"
 )
 
+var SupportedAdmissionControllers = sets.NewString([]string{"LimitRanger", "ResourceQuota"}...)
+
 type ClusterCapacityConfig struct {
 	Schedulers       []*schedopt.SchedulerServer
-	Pod              *api.Pod
+	Pod              *v1.Pod
 	KubeClient       clientset.Interface
 	Options          *ClusterCapacityOptions
 	DefaultScheduler *schedopt.SchedulerServer
 	Reports          *cache.Cache
-	ApiServerOptions *framework.ApiServerOptions
 	ResourceStore    store.ResourceStore
 }
 
@@ -60,8 +62,8 @@ type ClusterCapacityOptions struct {
 	PodSpecFile                string
 	Period                     int
 	OutputFormat               string
-	ApiserverConfigFile        string
 	ResourceSpaceMode          string
+	AdmissionControl           string
 }
 
 func NewClusterCapacityConfig(opt *ClusterCapacityOptions) *ClusterCapacityConfig {
@@ -91,30 +93,16 @@ func (s *ClusterCapacityOptions) AddFlags(fs *pflag.FlagSet) {
 
 	filepath := path.Join(dir, "config/default-scheduler.yaml")
 
+	fs.StringVar(&s.AdmissionControl, "admission-control", s.AdmissionControl, ""+
+		"Ordered list of plug-ins to do admission control of resources into cluster. "+
+		"Comma-delimited list of: "+strings.Join(SupportedAdmissionControllers.List(), ", ")+".")
+
 	fs.StringVar(&s.DefaultSchedulerConfigFile, "default-config", filepath, "Path to JSON or YAML file containing scheduler configuration.")
-	fs.StringVar(&s.ApiserverConfigFile, "apiserver-config", s.ApiserverConfigFile, "Path to JSON or YAML file containing apiserver configuration.")
 	fs.StringVar(&s.ResourceSpaceMode, "resource-space-mode", "ResourceSpaceFull", "Resource space limitation. Defaults to ResourceSpaceFull. If set to ResourceSpacePartial, ResourceQuota admission is applied.")
 
 	fs.BoolVar(&s.Verbose, "verbose", s.Verbose, "Verbose mode")
 	fs.IntVar(&s.Period, "period", 0, "Number of seconds between cluster capacity checks, if period=0 cluster-capacity will be checked just once")
 	fs.StringVarP(&s.OutputFormat, "output", "o", s.OutputFormat, "Output format. One of: json|yaml")
-}
-
-func parseApiServerOptions(path string) (*framework.ApiServerOptions, error) {
-	filename, _ := filepath.Abs(path)
-	config, err := os.Open(filename)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to open config file: %v", err)
-	}
-
-	apiServerRunOptions := &framework.ApiServerOptions{}
-	decoder := yaml.NewYAMLOrJSONDecoder(config, 4096)
-	err = decoder.Decode(apiServerRunOptions)
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-	}
-
-	return apiServerRunOptions, nil
 }
 
 func parseSchedulerConfig(path string) (*schedopt.SchedulerServer, error) {
@@ -183,19 +171,19 @@ func (s *ClusterCapacityConfig) ParseAPISpec() error {
 	// hardcoded from kube api defaults and validation
 	// TODO: rewrite when object validation gets more available for non kubectl approaches in kube
 	if s.Pod.Spec.DNSPolicy == "" {
-		s.Pod.Spec.DNSPolicy = api.DNSClusterFirst
+		s.Pod.Spec.DNSPolicy = v1.DNSClusterFirst
 	}
 	if s.Pod.Spec.RestartPolicy == "" {
-		s.Pod.Spec.RestartPolicy = api.RestartPolicyAlways
+		s.Pod.Spec.RestartPolicy = v1.RestartPolicyAlways
 	}
 
-	if errs := validation.ValidatePod(s.Pod); len(errs) > 0 {
-		var errStrs []string
-		for _, err := range errs {
-			errStrs = append(errStrs, fmt.Sprintf("%v: %v", err.Type, err.Field))
-		}
-		return fmt.Errorf("Invalid pod: %#v", strings.Join(errStrs, ", "))
-	}
+	//if errs := validation.ValidatePod(s.Pod); len(errs) > 0 {
+	//	var errStrs []string
+	//	for _, err := range errs {
+	//		errStrs = append(errStrs, fmt.Sprintf("%v: %v", err.Type, err.Field))
+	//	}
+	//	return fmt.Errorf("Invalid pod: %#v", strings.Join(errStrs, ", "))
+	//}
 	return nil
 }
 
@@ -211,18 +199,5 @@ func (s *ClusterCapacityConfig) SetDefaultScheduler() error {
 		return err
 	}
 	s.DefaultScheduler.Kubeconfig = s.Options.Kubeconfig
-	return nil
-}
-
-func (s *ClusterCapacityConfig) ParseApiServerConfig() error {
-	if len(s.Options.ApiserverConfigFile) == 0 {
-		s.ApiServerOptions = &framework.ApiServerOptions{}
-		return nil
-	}
-	options, err := parseApiServerOptions(s.Options.ApiserverConfigFile)
-	if err != nil {
-		return err
-	}
-	s.ApiServerOptions = options
 	return nil
 }

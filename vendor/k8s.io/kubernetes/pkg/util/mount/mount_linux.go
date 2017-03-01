@@ -30,8 +30,8 @@ import (
 	"syscall"
 
 	"github.com/golang/glog"
-	utilExec "k8s.io/kubernetes/pkg/util/exec"
-	"k8s.io/kubernetes/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/sets"
+	utilexec "k8s.io/kubernetes/pkg/util/exec"
 )
 
 const (
@@ -332,9 +332,9 @@ func (mounter *SafeFormatAndMount) formatAndMount(source string, target string, 
 	cmd := mounter.Runner.Command("fsck", args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		ee, isExitError := err.(utilExec.ExitError)
+		ee, isExitError := err.(utilexec.ExitError)
 		switch {
-		case err == utilExec.ErrExecutableNotFound:
+		case err == utilexec.ErrExecutableNotFound:
 			glog.Warningf("'fsck' not found on system; continuing mount without running 'fsck'.")
 		case isExitError && ee.ExitStatus() == fsckErrorsCorrected:
 			glog.Infof("Device %s has errors which were corrected by fsck.", source)
@@ -359,7 +359,7 @@ func (mounter *SafeFormatAndMount) formatAndMount(source string, target string, 
 				fstype = "ext4"
 			}
 			if fstype == "ext4" || fstype == "ext3" {
-				args = []string{"-E", "lazy_itable_init=0,lazy_journal_init=0", "-F", source}
+				args = []string{"-F", source}
 			}
 			glog.Infof("Disk %q appears to be unformatted, attempting to format as type: %q with options: %v", source, fstype, args)
 			cmd := mounter.Runner.Command("mkfs."+fstype, args...)

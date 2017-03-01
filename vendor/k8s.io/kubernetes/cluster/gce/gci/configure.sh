@@ -54,6 +54,22 @@ for k,v in yaml.load(sys.stdin).iteritems():
   rm -f "${tmp_kube_env}"
 }
 
+function download-kube-master-certs {
+  # Fetch kube-env from GCE metadata server.
+  local -r tmp_kube_master_certs="/tmp/kube-master-certs.yaml"
+  curl --fail --retry 5 --retry-delay 3 --silent --show-error \
+    -H "X-Google-Metadata-Request: True" \
+    -o "${tmp_kube_master_certs}" \
+    http://metadata.google.internal/computeMetadata/v1/instance/attributes/kube-master-certs
+  # Convert the yaml format file into a shell-style file.
+  eval $(python -c '''
+import pipes,sys,yaml
+for k,v in yaml.load(sys.stdin).iteritems():
+  print("readonly {var}={value}".format(var = k, value = pipes.quote(str(v))))
+''' < "${tmp_kube_master_certs}" > "${KUBE_HOME}/kube-master-certs")
+  rm -f "${tmp_kube_master_certs}"
+}
+
 function validate-hash {
   local -r file="$1"
   local -r expected="$2"
@@ -202,12 +218,15 @@ function install-kube-binary-config {
   rm -f "${KUBE_HOME}/${manifests_tar}.sha1"
 }
 
-
 ######### Main Function ##########
 echo "Start to install kubernetes files"
 set-broken-motd
 KUBE_HOME="/home/kubernetes"
 download-kube-env
 source "${KUBE_HOME}/kube-env"
+if [[ "${KUBERNETES_MASTER:-}" == "true" ]]; then
+  download-kube-master-certs
+fi
 install-kube-binary-config
 echo "Done for installing kubernetes files"
+

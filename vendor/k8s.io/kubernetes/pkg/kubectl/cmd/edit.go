@@ -27,20 +27,24 @@ import (
 	gruntime "runtime"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/mergepatch"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/errors"
-	"k8s.io/kubernetes/pkg/api/meta"
-	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/kubectl"
 	"k8s.io/kubernetes/pkg/kubectl/cmd/templates"
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
 	"k8s.io/kubernetes/pkg/kubectl/cmd/util/editor"
 	"k8s.io/kubernetes/pkg/kubectl/resource"
-	"k8s.io/kubernetes/pkg/runtime"
 	"k8s.io/kubernetes/pkg/util/crlf"
-	"k8s.io/kubernetes/pkg/util/strategicpatch"
-	"k8s.io/kubernetes/pkg/util/validation/field"
-	"k8s.io/kubernetes/pkg/util/yaml"
+	"k8s.io/kubernetes/pkg/util/i18n"
 
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
@@ -95,7 +99,7 @@ func NewCmdEdit(f cmdutil.Factory, out, errOut io.Writer) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "edit (RESOURCE/NAME | -f FILENAME)",
-		Short:   "Edit a resource on the server",
+		Short:   i18n.T("Edit a resource on the server"),
 		Long:    editLong,
 		Example: fmt.Sprintf(editExample),
 		Run: func(cmd *cobra.Command, args []string) {
@@ -236,7 +240,7 @@ func runEdit(f cmdutil.Factory, out, errOut io.Writer, cmd *cobra.Command, args 
 					file: file,
 				}
 				containsError = true
-				fmt.Fprintln(out, results.addError(errors.NewInvalid(api.Kind(""), "", field.ErrorList{field.Invalid(nil, "The edited file failed validation", fmt.Sprintf("%v", err))}), infos[0]))
+				fmt.Fprintln(errOut, results.addError(errors.NewInvalid(api.Kind(""), "", field.ErrorList{field.Invalid(nil, "The edited file failed validation", fmt.Sprintf("%v", err))}), infos[0]))
 				continue
 			}
 
@@ -399,7 +403,7 @@ func getMapperAndResult(f cmdutil.Factory, args []string, options *resource.File
 			ResourceTypeOrNameArgs(true, args...).
 			Latest()
 	case EditBeforeCreateMode:
-		b = resource.NewBuilder(mapper, typer, resource.ClientMapperFunc(f.UnstructuredClientForMapping), runtime.UnstructuredJSONScheme)
+		b = resource.NewBuilder(mapper, typer, resource.ClientMapperFunc(f.UnstructuredClientForMapping), unstructured.UnstructuredJSONScheme)
 	default:
 		return nil, nil, nil, "", fmt.Errorf("Not supported edit mode %q", editMode)
 	}
@@ -415,7 +419,18 @@ func getMapperAndResult(f cmdutil.Factory, args []string, options *resource.File
 	return mapper, resourceMapper, r, cmdNamespace, err
 }
 
-func visitToPatch(originalObj runtime.Object, updates *resource.Info, mapper meta.RESTMapper, resourceMapper *resource.Mapper, encoder runtime.Encoder, out, errOut io.Writer, defaultVersion unversioned.GroupVersion, results *editResults, file string) error {
+func visitToPatch(
+	originalObj runtime.Object,
+	updates *resource.Info,
+	mapper meta.RESTMapper,
+	resourceMapper *resource.Mapper,
+	encoder runtime.Encoder,
+	out, errOut io.Writer,
+	defaultVersion schema.GroupVersion,
+	results *editResults,
+	file string,
+) error {
+
 	patchVisitor := resource.NewFlattenListVisitor(updates, resourceMapper)
 	err := patchVisitor.Visit(func(info *resource.Info, incomingErr error) error {
 		currOriginalObj := originalObj
@@ -476,21 +491,21 @@ func visitToPatch(originalObj runtime.Object, updates *resource.Info, mapper met
 			return nil
 		}
 
-		preconditions := []strategicpatch.PreconditionFunc{strategicpatch.RequireKeyUnchanged("apiVersion"),
-			strategicpatch.RequireKeyUnchanged("kind"), strategicpatch.RequireMetadataKeyUnchanged("name")}
+		preconditions := []mergepatch.PreconditionFunc{mergepatch.RequireKeyUnchanged("apiVersion"),
+			mergepatch.RequireKeyUnchanged("kind"), mergepatch.RequireMetadataKeyUnchanged("name")}
 		patch, err := strategicpatch.CreateTwoWayMergePatch(originalJS, editedJS, currOriginalObj, preconditions...)
 		if err != nil {
 			glog.V(4).Infof("Unable to calculate diff, no merge is possible: %v", err)
-			if strategicpatch.IsPreconditionFailed(err) {
+			if mergepatch.IsPreconditionFailed(err) {
 				return fmt.Errorf("%s", "At least one of apiVersion, kind and name was changed")
 			}
 			return err
 		}
 
 		results.version = defaultVersion
-		patched, err := resource.NewHelper(info.Client, info.Mapping).Patch(info.Namespace, info.Name, api.StrategicMergePatchType, patch)
+		patched, err := resource.NewHelper(info.Client, info.Mapping).Patch(info.Namespace, info.Name, types.StrategicMergePatchType, patch)
 		if err != nil {
-			fmt.Fprintln(out, results.addError(err, info))
+			fmt.Fprintln(errOut, results.addError(err, info))
 			return nil
 		}
 		info.Refresh(patched, true)
@@ -500,7 +515,7 @@ func visitToPatch(originalObj runtime.Object, updates *resource.Info, mapper met
 	return err
 }
 
-func visitToCreate(updates *resource.Info, mapper meta.RESTMapper, resourceMapper *resource.Mapper, out, errOut io.Writer, defaultVersion unversioned.GroupVersion, results *editResults, file string) error {
+func visitToCreate(updates *resource.Info, mapper meta.RESTMapper, resourceMapper *resource.Mapper, out, errOut io.Writer, defaultVersion schema.GroupVersion, results *editResults, file string) error {
 	createVisitor := resource.NewFlattenListVisitor(updates, resourceMapper)
 	err := createVisitor.Visit(func(info *resource.Info, incomingErr error) error {
 		results.version = defaultVersion
@@ -592,7 +607,7 @@ type editResults struct {
 	edit      []*resource.Info
 	file      string
 
-	version unversioned.GroupVersion
+	version schema.GroupVersion
 }
 
 func (r *editResults) addError(err error, info *resource.Info) string {

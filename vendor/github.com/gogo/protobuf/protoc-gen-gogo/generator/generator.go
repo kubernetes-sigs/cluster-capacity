@@ -1465,6 +1465,12 @@ func (g *Generator) generateImports() {
 	g.P("var _ = ", g.Pkg["proto"], ".Marshal")
 	g.P("var _ = ", g.Pkg["fmt"], ".Errorf")
 	g.P("var _ = ", g.Pkg["math"], ".Inf")
+	for _, cimport := range g.customImports {
+		if cimport == "time" {
+			g.P("var _ = time.Kitchen")
+			break
+		}
+	}
 	g.P()
 }
 

@@ -28,16 +28,16 @@ import (
 	"testing"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	restclient "k8s.io/client-go/rest"
+	"k8s.io/client-go/rest/fake"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/testapi"
-	"k8s.io/kubernetes/pkg/api/unversioned"
-	"k8s.io/kubernetes/pkg/apimachinery/registered"
-	"k8s.io/kubernetes/pkg/client/restclient"
-	"k8s.io/kubernetes/pkg/client/restclient/fake"
 	"k8s.io/kubernetes/pkg/kubectl"
 	cmdtesting "k8s.io/kubernetes/pkg/kubectl/cmd/testing"
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
-	"k8s.io/kubernetes/pkg/runtime"
 	"k8s.io/kubernetes/pkg/util/strings"
 )
 
@@ -59,12 +59,12 @@ func defaultClientConfig() *restclient.Config {
 		ContentConfig: restclient.ContentConfig{
 			NegotiatedSerializer: api.Codecs,
 			ContentType:          runtime.ContentTypeJSON,
-			GroupVersion:         &registered.GroupOrDie(api.GroupName).GroupVersion,
+			GroupVersion:         &api.Registry.GroupOrDie(api.GroupName).GroupVersion,
 		},
 	}
 }
 
-func defaultClientConfigForVersion(version *unversioned.GroupVersion) *restclient.Config {
+func defaultClientConfigForVersion(version *schema.GroupVersion) *restclient.Config {
 	return &restclient.Config{
 		APIPath: "/api",
 		ContentConfig: restclient.ContentConfig{
@@ -151,22 +151,23 @@ func Example_printReplicationControllerWithNamespace() {
 		ColumnLabels:  []string{},
 	})
 	tf.Client = &fake.RESTClient{
+		APIRegistry:          api.Registry,
 		NegotiatedSerializer: ns,
 		Client:               nil,
 	}
 	cmd := NewCmdRun(f, os.Stdin, os.Stdout, os.Stderr)
 	ctrl := &api.ReplicationController{
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:              "foo",
 			Namespace:         "beep",
 			Labels:            map[string]string{"foo": "bar"},
-			CreationTimestamp: unversioned.Time{Time: time.Now().AddDate(-10, 0, 0)},
+			CreationTimestamp: metav1.Time{Time: time.Now().AddDate(-10, 0, 0)},
 		},
 		Spec: api.ReplicationControllerSpec{
 			Replicas: 1,
 			Selector: map[string]string{"foo": "bar"},
 			Template: &api.PodTemplateSpec{
-				ObjectMeta: api.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"foo": "bar"},
 				},
 				Spec: api.PodSpec{
@@ -201,21 +202,22 @@ func Example_printMultiContainersReplicationControllerWithWide() {
 		ColumnLabels: []string{},
 	})
 	tf.Client = &fake.RESTClient{
+		APIRegistry:          api.Registry,
 		NegotiatedSerializer: ns,
 		Client:               nil,
 	}
 	cmd := NewCmdRun(f, os.Stdin, os.Stdout, os.Stderr)
 	ctrl := &api.ReplicationController{
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:              "foo",
 			Labels:            map[string]string{"foo": "bar"},
-			CreationTimestamp: unversioned.Time{Time: time.Now().AddDate(-10, 0, 0)},
+			CreationTimestamp: metav1.Time{Time: time.Now().AddDate(-10, 0, 0)},
 		},
 		Spec: api.ReplicationControllerSpec{
 			Replicas: 1,
 			Selector: map[string]string{"foo": "bar"},
 			Template: &api.PodTemplateSpec{
-				ObjectMeta: api.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"foo": "bar"},
 				},
 				Spec: api.PodSpec{
@@ -252,21 +254,22 @@ func Example_printReplicationController() {
 		ColumnLabels: []string{},
 	})
 	tf.Client = &fake.RESTClient{
+		APIRegistry:          api.Registry,
 		NegotiatedSerializer: ns,
 		Client:               nil,
 	}
 	cmd := NewCmdRun(f, os.Stdin, os.Stdout, os.Stderr)
 	ctrl := &api.ReplicationController{
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:              "foo",
 			Labels:            map[string]string{"foo": "bar"},
-			CreationTimestamp: unversioned.Time{Time: time.Now().AddDate(-10, 0, 0)},
+			CreationTimestamp: metav1.Time{Time: time.Now().AddDate(-10, 0, 0)},
 		},
 		Spec: api.ReplicationControllerSpec{
 			Replicas: 1,
 			Selector: map[string]string{"foo": "bar"},
 			Template: &api.PodTemplateSpec{
-				ObjectMeta: api.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"foo": "bar"},
 				},
 				Spec: api.PodSpec{
@@ -304,15 +307,16 @@ func Example_printPodWithWideFormat() {
 		ColumnLabels: []string{},
 	})
 	tf.Client = &fake.RESTClient{
+		APIRegistry:          api.Registry,
 		NegotiatedSerializer: ns,
 		Client:               nil,
 	}
 	nodeName := "kubernetes-node-abcd"
 	cmd := NewCmdRun(f, os.Stdin, os.Stdout, os.Stderr)
 	pod := &api.Pod{
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:              "test1",
-			CreationTimestamp: unversioned.Time{Time: time.Now().AddDate(-10, 0, 0)},
+			CreationTimestamp: metav1.Time{Time: time.Now().AddDate(-10, 0, 0)},
 		},
 		Spec: api.PodSpec{
 			Containers: make([]api.Container, 2),
@@ -344,15 +348,16 @@ func Example_printPodWithShowLabels() {
 		ColumnLabels: []string{},
 	})
 	tf.Client = &fake.RESTClient{
+		APIRegistry:          api.Registry,
 		NegotiatedSerializer: ns,
 		Client:               nil,
 	}
 	nodeName := "kubernetes-node-abcd"
 	cmd := NewCmdRun(f, os.Stdin, os.Stdout, os.Stderr)
 	pod := &api.Pod{
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:              "test1",
-			CreationTimestamp: unversioned.Time{Time: time.Now().AddDate(-10, 0, 0)},
+			CreationTimestamp: metav1.Time{Time: time.Now().AddDate(-10, 0, 0)},
 			Labels: map[string]string{
 				"l1": "key",
 				"l2": "value",
@@ -385,9 +390,9 @@ func newAllPhasePodList() *api.PodList {
 	return &api.PodList{
 		Items: []api.Pod{
 			{
-				ObjectMeta: api.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:              "test1",
-					CreationTimestamp: unversioned.Time{Time: time.Now().AddDate(-10, 0, 0)},
+					CreationTimestamp: metav1.Time{Time: time.Now().AddDate(-10, 0, 0)},
 				},
 				Spec: api.PodSpec{
 					Containers: make([]api.Container, 2),
@@ -402,9 +407,9 @@ func newAllPhasePodList() *api.PodList {
 				},
 			},
 			{
-				ObjectMeta: api.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:              "test2",
-					CreationTimestamp: unversioned.Time{Time: time.Now().AddDate(-10, 0, 0)},
+					CreationTimestamp: metav1.Time{Time: time.Now().AddDate(-10, 0, 0)},
 				},
 				Spec: api.PodSpec{
 					Containers: make([]api.Container, 2),
@@ -419,9 +424,9 @@ func newAllPhasePodList() *api.PodList {
 				},
 			},
 			{
-				ObjectMeta: api.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:              "test3",
-					CreationTimestamp: unversioned.Time{Time: time.Now().AddDate(-10, 0, 0)},
+					CreationTimestamp: metav1.Time{Time: time.Now().AddDate(-10, 0, 0)},
 				},
 				Spec: api.PodSpec{
 					Containers: make([]api.Container, 2),
@@ -436,9 +441,9 @@ func newAllPhasePodList() *api.PodList {
 				},
 			},
 			{
-				ObjectMeta: api.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:              "test4",
-					CreationTimestamp: unversioned.Time{Time: time.Now().AddDate(-10, 0, 0)},
+					CreationTimestamp: metav1.Time{Time: time.Now().AddDate(-10, 0, 0)},
 				},
 				Spec: api.PodSpec{
 					Containers: make([]api.Container, 2),
@@ -453,9 +458,9 @@ func newAllPhasePodList() *api.PodList {
 				},
 			},
 			{
-				ObjectMeta: api.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:              "test5",
-					CreationTimestamp: unversioned.Time{Time: time.Now().AddDate(-10, 0, 0)},
+					CreationTimestamp: metav1.Time{Time: time.Now().AddDate(-10, 0, 0)},
 				},
 				Spec: api.PodSpec{
 					Containers: make([]api.Container, 2),
@@ -478,6 +483,7 @@ func Example_printPodHideTerminated() {
 		ColumnLabels: []string{},
 	})
 	tf.Client = &fake.RESTClient{
+		APIRegistry:          api.Registry,
 		NegotiatedSerializer: ns,
 		Client:               nil,
 	}
@@ -511,6 +517,7 @@ func Example_printPodShowAll() {
 		ColumnLabels: []string{},
 	})
 	tf.Client = &fake.RESTClient{
+		APIRegistry:          api.Registry,
 		NegotiatedSerializer: ns,
 		Client:               nil,
 	}
@@ -537,6 +544,7 @@ func Example_printServiceWithNamespacesAndLabels() {
 		ColumnLabels:  []string{"l1"},
 	})
 	tf.Client = &fake.RESTClient{
+		APIRegistry:          api.Registry,
 		NegotiatedSerializer: ns,
 		Client:               nil,
 	}
@@ -544,10 +552,10 @@ func Example_printServiceWithNamespacesAndLabels() {
 	svc := &api.ServiceList{
 		Items: []api.Service{
 			{
-				ObjectMeta: api.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:              "svc1",
 					Namespace:         "ns1",
-					CreationTimestamp: unversioned.Time{Time: time.Now().AddDate(-10, 0, 0)},
+					CreationTimestamp: metav1.Time{Time: time.Now().AddDate(-10, 0, 0)},
 					Labels: map[string]string{
 						"l1": "value",
 					},
@@ -565,10 +573,10 @@ func Example_printServiceWithNamespacesAndLabels() {
 				Status: api.ServiceStatus{},
 			},
 			{
-				ObjectMeta: api.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:              "svc2",
 					Namespace:         "ns2",
-					CreationTimestamp: unversioned.Time{Time: time.Now().AddDate(-10, 0, 0)},
+					CreationTimestamp: metav1.Time{Time: time.Now().AddDate(-10, 0, 0)},
 					Labels: map[string]string{
 						"l1": "dolla-bill-yall",
 					},

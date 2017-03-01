@@ -15,6 +15,7 @@ package prometheus
 
 import (
 	"fmt"
+	"hash/fnv"
 	"math"
 	"sort"
 	"sync"
@@ -24,11 +25,9 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	dto "github.com/prometheus/client_model/go"
-)
 
-// quantileLabel is used for the label that defines the quantile in a
-// summary.
-const quantileLabel = "quantile"
+	"github.com/prometheus/client_golang/model"
+)
 
 // A Summary captures individual observations from an event or sample stream and
 // summarizes them in a manner similar to traditional summary statistics: 1. sum
@@ -53,15 +52,12 @@ type Summary interface {
 	Observe(float64)
 }
 
-// DefObjectives are the default Summary quantile values.
-//
-// Deprecated: DefObjectives will not be used as the default objectives in
-// v0.10 of the library. The default Summary will have no quantiles then.
 var (
+	// DefObjectives are the default Summary quantile values.
 	DefObjectives = map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001}
 
 	errQuantileLabelNotAllowed = fmt.Errorf(
-		"%q is not allowed as label name in summaries", quantileLabel,
+		"%q is not allowed as label name in summaries", model.QuantileLabel,
 	)
 )
 
@@ -116,15 +112,7 @@ type SummaryOpts struct {
 	ConstLabels Labels
 
 	// Objectives defines the quantile rank estimates with their respective
-	// absolute error. If Objectives[q] = e, then the value reported for q
-	// will be the φ-quantile value for some φ between q-e and q+e.  The
-	// default value is DefObjectives. It is used if Objectives is left at
-	// its zero value (i.e. nil). To create a Summary without Objectives,
-	// set it to an empty map (i.e. map[float64]float64{}).
-	//
-	// Deprecated: Note that the current value of DefObjectives is
-	// deprecated. It will be replaced by an empty map in v0.10 of the
-	// library. Please explicitly set Objectives to the desired value.
+	// absolute error. The default value is DefObjectives.
 	Objectives map[float64]float64
 
 	// MaxAge defines the duration for which an observation stays relevant
@@ -148,11 +136,11 @@ type SummaryOpts struct {
 	BufCap uint32
 }
 
-// Great fuck-up with the sliding-window decay algorithm... The Merge method of
-// perk/quantile is actually not working as advertised - and it might be
-// unfixable, as the underlying algorithm is apparently not capable of merging
-// summaries in the first place. To avoid using Merge, we are currently adding
-// observations to _each_ age bucket, i.e. the effort to add a sample is
+// TODO: Great fuck-up with the sliding-window decay algorithm... The Merge
+// method of perk/quantile is actually not working as advertised - and it might
+// be unfixable, as the underlying algorithm is apparently not capable of
+// merging summaries in the first place. To avoid using Merge, we are currently
+// adding observations to _each_ age bucket, i.e. the effort to add a sample is
 // essentially multiplied by the number of age buckets. When rotating age
 // buckets, we empty the previous head stream. On scrape time, we simply take
 // the quantiles from the head stream (no merging required). Result: More effort
@@ -182,17 +170,17 @@ func newSummary(desc *Desc, opts SummaryOpts, labelValues ...string) Summary {
 	}
 
 	for _, n := range desc.variableLabels {
-		if n == quantileLabel {
+		if n == model.QuantileLabel {
 			panic(errQuantileLabelNotAllowed)
 		}
 	}
 	for _, lp := range desc.constLabelPairs {
-		if lp.GetName() == quantileLabel {
+		if lp.GetName() == model.QuantileLabel {
 			panic(errQuantileLabelNotAllowed)
 		}
 	}
 
-	if opts.Objectives == nil {
+	if len(opts.Objectives) == 0 {
 		opts.Objectives = DefObjectives
 	}
 
@@ -236,12 +224,12 @@ func newSummary(desc *Desc, opts SummaryOpts, labelValues ...string) Summary {
 	}
 	sort.Float64s(s.sortedObjectives)
 
-	s.init(s) // Init self-collection.
+	s.Init(s) // Init self-collection.
 	return s
 }
 
 type summary struct {
-	selfCollector
+	SelfCollector
 
 	bufMtx sync.Mutex // Protects hotBuf and hotBufExpTime.
 	mtx    sync.Mutex // Protects every other moving part.
@@ -399,7 +387,7 @@ func (s quantSort) Less(i, j int) bool {
 // (e.g. HTTP request latencies, partitioned by status code and method). Create
 // instances with NewSummaryVec.
 type SummaryVec struct {
-	*MetricVec
+	MetricVec
 }
 
 // NewSummaryVec creates a new SummaryVec based on the provided SummaryOpts and
@@ -413,9 +401,14 @@ func NewSummaryVec(opts SummaryOpts, labelNames []string) *SummaryVec {
 		opts.ConstLabels,
 	)
 	return &SummaryVec{
-		MetricVec: newMetricVec(desc, func(lvs ...string) Metric {
-			return newSummary(desc, opts, lvs...)
-		}),
+		MetricVec: MetricVec{
+			children: map[uint64]Metric{},
+			desc:     desc,
+			hash:     fnv.New64a(),
+			newMetric: func(lvs ...string) Metric {
+				return newSummary(desc, opts, lvs...)
+			},
+		},
 	}
 }
 

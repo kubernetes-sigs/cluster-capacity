@@ -72,6 +72,7 @@ var fixtures = []fixture{
 	fixture{"1.0.0-beta", "1.0.0-alpha.beta"},
 	fixture{"1.0.0-alpha.beta", "1.0.0-alpha.1"},
 	fixture{"1.0.0-alpha.1", "1.0.0-alpha"},
+	fixture{"1.2.3-rc.1-1-1hash", "1.2.3-rc.2"},
 }
 
 func TestCompare(t *testing.T) {

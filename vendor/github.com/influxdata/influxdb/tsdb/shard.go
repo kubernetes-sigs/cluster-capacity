@@ -18,7 +18,7 @@ import (
 	"github.com/influxdata/influxdb/influxql"
 	"github.com/influxdata/influxdb/models"
 	internal "github.com/influxdata/influxdb/tsdb/internal"
-	"go.uber.org/zap"
+	"github.com/uber-go/zap"
 )
 
 // monitorStatInterval is the interval at which the shard is inspected
@@ -585,7 +585,7 @@ func (s *Shard) validateSeriesAndFields(points []models.Point) ([]models.Point, 
 				continue
 			}
 
-			ss = s.index.CreateSeriesIndexIfNotExists(p.Name(), NewSeries(string(p.Key()), tags))
+			ss = s.index.CreateSeriesIndexIfNotExists(p.Name(), NewSeries(string(p.Key()), tags), true)
 			atomic.AddInt64(&s.stats.SeriesCreated, 1)
 		}
 
@@ -994,8 +994,7 @@ func (a Shards) FieldDimensions(measurements []string) (fields map[string]influx
 func (a Shards) MapType(measurement, field string) influxql.DataType {
 	var typ influxql.DataType
 	for _, sh := range a {
-		t := sh.MapType(measurement, field)
-		if typ == influxql.Unknown || (t != influxql.Unknown && t < typ) {
+		if t := sh.MapType(measurement, field); typ.LessThan(t) {
 			typ = t
 		}
 	}
@@ -1482,7 +1481,7 @@ func (itr *tagValuesIterator) Next() (*influxql.FloatPoint, error) {
 		}
 
 		key := itr.buf.keys[0]
-		value := itr.buf.s.Tags.GetString(key)
+		value := itr.buf.s.GetTagString(key)
 		if value == "" {
 			itr.buf.keys = itr.buf.keys[1:]
 			continue

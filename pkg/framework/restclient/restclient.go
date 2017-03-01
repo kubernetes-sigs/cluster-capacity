@@ -29,17 +29,21 @@ import (
 
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/testapi"
-	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/apis/extensions"
-	"k8s.io/kubernetes/pkg/client/restclient"
-	"k8s.io/kubernetes/pkg/fields"
-	"k8s.io/kubernetes/pkg/runtime"
-	"k8s.io/kubernetes/pkg/util/flowcontrol"
-	"k8s.io/kubernetes/pkg/watch"
+	restclient "k8s.io/client-go/rest"
 
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/util/flowcontrol"
+	"k8s.io/apimachinery/pkg/watch"
+
+	"k8s.io/apimachinery/pkg/fields"
 	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
 	ewatch "github.com/kubernetes-incubator/cluster-capacity/pkg/framework/watch"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/kubernetes/pkg/api/v1"
 )
 
 type ObjectFieldsAccessor struct {
@@ -103,18 +107,18 @@ type RESTClient struct {
 	name string
 }
 
-func (c *RESTClient) Pods(fieldsSelector fields.Selector) *api.PodList {
+func (c *RESTClient) Pods(fieldsSelector fields.Selector) *v1.PodList {
 	items := c.resourceStore.List(ccapi.Pods)
-	typedItems := make([](api.Pod), 0, len(items))
+	typedItems := make([](v1.Pod), 0, len(items))
 	for _, item := range items {
 		if !fieldsSelector.Matches(NewObjectFieldsAccessor(item)) {
 			continue
 		}
-		typedItems = append(typedItems, *item.(*api.Pod))
+		typedItems = append(typedItems, *item.(*v1.Pod))
 	}
 
-	return &api.PodList{
-		ListMeta: unversioned.ListMeta{
+	return &v1.PodList{
+		ListMeta: metav1.ListMeta{
 			// choose arbitrary value as the cache does not store the ResourceVersion
 			ResourceVersion: "0",
 		},
@@ -122,18 +126,18 @@ func (c *RESTClient) Pods(fieldsSelector fields.Selector) *api.PodList {
 	}
 }
 
-func (c *RESTClient) Services(fieldsSelector fields.Selector) *api.ServiceList {
+func (c *RESTClient) Services(fieldsSelector fields.Selector) *v1.ServiceList {
 	items := c.resourceStore.List(ccapi.Services)
-	typedItems := make([]api.Service, 0, len(items))
+	typedItems := make([]v1.Service, 0, len(items))
 	for _, item := range items {
 		if !fieldsSelector.Matches(NewObjectFieldsAccessor(item)) {
 			continue
 		}
-		typedItems = append(typedItems, *item.(*api.Service))
+		typedItems = append(typedItems, *item.(*v1.Service))
 	}
 
-	return &api.ServiceList{
-		ListMeta: unversioned.ListMeta{
+	return &v1.ServiceList{
+		ListMeta: metav1.ListMeta{
 			// choose arbitrary value as the cache does not store the ResourceVersion
 			ResourceVersion: "0",
 		},
@@ -141,18 +145,18 @@ func (c *RESTClient) Services(fieldsSelector fields.Selector) *api.ServiceList {
 	}
 }
 
-func (c *RESTClient) ReplicationControllers(fieldsSelector fields.Selector) *api.ReplicationControllerList {
+func (c *RESTClient) ReplicationControllers(fieldsSelector fields.Selector) *v1.ReplicationControllerList {
 	items := c.resourceStore.List(ccapi.ReplicationControllers)
-	typedItems := make([]api.ReplicationController, 0, len(items))
+	typedItems := make([]v1.ReplicationController, 0, len(items))
 	for _, item := range items {
 		if !fieldsSelector.Matches(NewObjectFieldsAccessor(item)) {
 			continue
 		}
-		typedItems = append(typedItems, *item.(*api.ReplicationController))
+		typedItems = append(typedItems, *item.(*v1.ReplicationController))
 	}
 
-	return &api.ReplicationControllerList{
-		ListMeta: unversioned.ListMeta{
+	return &v1.ReplicationControllerList{
+		ListMeta: metav1.ListMeta{
 			// choose arbitrary value as the cache does not store the ResourceVersion
 			ResourceVersion: "0",
 		},
@@ -160,54 +164,54 @@ func (c *RESTClient) ReplicationControllers(fieldsSelector fields.Selector) *api
 	}
 }
 
-func (c *RESTClient) PersistentVolumes(fieldsSelector fields.Selector) *api.PersistentVolumeList {
+func (c *RESTClient) PersistentVolumes(fieldsSelector fields.Selector) *v1.PersistentVolumeList {
 	items := c.resourceStore.List(ccapi.PersistentVolumes)
-	typedItems := make([]api.PersistentVolume, 0, len(items))
+	typedItems := make([]v1.PersistentVolume, 0, len(items))
 	for _, item := range items {
 		if !fieldsSelector.Matches(NewObjectFieldsAccessor(item)) {
 			continue
 		}
-		typedItems = append(typedItems, *item.(*api.PersistentVolume))
+		typedItems = append(typedItems, *item.(*v1.PersistentVolume))
 	}
 
-	return &api.PersistentVolumeList{
-		ListMeta: unversioned.ListMeta{
+	return &v1.PersistentVolumeList{
+		ListMeta: metav1.ListMeta{
 			ResourceVersion: "0",
 		},
 		Items: typedItems,
 	}
 }
 
-func (c *RESTClient) PersistentVolumeClaims(fieldsSelector fields.Selector) *api.PersistentVolumeClaimList {
+func (c *RESTClient) PersistentVolumeClaims(fieldsSelector fields.Selector) *v1.PersistentVolumeClaimList {
 	items := c.resourceStore.List(ccapi.PersistentVolumeClaims)
-	typedItems := make([]api.PersistentVolumeClaim, 0, len(items))
+	typedItems := make([]v1.PersistentVolumeClaim, 0, len(items))
 	for _, item := range items {
 		if !fieldsSelector.Matches(NewObjectFieldsAccessor(item)) {
 			continue
 		}
-		typedItems = append(typedItems, *item.(*api.PersistentVolumeClaim))
+		typedItems = append(typedItems, *item.(*v1.PersistentVolumeClaim))
 	}
 
-	return &api.PersistentVolumeClaimList{
-		ListMeta: unversioned.ListMeta{
+	return &v1.PersistentVolumeClaimList{
+		ListMeta: metav1.ListMeta{
 			ResourceVersion: "0",
 		},
 		Items: typedItems,
 	}
 }
 
-func (c *RESTClient) Nodes(fieldsSelector fields.Selector) *api.NodeList {
+func (c *RESTClient) Nodes(fieldsSelector fields.Selector) *v1.NodeList {
 	items := c.resourceStore.List(ccapi.Nodes)
-	typedItems := make([]api.Node, 0, len(items))
+	typedItems := make([]v1.Node, 0, len(items))
 	for _, item := range items {
 		if !fieldsSelector.Matches(NewObjectFieldsAccessor(item)) {
 			continue
 		}
-		typedItems = append(typedItems, *item.(*api.Node))
+		typedItems = append(typedItems, *item.(*v1.Node))
 	}
 
-	return &api.NodeList{
-		ListMeta: unversioned.ListMeta{
+	return &v1.NodeList{
+		ListMeta: metav1.ListMeta{
 			ResourceVersion: "0",
 		},
 		Items: typedItems,
@@ -225,97 +229,97 @@ func (c *RESTClient) ReplicaSets(fieldsSelector fields.Selector) *extensions.Rep
 	}
 
 	return &extensions.ReplicaSetList{
-		ListMeta: unversioned.ListMeta{
+		ListMeta: metav1.ListMeta{
 			ResourceVersion: "0",
 		},
 		Items: typedItems,
 	}
 }
 
-func (c *RESTClient) ResourceQuota(fieldsSelector fields.Selector) *api.ResourceQuotaList {
+func (c *RESTClient) ResourceQuota(fieldsSelector fields.Selector) *v1.ResourceQuotaList {
 	items := c.resourceStore.List(ccapi.ResourceQuota)
-	typedItems := make([]api.ResourceQuota, 0, len(items))
+	typedItems := make([]v1.ResourceQuota, 0, len(items))
 	for _, item := range items {
 		if !fieldsSelector.Matches(NewObjectFieldsAccessor(item)) {
 			continue
 		}
-		typedItems = append(typedItems, *item.(*api.ResourceQuota))
+		typedItems = append(typedItems, *item.(*v1.ResourceQuota))
 	}
 
-	return &api.ResourceQuotaList{
-		ListMeta: unversioned.ListMeta{
+	return &v1.ResourceQuotaList{
+		ListMeta: metav1.ListMeta{
 			ResourceVersion: "0",
 		},
 		Items: typedItems,
 	}
 }
 
-func (c *RESTClient) Secrets(fieldsSelector fields.Selector) *api.SecretList {
+func (c *RESTClient) Secrets(fieldsSelector fields.Selector) *v1.SecretList {
 	items := c.resourceStore.List(ccapi.Secrets)
-	typedItems := make([]api.Secret, 0, len(items))
+	typedItems := make([]v1.Secret, 0, len(items))
 	for _, item := range items {
 		if !fieldsSelector.Matches(NewObjectFieldsAccessor(item)) {
 			continue
 		}
-		typedItems = append(typedItems, *item.(*api.Secret))
+		typedItems = append(typedItems, *item.(*v1.Secret))
 	}
 
-	return &api.SecretList{
-		ListMeta: unversioned.ListMeta{
+	return &v1.SecretList{
+		ListMeta: metav1.ListMeta{
 			ResourceVersion: "0",
 		},
 		Items: typedItems,
 	}
 }
 
-func (c *RESTClient) ServiceAccounts(fieldsSelector fields.Selector) *api.ServiceAccountList {
+func (c *RESTClient) ServiceAccounts(fieldsSelector fields.Selector) *v1.ServiceAccountList {
 	items := c.resourceStore.List(ccapi.ServiceAccounts)
-	typedItems := make([]api.ServiceAccount, 0, len(items))
+	typedItems := make([]v1.ServiceAccount, 0, len(items))
 	for _, item := range items {
 		if !fieldsSelector.Matches(NewObjectFieldsAccessor(item)) {
 			continue
 		}
-		typedItems = append(typedItems, *item.(*api.ServiceAccount))
+		typedItems = append(typedItems, *item.(*v1.ServiceAccount))
 	}
 
-	return &api.ServiceAccountList{
-		ListMeta: unversioned.ListMeta{
+	return &v1.ServiceAccountList{
+		ListMeta: metav1.ListMeta{
 			ResourceVersion: "0",
 		},
 		Items: typedItems,
 	}
 }
 
-func (c *RESTClient) LimitRanges(fieldsSelector fields.Selector) *api.LimitRangeList {
+func (c *RESTClient) LimitRanges(fieldsSelector fields.Selector) *v1.LimitRangeList {
 	items := c.resourceStore.List(ccapi.LimitRanges)
-	typedItems := make([]api.LimitRange, 0, len(items))
+	typedItems := make([]v1.LimitRange, 0, len(items))
 	for _, item := range items {
 		if !fieldsSelector.Matches(NewObjectFieldsAccessor(item)) {
 			continue
 		}
-		typedItems = append(typedItems, *item.(*api.LimitRange))
+		typedItems = append(typedItems, *item.(*v1.LimitRange))
 	}
 
-	return &api.LimitRangeList{
-		ListMeta: unversioned.ListMeta{
+	return &v1.LimitRangeList{
+		ListMeta: metav1.ListMeta{
 			ResourceVersion: "0",
 		},
 		Items: typedItems,
 	}
 }
 
-func (c *RESTClient) Namespaces(fieldsSelector fields.Selector) *api.NamespaceList {
+func (c *RESTClient) Namespaces(fieldsSelector fields.Selector) *v1.NamespaceList {
 	items := c.resourceStore.List(ccapi.Namespaces)
-	typedItems := make([]api.Namespace, 0, len(items))
+	typedItems := make([]v1.Namespace, 0, len(items))
 	for _, item := range items {
 		if !fieldsSelector.Matches(NewObjectFieldsAccessor(item)) {
 			continue
 		}
-		typedItems = append(typedItems, *item.(*api.Namespace))
+		typedItems = append(typedItems, *item.(*v1.Namespace))
 	}
 
-	return &api.NamespaceList{
-		ListMeta: unversioned.ListMeta{
+	return &v1.NamespaceList{
+		ListMeta: metav1.ListMeta{
 			ResourceVersion: "0",
 		},
 		Items: typedItems,
@@ -391,7 +395,7 @@ func (c *RESTClient) Verb(verb string) *restclient.Request {
 	return c.request(verb)
 }
 
-func (c *RESTClient) APIVersion() unversioned.GroupVersion {
+func (c *RESTClient) APIVersion() schema.GroupVersion {
 	return *(testapi.Default.GroupVersion())
 }
 
@@ -403,7 +407,7 @@ func (c *RESTClient) Put() *restclient.Request {
 	return c.request("PUT")
 }
 
-func (c *RESTClient) Patch(_ api.PatchType) *restclient.Request {
+func (c *RESTClient) Patch(_ types.PatchType) *restclient.Request {
 	return c.request("PATCH")
 }
 
@@ -424,12 +428,12 @@ func (c *RESTClient) request(verb string) *restclient.Request {
 	ns := c.NegotiatedSerializer
 	info, _ := runtime.SerializerInfoForMediaType(ns.SupportedMediaTypes(), runtime.ContentTypeJSON)
 
-	var targetVersion unversioned.GroupVersion
+	var targetVersion schema.GroupVersion
 	if c.name == "extensions" {
-		gvr := unversioned.GroupVersionResource{Group: "extensions", Version: "v1beta1", Resource: "replicasets"}
+		gvr := schema.GroupVersionResource{Group: "extensions", Version: "v1beta1", Resource: "replicasets"}
 		targetVersion = gvr.GroupVersion()
 	} else {
-		targetVersion = unversioned.GroupVersion{
+		targetVersion = schema.GroupVersion{
 			Group:   testapi.Default.GroupVersion().Group,
 			Version: runtime.APIVersionInternal,
 		}
@@ -464,7 +468,7 @@ func (c *RESTClient) createListReadCloser(resource ccapi.ResourceType, fieldsSel
 	}
 
 	if resource == ccapi.ReplicaSets {
-		gvr := unversioned.GroupVersionResource{Group: "extensions", Version: "v1beta1", Resource: "replicasets"}
+		gvr := schema.GroupVersionResource{Group: "extensions", Version: "v1beta1", Resource: "replicasets"}
 		info, ok := runtime.SerializerInfoForMediaType(c.NegotiatedSerializer.SupportedMediaTypes(), runtime.ContentTypeJSON)
 		if !ok {
 			return nil, fmt.Errorf("serializer for %s not registered", runtime.ContentTypeJSON)
@@ -480,7 +484,7 @@ func (c *RESTClient) createListReadCloser(resource ccapi.ResourceType, fieldsSel
 }
 
 func (c *RESTClient) createGetReadCloser(resource ccapi.ResourceType, resourceName string, namespace string) (rc *io.ReadCloser, err error) {
-	key := &api.ObjectMeta{Name: resourceName, Namespace: namespace}
+	key := &v1.ObjectMeta{Name: resourceName, Namespace: namespace}
 	item, exists, err := c.resourceStore.Get(resource, key)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to retrieve requested %v resource %v: %v", resource, resourceName, err)
@@ -494,39 +498,39 @@ func (c *RESTClient) createGetReadCloser(resource ccapi.ResourceType, resourceNa
 
 	switch resource {
 	case ccapi.Pods:
-		obj = runtime.Object(item.(*api.Pod))
-		ns = item.(*api.Pod).Namespace
+		obj = runtime.Object(item.(*v1.Pod))
+		ns = item.(*v1.Pod).Namespace
 	case ccapi.Services:
-		obj = runtime.Object(item.(*api.Service))
-		ns = item.(*api.Service).Namespace
+		obj = runtime.Object(item.(*v1.Service))
+		ns = item.(*v1.Service).Namespace
 	case ccapi.ReplicationControllers:
-		obj = runtime.Object(item.(*api.ReplicationController))
-		ns = item.(*api.ReplicationController).Namespace
+		obj = runtime.Object(item.(*v1.ReplicationController))
+		ns = item.(*v1.ReplicationController).Namespace
 	case ccapi.PersistentVolumes:
-		obj = runtime.Object(item.(*api.PersistentVolume))
-		ns = item.(*api.PersistentVolume).Namespace
+		obj = runtime.Object(item.(*v1.PersistentVolume))
+		ns = item.(*v1.PersistentVolume).Namespace
 	case ccapi.PersistentVolumeClaims:
-		obj = runtime.Object(item.(*api.PersistentVolumeClaim))
-		ns = item.(*api.PersistentVolumeClaim).Namespace
+		obj = runtime.Object(item.(*v1.PersistentVolumeClaim))
+		ns = item.(*v1.PersistentVolumeClaim).Namespace
 	case ccapi.Nodes:
-		obj = runtime.Object(item.(*api.Node))
+		obj = runtime.Object(item.(*v1.Node))
 	case ccapi.ReplicaSets:
 		obj = runtime.Object(item.(*extensions.ReplicaSet))
 		ns = item.(*extensions.ReplicaSet).Namespace
 	case ccapi.ResourceQuota:
-		obj = runtime.Object(item.(*api.ResourceQuota))
-		ns = item.(*api.ResourceQuota).Namespace
+		obj = runtime.Object(item.(*v1.ResourceQuota))
+		ns = item.(*v1.ResourceQuota).Namespace
 	case ccapi.Secrets:
-		obj = runtime.Object(item.(*api.Secret))
-		ns = item.(*api.Secret).Namespace
+		obj = runtime.Object(item.(*v1.Secret))
+		ns = item.(*v1.Secret).Namespace
 	case ccapi.ServiceAccounts:
-		obj = runtime.Object(item.(*api.ServiceAccount))
-		ns = item.(*api.ServiceAccount).Namespace
+		obj = runtime.Object(item.(*v1.ServiceAccount))
+		ns = item.(*v1.ServiceAccount).Namespace
 	case ccapi.LimitRanges:
-		obj = runtime.Object(item.(*api.LimitRange))
-		ns = item.(*api.LimitRange).Namespace
+		obj = runtime.Object(item.(*v1.LimitRange))
+		ns = item.(*v1.LimitRange).Namespace
 	case ccapi.Namespaces:
-		obj = runtime.Object(item.(*api.Namespace))
+		obj = runtime.Object(item.(*v1.Namespace))
 	default:
 		return nil, fmt.Errorf("Resource %v not recognized", resource)
 	}
@@ -634,7 +638,7 @@ func (c *RESTClient) Do(req *http.Request) (*http.Response, error) {
 	// check all fields
 	//fmt.Printf("URL request path: %v, rawQuery: %v, fields selector: %v\n", req.URL.Path, queryParams, fieldsSelector)
 	// is field selector on?
-	value, ok := queryParams[unversioned.FieldSelectorQueryParam(testapi.Default.GroupVersion().String())]
+	value, ok := queryParams[metav1.FieldSelectorQueryParam(testapi.Default.GroupVersion().String())]
 	if ok {
 		fieldsSelector = fields.ParseSelectorOrDie(value[0])
 	}
@@ -720,7 +724,7 @@ func (c *RESTClient) Do(req *http.Request) (*http.Response, error) {
 					}
 				}
 
-				obj := &api.ResourceQuota{}
+				obj := &v1.ResourceQuota{}
 				runtime.DecodeInto(testapi.Default.Codec(), buffer.Bytes(), runtime.Object(obj))
 				c.resourceStore.Add(ccapi.ResourceQuota, obj)
 			}

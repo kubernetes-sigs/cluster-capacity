@@ -40,16 +40,16 @@ set -o errexit
 set -o nounset
 
 if [ -z "${TARGET_STORAGE:-}" ]; then
-  echo "TARGET_STORAGE variable unset - skipping migration"
-  exit 0
+  echo "TARGET_STORAGE variable unset - unexpected failure"
+  exit 1
 fi
 if [ -z "${TARGET_VERSION:-}" ]; then
-  echo "TARGET_VERSION variable unset - skipping migration"
-  exit 0
+  echo "TARGET_VERSION variable unset - unexpected failure"
+  exit 1
 fi
 if [ -z "${DATA_DIRECTORY:-}" ]; then
-  echo "DATA_DIRECTORY variable unset - skipping migration"
-  exit 0
+  echo "DATA_DIRECTORY variable unset - unexpected failure"
+  exit 1
 fi
 
 if [ "${TARGET_STORAGE}" != "etcd2" -a "${TARGET_STORAGE}" != "etcd3" ]; then
@@ -120,6 +120,7 @@ start_etcd() {
   ${ETCD_CMD} \
     --name="etcd-$(hostname)" \
     --debug \
+    --force-new-cluster \
     --data-dir=${DATA_DIRECTORY} \
     --listen-client-urls http://127.0.0.1:${ETCD_PORT} \
     --advertise-client-urls http://127.0.0.1:${ETCD_PORT} \
@@ -151,7 +152,7 @@ ROLLBACK="${ROLLBACK:-/usr/local/bin/rollback}"
 # If we are upgrading from 2.2.1 and this is the first try for upgrade,
 # do the backup to allow restoring from it in case of failed upgrade.
 BACKUP_DIR="${DATA_DIRECTORY}/migration-backup"
-if [ "${CURRENT_VERSION}" = "2.2.1" -a ! -d "${BACKUP_DIR}" ]; then
+if [ "${CURRENT_VERSION}" = "2.2.1" -a ! "${CURRENT_VERSION}" != "${TARGET_VERSION}" -a -d "${BACKUP_DIR}" ]; then
   echo "Backup etcd before starting migration"
   mkdir ${BACKUP_DIR}
   ETCDCTL_CMD="/usr/local/bin/etcdctl-2.2.1"
@@ -230,7 +231,6 @@ if [ "${CURRENT_STORAGE}" = "etcd3" -a "${TARGET_STORAGE}" = "etcd2" ]; then
   rm -rf "${ROLLBACK_BACKUP_DIR}"
   mkdir -p "${ROLLBACK_BACKUP_DIR}"
   cp -r "${DATA_DIRECTORY}" "${ROLLBACK_BACKUP_DIR}"
-  rm -rf "${DATA_DIRECTORY}"/member/snap/*.snap
   echo "Performing etcd3 -> etcd2 rollback"
   ${ROLLBACK} --data-dir "${DATA_DIRECTORY}"
   if [ "$?" -ne "0" ]; then

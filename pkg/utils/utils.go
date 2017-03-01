@@ -19,15 +19,16 @@ package utils
 import (
 	"fmt"
 
+	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/testapi"
-	"k8s.io/kubernetes/pkg/api/unversioned"
-	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
-	"k8s.io/kubernetes/pkg/runtime"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
 )
 
-func PrintPod(pod *api.Pod, format string) error {
+func PrintPod(pod *v1.Pod, format string) error {
 	var contentType string
 	switch format {
 	case "json":
@@ -42,7 +43,7 @@ func PrintPod(pod *api.Pod, format string) error {
 	if !ok {
 		return fmt.Errorf("serializer for %s not registered", contentType)
 	}
-	gvr := unversioned.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
 	encoder := api.Codecs.EncoderForVersion(info.Serializer, gvr.GroupVersion())
 	stream, err := runtime.Encode(encoder, pod)
 
