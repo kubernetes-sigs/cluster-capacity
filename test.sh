@@ -14,4 +14,6 @@
 
 #!/bin/sh
 
-find . -iname "*_test.go" | grep -v "./vendor" | xargs dirname | sort -u | xargs echo $(sed -s "s/\./github.com\/kubernetes-incubator\/cluster-capacity/") | xargs go test
+tests=$(for file in $(find . -iname "*_test.go" | grep -v "./vendor" | sed "s/\.//"); do test=$(dirname $file | sed "s/\.//"); echo "github.com/kubernetes-incubator/cluster-capacity$test"; done)
+go test $tests
+
