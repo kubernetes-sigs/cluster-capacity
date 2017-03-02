@@ -78,7 +78,7 @@ type FailReasonSummary struct {
 }
 
 type Resources struct {
-	PrimaryResources    api.ResourceList
+	PrimaryResources   api.ResourceList
 	OpaqueIntResources map[api.ResourceName]int64
 }
 
@@ -106,10 +106,10 @@ func getMainFailReason(message string) *ClusterCapacityReviewScheduleFailReason 
 
 func getResourceRequest(pod *api.Pod) *Resources {
 	result := Resources{
-		PrimaryResources:  api.ResourceList{
-			api.ResourceName(api.ResourceCPU): *resource.NewMilliQuantity(0, resource.DecimalSI),
-			api.ResourceName(api.ResourceMemory): *resource.NewQuantity(0, resource.BinarySI),
-			api.ResourceName(api.ResourceNvidiaGPU):*resource.NewMilliQuantity(0, resource.DecimalSI),
+		PrimaryResources: api.ResourceList{
+			api.ResourceName(api.ResourceCPU):       *resource.NewMilliQuantity(0, resource.DecimalSI),
+			api.ResourceName(api.ResourceMemory):    *resource.NewQuantity(0, resource.BinarySI),
+			api.ResourceName(api.ResourceNvidiaGPU): *resource.NewMilliQuantity(0, resource.DecimalSI),
 		},
 	}
 
@@ -117,13 +117,13 @@ func getResourceRequest(pod *api.Pod) *Resources {
 		for rName, rQuantity := range container.Resources.Requests {
 			switch rName {
 			case api.ResourceMemory:
-				rQuantity.Add(*(result.PrimaryResources.Cpu()))
+				rQuantity.Add(*(result.PrimaryResources.Memory()))
 				result.PrimaryResources[api.ResourceMemory] = rQuantity
 			case api.ResourceCPU:
 				rQuantity.Add(*(result.PrimaryResources.Cpu()))
 				result.PrimaryResources[api.ResourceCPU] = rQuantity
 			case api.ResourceNvidiaGPU:
-				rQuantity.Add(*(result.PrimaryResources.Cpu()))
+				rQuantity.Add(*(result.PrimaryResources.NvidiaGPU()))
 				result.PrimaryResources[api.ResourceNvidiaGPU] = rQuantity
 			default:
 				if api.IsOpaqueIntResourceName(rName) {
@@ -173,7 +173,7 @@ func parsePodsReview(templatePods []*api.Pod, status Status) []*ClusterCapacityR
 	}
 
 	slicedMessage = strings.Split(slicedMessage[1][31:], `, `)
-	allReasons := make([]FailReasonSummary,0)
+	allReasons := make([]FailReasonSummary, 0)
 	for _, nodeReason := range slicedMessage {
 		leftParenthesis := strings.LastIndex(nodeReason, `(`)
 
@@ -181,7 +181,7 @@ func parsePodsReview(templatePods []*api.Pod, status Status) []*ClusterCapacityR
 		replicas, _ := strconv.Atoi(nodeReason[leftParenthesis+1 : len(nodeReason)-1])
 		allReasons = append(allReasons, FailReasonSummary{
 			Reason: reason,
-			Count: replicas,
+			Count:  replicas,
 		})
 	}
 
