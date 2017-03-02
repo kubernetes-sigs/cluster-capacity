@@ -44,7 +44,7 @@ var (
 	clusterCapacityLong = dedent.Dedent(`
 		Cluster-capacity simulates an API server with initial state copied from the Kubernetes enviroment
 		with its configuration specified in KUBECONFIG. The simulated API server tries to schedule the number of
-		pods specified by --maxLimits flag. If the --maxLimits flag is not specified, pods are scheduled until
+		pods specified by --max-limits flag. If the --max-limits flag is not specified, pods are scheduled until
 		the simulated API server runs out of resources.
 	`)
 
