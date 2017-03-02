@@ -162,7 +162,7 @@ status: {}
 The analysis can be run with admissions enabled as well:
 
 ```sh
-./cluster-capacity --kubeconfig <path to kubeconfig>  --podspec=examples/pod.yaml --admission-control LimitRange,ResourceQuota --resource-space-mode ResourceSpacePartial
+./cluster-capacity --kubeconfig <path to kubeconfig>  --podspec=examples/pod.yaml --admission-control LimitRanger,ResourceQuota --resource-space-mode ResourceSpacePartial
 ```
 
 The admission controllers are configured the same way as in the Apiserver by specifying --admission-control flag.
@@ -238,7 +238,7 @@ spec:
 When running the analysis the number of instances of a pod is limited by the resource quota:
 
 ```sh
-$ ./cluster-capacity --kubeconfig <path to kubeconfig> --podspec=examples/pod.yaml --admission-control LimitRange,ResourceQuota  --verbose --resource-space-mode ResourceSpacePartial
+$ ./cluster-capacity --kubeconfig <path to kubeconfig> --podspec=examples/pod.yaml --admission-control LimitRanger,ResourceQuota  --verbose --resource-space-mode ResourceSpacePartial
 Pod requirements:
 	- cpu: 150m
 	- memory: 100Mi
