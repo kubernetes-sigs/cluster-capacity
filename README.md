@@ -162,28 +162,17 @@ status: {}
 The analysis can be run with admissions enabled as well:
 
 ```sh
-./cluster-capacity --kubeconfig <path to kubeconfig>  --podspec=examples/pod.yaml --apiserver-config config/apiserver.yaml
+./cluster-capacity --kubeconfig <path to kubeconfig>  --podspec=examples/pod.yaml --admission-control LimitRange,ResourceQuota --resource-space-mode ResourceSpacePartial
 ```
 
-The admissions are configured the same way as in the Apiserver:
+The admission controllers are configured the same way as in the Apiserver by specifying --admission-control flag.
+Currently only supported admission plugins are ``LimitRanger``, and ``ResourceQuota``. Each time a pod is scheduled, it
+is run through the admission controller first. ``LimitRanger`` can alter pod's specification, and ``ResourceQuota`` can
+forbid the pod from being scheduled.
 
-```sh
-$ cat config/apiserver.yml
-authorizationMode: "AlwaysAllow"
-authorizationPolicyFile: ""
-authorizationWebhookConfigFile: ""
-authorizationWebhookCacheAuthorizedTtl: "5m0s"
-authorizationWebhookCacheUnauthorizedTtl: "30s"
-authorizationRbacSuperUser: ""
-admissionControl: "NamespaceLifecycle,LimitRanger,SecurityContextDeny,ServiceAccount,ResourceQuota,AlwaysPullImages"
-```
-
-Each time a pod is scheduled it is run through the admission controller first.
-Some of available admissions can alter pod's specification (e.g. ``LimitRanger``, ``ServiceAccount``).
-Some of them can forbid the pod from being scheduled (e.g. ``ResourceQuota``)
-
-As the ``ResourceQuota`` limits pods in a namespace, it is not enabled in the analysis by default (even if set in the configuration file).
-In order to enable the admission as well, ``--resource-space-mode`` needs to be set to ``ResourceSpacePartial``.
+As the ``ResourceQuota`` limits pods in a namespace, it is not enabled in the
+analysis by default. In order to enable the plugin as well, ``--resource-space-mode``
+needs to be set to ``ResourceSpacePartial``.
 
 **Example**:
 
@@ -249,7 +238,7 @@ spec:
 When running the analysis the number of instances of a pod is limited by the resource quota:
 
 ```sh
-$ ./cluster-capacity --kubeconfig <path to kubeconfig> --podspec=examples/pod.yaml --apiserver-config config/apiserver.yaml --verbose --resource-space-mode ResourceSpacePartial
+$ ./cluster-capacity --kubeconfig <path to kubeconfig> --podspec=examples/pod.yaml --admission-control LimitRange,ResourceQuota  --verbose --resource-space-mode ResourceSpacePartial
 Pod requirements:
 	- cpu: 150m
 	- memory: 100Mi
