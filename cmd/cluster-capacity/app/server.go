@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/renstrom/dedent"
@@ -27,6 +28,7 @@ import (
 
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
+	"k8s.io/kubernetes/pkg/util/sets"
 	"k8s.io/kubernetes/pkg/util/wait"
 	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
 
@@ -73,6 +75,16 @@ func NewClusterCapacityCommand() *cobra.Command {
 }
 
 func Validate(opt *options.ClusterCapacityOptions) error {
+
+	if len(opt.AdmissionControl) > 0 {
+		admissionsNames := strings.Split(opt.AdmissionControl, ",")
+		admissionNamesSets := sets.NewString(admissionsNames...)
+		if !options.SupportedAdmissionControllers.IsSuperset(admissionNamesSets) {
+			return fmt.Errorf("Requested not supported admission control plugin. Supported admission control plugins are: %v",
+				strings.Join(options.SupportedAdmissionControllers.List(), ", "))
+		}
+	}
+
 	if len(opt.PodSpecFile) == 0 {
 		return fmt.Errorf("Pod spec file is missing")
 	}
@@ -98,12 +110,6 @@ func Run(opt *options.ClusterCapacityOptions) error {
 	err = conf.ParseAdditionalSchedulerConfigs()
 	if err != nil {
 		return fmt.Errorf("Failed to parse config file: %v ", err)
-	}
-
-	// only of the apiserver config file is set
-	err = conf.ParseApiServerConfig()
-	if err != nil {
-		return fmt.Errorf("Failed to parse apiserver config file: %v ", err)
 	}
 
 	master, err := utils.GetMasterFromKubeConfig(conf.Options.Kubeconfig)
@@ -185,7 +191,7 @@ func runSimulator(s *options.ClusterCapacityConfig, syncWithClient bool) (*frame
 		return nil, err
 	}
 
-	cc, err := framework.New(s.DefaultScheduler, s.Pod, s.Options.MaxLimit, mode, s.ApiServerOptions)
+	cc, err := framework.New(s.DefaultScheduler, s.Pod, s.Options.MaxLimit, mode, s.Options.AdmissionControl)
 	if err != nil {
 		return nil, err
 	}

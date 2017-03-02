@@ -1,7 +1,0 @@
-authorizationMode: "AlwaysAllow"
-authorizationPolicyFile: ""
-authorizationWebhookConfigFile: ""
-authorizationWebhookCacheAuthorizedTtl: "5m0s"
-authorizationWebhookCacheUnauthorizedTtl: "30s"
-authorizationRbacSuperUser: ""
-admissionControl: "NamespaceLifecycle,LimitRanger,SecurityContextDeny,ServiceAccount,ResourceQuota,AlwaysPullImages"

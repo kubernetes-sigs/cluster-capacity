@@ -345,7 +345,7 @@ func (c *ClusterCapacity) nextPod() error {
 		err := c.admissionController.Admit(attr)
 		if err != nil {
 			c.status.StopReason = fmt.Sprintf("AdmissionControllerError: %v", err)
-			return fmt.Errorf("Admission controller error: %v", err)
+			return fmt.Errorf("AdmissionControllerError: %v", err)
 		}
 	}
 
@@ -451,7 +451,7 @@ func createConfig(s *soptions.SchedulerServer, configFactory *factory.ConfigFact
 // Create new cluster capacity analysis
 // The analysis is completely independent of apiserver so no need
 // for kubeconfig nor for apiserver url
-func New(s *soptions.SchedulerServer, simulatedPod *api.Pod, maxPods int, resourceSpaceMode ResourceSpaceMode, apiserverConfig *ApiServerOptions) (*ClusterCapacity, error) {
+func New(s *soptions.SchedulerServer, simulatedPod *api.Pod, maxPods int, resourceSpaceMode ResourceSpaceMode, admissionControl string) (*ClusterCapacity, error) {
 	resourceStore := store.NewResourceStore()
 	restClient := restclient.NewRESTClient(resourceStore, "core")
 	extensionsRestClient := restclient.NewRESTClient(resourceStore, "extensions")
@@ -508,8 +508,8 @@ func New(s *soptions.SchedulerServer, simulatedPod *api.Pod, maxPods int, resour
 	// Binder is redirected to cluster capacity's counter.
 
 	// initialize admission controllers if specified
-	if len(apiserverConfig.AdmissionControl) > 0 {
-		admissionsNames := strings.Split(apiserverConfig.AdmissionControl, ",")
+	if len(admissionControl) > 0 {
+		admissionsNames := strings.Split(admissionControl, ",")
 		admissionNamesSets := sets.NewString(admissionsNames...)
 
 		// filter out limitations that forbid the analysis to expand to entire resource space
@@ -521,15 +521,13 @@ func New(s *soptions.SchedulerServer, simulatedPod *api.Pod, maxPods int, resour
 
 		sharedInformers := informers.NewSharedInformerFactory(cc.kubeclient, 10*time.Minute)
 		authorizationConfig := authorizer.AuthorizationConfig{
-			PolicyFile:                  apiserverConfig.AuthorizationPolicyFile,
-			WebhookConfigFile:           apiserverConfig.AuthorizationWebhookConfigFile,
-			WebhookCacheAuthorizedTTL:   apiserverConfig.AuthorizationWebhookCacheAuthorizedTTL.Duration,
-			WebhookCacheUnauthorizedTTL: apiserverConfig.AuthorizationWebhookCacheUnauthorizedTTL.Duration,
-			RBACSuperUser:               apiserverConfig.AuthorizationRBACSuperUser,
 			InformerFactory:             sharedInformers,
 		}
 
-		authorizationModeNames := strings.Split(apiserverConfig.AuthorizationMode, ",")
+		authorizationConfig.WebhookCacheUnauthorizedTTL, _ = time.ParseDuration("30s")
+		authorizationConfig.WebhookCacheAuthorizedTTL, _ = time.ParseDuration("5m0s")
+		authorizationModeNames := []string{"AlwaysAllow"}
+
 		apiAuthorizer, err := authorizer.NewAuthorizerFromAuthorizationConfig(authorizationModeNames, authorizationConfig)
 		if err != nil {
 			log.Fatalf("Invalid Authorization Config: %v", err)

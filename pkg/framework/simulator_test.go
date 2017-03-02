@@ -210,7 +210,7 @@ func TestPrediction(t *testing.T) {
 		simulatedPod,
 		6,
 		ResourceSpaceFull,
-		&ApiServerOptions{},
+		"",
 	)
 
 	if err != nil {
