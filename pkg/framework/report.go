@@ -62,16 +62,23 @@ type ClusterCapacityReviewStatus struct {
 type ClusterCapacityReviewResult struct {
 	PodName string
 	// numbers of replicas on nodes
-	ReplicasOnNodes map[string]int
+	ReplicasOnNodes []*ReplicasOnNode
 	// reason why no more pods could schedule (if any on this node)
-	// [reason]num of nodes with that reason
-	FailSummary map[string]int
+	FailSummary []FailReasonSummary
+}
+
+type ReplicasOnNode struct {
+	NodeName string
+	Replicas int
+}
+
+type FailReasonSummary struct {
+	Reason string
+	Count  int
 }
 
 type Resources struct {
-	CPU                *resource.Quantity
-	Memory             *resource.Quantity
-	NvidiaGPU          *resource.Quantity
+	PrimaryResources    api.ResourceList
 	OpaqueIntResources map[api.ResourceName]int64
 }
 
@@ -99,19 +106,25 @@ func getMainFailReason(message string) *ClusterCapacityReviewScheduleFailReason 
 
 func getResourceRequest(pod *api.Pod) *Resources {
 	result := Resources{
-		CPU:       resource.NewMilliQuantity(0, resource.DecimalSI),
-		Memory:    resource.NewQuantity(0, resource.BinarySI),
-		NvidiaGPU: resource.NewMilliQuantity(0, resource.DecimalSI),
+		PrimaryResources:  api.ResourceList{
+			api.ResourceName(api.ResourceCPU): *resource.NewMilliQuantity(0, resource.DecimalSI),
+			api.ResourceName(api.ResourceMemory): *resource.NewQuantity(0, resource.BinarySI),
+			api.ResourceName(api.ResourceNvidiaGPU):*resource.NewMilliQuantity(0, resource.DecimalSI),
+		},
 	}
+
 	for _, container := range pod.Spec.Containers {
 		for rName, rQuantity := range container.Resources.Requests {
 			switch rName {
 			case api.ResourceMemory:
-				result.Memory.Add(rQuantity)
+				rQuantity.Add(*(result.PrimaryResources.Cpu()))
+				result.PrimaryResources[api.ResourceMemory] = rQuantity
 			case api.ResourceCPU:
-				result.CPU.Add(rQuantity)
+				rQuantity.Add(*(result.PrimaryResources.Cpu()))
+				result.PrimaryResources[api.ResourceCPU] = rQuantity
 			case api.ResourceNvidiaGPU:
-				result.NvidiaGPU.Add(rQuantity)
+				rQuantity.Add(*(result.PrimaryResources.Cpu()))
+				result.PrimaryResources[api.ResourceNvidiaGPU] = rQuantity
 			default:
 				if api.IsOpaqueIntResourceName(rName) {
 					// Lazily allocate this map only if required.
@@ -132,14 +145,26 @@ func parsePodsReview(templatePods []*api.Pod, status Status) []*ClusterCapacityR
 
 	for i := 0; i < templatesCount; i++ {
 		result = append(result, &ClusterCapacityReviewResult{
-			ReplicasOnNodes: make(map[string]int),
+			ReplicasOnNodes: make([]*ReplicasOnNode, 0),
 			PodName:         templatePods[i].Name,
 		})
 	}
 
 	for i, pod := range status.Pods {
 		nodeName := pod.Spec.NodeName
-		result[i%templatesCount].ReplicasOnNodes[nodeName]++
+		first := true
+		for _, sum := range result[i%templatesCount].ReplicasOnNodes {
+			if sum.NodeName == nodeName {
+				sum.Replicas++
+				first = false
+			}
+		}
+		if first {
+			result[i%templatesCount].ReplicasOnNodes = append(result[i%templatesCount].ReplicasOnNodes, &ReplicasOnNode{
+				NodeName: nodeName,
+				Replicas: 1,
+			})
+		}
 	}
 
 	slicedMessage := strings.Split(status.StopReason, "\n")
@@ -148,13 +173,16 @@ func parsePodsReview(templatePods []*api.Pod, status Status) []*ClusterCapacityR
 	}
 
 	slicedMessage = strings.Split(slicedMessage[1][31:], `, `)
-	allReasons := make(map[string]int)
+	allReasons := make([]FailReasonSummary,0)
 	for _, nodeReason := range slicedMessage {
 		leftParenthesis := strings.LastIndex(nodeReason, `(`)
 
 		reason := nodeReason[:leftParenthesis-1]
 		replicas, _ := strconv.Atoi(nodeReason[leftParenthesis+1 : len(nodeReason)-1])
-		allReasons[reason] = replicas
+		allReasons = append(allReasons, FailReasonSummary{
+			Reason: reason,
+			Count: replicas,
+		})
 	}
 
 	result[(len(status.Pods)-1)%templatesCount].FailSummary = allReasons
@@ -202,31 +230,27 @@ func getReviewStatus(pods []*api.Pod, status Status) ClusterCapacityReviewStatus
 
 func GetReport(pods []*api.Pod, status Status) *ClusterCapacityReview {
 	return &ClusterCapacityReview{
-		TypeMeta: unversioned.TypeMeta{
-			Kind:       "ClusterCapacityReview",
-			APIVersion: "",
-		},
 		Spec:   getReviewSpec(pods),
 		Status: getReviewStatus(pods, status),
 	}
 }
 
-func instancesSum(replicasOnNodes map[string]int) int {
+func instancesSum(replicasOnNodes []*ReplicasOnNode) int {
 	result := 0
 	for _, v := range replicasOnNodes {
-		result += v
+		result += v.Replicas
 	}
 	return result
 }
 
-func (r *ClusterCapacityReview) prettyPrint(verbose bool) {
+func clusterCapacityReviewPrettyPrint(r *ClusterCapacityReview, verbose bool) {
 	if verbose {
 		for _, req := range r.Spec.PodRequirements {
 			fmt.Printf("%v pod requirements:\n", req.PodName)
-			fmt.Printf("\t- CPU: %v\n", req.Resources.CPU.String())
-			fmt.Printf("\t- Memory: %v\n", req.Resources.Memory.String())
-			if !req.Resources.NvidiaGPU.IsZero() {
-				fmt.Printf("\t- NvidiaGPU: %v\n", req.Resources.NvidiaGPU.String())
+			fmt.Printf("\t- CPU: %v\n", req.Resources.PrimaryResources.Cpu().String())
+			fmt.Printf("\t- Memory: %v\n", req.Resources.PrimaryResources.Memory().String())
+			if !req.Resources.PrimaryResources.NvidiaGPU().IsZero() {
+				fmt.Printf("\t- NvidiaGPU: %v\n", req.Resources.PrimaryResources.NvidiaGPU().String())
 			}
 			if req.Resources.OpaqueIntResources != nil {
 				fmt.Printf("\t- OpaqueIntResources: %v\n", req.Resources.OpaqueIntResources)
@@ -248,8 +272,8 @@ func (r *ClusterCapacityReview) prettyPrint(verbose bool) {
 		for _, pod := range r.Status.Pods {
 			if pod.FailSummary != nil {
 				fmt.Printf("fit failure summary on nodes: ")
-				for reason, occurence := range pod.FailSummary {
-					fmt.Printf("%v (%v), ", reason, occurence)
+				for _, fs := range pod.FailSummary {
+					fmt.Printf("%v (%v), ", fs.Reason, fs.Count)
 				}
 				fmt.Printf("\n")
 			}
@@ -257,14 +281,14 @@ func (r *ClusterCapacityReview) prettyPrint(verbose bool) {
 		fmt.Printf("\nPod distribution among nodes:\n")
 		for _, pod := range r.Status.Pods {
 			fmt.Printf("%v\n", pod.PodName)
-			for node, replicas := range pod.ReplicasOnNodes {
-				fmt.Printf("\t- %v: %v instance(s)\n", node, replicas)
+			for _, ron := range pod.ReplicasOnNodes {
+				fmt.Printf("\t- %v: %v instance(s)\n", ron.NodeName, ron.Replicas)
 			}
 		}
 	}
 }
 
-func (r *ClusterCapacityReview) printJson() error {
+func clusterCapacityReviewPrintJson(r *ClusterCapacityReview) error {
 	jsoned, err := json.Marshal(r)
 	if err != nil {
 		return fmt.Errorf("Failed to create json: %v", err)
@@ -273,7 +297,7 @@ func (r *ClusterCapacityReview) printJson() error {
 	return nil
 }
 
-func (r *ClusterCapacityReview) printYaml() error {
+func clusterCapacityReviewPrintYaml(r *ClusterCapacityReview) error {
 	yamled, err := yaml.Marshal(r)
 	if err != nil {
 		return fmt.Errorf("Failed to create yaml: %v", err)
@@ -282,14 +306,14 @@ func (r *ClusterCapacityReview) printYaml() error {
 	return nil
 }
 
-func (r *ClusterCapacityReview) Print(verbose bool, format string) error {
+func ClusterCapacityReviewPrint(r *ClusterCapacityReview, verbose bool, format string) error {
 	switch format {
 	case "json":
-		return r.printJson()
+		return clusterCapacityReviewPrintJson(r)
 	case "yaml":
-		return r.printYaml()
+		return clusterCapacityReviewPrintYaml(r)
 	case "":
-		r.prettyPrint(verbose)
+		clusterCapacityReviewPrettyPrint(r, verbose)
 		return nil
 	default:
 		return fmt.Errorf("output format %q not recognized", format)
