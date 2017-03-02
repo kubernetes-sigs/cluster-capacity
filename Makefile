@@ -17,7 +17,7 @@ build:
 	ln -sf hypercc cluster-capacity
 	ln -sf hypercc genpod
 run:
-	@./cluster-capacity --kubeconfig ~/.kube/config --master http://localhost:8080 --podspec=pod.yaml --verbose
+	@./cluster-capacity --kubeconfig ~/.kube/config --podspec=examples/pod.yaml --verbose
 
 test:
 	./test.sh
