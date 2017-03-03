@@ -17,28 +17,20 @@ limitations under the License.
 package main
 
 import (
-	"os"
-	"path"
-
 	"github.com/spf13/cobra"
 
 	capp "github.com/kubernetes-incubator/cluster-capacity/cmd/cluster-capacity/app"
 	gapp "github.com/kubernetes-incubator/cluster-capacity/cmd/genpod/app"
 )
 
-func main() {
-	switch path.Base(os.Args[0]) {
-	case "cluster-capacity":
-		cmdExecute(capp.NewClusterCapacityCommand())
-	case "genpod":
-		cmdExecute(gapp.NewGenPodCommand())
-	default:
-		cmdExecute(NewHyperCCCommand())
+// HyperCC represents a single binary that can run any cluster capacity commands.
+func NewHyperCCCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "hypercc <command> [flags]",
+		Short: "hypercc represents a single binary that can run any cluster capacity commands.",
+		Long:  "hypercc represents a single binary that can run any cluster capacity commands.",
 	}
-}
-
-func cmdExecute(cmd *cobra.Command) {
-	if err := cmd.Execute(); err != nil {
-		os.Exit(1)
-	}
+	cmd.AddCommand(capp.NewClusterCapacityCommand())
+	cmd.AddCommand(gapp.NewGenPodCommand())
+	return cmd
 }
