@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"fmt"
 	"os"
 	"path"
 
@@ -39,6 +40,7 @@ func main() {
 
 func cmdExecute(cmd *cobra.Command) {
 	if err := cmd.Execute(); err != nil {
+		fmt.Println(err)
 		os.Exit(1)
 	}
 }
