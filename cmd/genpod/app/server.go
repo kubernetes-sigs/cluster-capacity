@@ -71,12 +71,11 @@ func Validate(opt *options.GenPodOptions) error {
 }
 
 func Run(opt *options.GenPodOptions) error {
-	var err error
-	opt.Master, err = utils.GetMasterFromKubeConfig(opt.Kubeconfig)
+	master, err := utils.GetMasterFromKubeConfig(opt.Kubeconfig)
 	if err != nil {
 		return fmt.Errorf("Failed to parse kubeconfig file: %v ", err)
 	}
-	client, err := getKubeClient(opt.Master, opt.Kubeconfig)
+	client, err := getKubeClient(master, opt.Kubeconfig)
 	if err != nil {
 		return err
 	}
