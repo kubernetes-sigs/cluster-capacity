@@ -21,7 +21,6 @@ import (
 )
 
 type GenPodOptions struct {
-	Master     string
 	Kubeconfig string
 	Verbose    bool
 	Namespace  string
