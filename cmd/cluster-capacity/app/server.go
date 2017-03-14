@@ -89,6 +89,10 @@ func Validate(opt *options.ClusterCapacityOptions) error {
 		return fmt.Errorf("Pod spec file is missing")
 	}
 
+	if len(opt.Kubeconfig) == 0 {
+		return fmt.Errorf("kubeconfig is missing")
+	}
+
 	if opt.ResourceSpaceMode != "" && opt.ResourceSpaceMode != "ResourceSpaceFull" && opt.ResourceSpaceMode != "ResourceSpacePartial" {
 		return fmt.Errorf("Resource space mode not recognized. Valid values are: ResourceSpaceFull, ResourceSpacePartial")
 	}
