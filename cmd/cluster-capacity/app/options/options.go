@@ -190,13 +190,14 @@ func (s *ClusterCapacityConfig) SetDefaultScheduler() error {
 	var err error
 	s.DefaultScheduler, err = parseSchedulerConfig(s.Options.DefaultSchedulerConfigFile)
 	if err != nil {
-		return err
+		return fmt.Errorf("Error in opening default scheduler config file: %v", err)
 	}
 
 	s.DefaultScheduler.Master, err = utils.GetMasterFromKubeConfig(s.Options.Kubeconfig)
 	if err != nil {
-		return err
+		return fmt.Errorf("Error in opening kubeconfig file %v", err)
 	}
+
 	s.DefaultScheduler.Kubeconfig = s.Options.Kubeconfig
 	return nil
 }
