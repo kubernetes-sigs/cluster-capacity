@@ -26,7 +26,7 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/kubernetes/pkg/admission"
+	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/meta"
 	"k8s.io/kubernetes/pkg/api/unversioned"
@@ -170,7 +170,7 @@ type Status struct {
 func (c *ClusterCapacity) Report() *ClusterCapacityReview {
 	if c.report == nil {
 		// Preparation before pod sequence scheduling is done
-		pods := make([]*api.Pod,0)
+		pods := make([]*api.Pod, 0)
 		pods = append(pods, c.simulatedPod)
 		c.report = GetReport(pods, c.status)
 		c.report.Spec.Replicas = int32(c.maxSimulated)
@@ -521,7 +521,7 @@ func New(s *soptions.SchedulerServer, simulatedPod *api.Pod, maxPods int, resour
 
 		sharedInformers := informers.NewSharedInformerFactory(cc.kubeclient, 10*time.Minute)
 		authorizationConfig := authorizer.AuthorizationConfig{
-			InformerFactory:             sharedInformers,
+			InformerFactory: sharedInformers,
 		}
 
 		authorizationConfig.WebhookCacheUnauthorizedTTL, _ = time.ParseDuration("30s")

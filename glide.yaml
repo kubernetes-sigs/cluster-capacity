@@ -8,6 +8,9 @@ import:
 - package: k8s.io/client-go
   subpackages:
   - tools/clientcmd
+- package: k8s.io/apiserver
+  subpackages:
+  - pkg/admission
 - package: k8s.io/kubernetes
   version: release-1.6
   subpackages:
