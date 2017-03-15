@@ -19,8 +19,8 @@ package record
 import (
 	"fmt"
 
+	"k8s.io/client-go/tools/record"
 	"k8s.io/kubernetes/pkg/api/unversioned"
-	"k8s.io/kubernetes/pkg/client/record"
 	"k8s.io/kubernetes/pkg/runtime"
 )
 
