@@ -29,6 +29,7 @@ import:
   - pkg/client/record
   - pkg/client/restclient
   - pkg/fields
+  - pkg/kubeapiserver/authorizer
   - pkg/labels
   - pkg/runtime
   - pkg/util/flowcontrol
