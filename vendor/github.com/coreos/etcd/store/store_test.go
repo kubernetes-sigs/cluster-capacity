@@ -62,7 +62,7 @@ func TestMinExpireTime(t *testing.T) {
 	assert.Equal(t, e.EtcdIndex, eidx, "")
 	assert.Equal(t, e.Action, "get", "")
 	assert.Equal(t, e.Node.Key, "/foo", "")
-	assert.Equal(t, e.Node.TTL, int64(0))
+	assert.Equal(t, e.Node.TTL, 0)
 }
 
 // Ensure that the store can recursively retrieve a directory listing.
@@ -107,7 +107,7 @@ func TestStoreGetDirectory(t *testing.T) {
 		case "/foo/baz/ttl":
 			assert.Equal(t, *node.Value, "Y", "")
 			assert.Equal(t, node.Dir, false, "")
-			assert.Equal(t, node.TTL, int64(3), "")
+			assert.Equal(t, node.TTL, 3, "")
 		default:
 			t.Errorf("key = %s, not matched", node.Key)
 		}
@@ -127,24 +127,23 @@ func TestStoreGetSorted(t *testing.T) {
 	e, err := s.Get("/foo", true, true)
 	assert.Nil(t, err, "")
 	assert.Equal(t, e.EtcdIndex, eidx, "")
-
 	var yNodes NodeExterns
-	sortedStrings := []string{"/foo/x", "/foo/y", "/foo/z"}
-	for i := range e.Node.Nodes {
-		node := e.Node.Nodes[i]
-		if node.Key != sortedStrings[i] {
-			t.Errorf("expect key = %s, got key = %s", sortedStrings[i], node.Key)
-		}
-		if node.Key == "/foo/y" {
+	for _, node := range e.Node.Nodes {
+		switch node.Key {
+		case "/foo/x":
+		case "/foo/y":
 			yNodes = node.Nodes
+		case "/foo/z":
+		default:
+			t.Errorf("key = %s, not matched", node.Key)
 		}
 	}
-
-	sortedStrings = []string{"/foo/y/a", "/foo/y/b"}
-	for i := range yNodes {
-		node := yNodes[i]
-		if node.Key != sortedStrings[i] {
-			t.Errorf("expect key = %s, got key = %s", sortedStrings[i], node.Key)
+	for _, node := range yNodes {
+		switch node.Key {
+		case "/foo/y/a":
+		case "/foo/y/b":
+		default:
+			t.Errorf("key = %s, not matched", node.Key)
 		}
 	}
 }
@@ -163,7 +162,7 @@ func TestSet(t *testing.T) {
 	assert.Equal(t, *e.Node.Value, "", "")
 	assert.Nil(t, e.Node.Nodes, "")
 	assert.Nil(t, e.Node.Expiration, "")
-	assert.Equal(t, e.Node.TTL, int64(0), "")
+	assert.Equal(t, e.Node.TTL, 0, "")
 	assert.Equal(t, e.Node.ModifiedIndex, uint64(1), "")
 
 	// Set /foo="bar"
@@ -177,7 +176,7 @@ func TestSet(t *testing.T) {
 	assert.Equal(t, *e.Node.Value, "bar", "")
 	assert.Nil(t, e.Node.Nodes, "")
 	assert.Nil(t, e.Node.Expiration, "")
-	assert.Equal(t, e.Node.TTL, int64(0), "")
+	assert.Equal(t, e.Node.TTL, 0, "")
 	assert.Equal(t, e.Node.ModifiedIndex, uint64(2), "")
 	// check prevNode
 	assert.NotNil(t, e.PrevNode, "")
@@ -195,7 +194,7 @@ func TestSet(t *testing.T) {
 	assert.Equal(t, *e.Node.Value, "baz", "")
 	assert.Nil(t, e.Node.Nodes, "")
 	assert.Nil(t, e.Node.Expiration, "")
-	assert.Equal(t, e.Node.TTL, int64(0), "")
+	assert.Equal(t, e.Node.TTL, 0, "")
 	assert.Equal(t, e.Node.ModifiedIndex, uint64(3), "")
 	// check prevNode
 	assert.NotNil(t, e.PrevNode, "")
@@ -214,7 +213,7 @@ func TestSet(t *testing.T) {
 	assert.Nil(t, e.Node.Value)
 	assert.Nil(t, e.Node.Nodes, "")
 	assert.Nil(t, e.Node.Expiration, "")
-	assert.Equal(t, e.Node.TTL, int64(0), "")
+	assert.Equal(t, e.Node.TTL, 0, "")
 	assert.Equal(t, e.Node.ModifiedIndex, uint64(4), "")
 }
 
@@ -232,7 +231,7 @@ func TestStoreCreateValue(t *testing.T) {
 	assert.Equal(t, *e.Node.Value, "bar", "")
 	assert.Nil(t, e.Node.Nodes, "")
 	assert.Nil(t, e.Node.Expiration, "")
-	assert.Equal(t, e.Node.TTL, int64(0), "")
+	assert.Equal(t, e.Node.TTL, 0, "")
 	assert.Equal(t, e.Node.ModifiedIndex, uint64(1), "")
 
 	// Create /empty=""
@@ -246,7 +245,7 @@ func TestStoreCreateValue(t *testing.T) {
 	assert.Equal(t, *e.Node.Value, "", "")
 	assert.Nil(t, e.Node.Nodes, "")
 	assert.Nil(t, e.Node.Expiration, "")
-	assert.Equal(t, e.Node.TTL, int64(0), "")
+	assert.Equal(t, e.Node.TTL, 0, "")
 	assert.Equal(t, e.Node.ModifiedIndex, uint64(2), "")
 
 }
@@ -293,12 +292,12 @@ func TestStoreUpdateValue(t *testing.T) {
 	assert.Equal(t, e.Node.Key, "/foo", "")
 	assert.False(t, e.Node.Dir, "")
 	assert.Equal(t, *e.Node.Value, "baz", "")
-	assert.Equal(t, e.Node.TTL, int64(0), "")
+	assert.Equal(t, e.Node.TTL, 0, "")
 	assert.Equal(t, e.Node.ModifiedIndex, uint64(2), "")
 	// check prevNode
 	assert.Equal(t, e.PrevNode.Key, "/foo", "")
 	assert.Equal(t, *e.PrevNode.Value, "bar", "")
-	assert.Equal(t, e.PrevNode.TTL, int64(0), "")
+	assert.Equal(t, e.PrevNode.TTL, 0, "")
 	assert.Equal(t, e.PrevNode.ModifiedIndex, uint64(1), "")
 
 	e, _ = s.Get("/foo", false, false)
@@ -314,12 +313,12 @@ func TestStoreUpdateValue(t *testing.T) {
 	assert.Equal(t, e.Node.Key, "/foo", "")
 	assert.False(t, e.Node.Dir, "")
 	assert.Equal(t, *e.Node.Value, "", "")
-	assert.Equal(t, e.Node.TTL, int64(0), "")
+	assert.Equal(t, e.Node.TTL, 0, "")
 	assert.Equal(t, e.Node.ModifiedIndex, uint64(3), "")
 	// check prevNode
 	assert.Equal(t, e.PrevNode.Key, "/foo", "")
 	assert.Equal(t, *e.PrevNode.Value, "baz", "")
-	assert.Equal(t, e.PrevNode.TTL, int64(0), "")
+	assert.Equal(t, e.PrevNode.TTL, 0, "")
 	assert.Equal(t, e.PrevNode.ModifiedIndex, uint64(2), "")
 
 	e, _ = s.Get("/foo", false, false)
@@ -736,10 +735,9 @@ func TestStoreWatchExpire(t *testing.T) {
 	fc := newFakeClock()
 	s.clock = fc
 
-	var eidx uint64 = 3
-	s.Create("/foo", false, "bar", false, TTLOptionSet{ExpireTime: fc.Now().Add(400 * time.Millisecond)})
-	s.Create("/foofoo", false, "barbarbar", false, TTLOptionSet{ExpireTime: fc.Now().Add(450 * time.Millisecond)})
-	s.Create("/foodir", true, "", false, TTLOptionSet{ExpireTime: fc.Now().Add(500 * time.Millisecond)})
+	var eidx uint64 = 2
+	s.Create("/foo", false, "bar", false, TTLOptionSet{ExpireTime: fc.Now().Add(500 * time.Millisecond)})
+	s.Create("/foofoo", false, "barbarbar", false, TTLOptionSet{ExpireTime: fc.Now().Add(500 * time.Millisecond)})
 
 	w, _ := s.Watch("/", true, false, 0)
 	assert.Equal(t, w.StartIndex(), eidx, "")
@@ -748,24 +746,18 @@ func TestStoreWatchExpire(t *testing.T) {
 	assert.Nil(t, e, "")
 	fc.Advance(600 * time.Millisecond)
 	s.DeleteExpiredKeys(fc.Now())
-	eidx = 4
+	eidx = 3
 	e = nbselect(c)
 	assert.Equal(t, e.EtcdIndex, eidx, "")
 	assert.Equal(t, e.Action, "expire", "")
 	assert.Equal(t, e.Node.Key, "/foo", "")
-	w, _ = s.Watch("/", true, false, 5)
-	eidx = 6
+	w, _ = s.Watch("/", true, false, 4)
+	eidx = 4
 	assert.Equal(t, w.StartIndex(), eidx, "")
 	e = nbselect(w.EventChan())
 	assert.Equal(t, e.EtcdIndex, eidx, "")
 	assert.Equal(t, e.Action, "expire", "")
 	assert.Equal(t, e.Node.Key, "/foofoo", "")
-	w, _ = s.Watch("/", true, false, 6)
-	e = nbselect(w.EventChan())
-	assert.Equal(t, e.EtcdIndex, eidx, "")
-	assert.Equal(t, e.Action, "expire", "")
-	assert.Equal(t, e.Node.Key, "/foodir", "")
-	assert.Equal(t, e.Node.Dir, true, "")
 }
 
 // Ensure that the store can watch for key expiration when refreshing.
@@ -796,7 +788,7 @@ func TestStoreWatchExpireRefresh(t *testing.T) {
 	w, _ = s.Watch("/", true, false, 4)
 	fc.Advance(700 * time.Millisecond)
 	s.DeleteExpiredKeys(fc.Now())
-	eidx = 5 // We should skip 4 because a TTL update should occur with no watch notification if set `TTLOptionSet.Refresh` to true
+	eidx = 5 // We should skip 4 because a TTL update should occur with no watch notification
 	assert.Equal(t, w.StartIndex(), eidx-1, "")
 	e = nbselect(w.EventChan())
 	assert.Equal(t, e.EtcdIndex, eidx, "")
@@ -820,37 +812,11 @@ func TestStoreWatchExpireEmptyRefresh(t *testing.T) {
 	w, _ := s.Watch("/", true, false, 2)
 	fc.Advance(700 * time.Millisecond)
 	s.DeleteExpiredKeys(fc.Now())
-	eidx = 3 // We should skip 2 because a TTL update should occur with no watch notification if set `TTLOptionSet.Refresh` to true
+	eidx = 3 // We should skip 2 because a TTL update should occur with no watch notification
 	assert.Equal(t, w.StartIndex(), eidx-1, "")
 	e := nbselect(w.EventChan())
 	assert.Equal(t, e.EtcdIndex, eidx, "")
 	assert.Equal(t, e.Action, "expire", "")
-	assert.Equal(t, e.Node.Key, "/foo", "")
-	assert.Equal(t, *e.PrevNode.Value, "bar", "")
-}
-
-// Update TTL of a key (set TTLOptionSet.Refresh to false) and send notification
-func TestStoreWatchNoRefresh(t *testing.T) {
-	s := newStore()
-	fc := newFakeClock()
-	s.clock = fc
-
-	var eidx uint64 = 1
-	s.Create("/foo", false, "bar", false, TTLOptionSet{ExpireTime: fc.Now().Add(500 * time.Millisecond), Refresh: true})
-	// Should be no-op
-	fc.Advance(200 * time.Millisecond)
-	s.DeleteExpiredKeys(fc.Now())
-
-	// Update key's TTL with setting `TTLOptionSet.Refresh` to false will cause an update event
-	s.Update("/foo", "", TTLOptionSet{ExpireTime: fc.Now().Add(500 * time.Millisecond), Refresh: false})
-	w, _ := s.Watch("/", true, false, 2)
-	fc.Advance(700 * time.Millisecond)
-	s.DeleteExpiredKeys(fc.Now())
-	eidx = 2
-	assert.Equal(t, w.StartIndex(), eidx, "")
-	e := nbselect(w.EventChan())
-	assert.Equal(t, e.EtcdIndex, eidx, "")
-	assert.Equal(t, e.Action, "update", "")
 	assert.Equal(t, e.Node.Key, "/foo", "")
 	assert.Equal(t, *e.PrevNode.Value, "bar", "")
 }
@@ -1079,23 +1045,17 @@ func TestStoreWatchRecursiveCreateDeeperThanHiddenKey(t *testing.T) {
 
 // Ensure that slow consumers are handled properly.
 //
-// Since Watcher.EventChan() has a buffer of size 100 we can only queue 100
+// Since Watcher.EventChan() has a buffer of size 1 we can only queue 1
 // event per watcher. If the consumer cannot consume the event on time and
 // another event arrives, the channel is closed and event is discarded.
 // This test ensures that after closing the channel, the store can continue
 // to operate correctly.
 func TestStoreWatchSlowConsumer(t *testing.T) {
 	s := newStore()
-	s.Watch("/foo", true, true, 0) // stream must be true
-	// Fill watch channel with 100 events
-	for i := 1; i <= 100; i++ {
-		s.Set("/foo", false, string(i), TTLOptionSet{ExpireTime: Permanent}) // ok
-	}
-	assert.Equal(t, s.WatcherHub.count, int64(1), "")
-	s.Set("/foo", false, "101", TTLOptionSet{ExpireTime: Permanent}) // ok
-	// remove watcher
-	assert.Equal(t, s.WatcherHub.count, int64(0), "")
-	s.Set("/foo", false, "102", TTLOptionSet{ExpireTime: Permanent}) // must not panic
+	s.Watch("/foo", true, true, 0)                                 // stream must be true
+	s.Set("/foo", false, "1", TTLOptionSet{ExpireTime: Permanent}) // ok
+	s.Set("/foo", false, "2", TTLOptionSet{ExpireTime: Permanent}) // ok
+	s.Set("/foo", false, "3", TTLOptionSet{ExpireTime: Permanent}) // must not panic
 }
 
 // Performs a non-blocking select on an event channel.

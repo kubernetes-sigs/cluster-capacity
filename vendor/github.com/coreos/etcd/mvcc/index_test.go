@@ -17,8 +17,6 @@ package mvcc
 import (
 	"reflect"
 	"testing"
-
-	"github.com/google/btree"
 )
 
 func TestIndexGet(t *testing.T) {
@@ -227,13 +225,13 @@ func TestIndexCompact(t *testing.T) {
 	for i := int64(1); i < maxRev; i++ {
 		am := ti.Compact(i)
 
-		wti := &treeIndex{tree: btree.New(32)}
+		wti := newTreeIndex()
 		for _, tt := range tests {
 			if _, ok := am[tt.rev]; ok || tt.rev.GreaterThan(revision{main: i}) {
 				if tt.remove {
 					wti.Tombstone(tt.key, tt.rev)
 				} else {
-					restore(wti, tt.key, tt.created, tt.rev, tt.ver)
+					wti.Restore(tt.key, tt.created, tt.rev, tt.ver)
 				}
 			}
 		}
@@ -254,13 +252,13 @@ func TestIndexCompact(t *testing.T) {
 		}
 		am := ti.Compact(i)
 
-		wti := &treeIndex{tree: btree.New(32)}
+		wti := newTreeIndex()
 		for _, tt := range tests {
 			if _, ok := am[tt.rev]; ok || tt.rev.GreaterThan(revision{main: i}) {
 				if tt.remove {
 					wti.Tombstone(tt.key, tt.rev)
 				} else {
-					restore(wti, tt.key, tt.created, tt.rev, tt.ver)
+					wti.Restore(tt.key, tt.created, tt.rev, tt.ver)
 				}
 			}
 		}
@@ -270,17 +268,56 @@ func TestIndexCompact(t *testing.T) {
 	}
 }
 
-func restore(ti *treeIndex, key []byte, created, modified revision, ver int64) {
-	keyi := &keyIndex{key: key}
+func TestIndexRestore(t *testing.T) {
+	key := []byte("foo")
 
-	ti.Lock()
-	defer ti.Unlock()
-	item := ti.tree.Get(keyi)
-	if item == nil {
-		keyi.restore(created, modified, ver)
-		ti.tree.ReplaceOrInsert(keyi)
-		return
+	tests := []struct {
+		created  revision
+		modified revision
+		ver      int64
+	}{
+		{revision{1, 0}, revision{1, 0}, 1},
+		{revision{1, 0}, revision{1, 1}, 2},
+		{revision{1, 0}, revision{2, 0}, 3},
 	}
-	okeyi := item.(*keyIndex)
-	okeyi.put(modified.main, modified.sub)
+
+	// Continuous Restore
+	ti := newTreeIndex()
+	for i, tt := range tests {
+		ti.Restore(key, tt.created, tt.modified, tt.ver)
+
+		modified, created, ver, err := ti.Get(key, tt.modified.main)
+		if modified != tt.modified {
+			t.Errorf("#%d: modified = %v, want %v", i, modified, tt.modified)
+		}
+		if created != tt.created {
+			t.Errorf("#%d: created = %v, want %v", i, created, tt.created)
+		}
+		if ver != tt.ver {
+			t.Errorf("#%d: ver = %d, want %d", i, ver, tt.ver)
+		}
+		if err != nil {
+			t.Errorf("#%d: err = %v, want nil", i, err)
+		}
+	}
+
+	// Once Restore
+	for i, tt := range tests {
+		ti := newTreeIndex()
+		ti.Restore(key, tt.created, tt.modified, tt.ver)
+
+		modified, created, ver, err := ti.Get(key, tt.modified.main)
+		if modified != tt.modified {
+			t.Errorf("#%d: modified = %v, want %v", i, modified, tt.modified)
+		}
+		if created != tt.created {
+			t.Errorf("#%d: created = %v, want %v", i, created, tt.created)
+		}
+		if ver != tt.ver {
+			t.Errorf("#%d: ver = %d, want %d", i, ver, tt.ver)
+		}
+		if err != nil {
+			t.Errorf("#%d: err = %v, want nil", i, err)
+		}
+	}
 }

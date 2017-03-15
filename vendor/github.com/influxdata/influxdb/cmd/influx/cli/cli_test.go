@@ -3,7 +3,6 @@ package cli_test
 import (
 	"bufio"
 	"bytes"
-	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -48,7 +47,6 @@ func TestRunCLI(t *testing.T) {
 	c.Host = h
 	c.Port, _ = strconv.Atoi(p)
 	c.IgnoreSignals = true
-	c.ForceTTY = true
 	go func() {
 		close(c.Quit)
 	}()
@@ -67,10 +65,9 @@ func TestRunCLI_ExecuteInsert(t *testing.T) {
 	c := cli.New(CLIENT_VERSION)
 	c.Host = h
 	c.Port, _ = strconv.Atoi(p)
-	c.ClientConfig.Precision = "ms"
+	c.Precision = "ms"
 	c.Execute = "INSERT sensor,floor=1 value=2"
 	c.IgnoreSignals = true
-	c.ForceTTY = true
 	if err := c.Run(); err != nil {
 		t.Fatalf("Run failed with error: %s", err)
 	}
@@ -87,11 +84,11 @@ func TestSetAuth(t *testing.T) {
 	c.SetAuth("auth " + u + " " + p)
 
 	// validate CLI configuration
-	if c.ClientConfig.Username != u {
-		t.Fatalf("Username is %s but should be %s", c.ClientConfig.Username, u)
+	if c.Username != u {
+		t.Fatalf("Username is %s but should be %s", c.Username, u)
 	}
-	if c.ClientConfig.Password != p {
-		t.Fatalf("Password is %s but should be %s", c.ClientConfig.Password, p)
+	if c.Password != p {
+		t.Fatalf("Password is %s but should be %s", c.Password, p)
 	}
 }
 
@@ -105,15 +102,15 @@ func TestSetPrecision(t *testing.T) {
 	// validate set non-default precision
 	p := "ns"
 	c.SetPrecision("precision " + p)
-	if c.ClientConfig.Precision != p {
-		t.Fatalf("Precision is %s but should be %s", c.ClientConfig.Precision, p)
+	if c.Precision != p {
+		t.Fatalf("Precision is %s but should be %s", c.Precision, p)
 	}
 
 	// validate set default precision which equals empty string
 	p = "rfc3339"
 	c.SetPrecision("precision " + p)
-	if c.ClientConfig.Precision != "" {
-		t.Fatalf("Precision is %s but should be empty", c.ClientConfig.Precision)
+	if c.Precision != "" {
+		t.Fatalf("Precision is %s but should be empty", c.Precision)
 	}
 }
 
@@ -142,22 +139,22 @@ func TestSetWriteConsistency(t *testing.T) {
 	// set valid write consistency
 	consistency := "all"
 	c.SetWriteConsistency("consistency " + consistency)
-	if c.ClientConfig.WriteConsistency != consistency {
-		t.Fatalf("WriteConsistency is %s but should be %s", c.ClientConfig.WriteConsistency, consistency)
+	if c.WriteConsistency != consistency {
+		t.Fatalf("WriteConsistency is %s but should be %s", c.WriteConsistency, consistency)
 	}
 
 	// set different valid write consistency and validate change
 	consistency = "quorum"
 	c.SetWriteConsistency("consistency " + consistency)
-	if c.ClientConfig.WriteConsistency != consistency {
-		t.Fatalf("WriteConsistency is %s but should be %s", c.ClientConfig.WriteConsistency, consistency)
+	if c.WriteConsistency != consistency {
+		t.Fatalf("WriteConsistency is %s but should be %s", c.WriteConsistency, consistency)
 	}
 
 	// set invalid write consistency and verify there was no change
 	invalidConsistency := "invalid_consistency"
 	c.SetWriteConsistency("consistency " + invalidConsistency)
-	if c.ClientConfig.WriteConsistency == invalidConsistency {
-		t.Fatalf("WriteConsistency is %s but should be %s", c.ClientConfig.WriteConsistency, consistency)
+	if c.WriteConsistency == invalidConsistency {
+		t.Fatalf("WriteConsistency is %s but should be %s", c.WriteConsistency, consistency)
 	}
 }
 
@@ -275,6 +272,7 @@ func TestParseCommand_Use(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error.  expected %v, actual %v", nil, err)
 	}
+	m := cli.CommandLine{Client: c}
 
 	tests := []struct {
 		cmd string
@@ -288,67 +286,12 @@ func TestParseCommand_Use(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		m := cli.CommandLine{Client: c}
 		if err := m.ParseCommand(test.cmd); err != nil {
 			t.Fatalf(`Got error %v for command %q, expected nil.`, err, test.cmd)
 		}
 
 		if m.Database != "db" {
 			t.Fatalf(`Command "use" changed database to %q. Expected db`, m.Database)
-		}
-	}
-}
-
-func TestParseCommand_UseAuth(t *testing.T) {
-	t.Parallel()
-	ts := emptyTestServer()
-	defer ts.Close()
-
-	u, _ := url.Parse(ts.URL)
-	tests := []struct {
-		cmd      string
-		user     string
-		database string
-	}{
-		{
-			cmd:      "use db",
-			user:     "admin",
-			database: "db",
-		},
-		{
-			cmd:      "use blank",
-			user:     "admin",
-			database: "",
-		},
-		{
-			cmd:      "use db",
-			user:     "anonymous",
-			database: "db",
-		},
-		{
-			cmd:      "use blank",
-			user:     "anonymous",
-			database: "blank",
-		},
-	}
-
-	for i, tt := range tests {
-		config := client.Config{URL: *u, Username: tt.user}
-		fmt.Println("using auth:", tt.user)
-		c, err := client.NewClient(config)
-		if err != nil {
-			t.Errorf("%d. unexpected error.  expected %v, actual %v", i, nil, err)
-			continue
-		}
-		m := cli.CommandLine{Client: c}
-		m.ClientConfig.Username = tt.user
-
-		if err := m.ParseCommand(tt.cmd); err != nil {
-			t.Fatalf(`%d. Got error %v for command %q, expected nil.`, i, err, tt.cmd)
-		}
-
-		if m.Database != tt.database {
-			t.Fatalf(`%d. Command "use" changed database to %q. Expected %q`, i, m.Database, tt.database)
 		}
 	}
 }
@@ -372,8 +315,8 @@ func TestParseCommand_Consistency(t *testing.T) {
 			t.Fatalf(`Got error %v for command %q, expected nil.`, err, test.cmd)
 		}
 
-		if c.ClientConfig.WriteConsistency != "one" {
-			t.Fatalf(`Command "consistency" changed consistency to %q. Expected one`, c.ClientConfig.WriteConsistency)
+		if c.WriteConsistency != "one" {
+			t.Fatalf(`Command "consistency" changed consistency to %q. Expected one`, c.WriteConsistency)
 		}
 	}
 }
@@ -407,6 +350,67 @@ func TestParseCommand_Insert(t *testing.T) {
 	for _, test := range tests {
 		if err := m.ParseCommand(test.cmd); err != nil {
 			t.Fatalf(`Got error %v for command %q, expected nil.`, err, test.cmd)
+		}
+	}
+}
+
+func TestParseCommand_InsertInto(t *testing.T) {
+	t.Parallel()
+	ts := emptyTestServer()
+	defer ts.Close()
+
+	u, _ := url.Parse(ts.URL)
+	config := client.Config{URL: *u}
+	c, err := client.NewClient(config)
+	if err != nil {
+		t.Fatalf("unexpected error.  expected %v, actual %v", nil, err)
+	}
+	m := cli.CommandLine{Client: c}
+
+	tests := []struct {
+		cmd, db, rp string
+	}{
+		{
+			cmd: `INSERT INTO test cpu,host=serverA,region=us-west value=1.0`,
+			db:  "",
+			rp:  "test",
+		},
+		{
+			cmd: ` INSERT INTO .test cpu,host=serverA,region=us-west value=1.0`,
+			db:  "",
+			rp:  "test",
+		},
+		{
+			cmd: `INSERT INTO   "test test" cpu,host=serverA,region=us-west value=1.0`,
+			db:  "",
+			rp:  "test test",
+		},
+		{
+			cmd: `Insert iNTO test.test cpu,host=serverA,region=us-west value=1.0`,
+			db:  "test",
+			rp:  "test",
+		},
+		{
+			cmd: `insert into "test test" cpu,host=serverA,region=us-west value=1.0`,
+			db:  "test",
+			rp:  "test test",
+		},
+		{
+			cmd: `insert into "d b"."test test" cpu,host=serverA,region=us-west value=1.0`,
+			db:  "d b",
+			rp:  "test test",
+		},
+	}
+
+	for _, test := range tests {
+		if err := m.ParseCommand(test.cmd); err != nil {
+			t.Fatalf(`Got error %v for command %q, expected nil.`, err, test.cmd)
+		}
+		if m.Database != test.db {
+			t.Fatalf(`Command "insert into" db parsing failed, expected: %q, actual: %q`, test.db, m.Database)
+		}
+		if m.RetentionPolicy != test.rp {
+			t.Fatalf(`Command "insert into" rp parsing failed, expected: %q, actual: %q`, test.rp, m.RetentionPolicy)
 		}
 	}
 }
@@ -486,14 +490,6 @@ func emptyTestServer() *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Influxdb-Version", SERVER_VERSION)
 
-		// Fake authorization entirely based on the username.
-		authorized := false
-		user, _, _ := r.BasicAuth()
-		switch user {
-		case "", "admin":
-			authorized = true
-		}
-
 		switch r.URL.Path {
 		case "/query":
 			values := r.URL.Query()
@@ -507,12 +503,7 @@ func emptyTestServer() *httptest.Server {
 
 			switch stmt.(type) {
 			case *influxql.ShowDatabasesStatement:
-				if authorized {
-					io.WriteString(w, `{"results":[{"series":[{"name":"databases","columns":["name"],"values":[["db"]]}]}]}`)
-				} else {
-					w.WriteHeader(http.StatusUnauthorized)
-					io.WriteString(w, fmt.Sprintf(`{"error":"error authorizing query: %s not authorized to execute statement 'SHOW DATABASES', requires admin privilege"}`, user))
-				}
+				io.WriteString(w, `{"results":[{"series":[{"name":"databases","columns":["name"],"values":[["db"]]}]}]}`)
 			case *influxql.ShowDiagnosticsStatement:
 				io.WriteString(w, `{"results":[{}]}`)
 			}

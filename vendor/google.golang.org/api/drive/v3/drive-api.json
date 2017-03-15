@@ -1,11 +1,11 @@
 {
  "kind": "discovery#restDescription",
- "etag": "\"tbys6C40o18GZwyMen5GMkdK-3s/J10Dqd-j3ykqCHF6dJXogNmQ37U\"",
+ "etag": "\"tbys6C40o18GZwyMen5GMkdK-3s/PdTT6Kk99c4WbnPvilAygJRMapM\"",
  "discoveryVersion": "v1",
  "id": "drive:v3",
  "name": "drive",
  "version": "v3",
- "revision": "20170113",
+ "revision": "20161103",
  "title": "Drive API",
  "description": "Manages files in Drive including uploading, downloading, searching, detecting changes, and updating sharing permissions.",
  "ownerDomain": "google.com",
@@ -219,7 +219,7 @@
    "properties": {
     "changes": {
      "type": "array",
-     "description": "The list of changes. If nextPageToken is populated, then this list may be incomplete and an additional page of results should be fetched.",
+     "description": "The page of changes.",
      "items": {
       "$ref": "Change"
      }
@@ -235,7 +235,7 @@
     },
     "nextPageToken": {
      "type": "string",
-     "description": "The page token for the next page of changes. This will be absent if the end of the changes list has been reached. If the token is rejected for any reason, it should be discarded, and pagination should be restarted from the first page of results."
+     "description": "The page token for the next page of changes. This will be absent if the end of the current changes list has been reached."
     }
    }
   },
@@ -376,7 +376,7 @@
    "properties": {
     "comments": {
      "type": "array",
-     "description": "The list of comments. If nextPageToken is populated, then this list may be incomplete and an additional page of results should be fetched.",
+     "description": "The page of comments.",
      "items": {
       "$ref": "Comment"
      }
@@ -388,7 +388,7 @@
     },
     "nextPageToken": {
      "type": "string",
-     "description": "The page token for the next page of comments. This will be absent if the end of the comments list has been reached. If the token is rejected for any reason, it should be discarded, and pagination should be restarted from the first page of results."
+     "description": "The page token for the next page of comments. This will be absent if the end of the comments list has been reached."
     }
    }
   },
@@ -479,10 +479,6 @@
     "fullFileExtension": {
      "type": "string",
      "description": "The full file extension extracted from the name field. May contain multiple concatenated extensions, such as \"tar.gz\". This is only available for files with binary content in Drive.\nThis is automatically updated when the name field changes, however it is not cleared if the new name does not contain a valid extension."
-    },
-    "hasThumbnail": {
-     "type": "boolean",
-     "description": "Whether this file has a thumbnail."
     },
     "headRevisionId": {
      "type": "string",
@@ -724,12 +720,7 @@
     },
     "thumbnailLink": {
      "type": "string",
-     "description": "A short-lived link to the file's thumbnail, if available. Typically lasts on the order of hours. Only populated when the requesting app can access the file's content."
-    },
-    "thumbnailVersion": {
-     "type": "string",
-     "description": "The thumbnail version for use in thumbnail cache invalidation.",
-     "format": "int64"
+     "description": "A short-lived link to the file's thumbnail, if available. Typically lasts on the order of hours."
     },
     "trashed": {
      "type": "boolean",
@@ -795,7 +786,7 @@
    "properties": {
     "files": {
      "type": "array",
-     "description": "The list of files. If nextPageToken is populated, then this list may be incomplete and an additional page of results should be fetched.",
+     "description": "The page of files.",
      "items": {
       "$ref": "File"
      }
@@ -807,7 +798,7 @@
     },
     "nextPageToken": {
      "type": "string",
-     "description": "The page token for the next page of files. This will be absent if the end of the files list has been reached. If the token is rejected for any reason, it should be discarded, and pagination should be restarted from the first page of results."
+     "description": "The page token for the next page of files. This will be absent if the end of the files list has been reached."
     }
    }
   },
@@ -905,7 +896,7 @@
     },
     "permissions": {
      "type": "array",
-     "description": "The list of permissions.",
+     "description": "The full list of permissions.",
      "items": {
       "$ref": "Permission"
      }
@@ -975,11 +966,11 @@
     },
     "nextPageToken": {
      "type": "string",
-     "description": "The page token for the next page of replies. This will be absent if the end of the replies list has been reached. If the token is rejected for any reason, it should be discarded, and pagination should be restarted from the first page of results."
+     "description": "The page token for the next page of replies. This will be absent if the end of the replies list has been reached."
     },
     "replies": {
      "type": "array",
-     "description": "The list of replies. If nextPageToken is populated, then this list may be incomplete and an additional page of results should be fetched.",
+     "description": "The page of replies.",
      "items": {
       "$ref": "Reply"
      }
@@ -1056,11 +1047,11 @@
     },
     "nextPageToken": {
      "type": "string",
-     "description": "The page token for the next page of revisions. This will be absent if the end of the revisions list has been reached. If the token is rejected for any reason, it should be discarded, and pagination should be restarted from the first page of results."
+     "description": "The page token for the next page of revisions. This will be absent if the end of the revisions list has been reached."
     },
     "revisions": {
      "type": "array",
-     "description": "The list of revisions. If nextPageToken is populated, then this list may be incomplete and an additional page of results should be fetched.",
+     "description": "The full list of revisions.",
      "items": {
       "$ref": "Revision"
      }

@@ -185,7 +185,7 @@ func getAPIs() []*API {
 	apiListFile := filepath.Join(genDirRoot(), "api-list.json")
 	if *useCache {
 		if !*publicOnly {
-			log.Fatalf("-cache=true not compatible with -publiconly=false")
+			log.Fatalf("-cached=true not compatible with -publiconly=false")
 		}
 		var err error
 		bytes, err = ioutil.ReadFile(apiListFile)
@@ -470,6 +470,8 @@ var docsLink string
 func (a *API) GenerateCode() ([]byte, error) {
 	pkg := a.Package()
 
+	a.m = make(map[string]interface{})
+	m := a.m
 	jsonBytes := a.jsonBytes()
 	var err error
 	if a.doc == nil {
@@ -477,6 +479,11 @@ func (a *API) GenerateCode() ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
+	}
+	// TODO(jba): remove when we can rely completely on a.doc
+	err = json.Unmarshal(jsonBytes, &a.m)
+	if err != nil {
+		return nil, err
 	}
 
 	// Buffer the output in memory, for gofmt'ing later.
@@ -509,8 +516,8 @@ func (a *API) GenerateCode() ([]byte, error) {
 		}
 	}
 
-	pn("// Package %s provides access to the %s.", pkg, a.doc.Title)
-	docsLink = a.doc.DocumentationLink
+	pn("// Package %s provides access to the %s.", pkg, jstr(m, "title"))
+	docsLink = jstr(m, "documentationLink")
 	if docsLink != "" {
 		pn("//")
 		pn("// See %s", docsLink)
@@ -564,9 +571,9 @@ func (a *API) GenerateCode() ([]byte, error) {
 	pn("var _ = context.Canceled")
 	pn("var _ = ctxhttp.Do")
 	pn("")
-	pn("const apiId = %q", a.doc.ID)
-	pn("const apiName = %q", a.doc.Name)
-	pn("const apiVersion = %q", a.doc.Version)
+	pn("const apiId = %q", jstr(m, "id"))
+	pn("const apiName = %q", jstr(m, "name"))
+	pn("const apiVersion = %q", jstr(m, "version"))
 	pn("const basePath = %q", a.apiBaseURL())
 
 	a.generateScopeConstants()
@@ -680,44 +687,46 @@ func scopeIdentifierFromURL(urlStr string) string {
 type Schema struct {
 	api *API
 
-	typ *disco.Schema
+	typ *disco.Schema // lazily populated by Type
 
 	apiName      string // the native API-defined name of this type
 	goName       string // lazily populated by GoName
 	goReturnType string // lazily populated by GoReturnType
-	props        []*Property
 }
 
 type Property struct {
-	s              *Schema // the containing Schema
-	p              *disco.Property
-	assignedGoName string
+	s       *Schema       // property of which schema
+	apiName string        // the native API-defined name of this property
+	typ     *disco.Schema // lazily populated by Type
 }
 
 func (p *Property) Type() *disco.Schema {
-	return p.p.Schema
+	return p.typ
 }
 
 func (p *Property) GoName() string {
-	return initialCap(p.p.Name)
+	return initialCap(p.apiName)
+}
+
+func (p *Property) APIName() string {
+	return p.apiName
 }
 
 func (p *Property) Default() string {
-	return p.p.Schema.Default
+	return p.typ.Default
 }
 
 func (p *Property) Description() string {
-	return p.p.Schema.Description
+	return p.typ.Description
 }
 
 func (p *Property) Enum() ([]string, bool) {
-	typ := p.p.Schema
-	if typ.Enums != nil {
-		return typ.Enums, true
+	if p.typ.Enums != nil {
+		return p.typ.Enums, true
 	}
 	// Check if this has an array of string enums.
-	if typ.ItemSchema != nil {
-		if enums := typ.ItemSchema.Enums; enums != nil && typ.ItemSchema.Type == "string" {
+	if p.typ.ItemSchema != nil {
+		if enums := p.typ.ItemSchema.Enums; enums != nil && p.typ.ItemSchema.Type == "string" {
 			return enums, true
 		}
 	}
@@ -725,11 +734,11 @@ func (p *Property) Enum() ([]string, bool) {
 }
 
 func (p *Property) EnumDescriptions() []string {
-	if desc := p.p.Schema.EnumDescriptions; desc != nil {
+	if desc := p.typ.EnumDescriptions; desc != nil {
 		return desc
 	}
 	// Check if this has an array of string enum descriptions.
-	if items := p.p.Schema.ItemSchema; items != nil {
+	if items := p.typ.ItemSchema; items != nil {
 		if desc := items.EnumDescriptions; desc != nil {
 			return desc
 		}
@@ -738,11 +747,11 @@ func (p *Property) EnumDescriptions() []string {
 }
 
 func (p *Property) Pattern() (string, bool) {
-	return p.p.Schema.Pattern, (p.p.Schema.Pattern != "")
+	return p.typ.Pattern, (p.typ.Pattern != "")
 }
 
 func (p *Property) TypeAsGo() string {
-	return p.s.api.typeAsGo(p.Type(), false)
+	return p.s.api.typeAsGo(p.typ, false)
 }
 
 // A FieldName uniquely identifies a field within a Schema struct for an API.
@@ -860,6 +869,10 @@ func emptyEnum(enum []string) bool {
 	return false
 }
 
+func isIntAsString(s *disco.Schema) bool {
+	return s.Type == "string" && strings.Contains(s.Format, "int")
+}
+
 func (a *API) typeAsGo(s *disco.Schema, elidePointers bool) string {
 	switch s.Kind {
 	case disco.SimpleKind:
@@ -890,20 +903,10 @@ func (a *API) typeAsGo(s *disco.Schema, elidePointers bool) string {
 		}
 		return a.typeAsGo(rs, elidePointers)
 	case disco.MapKind:
-		es := s.ElementSchema()
-		if es.Type == "string" {
-			// If the element schema has a type "string", it's going to be
-			// transmitted as a string, and the Go map type must reflect that.
-			// This is true even if the format is, say, "int64". When type =
-			// "string" and format = "int64" at top level, we can use the json
-			// "string" tag option to unmarshal the string to an int64, but
-			// inside a map we can't.
-			return "map[string]string"
-		}
 		// Due to historical baggage (maps used to be a separate code path),
 		// the element types of maps never have pointers in them.  From this
 		// level down, elide pointers in types.
-		return "map[string]" + a.typeAsGo(es, true)
+		return "map[string]" + a.typeAsGo(s.ElementSchema(), true)
 	case disco.AnyStructKind:
 		return "googleapi.RawMessage"
 	case disco.StructKind:
@@ -926,19 +929,19 @@ func (a *API) schemaNamed(name string) *Schema {
 }
 
 func (s *Schema) properties() []*Property {
-	if s.props != nil {
-		return s.props
-	}
 	if s.typ.Kind != disco.StructKind {
 		panic("called properties on non-object schema")
 	}
-	for _, p := range s.typ.Properties {
-		s.props = append(s.props, &Property{
-			s: s,
-			p: p,
+	pl := []*Property{}
+	propMap := s.typ.Properties
+	for _, name := range sortedKeys(propMap) {
+		pl = append(pl, &Property{
+			s:       s,
+			typ:     propMap[name],
+			apiName: name,
 		})
 	}
-	return s.props
+	return pl
 }
 
 func (s *Schema) HasContentType() bool {
@@ -982,7 +985,7 @@ func (s *Schema) populateSubSchemas() (outerr error) {
 	switch s.typ.Kind {
 	case disco.StructKind:
 		for _, p := range s.properties() {
-			subApiName := fmt.Sprintf("%s.%s", s.apiName, p.p.Name)
+			subApiName := fmt.Sprintf("%s.%s", s.apiName, p.apiName)
 			switch p.Type().Kind {
 			case disco.SimpleKind, disco.ReferenceKind, disco.AnyStructKind:
 				// Do nothing.
@@ -1141,12 +1144,6 @@ func (s *Schema) writeSchemaStruct(api *API) {
 			s.api.p("\n")
 		}
 		pname := np.Get(p.GoName())
-		if pname[0] == '@' {
-			// HACK(cbro): ignore JSON-LD special fields until we can figure out
-			// the correct Go representation for them.
-			continue
-		}
-		p.assignedGoName = pname
 		des := p.Description()
 		if des != "" {
 			s.api.p("%s", asComment("\t", fmt.Sprintf("%s: %s", pname, des)))
@@ -1154,7 +1151,7 @@ func (s *Schema) writeSchemaStruct(api *API) {
 		addFieldValueComments(s.api.p, p, "\t", des != "")
 
 		var extraOpt string
-		if p.Type().IsIntAsString() {
+		if isIntAsString(p.Type()) {
 			extraOpt += ",string"
 		}
 
@@ -1163,7 +1160,7 @@ func (s *Schema) writeSchemaStruct(api *API) {
 			typ = "*" + typ
 		}
 
-		s.api.pn(" %s %s `json:\"%s,omitempty%s\"`", pname, typ, p.p.Name, extraOpt)
+		s.api.pn(" %s %s `json:\"%s,omitempty%s\"`", pname, typ, p.APIName(), extraOpt)
 		if firstFieldName == "" {
 			firstFieldName = pname
 		}
@@ -1211,7 +1208,6 @@ func (s *Schema) writeSchemaStruct(api *API) {
 
 	s.api.pn("}")
 	s.writeSchemaMarshal(forceSendName, nullFieldsName)
-	s.writeSchemaUnmarshal()
 }
 
 // writeSchemaMarshal writes a custom MarshalJSON function for s, which allows
@@ -1225,49 +1221,6 @@ func (s *Schema) writeSchemaMarshal(forceSendFieldName, nullFieldsName string) {
 	s.api.pn("\traw := noMethod(*s)")
 	s.api.pn("\treturn gensupport.MarshalJSON(raw, s.%s, s.%s)", forceSendFieldName, nullFieldsName)
 	s.api.pn("}")
-}
-
-func (s *Schema) writeSchemaUnmarshal() {
-	var floatProps []*Property
-	for _, p := range s.properties() {
-		if p.p.Schema.Type == "number" {
-			floatProps = append(floatProps, p)
-		}
-	}
-	if len(floatProps) == 0 {
-		return
-	}
-	pn := s.api.pn
-	pn("\nfunc (s *%s) UnmarshalJSON(data []byte) error {", s.GoName())
-	pn("  type noMethod %s", s.GoName()) // avoid infinite recursion
-	pn("  var s1 struct {")
-	// Hide the float64 fields of the schema with fields that correctly
-	// unmarshal special values.
-	for _, p := range floatProps {
-		typ := "gensupport.JSONFloat64"
-		if p.forcePointerType() {
-			typ = "*" + typ
-		}
-		pn("%s %s `json:\"%s\"`", p.assignedGoName, typ, p.p.Name)
-	}
-	pn("    *noMethod") // embed the schema
-	pn("  }")
-	// Set the schema value into the wrapper so its other fields are unmarshaled.
-	pn("  s1.noMethod = (*noMethod)(s)")
-	pn("  if err := json.Unmarshal(data, &s1); err != nil {")
-	pn("    return err")
-	pn("  }")
-	// Copy each shadowing field into the field it shadows.
-	for _, p := range floatProps {
-		n := p.assignedGoName
-		if p.forcePointerType() {
-			pn("if s1.%s != nil { s.%s = (*float64)(s1.%s) }", n, n, n)
-		} else {
-			pn("s.%s = float64(s1.%s)", n, n)
-		}
-	}
-	pn(" return nil")
-	pn("}")
 }
 
 // isResponseType returns true for all types that are used as a response.
@@ -1378,7 +1331,7 @@ func (m *Method) Id() string {
 }
 
 func (m *Method) responseType() *Schema {
-	return m.api.schemas[m.m.Response.RefSchema.Name]
+	return m.api.schemas[m.m.Response.Ref]
 }
 
 func (m *Method) supportsMediaUpload() bool {
@@ -1399,92 +1352,47 @@ func (m *Method) supportsMediaDownload() bool {
 	return m.m.SupportsMediaDownload
 }
 
-func (m *Method) supportsPaging() (*pageTokenGenerator, string, bool) {
-	ptg := m.pageTokenGenerator()
-	if ptg == nil {
-		return nil, "", false
+func (m *Method) supportsPaging() (callField, respField string, ok bool) {
+	if m.m.HTTPMethod != "GET" {
+		// Probably a POST, like "calendar.acl.watch",
+		// which, despite having a pageToken parameter,
+		// isn't actually a paged method.
+		return "", "", false
 	}
-
-	// Check that the response type has the next page token.
-	s := m.responseType()
-	if s == nil || s.typ.Kind != disco.StructKind {
-		return nil, "", false
-	}
-	for _, prop := range s.properties() {
-		if isPageTokenName(prop.p.Name) && prop.Type().Type == "string" {
-			return ptg, prop.GoName(), true
-		}
-	}
-
-	return nil, "", false
-}
-
-type pageTokenGenerator struct {
-	isParam     bool   // is the page token a URL parameter?
-	name        string // param or request field name
-	requestName string // empty for URL param
-}
-
-func (p *pageTokenGenerator) genGet() string {
-	if p.isParam {
-		return fmt.Sprintf("c.urlParams_.Get(%q)", p.name)
-	}
-	return fmt.Sprintf("c.%s.%s", p.requestName, p.name)
-}
-
-func (p *pageTokenGenerator) genSet(valueExpr string) string {
-	if p.isParam {
-		return fmt.Sprintf("c.%s(%s)", initialCap(p.name), valueExpr)
-	}
-	return fmt.Sprintf("c.%s.%s = %s", p.requestName, p.name, valueExpr)
-}
-
-func (p *pageTokenGenerator) genDeferBody() string {
-	if p.isParam {
-		return p.genSet(p.genGet())
-	}
-	return fmt.Sprintf("func (pt string) { %s }(%s)", p.genSet("pt"), p.genGet())
-}
-
-// pageTokenGenerator returns a pageTokenGenerator that will generate code to
-// get/set the page token for a subsequent page in the context of the generated
-// Pages method. It returns nil if there is no page token.
-func (m *Method) pageTokenGenerator() *pageTokenGenerator {
-	matches := m.grepParams(func(p *Param) bool { return isPageTokenName(p.p.Name) })
-	switch len(matches) {
-	case 1:
-		if matches[0].p.Required {
+	matches := m.grepParams(func(p *Param) bool { return p.p.Name == "pageToken" })
+	if len(matches) == 0 {
+		return "", "", false
+	} else {
+		pt := matches[0]
+		if pt.p.Required {
 			// The page token is a required parameter (e.g. because there is
 			// a separate API call to start an iteration), and so the relevant
 			// call factory method takes the page token instead.
-			return nil
+			return "", "", false
 		}
-		n := matches[0].p.Name
-		return &pageTokenGenerator{true, n, ""}
+	}
 
-	case 0: // No URL parameter, but maybe a request field.
-		if m.m.Request == nil {
-			return nil
-		}
-		rs := m.m.Request
-		if rs.RefSchema != nil {
-			rs = rs.RefSchema
-		}
-		for _, p := range rs.Properties {
-			if isPageTokenName(p.Name) {
-				return &pageTokenGenerator{false, initialCap(p.Name), validGoIdentifer(strings.ToLower(rs.Name))}
+	// Check that the response type has the next page token.
+	// It may appear under different names.
+	s := m.responseType()
+	if s == nil || s.typ.Kind != disco.StructKind {
+		return "", "", false
+	}
+	props := s.properties()
+
+	opts := [...]string{
+		"nextPageToken",
+		"pageToken",
+	}
+	for _, n := range opts {
+		for _, prop := range props {
+			if prop.apiName == n && prop.Type().Type == "string" {
+				return "PageToken", prop.GoName(), true
 			}
 		}
-		return nil
-
-	default:
-		panicf("too many page token parameters for method %s", m.m.Name)
-		return nil
 	}
-}
 
-func isPageTokenName(s string) bool {
-	return s == "pageToken" || s == "nextPageToken"
+	return "", "", false
 }
 
 func (m *Method) Params() []*Param {
@@ -1951,7 +1859,7 @@ func (meth *Method) generateCode() {
 	pn("// %s\n", string(bs))
 	pn("}")
 
-	if ptg, rname, ok := meth.supportsPaging(); ok {
+	if cname, rname, ok := meth.supportsPaging(); ok {
 		// We can assume retType is non-empty.
 		pn("")
 		pn("// Pages invokes f for each page of results.")
@@ -1959,13 +1867,13 @@ func (meth *Method) generateCode() {
 		pn("// The provided context supersedes any context provided to the Context method.")
 		pn("func (c *%s) Pages(ctx context.Context, f func(%s) error) error {", callName, retType)
 		pn(" c.ctx_ = ctx")
-		pn(` defer %s  // reset paging to original point`, ptg.genDeferBody())
+		pn(` defer c.%s(c.urlParams_.Get(%q)) // reset paging to original point`, cname, "pageToken")
 		pn(" for {")
 		pn("  x, err := c.Do()")
 		pn("  if err != nil { return err }")
 		pn("  if err := f(x); err != nil { return err }")
 		pn(`  if x.%s == "" { return nil }`, rname)
-		pn(ptg.genSet("x." + rname))
+		pn("  c.%s(x.%s)", cname, rname)
 		pn(" }")
 		pn("}")
 	}
@@ -2064,21 +1972,25 @@ func (meth *Method) NewArguments() (args *arguments) {
 			args.AddArg(arg)
 		}
 	}
-	if rs := meth.m.Request; rs != nil {
-		args.AddArg(meth.NewBodyArg(rs))
+	if ro := meth.m.Request; ro != nil {
+		args.AddArg(meth.NewBodyArg(ro))
 	}
 	return
 }
 
-func (meth *Method) NewBodyArg(ds *disco.Schema) *argument {
-	s := meth.api.schemaNamed(ds.RefSchema.Name)
+func (meth *Method) NewBodyArg(m map[string]interface{}) *argument {
+	reftype := jstr(m, "$ref")
+	schem := meth.api.Schema(reftype)
+	if schem == nil {
+		panicf("unable to find schema for type %q", reftype)
+	}
 	return &argument{
-		goname:   validGoIdentifer(strings.ToLower(ds.Ref)),
+		goname:   validGoIdentifer(strings.ToLower(reftype)),
 		apiname:  "REQUEST",
-		gotype:   "*" + s.GoName(),
-		apitype:  ds.Ref,
+		gotype:   "*" + schem.GoName(),
+		apitype:  reftype,
 		location: "body",
-		schema:   s,
+		schema:   schem,
 	}
 }
 
@@ -2248,9 +2160,6 @@ func mustSimpleTypeConvert(apiType, format string) string {
 }
 
 func responseType(api *API, m *disco.Method) string {
-	if m.Response == nil {
-		return ""
-	}
 	ref := m.Response.Ref
 	if ref != "" {
 		if s := api.schemas[ref]; s != nil {
@@ -2320,6 +2229,50 @@ func depunct(ident string, needCap bool) string {
 	}
 	return buf.String()
 
+}
+
+func prettyJSON(m map[string]interface{}) string {
+	bs, err := json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		return fmt.Sprintf("[JSON error %v on %#v]", err, m)
+	}
+	return string(bs)
+}
+
+func jstr(m map[string]interface{}, key string) string {
+	if s, ok := m[key].(string); ok {
+		return s
+	}
+	return ""
+}
+
+func sortedKeys(m interface{}) (keys []string) {
+	// TODO(jba): get rid of this type switch when there is no more JSON,
+	// hence no more map[string]interface{}.
+	switch m := m.(type) {
+	case map[string]interface{}:
+		keys = keysMI(m)
+	case map[string]*disco.Schema:
+		keys = keysMS(m)
+	default:
+		panicf("bad map type %T", m)
+	}
+	sort.Strings(keys)
+	return
+}
+
+func keysMI(m map[string]interface{}) (keys []string) {
+	for key := range m {
+		keys = append(keys, key)
+	}
+	return
+}
+
+func keysMS(m map[string]*disco.Schema) (keys []string) {
+	for key := range m {
+		keys = append(keys, key)
+	}
+	return
 }
 
 func addFieldValueComments(p func(format string, args ...interface{}), field Field, indent string, blankLine bool) {

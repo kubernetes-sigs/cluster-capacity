@@ -15,17 +15,16 @@
 package pubsub
 
 import (
-	"time"
+	"encoding/base64"
 
-	"github.com/golang/protobuf/ptypes"
-	pb "google.golang.org/genproto/googleapis/pubsub/v1"
+	raw "google.golang.org/api/pubsub/v1"
 )
 
 // Message represents a Pub/Sub message.
 type Message struct {
 	// ID identifies this message.
 	// This ID is assigned by the server and is populated for Messages obtained from a subscription.
-	// This field is read-only.
+	// It is otherwise ignored.
 	ID string
 
 	// Data is the actual data in the message.
@@ -38,43 +37,36 @@ type Message struct {
 	// ackID is the identifier to acknowledge this message.
 	ackID string
 
-	// The time at which the message was published.
-	// This is populated by the server for Messages obtained from a subscription.
-	// This field is read-only.
-	PublishTime time.Time
+	// TODO(mcgreevy): add publish time.
 
 	calledDone bool
 
 	// The iterator that created this Message.
-	it *MessageIterator
+	it *Iterator
 }
 
-func toMessage(resp *pb.ReceivedMessage) (*Message, error) {
+func toMessage(resp *raw.ReceivedMessage) (*Message, error) {
 	if resp.Message == nil {
 		return &Message{ackID: resp.AckId}, nil
 	}
-
-	pubTime, err := ptypes.Timestamp(resp.Message.PublishTime)
+	data, err := base64.StdEncoding.DecodeString(resp.Message.Data)
 	if err != nil {
 		return nil, err
 	}
 	return &Message{
-		ackID:       resp.AckId,
-		Data:        resp.Message.Data,
-		Attributes:  resp.Message.Attributes,
-		ID:          resp.Message.MessageId,
-		PublishTime: pubTime,
+		ackID:      resp.AckId,
+		Data:       data,
+		Attributes: resp.Message.Attributes,
+		ID:         resp.Message.MessageId,
 	}, nil
 }
 
-// Done completes the processing of a Message that was returned from a MessageIterator.
+// Done completes the processing of a Message that was returned from an Iterator.
 // ack indicates whether the message should be acknowledged.
 // Client code must call Done when finished for each Message returned by an iterator.
-// Done may only be called on Messages returned by a MessageIterator.
+// Done may only be called on Messages returned by an iterator.
 // If message acknowledgement fails, the Message will be redelivered.
 // Calls to Done have no effect after the first call.
-//
-// See MessageIterator.Next for an example.
 func (m *Message) Done(ack bool) {
 	if m.calledDone {
 		return

@@ -14,51 +14,45 @@
 
 package wait
 
-import "sync"
+import (
+	"sync"
+	"time"
+)
 
 type WaitTime interface {
-	// Wait returns a chan that waits on the given logical deadline.
+	// Wait returns a chan that waits on the given deadline.
 	// The chan will be triggered when Trigger is called with a
 	// deadline that is later than the one it is waiting for.
-	Wait(deadline uint64) <-chan struct{}
-	// Trigger triggers all the waiting chans with an earlier logical deadline.
-	Trigger(deadline uint64)
+	// The given deadline MUST be unique. The deadline should be
+	// retrieved by calling time.Now() in most cases.
+	Wait(deadline time.Time) <-chan struct{}
+	// Trigger triggers all the waiting chans with an earlier deadline.
+	Trigger(deadline time.Time)
 }
 
-var closec chan struct{}
-
-func init() { closec = make(chan struct{}); close(closec) }
-
 type timeList struct {
-	l                   sync.Mutex
-	lastTriggerDeadline uint64
-	m                   map[uint64]chan struct{}
+	l sync.Mutex
+	m map[int64]chan struct{}
 }
 
 func NewTimeList() *timeList {
-	return &timeList{m: make(map[uint64]chan struct{})}
+	return &timeList{m: make(map[int64]chan struct{})}
 }
 
-func (tl *timeList) Wait(deadline uint64) <-chan struct{} {
+func (tl *timeList) Wait(deadline time.Time) <-chan struct{} {
 	tl.l.Lock()
 	defer tl.l.Unlock()
-	if tl.lastTriggerDeadline >= deadline {
-		return closec
-	}
-	ch := tl.m[deadline]
-	if ch == nil {
-		ch = make(chan struct{})
-		tl.m[deadline] = ch
-	}
+	ch := make(chan struct{}, 1)
+	// The given deadline SHOULD be unique.
+	tl.m[deadline.UnixNano()] = ch
 	return ch
 }
 
-func (tl *timeList) Trigger(deadline uint64) {
+func (tl *timeList) Trigger(deadline time.Time) {
 	tl.l.Lock()
 	defer tl.l.Unlock()
-	tl.lastTriggerDeadline = deadline
 	for t, ch := range tl.m {
-		if t <= deadline {
+		if t < deadline.UnixNano() {
 			delete(tl.m, t)
 			close(ch)
 		}

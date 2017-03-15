@@ -27,9 +27,7 @@ func TestEmitter_Emit(t *testing.T) {
 	e.Columns = []string{"col1", "col2"}
 
 	// Verify the cpu region=west is emitted first.
-	if row, _, err := e.Emit(); err != nil {
-		t.Fatalf("unexpected error(0): %s", err)
-	} else if !deep.Equal(row, &models.Row{
+	if row := e.Emit(); !deep.Equal(row, &models.Row{
 		Name:    "cpu",
 		Tags:    map[string]string{"region": "west"},
 		Columns: []string{"col1", "col2"},
@@ -42,9 +40,7 @@ func TestEmitter_Emit(t *testing.T) {
 	}
 
 	// Verify the cpu region=north is emitted next.
-	if row, _, err := e.Emit(); err != nil {
-		t.Fatalf("unexpected error(1): %s", err)
-	} else if !deep.Equal(row, &models.Row{
+	if row := e.Emit(); !deep.Equal(row, &models.Row{
 		Name:    "cpu",
 		Tags:    map[string]string{"region": "north"},
 		Columns: []string{"col1", "col2"},
@@ -56,9 +52,7 @@ func TestEmitter_Emit(t *testing.T) {
 	}
 
 	// Verify the mem series is emitted last.
-	if row, _, err := e.Emit(); err != nil {
-		t.Fatalf("unexpected error(2): %s", err)
-	} else if !deep.Equal(row, &models.Row{
+	if row := e.Emit(); !deep.Equal(row, &models.Row{
 		Name:    "mem",
 		Columns: []string{"col1", "col2"},
 		Values: [][]interface{}{
@@ -69,9 +63,7 @@ func TestEmitter_Emit(t *testing.T) {
 	}
 
 	// Verify EOF.
-	if row, _, err := e.Emit(); err != nil {
-		t.Fatalf("unexpected error(eof): %s", err)
-	} else if row != nil {
+	if row := e.Emit(); row != nil {
 		t.Fatalf("unexpected eof: %s", spew.Sdump(row))
 	}
 }
@@ -88,24 +80,19 @@ func TestEmitter_ChunkSize(t *testing.T) {
 	e.Columns = []string{"col1"}
 
 	// Verify the cpu region=west is emitted first.
-	if row, _, err := e.Emit(); err != nil {
-		t.Fatalf("unexpected error(0): %s", err)
-	} else if !deep.Equal(row, &models.Row{
+	if row := e.Emit(); !deep.Equal(row, &models.Row{
 		Name:    "cpu",
 		Tags:    map[string]string{"region": "west"},
 		Columns: []string{"col1"},
 		Values: [][]interface{}{
 			{time.Unix(0, 0).UTC(), float64(1)},
 		},
-		Partial: true,
 	}) {
 		t.Fatalf("unexpected row(0): %s", spew.Sdump(row))
 	}
 
 	// Verify the cpu region=north is emitted next.
-	if row, _, err := e.Emit(); err != nil {
-		t.Fatalf("unexpected error(1): %s", err)
-	} else if !deep.Equal(row, &models.Row{
+	if row := e.Emit(); !deep.Equal(row, &models.Row{
 		Name:    "cpu",
 		Tags:    map[string]string{"region": "west"},
 		Columns: []string{"col1"},
@@ -117,9 +104,7 @@ func TestEmitter_ChunkSize(t *testing.T) {
 	}
 
 	// Verify EOF.
-	if row, _, err := e.Emit(); err != nil {
-		t.Fatalf("unexpected error(eof): %s", err)
-	} else if row != nil {
+	if row := e.Emit(); row != nil {
 		t.Fatalf("unexpected eof: %s", spew.Sdump(row))
 	}
 }

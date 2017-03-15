@@ -31,7 +31,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/bigtable"
-	"cloud.google.com/go/bigtable/internal/cbtconfig"
+	"cloud.google.com/go/bigtable/internal/cbtrc"
 	"cloud.google.com/go/bigtable/internal/stat"
 	"golang.org/x/net/context"
 	"google.golang.org/api/option"
@@ -45,21 +45,21 @@ var (
 	poolSize = flag.Int("pool_size", 1, "size of the gRPC connection pool to use for the data client")
 	reqCount = flag.Int("req_count", 100, "number of concurrent requests")
 
-	config      *cbtconfig.Config
+	config      *cbtrc.Config
 	client      *bigtable.Client
 	adminClient *bigtable.AdminClient
 )
 
 func main() {
 	var err error
-	config, err = cbtconfig.Load()
+	config, err = cbtrc.Load()
 	if err != nil {
 		log.Fatal(err)
 	}
 	config.RegisterFlags()
 
 	flag.Parse()
-	if err := config.CheckFlags(cbtconfig.ProjectAndInstanceRequired); err != nil {
+	if err := config.CheckFlags(); err != nil {
 		log.Fatal(err)
 	}
 	if config.Creds != "" {

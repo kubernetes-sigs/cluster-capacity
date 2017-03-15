@@ -41,7 +41,8 @@ ENABLE_L7_LOADBALANCING="${KUBE_ENABLE_L7_LOADBALANCING:-glbc}"
 #   standalone     - Heapster only. Metrics available via Heapster REST API.
 ENABLE_CLUSTER_MONITORING="${KUBE_ENABLE_CLUSTER_MONITORING:-standalone}"
 
-# Optional: Enable DNS horizontal autoscaler
-ENABLE_DNS_HORIZONTAL_AUTOSCALER="${KUBE_ENABLE_DNS_HORIZONTAL_AUTOSCALER:-false}"
-
 KUBE_DELETE_NETWORK=${KUBE_DELETE_NETWORK:-false}
+
+# Indicates if the values (eg. kube password) in metadata should be treated as
+# canonical, and therefore disk copies ought to be recreated/clobbered.
+METADATA_CLOBBERS_CONFIG=true

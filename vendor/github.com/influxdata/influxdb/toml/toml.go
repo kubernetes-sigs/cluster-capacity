@@ -1,4 +1,3 @@
-// Package toml adds support to marshal and unmarshal types not in the official TOML spec.
 package toml // import "github.com/influxdata/influxdb/toml"
 
 import (
@@ -13,7 +12,6 @@ const maxInt = int64(^uint(0) >> 1)
 // Duration is a TOML wrapper type for time.Duration.
 type Duration time.Duration
 
-// String returns the string representation of the duration.
 func (d Duration) String() string {
 	return time.Duration(d).String()
 }

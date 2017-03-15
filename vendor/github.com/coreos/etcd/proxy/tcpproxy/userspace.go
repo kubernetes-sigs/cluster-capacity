@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	plog = capnslog.NewPackageLogger("github.com/coreos/etcd", "proxy/tcpproxy")
+	plog = capnslog.NewPackageLogger("github.com/coreos/etcd/proxy", "tcpproxy")
 )
 
 type remote struct {
@@ -78,7 +78,6 @@ func (tp *TCPProxy) Run() error {
 		tp.remotes = append(tp.remotes, &remote{addr: ep})
 	}
 
-	plog.Printf("ready to proxy client requests to %v", tp.Endpoints)
 	go tp.runMonitor()
 	for {
 		in, err := tp.Listener.Accept()

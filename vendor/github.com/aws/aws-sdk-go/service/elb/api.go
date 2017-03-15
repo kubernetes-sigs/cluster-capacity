@@ -73,14 +73,14 @@ func (c *ELB) AddTagsRequest(input *AddTagsInput) (req *request.Request, output 
 // API operation AddTags for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeAccessPointNotFoundException "LoadBalancerNotFound"
+//   * LoadBalancerNotFound
 //   The specified load balancer does not exist.
 //
-//   * ErrCodeTooManyTagsException "TooManyTags"
+//   * TooManyTags
 //   The quota for the number of tags that can be assigned to a load balancer
 //   has been reached.
 //
-//   * ErrCodeDuplicateTagKeysException "DuplicateTagKeys"
+//   * DuplicateTagKeys
 //   A tag key was specified more than once.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticloadbalancing-2012-06-01/AddTags
@@ -150,13 +150,13 @@ func (c *ELB) ApplySecurityGroupsToLoadBalancerRequest(input *ApplySecurityGroup
 // API operation ApplySecurityGroupsToLoadBalancer for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeAccessPointNotFoundException "LoadBalancerNotFound"
+//   * LoadBalancerNotFound
 //   The specified load balancer does not exist.
 //
-//   * ErrCodeInvalidConfigurationRequestException "InvalidConfigurationRequest"
+//   * InvalidConfigurationRequest
 //   The requested configuration change is not valid.
 //
-//   * ErrCodeInvalidSecurityGroupException "InvalidSecurityGroup"
+//   * InvalidSecurityGroup
 //   One or more of the specified security groups do not exist.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticloadbalancing-2012-06-01/ApplySecurityGroupsToLoadBalancer
@@ -227,16 +227,16 @@ func (c *ELB) AttachLoadBalancerToSubnetsRequest(input *AttachLoadBalancerToSubn
 // API operation AttachLoadBalancerToSubnets for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeAccessPointNotFoundException "LoadBalancerNotFound"
+//   * LoadBalancerNotFound
 //   The specified load balancer does not exist.
 //
-//   * ErrCodeInvalidConfigurationRequestException "InvalidConfigurationRequest"
+//   * InvalidConfigurationRequest
 //   The requested configuration change is not valid.
 //
-//   * ErrCodeSubnetNotFoundException "SubnetNotFound"
+//   * SubnetNotFound
 //   One or more of the specified subnets do not exist.
 //
-//   * ErrCodeInvalidSubnetException "InvalidSubnet"
+//   * InvalidSubnet
 //   The specified VPC has no associated Internet gateway.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticloadbalancing-2012-06-01/AttachLoadBalancerToSubnets
@@ -306,7 +306,7 @@ func (c *ELB) ConfigureHealthCheckRequest(input *ConfigureHealthCheckInput) (req
 // API operation ConfigureHealthCheck for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeAccessPointNotFoundException "LoadBalancerNotFound"
+//   * LoadBalancerNotFound
 //   The specified load balancer does not exist.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticloadbalancing-2012-06-01/ConfigureHealthCheck
@@ -385,16 +385,16 @@ func (c *ELB) CreateAppCookieStickinessPolicyRequest(input *CreateAppCookieStick
 // API operation CreateAppCookieStickinessPolicy for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeAccessPointNotFoundException "LoadBalancerNotFound"
+//   * LoadBalancerNotFound
 //   The specified load balancer does not exist.
 //
-//   * ErrCodeDuplicatePolicyNameException "DuplicatePolicyName"
+//   * DuplicatePolicyName
 //   A policy with the specified name already exists for this load balancer.
 //
-//   * ErrCodeTooManyPoliciesException "TooManyPolicies"
+//   * TooManyPolicies
 //   The quota for the number of policies for this load balancer has been reached.
 //
-//   * ErrCodeInvalidConfigurationRequestException "InvalidConfigurationRequest"
+//   * InvalidConfigurationRequest
 //   The requested configuration change is not valid.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticloadbalancing-2012-06-01/CreateAppCookieStickinessPolicy
@@ -475,16 +475,16 @@ func (c *ELB) CreateLBCookieStickinessPolicyRequest(input *CreateLBCookieStickin
 // API operation CreateLBCookieStickinessPolicy for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeAccessPointNotFoundException "LoadBalancerNotFound"
+//   * LoadBalancerNotFound
 //   The specified load balancer does not exist.
 //
-//   * ErrCodeDuplicatePolicyNameException "DuplicatePolicyName"
+//   * DuplicatePolicyName
 //   A policy with the specified name already exists for this load balancer.
 //
-//   * ErrCodeTooManyPoliciesException "TooManyPolicies"
+//   * TooManyPolicies
 //   The quota for the number of policies for this load balancer has been reached.
 //
-//   * ErrCodeInvalidConfigurationRequestException "InvalidConfigurationRequest"
+//   * InvalidConfigurationRequest
 //   The requested configuration change is not valid.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticloadbalancing-2012-06-01/CreateLBCookieStickinessPolicy
@@ -561,42 +561,43 @@ func (c *ELB) CreateLoadBalancerRequest(input *CreateLoadBalancerInput) (req *re
 // API operation CreateLoadBalancer for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeDuplicateAccessPointNameException "DuplicateLoadBalancerName"
+//   * DuplicateLoadBalancerName
 //   The specified load balancer name already exists for this account.
 //
-//   * ErrCodeTooManyAccessPointsException "TooManyLoadBalancers"
+//   * TooManyLoadBalancers
 //   The quota for the number of load balancers has been reached.
 //
-//   * ErrCodeCertificateNotFoundException "CertificateNotFound"
+//   * CertificateNotFound
 //   The specified ARN does not refer to a valid SSL certificate in AWS Identity
 //   and Access Management (IAM) or AWS Certificate Manager (ACM). Note that if
 //   you recently uploaded the certificate to IAM, this error might indicate that
 //   the certificate is not fully available yet.
 //
-//   * ErrCodeInvalidConfigurationRequestException "InvalidConfigurationRequest"
+//   * InvalidConfigurationRequest
 //   The requested configuration change is not valid.
 //
-//   * ErrCodeSubnetNotFoundException "SubnetNotFound"
+//   * SubnetNotFound
 //   One or more of the specified subnets do not exist.
 //
-//   * ErrCodeInvalidSubnetException "InvalidSubnet"
+//   * InvalidSubnet
 //   The specified VPC has no associated Internet gateway.
 //
-//   * ErrCodeInvalidSecurityGroupException "InvalidSecurityGroup"
+//   * InvalidSecurityGroup
 //   One or more of the specified security groups do not exist.
 //
-//   * ErrCodeInvalidSchemeException "InvalidScheme"
+//   * InvalidScheme
 //   The specified value for the schema is not valid. You can only specify a scheme
 //   for load balancers in a VPC.
 //
-//   * ErrCodeTooManyTagsException "TooManyTags"
+//   * TooManyTags
 //   The quota for the number of tags that can be assigned to a load balancer
 //   has been reached.
 //
-//   * ErrCodeDuplicateTagKeysException "DuplicateTagKeys"
+//   * DuplicateTagKeys
 //   A tag key was specified more than once.
 //
-//   * ErrCodeUnsupportedProtocolException "UnsupportedProtocol"
+//   * UnsupportedProtocol
+
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticloadbalancing-2012-06-01/CreateLoadBalancer
 func (c *ELB) CreateLoadBalancer(input *CreateLoadBalancerInput) (*CreateLoadBalancerOutput, error) {
@@ -666,23 +667,24 @@ func (c *ELB) CreateLoadBalancerListenersRequest(input *CreateLoadBalancerListen
 // API operation CreateLoadBalancerListeners for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeAccessPointNotFoundException "LoadBalancerNotFound"
+//   * LoadBalancerNotFound
 //   The specified load balancer does not exist.
 //
-//   * ErrCodeDuplicateListenerException "DuplicateListener"
+//   * DuplicateListener
 //   A listener already exists for the specified load balancer name and port,
 //   but with a different instance port, protocol, or SSL certificate.
 //
-//   * ErrCodeCertificateNotFoundException "CertificateNotFound"
+//   * CertificateNotFound
 //   The specified ARN does not refer to a valid SSL certificate in AWS Identity
 //   and Access Management (IAM) or AWS Certificate Manager (ACM). Note that if
 //   you recently uploaded the certificate to IAM, this error might indicate that
 //   the certificate is not fully available yet.
 //
-//   * ErrCodeInvalidConfigurationRequestException "InvalidConfigurationRequest"
+//   * InvalidConfigurationRequest
 //   The requested configuration change is not valid.
 //
-//   * ErrCodeUnsupportedProtocolException "UnsupportedProtocol"
+//   * UnsupportedProtocol
+
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticloadbalancing-2012-06-01/CreateLoadBalancerListeners
 func (c *ELB) CreateLoadBalancerListeners(input *CreateLoadBalancerListenersInput) (*CreateLoadBalancerListenersOutput, error) {
@@ -750,19 +752,19 @@ func (c *ELB) CreateLoadBalancerPolicyRequest(input *CreateLoadBalancerPolicyInp
 // API operation CreateLoadBalancerPolicy for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeAccessPointNotFoundException "LoadBalancerNotFound"
+//   * LoadBalancerNotFound
 //   The specified load balancer does not exist.
 //
-//   * ErrCodePolicyTypeNotFoundException "PolicyTypeNotFound"
+//   * PolicyTypeNotFound
 //   One or more of the specified policy types do not exist.
 //
-//   * ErrCodeDuplicatePolicyNameException "DuplicatePolicyName"
+//   * DuplicatePolicyName
 //   A policy with the specified name already exists for this load balancer.
 //
-//   * ErrCodeTooManyPoliciesException "TooManyPolicies"
+//   * TooManyPolicies
 //   The quota for the number of policies for this load balancer has been reached.
 //
-//   * ErrCodeInvalidConfigurationRequestException "InvalidConfigurationRequest"
+//   * InvalidConfigurationRequest
 //   The requested configuration change is not valid.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticloadbalancing-2012-06-01/CreateLoadBalancerPolicy
@@ -896,7 +898,7 @@ func (c *ELB) DeleteLoadBalancerListenersRequest(input *DeleteLoadBalancerListen
 // API operation DeleteLoadBalancerListeners for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeAccessPointNotFoundException "LoadBalancerNotFound"
+//   * LoadBalancerNotFound
 //   The specified load balancer does not exist.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticloadbalancing-2012-06-01/DeleteLoadBalancerListeners
@@ -962,10 +964,10 @@ func (c *ELB) DeleteLoadBalancerPolicyRequest(input *DeleteLoadBalancerPolicyInp
 // API operation DeleteLoadBalancerPolicy for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeAccessPointNotFoundException "LoadBalancerNotFound"
+//   * LoadBalancerNotFound
 //   The specified load balancer does not exist.
 //
-//   * ErrCodeInvalidConfigurationRequestException "InvalidConfigurationRequest"
+//   * InvalidConfigurationRequest
 //   The requested configuration change is not valid.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticloadbalancing-2012-06-01/DeleteLoadBalancerPolicy
@@ -1038,10 +1040,10 @@ func (c *ELB) DeregisterInstancesFromLoadBalancerRequest(input *DeregisterInstan
 // API operation DeregisterInstancesFromLoadBalancer for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeAccessPointNotFoundException "LoadBalancerNotFound"
+//   * LoadBalancerNotFound
 //   The specified load balancer does not exist.
 //
-//   * ErrCodeInvalidEndPointException "InvalidInstance"
+//   * InvalidInstance
 //   The specified endpoint is not valid.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticloadbalancing-2012-06-01/DeregisterInstancesFromLoadBalancer
@@ -1111,10 +1113,10 @@ func (c *ELB) DescribeInstanceHealthRequest(input *DescribeInstanceHealthInput) 
 // API operation DescribeInstanceHealth for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeAccessPointNotFoundException "LoadBalancerNotFound"
+//   * LoadBalancerNotFound
 //   The specified load balancer does not exist.
 //
-//   * ErrCodeInvalidEndPointException "InvalidInstance"
+//   * InvalidInstance
 //   The specified endpoint is not valid.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticloadbalancing-2012-06-01/DescribeInstanceHealth
@@ -1179,10 +1181,10 @@ func (c *ELB) DescribeLoadBalancerAttributesRequest(input *DescribeLoadBalancerA
 // API operation DescribeLoadBalancerAttributes for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeAccessPointNotFoundException "LoadBalancerNotFound"
+//   * LoadBalancerNotFound
 //   The specified load balancer does not exist.
 //
-//   * ErrCodeLoadBalancerAttributeNotFoundException "LoadBalancerAttributeNotFound"
+//   * LoadBalancerAttributeNotFound
 //   The specified load balancer attribute does not exist.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticloadbalancing-2012-06-01/DescribeLoadBalancerAttributes
@@ -1254,10 +1256,10 @@ func (c *ELB) DescribeLoadBalancerPoliciesRequest(input *DescribeLoadBalancerPol
 // API operation DescribeLoadBalancerPolicies for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeAccessPointNotFoundException "LoadBalancerNotFound"
+//   * LoadBalancerNotFound
 //   The specified load balancer does not exist.
 //
-//   * ErrCodePolicyNotFoundException "PolicyNotFound"
+//   * PolicyNotFound
 //   One or more of the specified policies do not exist.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticloadbalancing-2012-06-01/DescribeLoadBalancerPolicies
@@ -1333,7 +1335,7 @@ func (c *ELB) DescribeLoadBalancerPolicyTypesRequest(input *DescribeLoadBalancer
 // API operation DescribeLoadBalancerPolicyTypes for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodePolicyTypeNotFoundException "PolicyTypeNotFound"
+//   * PolicyTypeNotFound
 //   One or more of the specified policy types do not exist.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticloadbalancing-2012-06-01/DescribeLoadBalancerPolicyTypes
@@ -1405,10 +1407,11 @@ func (c *ELB) DescribeLoadBalancersRequest(input *DescribeLoadBalancersInput) (r
 // API operation DescribeLoadBalancers for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeAccessPointNotFoundException "LoadBalancerNotFound"
+//   * LoadBalancerNotFound
 //   The specified load balancer does not exist.
 //
-//   * ErrCodeDependencyThrottleException "DependencyThrottle"
+//   * DependencyThrottle
+
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticloadbalancing-2012-06-01/DescribeLoadBalancers
 func (c *ELB) DescribeLoadBalancers(input *DescribeLoadBalancersInput) (*DescribeLoadBalancersOutput, error) {
@@ -1497,7 +1500,7 @@ func (c *ELB) DescribeTagsRequest(input *DescribeTagsInput) (req *request.Reques
 // API operation DescribeTags for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeAccessPointNotFoundException "LoadBalancerNotFound"
+//   * LoadBalancerNotFound
 //   The specified load balancer does not exist.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticloadbalancing-2012-06-01/DescribeTags
@@ -1567,10 +1570,10 @@ func (c *ELB) DetachLoadBalancerFromSubnetsRequest(input *DetachLoadBalancerFrom
 // API operation DetachLoadBalancerFromSubnets for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeAccessPointNotFoundException "LoadBalancerNotFound"
+//   * LoadBalancerNotFound
 //   The specified load balancer does not exist.
 //
-//   * ErrCodeInvalidConfigurationRequestException "InvalidConfigurationRequest"
+//   * InvalidConfigurationRequest
 //   The requested configuration change is not valid.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticloadbalancing-2012-06-01/DetachLoadBalancerFromSubnets
@@ -1645,10 +1648,10 @@ func (c *ELB) DisableAvailabilityZonesForLoadBalancerRequest(input *DisableAvail
 // API operation DisableAvailabilityZonesForLoadBalancer for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeAccessPointNotFoundException "LoadBalancerNotFound"
+//   * LoadBalancerNotFound
 //   The specified load balancer does not exist.
 //
-//   * ErrCodeInvalidConfigurationRequestException "InvalidConfigurationRequest"
+//   * InvalidConfigurationRequest
 //   The requested configuration change is not valid.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticloadbalancing-2012-06-01/DisableAvailabilityZonesForLoadBalancer
@@ -1720,7 +1723,7 @@ func (c *ELB) EnableAvailabilityZonesForLoadBalancerRequest(input *EnableAvailab
 // API operation EnableAvailabilityZonesForLoadBalancer for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeAccessPointNotFoundException "LoadBalancerNotFound"
+//   * LoadBalancerNotFound
 //   The specified load balancer does not exist.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticloadbalancing-2012-06-01/EnableAvailabilityZonesForLoadBalancer
@@ -1800,13 +1803,13 @@ func (c *ELB) ModifyLoadBalancerAttributesRequest(input *ModifyLoadBalancerAttri
 // API operation ModifyLoadBalancerAttributes for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeAccessPointNotFoundException "LoadBalancerNotFound"
+//   * LoadBalancerNotFound
 //   The specified load balancer does not exist.
 //
-//   * ErrCodeLoadBalancerAttributeNotFoundException "LoadBalancerAttributeNotFound"
+//   * LoadBalancerAttributeNotFound
 //   The specified load balancer attribute does not exist.
 //
-//   * ErrCodeInvalidConfigurationRequestException "InvalidConfigurationRequest"
+//   * InvalidConfigurationRequest
 //   The requested configuration change is not valid.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticloadbalancing-2012-06-01/ModifyLoadBalancerAttributes
@@ -1893,10 +1896,10 @@ func (c *ELB) RegisterInstancesWithLoadBalancerRequest(input *RegisterInstancesW
 // API operation RegisterInstancesWithLoadBalancer for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeAccessPointNotFoundException "LoadBalancerNotFound"
+//   * LoadBalancerNotFound
 //   The specified load balancer does not exist.
 //
-//   * ErrCodeInvalidEndPointException "InvalidInstance"
+//   * InvalidInstance
 //   The specified endpoint is not valid.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticloadbalancing-2012-06-01/RegisterInstancesWithLoadBalancer
@@ -1961,7 +1964,7 @@ func (c *ELB) RemoveTagsRequest(input *RemoveTagsInput) (req *request.Request, o
 // API operation RemoveTags for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeAccessPointNotFoundException "LoadBalancerNotFound"
+//   * LoadBalancerNotFound
 //   The specified load balancer does not exist.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticloadbalancing-2012-06-01/RemoveTags
@@ -2032,22 +2035,23 @@ func (c *ELB) SetLoadBalancerListenerSSLCertificateRequest(input *SetLoadBalance
 // API operation SetLoadBalancerListenerSSLCertificate for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeCertificateNotFoundException "CertificateNotFound"
+//   * CertificateNotFound
 //   The specified ARN does not refer to a valid SSL certificate in AWS Identity
 //   and Access Management (IAM) or AWS Certificate Manager (ACM). Note that if
 //   you recently uploaded the certificate to IAM, this error might indicate that
 //   the certificate is not fully available yet.
 //
-//   * ErrCodeAccessPointNotFoundException "LoadBalancerNotFound"
+//   * LoadBalancerNotFound
 //   The specified load balancer does not exist.
 //
-//   * ErrCodeListenerNotFoundException "ListenerNotFound"
+//   * ListenerNotFound
 //   The load balancer does not have a listener configured at the specified port.
 //
-//   * ErrCodeInvalidConfigurationRequestException "InvalidConfigurationRequest"
+//   * InvalidConfigurationRequest
 //   The requested configuration change is not valid.
 //
-//   * ErrCodeUnsupportedProtocolException "UnsupportedProtocol"
+//   * UnsupportedProtocol
+
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticloadbalancing-2012-06-01/SetLoadBalancerListenerSSLCertificate
 func (c *ELB) SetLoadBalancerListenerSSLCertificate(input *SetLoadBalancerListenerSSLCertificateInput) (*SetLoadBalancerListenerSSLCertificateOutput, error) {
@@ -2126,13 +2130,13 @@ func (c *ELB) SetLoadBalancerPoliciesForBackendServerRequest(input *SetLoadBalan
 // API operation SetLoadBalancerPoliciesForBackendServer for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeAccessPointNotFoundException "LoadBalancerNotFound"
+//   * LoadBalancerNotFound
 //   The specified load balancer does not exist.
 //
-//   * ErrCodePolicyNotFoundException "PolicyNotFound"
+//   * PolicyNotFound
 //   One or more of the specified policies do not exist.
 //
-//   * ErrCodeInvalidConfigurationRequestException "InvalidConfigurationRequest"
+//   * InvalidConfigurationRequest
 //   The requested configuration change is not valid.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticloadbalancing-2012-06-01/SetLoadBalancerPoliciesForBackendServer
@@ -2206,16 +2210,16 @@ func (c *ELB) SetLoadBalancerPoliciesOfListenerRequest(input *SetLoadBalancerPol
 // API operation SetLoadBalancerPoliciesOfListener for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeAccessPointNotFoundException "LoadBalancerNotFound"
+//   * LoadBalancerNotFound
 //   The specified load balancer does not exist.
 //
-//   * ErrCodePolicyNotFoundException "PolicyNotFound"
+//   * PolicyNotFound
 //   One or more of the specified policies do not exist.
 //
-//   * ErrCodeListenerNotFoundException "ListenerNotFound"
+//   * ListenerNotFound
 //   The load balancer does not have a listener configured at the specified port.
 //
-//   * ErrCodeInvalidConfigurationRequestException "InvalidConfigurationRequest"
+//   * InvalidConfigurationRequest
 //   The requested configuration change is not valid.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticloadbalancing-2012-06-01/SetLoadBalancerPoliciesOfListener

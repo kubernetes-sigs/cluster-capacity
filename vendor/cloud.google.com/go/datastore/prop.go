@@ -18,9 +18,8 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 	"unicode"
-
-	"cloud.google.com/go/internal/fields"
 )
 
 // Entities with more than this many indexed properties will not be saved.
@@ -129,107 +128,164 @@ func validPropertyName(name string) bool {
 	return true
 }
 
-// parseTag interprets datastore struct field tags
-func parseTag(t reflect.StructTag) (name string, keep bool, other interface{}, err error) {
-	s := t.Get("datastore")
-	parts := strings.Split(s, ",")
-	if parts[0] == "-" && len(parts) == 1 {
-		return "", false, nil, nil
-	}
-	if parts[0] != "" && !validPropertyName(parts[0]) {
-		err = fmt.Errorf("datastore: struct tag has invalid property name: %q", parts[0])
-		return "", false, nil, err
-	}
-
-	var opts saveOpts
-	if len(parts) > 1 {
-		for _, p := range parts[1:] {
-			switch p {
-			case "flatten":
-				opts.flatten = true
-			case "omitempty":
-				opts.omitEmpty = true
-			case "noindex":
-				opts.noIndex = true
-			default:
-				err = fmt.Errorf("datastore: struct tag has invalid option: %q", p)
-				return "", false, nil, err
-			}
-		}
-		other = opts
-	}
-	return parts[0], true, other, nil
+// structCodec describes how to convert a struct to and from a sequence of
+// properties.
+type structCodec struct {
+	// fields gives the field codec for the structTag with the given name.
+	fields map[string]fieldCodec
+	// hasSlice is whether a struct or any of its nested or embedded structs
+	// has a slice-typed field (other than []byte).
+	hasSlice bool
+	// keyField is the index of a *Key field with structTag __key__.
+	// This field is not relevant for the top level struct, only for
+	// nested structs.
+	keyField int
+	// complete is whether the structCodec is complete. An incomplete
+	// structCodec may be encountered when walking a recursive struct.
+	complete bool
 }
 
-func validateType(t reflect.Type) error {
-	if t.Kind() != reflect.Struct {
-		return fmt.Errorf("datastore: validate called with non-struct type %s", t)
-	}
-
-	return validateChildType(t, "", false, false, map[reflect.Type]bool{})
+// fieldCodec is a struct field's index and, if that struct field's type is
+// itself a struct, that substruct's structCodec.
+type fieldCodec struct {
+	// path is the index path to the field
+	path    []int
+	noIndex bool
+	// structCodec is the codec fot the struct field at index 'path',
+	// or nil if the field is not a struct.
+	structCodec *structCodec
 }
 
-// validateChildType is a recursion helper func for validateType
-func validateChildType(t reflect.Type, fieldName string, flatten, prevSlice bool, prevTypes map[reflect.Type]bool) error {
-	if prevTypes[t] {
-		return nil
+// structCodecs collects the structCodecs that have already been calculated.
+var (
+	structCodecsMutex sync.Mutex
+	structCodecs      = make(map[reflect.Type]*structCodec)
+)
+
+// getStructCodec returns the structCodec for the given struct type.
+func getStructCodec(t reflect.Type) (*structCodec, error) {
+	structCodecsMutex.Lock()
+	defer structCodecsMutex.Unlock()
+	return getStructCodecLocked(t)
+}
+
+// getStructCodecLocked implements getStructCodec. The structCodecsMutex must
+// be held when calling this function.
+func getStructCodecLocked(t reflect.Type) (ret *structCodec, retErr error) {
+	c, ok := structCodecs[t]
+	if ok {
+		return c, nil
 	}
-	prevTypes[t] = true
+	c = &structCodec{
+		fields: make(map[string]fieldCodec),
+		// We initialize keyField to -1 so that the zero-value is not
+		// misinterpreted as index 0.
+		keyField: -1,
+	}
 
-	switch t.Kind() {
-	case reflect.Slice:
-		if flatten && prevSlice {
-			return fmt.Errorf("datastore: flattening nested structs leads to a slice of slices: field %q", fieldName)
+	// Add c to the structCodecs map before we are sure it is good. If t is
+	// a recursive type, it needs to find the incomplete entry for itself in
+	// the map.
+	structCodecs[t] = c
+	defer func() {
+		if retErr != nil {
+			delete(structCodecs, t)
 		}
-		return validateChildType(t.Elem(), fieldName, flatten, true, prevTypes)
-	case reflect.Struct:
-		if t == typeOfTime || t == typeOfGeoPoint {
-			return nil
+	}()
+
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		// Skip unexported fields.
+		// Note that if f is an anonymous, unexported struct field,
+		// we will not promote its fields. We will skip f entirely.
+		if f.PkgPath != "" {
+			continue
 		}
 
-		for i := 0; i < t.NumField(); i++ {
-			f := t.Field(i)
-
-			// If a named field is unexported, ignore it. An anonymous
-			// unexported field is processed, because it may contain
-			// exported fields, which are visible.
-			exported := (f.PkgPath == "")
-			if !exported && !f.Anonymous {
-				continue
+		name, opts := f.Tag.Get("datastore"), ""
+		if i := strings.Index(name, ","); i != -1 {
+			name, opts = name[:i], name[i+1:]
+		}
+		switch {
+		case name == "":
+			if !f.Anonymous {
+				name = f.Name
 			}
+		case name == "-":
+			continue
+		case name == "__key__":
+			if f.Type != typeOfKeyPtr {
+				return nil, fmt.Errorf("datastore: __key__ field on struct %v is not a *datastore.Key", t)
+			}
+			c.keyField = i
+			continue
+		case !validPropertyName(name):
+			return nil, fmt.Errorf("datastore: struct tag has invalid property name: %q", name)
+		}
 
-			_, keep, other, err := parseTag(f.Tag)
-			// Handle error from parseTag now instead of later (in cache.Fields call).
+		substructType, fIsSlice := reflect.Type(nil), false
+		switch f.Type.Kind() {
+		case reflect.Struct:
+			substructType = f.Type
+		case reflect.Slice:
+			if f.Type.Elem().Kind() == reflect.Struct {
+				substructType = f.Type.Elem()
+			}
+			fIsSlice = f.Type != typeOfByteSlice
+			c.hasSlice = c.hasSlice || fIsSlice
+		}
+
+		var sub *structCodec
+		if substructType != nil && substructType != typeOfTime && substructType != typeOfGeoPoint {
+			var err error
+			sub, err = getStructCodecLocked(substructType)
 			if err != nil {
-				return err
+				return nil, err
 			}
-			if !keep {
+			if !sub.complete {
+				return nil, fmt.Errorf("datastore: recursive struct: field %q", f.Name)
+			}
+			if fIsSlice && sub.hasSlice {
+				return nil, fmt.Errorf(
+					"datastore: flattening nested structs leads to a slice of slices: field %q", f.Name)
+			}
+			c.hasSlice = c.hasSlice || sub.hasSlice
+
+			// If name is empty at this point, f is an anonymous struct field.
+			// In this case, we promote the substruct's fields up to this level
+			// in the linked list of struct codecs.
+			if name == "" {
+				for subname, subfield := range sub.fields {
+					if _, ok := c.fields[subname]; ok {
+						return nil, fmt.Errorf("datastore: struct tag has repeated property name: %q", subname)
+					}
+					c.fields[subname] = fieldCodec{
+						path:        append([]int{i}, subfield.path...),
+						noIndex:     subfield.noIndex || opts == "noindex",
+						structCodec: subfield.structCodec,
+					}
+				}
 				continue
 			}
-			if other != nil {
-				opts := other.(saveOpts)
-				flatten = flatten || opts.flatten
-			}
-			if err := validateChildType(f.Type, f.Name, flatten, prevSlice, prevTypes); err != nil {
-				return err
-			}
 		}
-	case reflect.Ptr:
-		if t == typeOfKeyPtr {
-			return nil
-		}
-		return validateChildType(t.Elem(), fieldName, flatten, prevSlice, prevTypes)
-	}
-	return nil
-}
 
-// structCache collects the structs whose fields have already been calculated.
-var structCache = fields.NewCache(parseTag, validateType)
+		if _, ok := c.fields[name]; ok {
+			return nil, fmt.Errorf("datastore: struct tag has repeated property name: %q", name)
+		}
+		c.fields[name] = fieldCodec{
+			path:        []int{i},
+			noIndex:     opts == "noindex",
+			structCodec: sub,
+		}
+	}
+	c.complete = true
+	return c, nil
+}
 
 // structPLS adapts a struct to be a PropertyLoadSaver.
 type structPLS struct {
 	v     reflect.Value
-	codec fields.List
+	codec *structCodec
 }
 
 // newStructPLS returns a structPLS, which implements the
@@ -240,11 +296,11 @@ func newStructPLS(p interface{}) (*structPLS, error) {
 		return nil, ErrInvalidEntityType
 	}
 	v = v.Elem()
-	f, err := structCache.Fields(v.Type())
+	codec, err := getStructCodec(v.Type())
 	if err != nil {
 		return nil, err
 	}
-	return &structPLS{v, f}, nil
+	return &structPLS{v, codec}, nil
 }
 
 // LoadStruct loads the properties from p to dst.

@@ -16,10 +16,7 @@ package trace
 
 import (
 	"encoding/json"
-	"errors"
-	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"net/http"
 	"reflect"
 	"strings"
@@ -27,16 +24,11 @@ import (
 	"testing"
 	"time"
 
-	"cloud.google.com/go/datastore"
-	"cloud.google.com/go/internal/testutil"
 	"cloud.google.com/go/storage"
 	"golang.org/x/net/context"
 	api "google.golang.org/api/cloudtrace/v1"
 	compute "google.golang.org/api/compute/v1"
-	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
-	dspb "google.golang.org/genproto/googleapis/datastore/v1"
-	"google.golang.org/grpc"
 )
 
 const testProjectID = "testproject"
@@ -65,18 +57,6 @@ func newTestClient(rt http.RoundTripper) *Client {
 		panic(err)
 	}
 	return t
-}
-
-type fakeDatastoreServer struct {
-	dspb.DatastoreServer
-	fail bool
-}
-
-func (f *fakeDatastoreServer) Lookup(ctx context.Context, req *dspb.LookupRequest) (*dspb.LookupResponse, error) {
-	if f.fail {
-		return nil, errors.New("failed!")
-	}
-	return &dspb.LookupResponse{}, nil
 }
 
 // makeRequests makes some requests.
@@ -127,35 +107,14 @@ func makeRequests(t *testing.T, req *http.Request, traceClient *Client, rt *fake
 		it := storageClient.Bucket("testbucket").Objects(ctx, nil)
 		for {
 			objAttrs, err := it.Next()
-			if err != nil && err != iterator.Done {
+			if err != nil && err != storage.Done {
 				t.Fatal(err)
 			}
-			if err == iterator.Done {
+			if err == storage.Done {
 				break
 			}
 			objAttrsList = append(objAttrsList, objAttrs)
 		}
-	}
-
-	// A cloud library call that uses grpc internally.
-	for _, fail := range []bool{false, true} {
-		srv, err := testutil.NewServer()
-		if err != nil {
-			t.Fatalf("creating test datastore server: %v", err)
-		}
-		dspb.RegisterDatastoreServer(srv.Gsrv, &fakeDatastoreServer{fail: fail})
-		srv.Start()
-		conn, err := grpc.Dial(srv.Addr, grpc.WithInsecure(), EnableGRPCTracingDialOption)
-		if err != nil {
-			t.Fatalf("connecting to test datastore server: %v", err)
-		}
-		datastoreClient, err := datastore.NewClient(ctx, testProjectID, option.WithGRPCConn(conn))
-		if err != nil {
-			t.Fatalf("creating datastore client: %v", err)
-		}
-		k := datastore.NameKey("Entity", "stringID", nil)
-		e := new(datastore.Entity)
-		datastoreClient.Get(ctx, k, e)
 	}
 
 	done := make(chan struct{})
@@ -195,7 +154,6 @@ func makeRequests(t *testing.T, req *http.Request, traceClient *Client, rt *fake
 }
 
 func TestTrace(t *testing.T) {
-	t.Parallel()
 	testTrace(t, false)
 }
 
@@ -253,16 +211,6 @@ func testTrace(t *testing.T, synchronous bool) {
 							"trace.cloud.google.com/http/url":         "https://www.googleapis.com/storage/v1/b/testbucket/o",
 						},
 						Name: "/storage/v1/b/testbucket/o",
-					},
-					&api.TraceSpan{
-						Kind:   "RPC_CLIENT",
-						Labels: nil,
-						Name:   "/google.datastore.v1.Datastore/Lookup",
-					},
-					&api.TraceSpan{
-						Kind:   "RPC_CLIENT",
-						Labels: map[string]string{"error": "rpc error: code = 2 desc = failed!"},
-						Name:   "/google.datastore.v1.Datastore/Lookup",
 					},
 					{
 						Kind: "RPC_SERVER",
@@ -411,7 +359,7 @@ func TestSample(t *testing.T) {
 		sampled := 0
 		tm := time.Now()
 		for i := 0; i < 80; i++ {
-			if s.sample(Parameters{}, tm, float64(i%2)).Sample {
+			if ok, _, _ := s.sample(tm, float64(i%2)); ok {
 				sampled++
 			}
 			tm = tm.Add(delta)
@@ -423,7 +371,6 @@ func TestSample(t *testing.T) {
 }
 
 func TestSampling(t *testing.T) {
-	t.Parallel()
 	// This scope tests sampling in a larger context, with real time and randomness.
 	wg := sync.WaitGroup{}
 	type testCase struct {
@@ -441,7 +388,6 @@ func TestSampling(t *testing.T) {
 		go func(test testCase) {
 			rt := newFakeRoundTripper()
 			traceClient := newTestClient(rt)
-			traceClient.bundler.BundleByteLimit = 1
 			p, err := NewLimitedSampler(test.rate, test.maxqps)
 			if err != nil {
 				t.Fatalf("NewLimitedSampler: %v", err)
@@ -471,201 +417,4 @@ func TestSampling(t *testing.T) {
 		}(test)
 	}
 	wg.Wait()
-}
-
-func TestBundling(t *testing.T) {
-	t.Parallel()
-	rt := newFakeRoundTripper()
-	traceClient := newTestClient(rt)
-	traceClient.bundler.DelayThreshold = time.Second / 2
-	traceClient.bundler.BundleCountThreshold = 10
-	p, err := NewLimitedSampler(1, 99) // sample every request.
-	if err != nil {
-		t.Fatalf("NewLimitedSampler: %v", err)
-	}
-	traceClient.SetSamplingPolicy(p)
-
-	for i := 0; i < 35; i++ {
-		go func() {
-			req, err := http.NewRequest("GET", "http://example.com/foo", nil)
-			if err != nil {
-				t.Fatal(err)
-			}
-			span := traceClient.SpanFromRequest(req)
-			span.Finish()
-		}()
-	}
-
-	// Read the first three bundles.
-	<-rt.reqc
-	<-rt.reqc
-	<-rt.reqc
-
-	// Test that the fourth bundle isn't sent early.
-	select {
-	case <-rt.reqc:
-		t.Errorf("bundle sent too early")
-	case <-time.After(time.Second / 4):
-		<-rt.reqc
-	}
-
-	// Test that there aren't extra bundles.
-	select {
-	case <-rt.reqc:
-		t.Errorf("too many bundles sent")
-	case <-time.After(time.Second):
-	}
-}
-
-func TestWeights(t *testing.T) {
-	const (
-		expectedNumTraced   = 10100
-		numTracedEpsilon    = 100
-		expectedTotalWeight = 50000
-		totalWeightEpsilon  = 5000
-	)
-	rng := rand.New(rand.NewSource(1))
-	const delta = 2 * time.Millisecond
-	for _, headerRate := range []float64{0.0, 0.5, 1.0} {
-		// Simulate 10 seconds of requests arriving at 500qps.
-		//
-		// The sampling policy tries to sample 25% of them, but has a qps limit of
-		// 100, so it will not be able to.  The returned weight should be higher
-		// for some sampled requests to compensate.
-		//
-		// headerRate is the fraction of incoming requests that have a trace header
-		// set.  The qps limit should not be exceeded, even if headerRate is high.
-		sp, err := NewLimitedSampler(0.25, 100)
-		if err != nil {
-			t.Fatal(err)
-		}
-		s := sp.(*sampler)
-		tm := time.Now()
-		totalWeight := 0.0
-		numTraced := 0
-		seenLargeWeight := false
-		for i := 0; i < 50000; i++ {
-			d := s.sample(Parameters{HasTraceHeader: rng.Float64() < headerRate}, tm, rng.Float64())
-			if d.Trace {
-				numTraced++
-			}
-			if d.Sample {
-				totalWeight += d.Weight
-				if x := int(d.Weight) / 4; x <= 0 || x >= 100 || d.Weight != float64(x)*4.0 {
-					t.Errorf("weight: got %f, want a small positive multiple of 4", d.Weight)
-				}
-				if d.Weight > 4 {
-					seenLargeWeight = true
-				}
-			}
-			tm = tm.Add(delta)
-		}
-		if !seenLargeWeight {
-			t.Errorf("headerRate %f: never saw sample weight higher than 4.", headerRate)
-		}
-		if numTraced < expectedNumTraced-numTracedEpsilon || expectedNumTraced+numTracedEpsilon < numTraced {
-			t.Errorf("headerRate %f: got %d traced requests, want ∈ [%d, %d]", headerRate, numTraced, expectedNumTraced-numTracedEpsilon, expectedNumTraced+numTracedEpsilon)
-		}
-		if totalWeight < expectedTotalWeight-totalWeightEpsilon || expectedTotalWeight+totalWeightEpsilon < totalWeight {
-			t.Errorf("headerRate %f: got total weight %f want ∈ [%d, %d]", headerRate, totalWeight, expectedTotalWeight-totalWeightEpsilon, expectedTotalWeight+totalWeightEpsilon)
-		}
-	}
-}
-
-type alwaysTrace struct{}
-
-func (a alwaysTrace) Sample(p Parameters) Decision {
-	return Decision{Trace: true}
-}
-
-type neverTrace struct{}
-
-func (a neverTrace) Sample(p Parameters) Decision {
-	return Decision{Trace: false}
-}
-
-func TestPropagation(t *testing.T) {
-	rt := newFakeRoundTripper()
-	traceClient := newTestClient(rt)
-	for _, header := range []string{
-		`0123456789ABCDEF0123456789ABCDEF/42;o=0`,
-		`0123456789ABCDEF0123456789ABCDEF/42;o=1`,
-		`0123456789ABCDEF0123456789ABCDEF/42;o=2`,
-		`0123456789ABCDEF0123456789ABCDEF/42;o=3`,
-		`0123456789ABCDEF0123456789ABCDEF/0;o=0`,
-		`0123456789ABCDEF0123456789ABCDEF/0;o=1`,
-		`0123456789ABCDEF0123456789ABCDEF/0;o=2`,
-		`0123456789ABCDEF0123456789ABCDEF/0;o=3`,
-		``,
-	} {
-		for _, policy := range []SamplingPolicy{
-			nil,
-			alwaysTrace{},
-			neverTrace{},
-		} {
-			traceClient.SetSamplingPolicy(policy)
-			req, err := http.NewRequest("GET", "http://example.com/foo", nil)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if header != "" {
-				req.Header["X-Cloud-Trace-Context"] = []string{header}
-			}
-
-			span := traceClient.SpanFromRequest(req)
-
-			req2, err := http.NewRequest("GET", "http://example.com/bar", nil)
-			if err != nil {
-				t.Fatal(err)
-			}
-			req3, err := http.NewRequest("GET", "http://example.com/baz", nil)
-			if err != nil {
-				t.Fatal(err)
-			}
-			span.NewRemoteChild(req2)
-			span.NewRemoteChild(req3)
-
-			var (
-				t1, t2, t3 string
-				s1, s2, s3 uint64
-				o1, o2, o3 uint64
-			)
-			fmt.Sscanf(header, "%32s/%d;o=%d", &t1, &s1, &o1)
-			fmt.Sscanf(req2.Header.Get("X-Cloud-Trace-Context"), "%32s/%d;o=%d", &t2, &s2, &o2)
-			fmt.Sscanf(req3.Header.Get("X-Cloud-Trace-Context"), "%32s/%d;o=%d", &t3, &s3, &o3)
-
-			if header == "" {
-				if t2 != t3 {
-					t.Errorf("expected the same trace ID in child requests, got %q %q", t2, t3)
-				}
-			} else {
-				if t2 != t1 || t3 != t1 {
-					t.Errorf("trace IDs should be passed to child requests")
-				}
-			}
-			trace := policy == alwaysTrace{} || policy == nil && (o1&1) != 0
-			if header == "" {
-				if trace && (s2 == 0 || s3 == 0) {
-					t.Errorf("got span IDs %d %d in child requests, want nonzero", s2, s3)
-				}
-				if trace && s2 == s3 {
-					t.Errorf("got span IDs %d %d in child requests, should be different", s2, s3)
-				}
-				if !trace && (s2 != 0 || s3 != 0) {
-					t.Errorf("got span IDs %d %d in child requests, want zero", s2, s3)
-				}
-			} else {
-				if trace && (s2 == s1 || s3 == s1 || s2 == s3) {
-					t.Errorf("parent span IDs in input and outputs should be all different, got %d %d %d", s1, s2, s3)
-				}
-				if !trace && (s2 != s1 || s3 != s1) {
-					t.Errorf("parent span ID in input, %d, should have been equal to parent span IDs in output: %d %d", s1, s2, s3)
-				}
-			}
-			expectTraceOption := policy == alwaysTrace{} || (o1&1) != 0
-			if expectTraceOption != ((o2&1) != 0) || expectTraceOption != ((o3&1) != 0) {
-				t.Errorf("tracing flag in child requests should be %t, got options %d %d", expectTraceOption, o2, o3)
-			}
-		}
-	}
 }

@@ -21,33 +21,28 @@ import (
 
 func TestWaitTime(t *testing.T) {
 	wt := NewTimeList()
-	ch1 := wt.Wait(1)
-	wt.Trigger(2)
+	ch1 := wt.Wait(time.Now())
+	t1 := time.Now()
+	wt.Trigger(t1)
 	select {
 	case <-ch1:
-	default:
+	case <-time.After(100 * time.Millisecond):
 		t.Fatalf("cannot receive from ch as expected")
 	}
 
-	ch2 := wt.Wait(4)
-	wt.Trigger(3)
+	ch2 := wt.Wait(time.Now())
+	t2 := time.Now()
+	wt.Trigger(t1)
 	select {
 	case <-ch2:
-		t.Fatalf("unexpected to receive from ch2")
-	default:
+		t.Fatalf("unexpected to receive from ch")
+	case <-time.After(10 * time.Millisecond):
 	}
-	wt.Trigger(4)
+	wt.Trigger(t2)
 	select {
 	case <-ch2:
-	default:
-		t.Fatalf("cannot receive from ch2 as expected")
-	}
-
-	select {
-	// wait on a triggered deadline
-	case <-wt.Wait(4):
-	default:
-		t.Fatalf("unexpected blocking when wait on triggered deadline")
+	case <-time.After(10 * time.Millisecond):
+		t.Fatalf("cannot receive from ch as expected")
 	}
 }
 
@@ -55,9 +50,11 @@ func TestWaitTestStress(t *testing.T) {
 	chs := make([]<-chan struct{}, 0)
 	wt := NewTimeList()
 	for i := 0; i < 10000; i++ {
-		chs = append(chs, wt.Wait(uint64(i)))
+		chs = append(chs, wt.Wait(time.Now()))
+		// sleep one nanosecond before waiting on the next event
+		time.Sleep(time.Nanosecond)
 	}
-	wt.Trigger(10000 + 1)
+	wt.Trigger(time.Now())
 
 	for _, ch := range chs {
 		select {
@@ -69,18 +66,20 @@ func TestWaitTestStress(t *testing.T) {
 }
 
 func BenchmarkWaitTime(b *testing.B) {
+	t := time.Now()
 	wt := NewTimeList()
 	for i := 0; i < b.N; i++ {
-		wt.Wait(1)
+		wt.Wait(t)
 	}
 }
 
 func BenchmarkTriggerAnd10KWaitTime(b *testing.B) {
 	for i := 0; i < b.N; i++ {
+		t := time.Now()
 		wt := NewTimeList()
 		for j := 0; j < 10000; j++ {
-			wt.Wait(uint64(j))
+			wt.Wait(t)
 		}
-		wt.Trigger(10000 + 1)
+		wt.Trigger(time.Now())
 	}
 }

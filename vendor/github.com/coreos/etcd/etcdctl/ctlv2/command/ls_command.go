@@ -54,7 +54,7 @@ func lsCommandFunc(c *cli.Context, ki client.KeysAPI) {
 	resp, err := ki.Get(ctx, key, &client.GetOptions{Sort: sort, Recursive: recursive, Quorum: quorum})
 	cancel()
 	if err != nil {
-		handleError(c, ExitServerError, err)
+		handleError(ExitServerError, err)
 	}
 
 	printLs(c, resp)

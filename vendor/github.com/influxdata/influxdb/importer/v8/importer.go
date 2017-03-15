@@ -1,4 +1,3 @@
-// Package v8 contains code for importing data from 0.8 instances of InfluxDB.
 package v8 // import "github.com/influxdata/influxdb/importer/v8"
 
 import (
@@ -7,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -18,17 +18,20 @@ const batchSize = 5000
 
 // Config is the config used to initialize a Importer importer
 type Config struct {
-	Path       string // Path to import data.
-	Version    string
-	Compressed bool // Whether import data is gzipped.
-	PPS        int  // points per second importer imports with.
-
-	client.Config
+	Username         string
+	Password         string
+	URL              url.URL
+	Precision        string
+	WriteConsistency string
+	Path             string
+	Version          string
+	Compressed       bool
+	PPS              int
 }
 
 // NewConfig returns an initialized *Config
-func NewConfig() Config {
-	return Config{Config: client.NewConfig()}
+func NewConfig() *Config {
+	return &Config{}
 }
 
 // Importer is the importer used for importing 0.8 data
@@ -36,7 +39,7 @@ type Importer struct {
 	client                *client.Client
 	database              string
 	retentionPolicy       string
-	config                Config
+	config                *Config
 	batch                 []string
 	totalInserts          int
 	failedInserts         int
@@ -47,8 +50,7 @@ type Importer struct {
 }
 
 // NewImporter will return an intialized Importer struct
-func NewImporter(config Config) *Importer {
-	config.UserAgent = fmt.Sprintf("influxDB importer/%s", config.Version)
+func NewImporter(config *Config) *Importer {
 	return &Importer{
 		config: config,
 		batch:  make([]string, 0, batchSize),
@@ -57,8 +59,13 @@ func NewImporter(config Config) *Importer {
 
 // Import processes the specified file in the Config and writes the data to the databases in chunks specified by batchSize
 func (i *Importer) Import() error {
-	// Create a client and try to connect.
-	cl, err := client.NewClient(i.config.Config)
+	// Create a client and try to connect
+	config := client.NewConfig()
+	config.URL = i.config.URL
+	config.Username = i.config.Username
+	config.Password = i.config.Password
+	config.UserAgent = fmt.Sprintf("influxDB importer/%s", i.config.Version)
+	cl, err := client.NewClient(config)
 	if err != nil {
 		return fmt.Errorf("could not create client %s", err)
 	}

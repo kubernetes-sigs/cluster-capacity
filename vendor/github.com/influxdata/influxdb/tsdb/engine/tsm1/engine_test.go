@@ -3,15 +3,11 @@ package tsm1_test
 import (
 	"archive/tar"
 	"bytes"
-	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -38,14 +34,14 @@ func TestEngine_LoadMetadataIndex(t *testing.T) {
 
 	// Load metadata index.
 	index := tsdb.NewDatabaseIndex("db")
-	if err := e.LoadMetadataIndex(1, index); err != nil {
+	if err := e.LoadMetadataIndex(nil, index); err != nil {
 		t.Fatal(err)
 	}
 
 	// Verify index is correct.
 	if m := index.Measurement("cpu"); m == nil {
 		t.Fatal("measurement not found")
-	} else if s := m.SeriesByID(1); s.Key != "cpu,host=A" || !reflect.DeepEqual(s.Tags, models.NewTags(map[string]string{"host": "A"})) {
+	} else if s := m.SeriesByID(1); s.Key != "cpu,host=A" || !reflect.DeepEqual(s.Tags, map[string]string{"host": "A"}) {
 		t.Fatalf("unexpected series: %q / %#v", s.Key, s.Tags)
 	}
 
@@ -61,14 +57,14 @@ func TestEngine_LoadMetadataIndex(t *testing.T) {
 
 	// Load metadata index.
 	index = tsdb.NewDatabaseIndex("db")
-	if err := e.LoadMetadataIndex(1, index); err != nil {
+	if err := e.LoadMetadataIndex(nil, index); err != nil {
 		t.Fatal(err)
 	}
 
 	// Verify index is correct.
 	if m := index.Measurement("cpu"); m == nil {
 		t.Fatal("measurement not found")
-	} else if s := m.SeriesByID(1); s.Key != "cpu,host=A" || !reflect.DeepEqual(s.Tags, models.NewTags(map[string]string{"host": "A"})) {
+	} else if s := m.SeriesByID(1); s.Key != "cpu,host=A" || !reflect.DeepEqual(s.Tags, map[string]string{"host": "A"}) {
 		t.Fatalf("unexpected series: %q / %#v", s.Key, s.Tags)
 	}
 
@@ -86,16 +82,16 @@ func TestEngine_LoadMetadataIndex(t *testing.T) {
 
 	// Load metadata index.
 	index = tsdb.NewDatabaseIndex("db")
-	if err := e.LoadMetadataIndex(1, index); err != nil {
+	if err := e.LoadMetadataIndex(nil, index); err != nil {
 		t.Fatal(err)
 	}
 
 	// Verify index is correct.
 	if m := index.Measurement("cpu"); m == nil {
 		t.Fatal("measurement not found")
-	} else if s := m.SeriesByID(1); s.Key != "cpu,host=A" || !reflect.DeepEqual(s.Tags, models.NewTags(map[string]string{"host": "A"})) {
+	} else if s := m.SeriesByID(1); s.Key != "cpu,host=A" || !reflect.DeepEqual(s.Tags, map[string]string{"host": "A"}) {
 		t.Fatalf("unexpected series: %q / %#v", s.Key, s.Tags)
-	} else if s := m.SeriesByID(2); s.Key != "cpu,host=B" || !reflect.DeepEqual(s.Tags, models.NewTags(map[string]string{"host": "B"})) {
+	} else if s := m.SeriesByID(2); s.Key != "cpu,host=B" || !reflect.DeepEqual(s.Tags, map[string]string{"host": "B"}) {
 		t.Fatalf("unexpected series: %q / %#v", s.Key, s.Tags)
 	}
 }
@@ -147,7 +143,7 @@ func TestEngine_Backup(t *testing.T) {
 	p3 := MustParsePointString("cpu,host=C value=1.3 3000000000")
 
 	// Write those points to the engine.
-	e := tsm1.NewEngine(1, f.Name(), walPath, tsdb.NewEngineOptions()).(*tsm1.Engine)
+	e := tsm1.NewEngine(f.Name(), walPath, tsdb.NewEngineOptions()).(*tsm1.Engine)
 
 	// mock the planner so compactions don't run during the test
 	e.CompactionPlan = &mockPlanner{}
@@ -223,9 +219,7 @@ func TestEngine_CreateIterator_Cache_Ascending(t *testing.T) {
 
 	e.Index().CreateMeasurementIndexIfNotExists("cpu")
 	e.MeasurementFields("cpu").CreateFieldIfNotExists("value", influxql.Float, false)
-	si := e.Index().CreateSeriesIndexIfNotExists("cpu", tsdb.NewSeries("cpu,host=A", models.NewTags(map[string]string{"host": "A"})))
-	si.AssignShard(1)
-
+	e.Index().CreateSeriesIndexIfNotExists("cpu", tsdb.NewSeries("cpu,host=A", map[string]string{"host": "A"}))
 	if err := e.WritePointsString(
 		`cpu,host=A value=1.1 1000000000`,
 		`cpu,host=A value=1.2 2000000000`,
@@ -234,9 +228,10 @@ func TestEngine_CreateIterator_Cache_Ascending(t *testing.T) {
 		t.Fatalf("failed to write points: %s", err.Error())
 	}
 
-	itr, err := e.CreateIterator("cpu", influxql.IteratorOptions{
+	itr, err := e.CreateIterator(influxql.IteratorOptions{
 		Expr:       influxql.MustParseExpr(`value`),
 		Dimensions: []string{"host"},
+		Sources:    []influxql.Source{&influxql.Measurement{Name: "cpu"}},
 		StartTime:  influxql.MinTime,
 		EndTime:    influxql.MaxTime,
 		Ascending:  true,
@@ -246,24 +241,16 @@ func TestEngine_CreateIterator_Cache_Ascending(t *testing.T) {
 	}
 	fitr := itr.(influxql.FloatIterator)
 
-	if p, err := fitr.Next(); err != nil {
-		t.Fatalf("unexpected error(0): %v", err)
-	} else if !reflect.DeepEqual(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=A"), Time: 1000000000, Value: 1.1}) {
+	if p := fitr.Next(); !reflect.DeepEqual(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=A"), Time: 1000000000, Value: 1.1}) {
 		t.Fatalf("unexpected point(0): %v", p)
 	}
-	if p, err := fitr.Next(); err != nil {
-		t.Fatalf("unexpected error(1): %v", err)
-	} else if !reflect.DeepEqual(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=A"), Time: 2000000000, Value: 1.2}) {
+	if p := fitr.Next(); !reflect.DeepEqual(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=A"), Time: 2000000000, Value: 1.2}) {
 		t.Fatalf("unexpected point(1): %v", p)
 	}
-	if p, err := fitr.Next(); err != nil {
-		t.Fatalf("unexpected error(2): %v", err)
-	} else if !reflect.DeepEqual(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=A"), Time: 3000000000, Value: 1.3}) {
+	if p := fitr.Next(); !reflect.DeepEqual(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=A"), Time: 3000000000, Value: 1.3}) {
 		t.Fatalf("unexpected point(2): %v", p)
 	}
-	if p, err := fitr.Next(); err != nil {
-		t.Fatalf("expected eof, got error: %v", err)
-	} else if p != nil {
+	if p := fitr.Next(); p != nil {
 		t.Fatalf("expected eof: %v", p)
 	}
 }
@@ -277,9 +264,7 @@ func TestEngine_CreateIterator_Cache_Descending(t *testing.T) {
 
 	e.Index().CreateMeasurementIndexIfNotExists("cpu")
 	e.MeasurementFields("cpu").CreateFieldIfNotExists("value", influxql.Float, false)
-	si := e.Index().CreateSeriesIndexIfNotExists("cpu", tsdb.NewSeries("cpu,host=A", models.NewTags(map[string]string{"host": "A"})))
-	si.AssignShard(1)
-
+	e.Index().CreateSeriesIndexIfNotExists("cpu", tsdb.NewSeries("cpu,host=A", map[string]string{"host": "A"}))
 	if err := e.WritePointsString(
 		`cpu,host=A value=1.1 1000000000`,
 		`cpu,host=A value=1.2 2000000000`,
@@ -288,9 +273,10 @@ func TestEngine_CreateIterator_Cache_Descending(t *testing.T) {
 		t.Fatalf("failed to write points: %s", err.Error())
 	}
 
-	itr, err := e.CreateIterator("cpu", influxql.IteratorOptions{
+	itr, err := e.CreateIterator(influxql.IteratorOptions{
 		Expr:       influxql.MustParseExpr(`value`),
 		Dimensions: []string{"host"},
+		Sources:    []influxql.Source{&influxql.Measurement{Name: "cpu"}},
 		StartTime:  influxql.MinTime,
 		EndTime:    influxql.MaxTime,
 		Ascending:  false,
@@ -300,24 +286,16 @@ func TestEngine_CreateIterator_Cache_Descending(t *testing.T) {
 	}
 	fitr := itr.(influxql.FloatIterator)
 
-	if p, err := fitr.Next(); err != nil {
-		t.Fatalf("unexpected error(0): %v", err)
-	} else if !reflect.DeepEqual(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=A"), Time: 3000000000, Value: 1.3}) {
+	if p := fitr.Next(); !reflect.DeepEqual(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=A"), Time: 3000000000, Value: 1.3}) {
 		t.Fatalf("unexpected point(0): %v", p)
 	}
-	if p, err := fitr.Next(); err != nil {
-		t.Fatalf("unepxected error(1): %v", err)
-	} else if !reflect.DeepEqual(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=A"), Time: 2000000000, Value: 1.2}) {
+	if p := fitr.Next(); !reflect.DeepEqual(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=A"), Time: 2000000000, Value: 1.2}) {
 		t.Fatalf("unexpected point(1): %v", p)
 	}
-	if p, err := fitr.Next(); err != nil {
-		t.Fatalf("unexpected error(2): %v", err)
-	} else if !reflect.DeepEqual(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=A"), Time: 1000000000, Value: 1.1}) {
+	if p := fitr.Next(); !reflect.DeepEqual(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=A"), Time: 1000000000, Value: 1.1}) {
 		t.Fatalf("unexpected point(2): %v", p)
 	}
-	if p, err := fitr.Next(); err != nil {
-		t.Fatalf("expected eof, got error: %v", err)
-	} else if p != nil {
+	if p := fitr.Next(); p != nil {
 		t.Fatalf("expected eof: %v", p)
 	}
 }
@@ -331,9 +309,7 @@ func TestEngine_CreateIterator_TSM_Ascending(t *testing.T) {
 
 	e.Index().CreateMeasurementIndexIfNotExists("cpu")
 	e.MeasurementFields("cpu").CreateFieldIfNotExists("value", influxql.Float, false)
-	si := e.Index().CreateSeriesIndexIfNotExists("cpu", tsdb.NewSeries("cpu,host=A", models.NewTags(map[string]string{"host": "A"})))
-	si.AssignShard(1)
-
+	e.Index().CreateSeriesIndexIfNotExists("cpu", tsdb.NewSeries("cpu,host=A", map[string]string{"host": "A"}))
 	if err := e.WritePointsString(
 		`cpu,host=A value=1.1 1000000000`,
 		`cpu,host=A value=1.2 2000000000`,
@@ -343,9 +319,10 @@ func TestEngine_CreateIterator_TSM_Ascending(t *testing.T) {
 	}
 	e.MustWriteSnapshot()
 
-	itr, err := e.CreateIterator("cpu", influxql.IteratorOptions{
+	itr, err := e.CreateIterator(influxql.IteratorOptions{
 		Expr:       influxql.MustParseExpr(`value`),
 		Dimensions: []string{"host"},
+		Sources:    []influxql.Source{&influxql.Measurement{Name: "cpu"}},
 		StartTime:  influxql.MinTime,
 		EndTime:    influxql.MaxTime,
 		Ascending:  true,
@@ -355,24 +332,16 @@ func TestEngine_CreateIterator_TSM_Ascending(t *testing.T) {
 	}
 	fitr := itr.(influxql.FloatIterator)
 
-	if p, err := fitr.Next(); err != nil {
-		t.Fatalf("unexpected error(0): %v", err)
-	} else if !reflect.DeepEqual(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=A"), Time: 1000000000, Value: 1.1}) {
+	if p := fitr.Next(); !reflect.DeepEqual(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=A"), Time: 1000000000, Value: 1.1}) {
 		t.Fatalf("unexpected point(0): %v", p)
 	}
-	if p, err := fitr.Next(); err != nil {
-		t.Fatalf("unexpected error(1): %v", err)
-	} else if !reflect.DeepEqual(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=A"), Time: 2000000000, Value: 1.2}) {
+	if p := fitr.Next(); !reflect.DeepEqual(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=A"), Time: 2000000000, Value: 1.2}) {
 		t.Fatalf("unexpected point(1): %v", p)
 	}
-	if p, err := fitr.Next(); err != nil {
-		t.Fatalf("unexpected error(2): %v", err)
-	} else if !reflect.DeepEqual(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=A"), Time: 3000000000, Value: 1.3}) {
+	if p := fitr.Next(); !reflect.DeepEqual(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=A"), Time: 3000000000, Value: 1.3}) {
 		t.Fatalf("unexpected point(2): %v", p)
 	}
-	if p, err := fitr.Next(); err != nil {
-		t.Fatalf("expected eof, got error: %v", err)
-	} else if p != nil {
+	if p := fitr.Next(); p != nil {
 		t.Fatalf("expected eof: %v", p)
 	}
 }
@@ -386,9 +355,7 @@ func TestEngine_CreateIterator_TSM_Descending(t *testing.T) {
 
 	e.Index().CreateMeasurementIndexIfNotExists("cpu")
 	e.MeasurementFields("cpu").CreateFieldIfNotExists("value", influxql.Float, false)
-	si := e.Index().CreateSeriesIndexIfNotExists("cpu", tsdb.NewSeries("cpu,host=A", models.NewTags(map[string]string{"host": "A"})))
-	si.AssignShard(1)
-
+	e.Index().CreateSeriesIndexIfNotExists("cpu", tsdb.NewSeries("cpu,host=A", map[string]string{"host": "A"}))
 	if err := e.WritePointsString(
 		`cpu,host=A value=1.1 1000000000`,
 		`cpu,host=A value=1.2 2000000000`,
@@ -398,9 +365,10 @@ func TestEngine_CreateIterator_TSM_Descending(t *testing.T) {
 	}
 	e.MustWriteSnapshot()
 
-	itr, err := e.CreateIterator("cpu", influxql.IteratorOptions{
+	itr, err := e.CreateIterator(influxql.IteratorOptions{
 		Expr:       influxql.MustParseExpr(`value`),
 		Dimensions: []string{"host"},
+		Sources:    []influxql.Source{&influxql.Measurement{Name: "cpu"}},
 		StartTime:  influxql.MinTime,
 		EndTime:    influxql.MaxTime,
 		Ascending:  false,
@@ -410,24 +378,16 @@ func TestEngine_CreateIterator_TSM_Descending(t *testing.T) {
 	}
 	fitr := itr.(influxql.FloatIterator)
 
-	if p, err := fitr.Next(); err != nil {
-		t.Fatalf("unexpected error(0): %v", err)
-	} else if !reflect.DeepEqual(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=A"), Time: 3000000000, Value: 1.3}) {
+	if p := fitr.Next(); !reflect.DeepEqual(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=A"), Time: 3000000000, Value: 1.3}) {
 		t.Fatalf("unexpected point(0): %v", p)
 	}
-	if p, err := fitr.Next(); err != nil {
-		t.Fatalf("unexpected error(1): %v", err)
-	} else if !reflect.DeepEqual(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=A"), Time: 2000000000, Value: 1.2}) {
+	if p := fitr.Next(); !reflect.DeepEqual(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=A"), Time: 2000000000, Value: 1.2}) {
 		t.Fatalf("unexpected point(1): %v", p)
 	}
-	if p, err := fitr.Next(); err != nil {
-		t.Fatalf("unexpected error(2): %v", err)
-	} else if !reflect.DeepEqual(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=A"), Time: 1000000000, Value: 1.1}) {
+	if p := fitr.Next(); !reflect.DeepEqual(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=A"), Time: 1000000000, Value: 1.1}) {
 		t.Fatalf("unexpected point(2): %v", p)
 	}
-	if p, err := fitr.Next(); err != nil {
-		t.Fatalf("expected eof, got error: %v", err)
-	} else if p != nil {
+	if p := fitr.Next(); p != nil {
 		t.Fatalf("expected eof: %v", p)
 	}
 }
@@ -442,9 +402,7 @@ func TestEngine_CreateIterator_Aux(t *testing.T) {
 	e.Index().CreateMeasurementIndexIfNotExists("cpu")
 	e.MeasurementFields("cpu").CreateFieldIfNotExists("value", influxql.Float, false)
 	e.MeasurementFields("cpu").CreateFieldIfNotExists("F", influxql.Float, false)
-	si := e.Index().CreateSeriesIndexIfNotExists("cpu", tsdb.NewSeries("cpu,host=A", models.NewTags(map[string]string{"host": "A"})))
-	si.AssignShard(1)
-
+	e.Index().CreateSeriesIndexIfNotExists("cpu", tsdb.NewSeries("cpu,host=A", map[string]string{"host": "A"}))
 	if err := e.WritePointsString(
 		`cpu,host=A value=1.1 1000000000`,
 		`cpu,host=A F=100 1000000000`,
@@ -455,10 +413,11 @@ func TestEngine_CreateIterator_Aux(t *testing.T) {
 		t.Fatalf("failed to write points: %s", err.Error())
 	}
 
-	itr, err := e.CreateIterator("cpu", influxql.IteratorOptions{
+	itr, err := e.CreateIterator(influxql.IteratorOptions{
 		Expr:       influxql.MustParseExpr(`value`),
-		Aux:        []influxql.VarRef{{Val: "F"}},
+		Aux:        []string{"F"},
 		Dimensions: []string{"host"},
+		Sources:    []influxql.Source{&influxql.Measurement{Name: "cpu"}},
 		StartTime:  influxql.MinTime,
 		EndTime:    influxql.MaxTime,
 		Ascending:  true,
@@ -468,24 +427,16 @@ func TestEngine_CreateIterator_Aux(t *testing.T) {
 	}
 	fitr := itr.(influxql.FloatIterator)
 
-	if p, err := fitr.Next(); err != nil {
-		t.Fatalf("unexpected error(0): %v", err)
-	} else if !deep.Equal(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=A"), Time: 1000000000, Value: 1.1, Aux: []interface{}{float64(100)}}) {
+	if p := fitr.Next(); !deep.Equal(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=A"), Time: 1000000000, Value: 1.1, Aux: []interface{}{float64(100)}}) {
 		t.Fatalf("unexpected point(0): %v", p)
 	}
-	if p, err := fitr.Next(); err != nil {
-		t.Fatalf("unexpected error(1): %v", err)
-	} else if !deep.Equal(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=A"), Time: 2000000000, Value: 1.2, Aux: []interface{}{(*float64)(nil)}}) {
+	if p := fitr.Next(); !deep.Equal(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=A"), Time: 2000000000, Value: 1.2, Aux: []interface{}{(*float64)(nil)}}) {
 		t.Fatalf("unexpected point(1): %v", p)
 	}
-	if p, err := fitr.Next(); err != nil {
-		t.Fatalf("unexpected error(2): %v", err)
-	} else if !deep.Equal(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=A"), Time: 3000000000, Value: 1.3, Aux: []interface{}{float64(200)}}) {
+	if p := fitr.Next(); !deep.Equal(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=A"), Time: 3000000000, Value: 1.3, Aux: []interface{}{float64(200)}}) {
 		t.Fatalf("unexpected point(2): %v", p)
 	}
-	if p, err := fitr.Next(); err != nil {
-		t.Fatalf("expected eof, got error: %v", err)
-	} else if p != nil {
+	if p := fitr.Next(); p != nil {
 		t.Fatalf("expected eof: %v", p)
 	}
 }
@@ -503,9 +454,7 @@ func TestEngine_CreateIterator_Condition(t *testing.T) {
 	e.MeasurementFields("cpu").CreateFieldIfNotExists("value", influxql.Float, false)
 	e.MeasurementFields("cpu").CreateFieldIfNotExists("X", influxql.Float, false)
 	e.MeasurementFields("cpu").CreateFieldIfNotExists("Y", influxql.Float, false)
-	si := e.Index().CreateSeriesIndexIfNotExists("cpu", tsdb.NewSeries("cpu,host=A", models.NewTags(map[string]string{"host": "A"})))
-	si.AssignShard(1)
-
+	e.Index().CreateSeriesIndexIfNotExists("cpu", tsdb.NewSeries("cpu,host=A", map[string]string{"host": "A"}))
 	if err := e.WritePointsString(
 		`cpu,host=A value=1.1 1000000000`,
 		`cpu,host=A X=10 1000000000`,
@@ -520,10 +469,11 @@ func TestEngine_CreateIterator_Condition(t *testing.T) {
 		t.Fatalf("failed to write points: %s", err.Error())
 	}
 
-	itr, err := e.CreateIterator("cpu", influxql.IteratorOptions{
+	itr, err := e.CreateIterator(influxql.IteratorOptions{
 		Expr:       influxql.MustParseExpr(`value`),
 		Dimensions: []string{"host"},
 		Condition:  influxql.MustParseExpr(`X = 10 OR Y > 150`),
+		Sources:    []influxql.Source{&influxql.Measurement{Name: "cpu"}},
 		StartTime:  influxql.MinTime,
 		EndTime:    influxql.MaxTime,
 		Ascending:  true,
@@ -533,413 +483,15 @@ func TestEngine_CreateIterator_Condition(t *testing.T) {
 	}
 	fitr := itr.(influxql.FloatIterator)
 
-	if p, err := fitr.Next(); err != nil {
-		t.Fatalf("unexpected error(0): %v", err)
-	} else if !reflect.DeepEqual(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=A"), Time: 1000000000, Value: 1.1}) {
+	if p := fitr.Next(); !reflect.DeepEqual(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=A"), Time: 1000000000, Value: 1.1}) {
 		t.Fatalf("unexpected point(0): %v", p)
 	}
-	if p, err := fitr.Next(); err != nil {
-		t.Fatalf("unexpected point(1): %v", err)
-	} else if !reflect.DeepEqual(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=A"), Time: 3000000000, Value: 1.3}) {
-		t.Fatalf("unexpected point(1): %v", p)
+	if p := fitr.Next(); !reflect.DeepEqual(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=A"), Time: 3000000000, Value: 1.3}) {
+		t.Fatalf("unexpected point(2): %v", p)
 	}
-	if p, err := fitr.Next(); err != nil {
-		t.Fatalf("expected eof, got error: %v", err)
-	} else if p != nil {
+	if p := fitr.Next(); p != nil {
 		t.Fatalf("expected eof: %v", p)
 	}
-}
-
-// Ensures that deleting series from TSM files with multiple fields removes all the
-/// series
-func TestEngine_DeleteSeries(t *testing.T) {
-	// Generate temporary file.
-	f, _ := ioutil.TempFile("", "tsm")
-	f.Close()
-	os.Remove(f.Name())
-	walPath := filepath.Join(f.Name(), "wal")
-	os.MkdirAll(walPath, 0777)
-	defer os.RemoveAll(f.Name())
-
-	// Create a few points.
-	p1 := MustParsePointString("cpu,host=A value=1.1 1000000000")
-	p2 := MustParsePointString("cpu,host=B value=1.2 2000000000")
-	p3 := MustParsePointString("cpu,host=A sum=1.3 3000000000")
-
-	// Write those points to the engine.
-	e := tsm1.NewEngine(1, f.Name(), walPath, tsdb.NewEngineOptions()).(*tsm1.Engine)
-
-	// mock the planner so compactions don't run during the test
-	e.CompactionPlan = &mockPlanner{}
-
-	if err := e.Open(); err != nil {
-		t.Fatalf("failed to open tsm1 engine: %s", err.Error())
-	}
-
-	if err := e.WritePoints([]models.Point{p1, p2, p3}); err != nil {
-		t.Fatalf("failed to write points: %s", err.Error())
-	}
-	if err := e.WriteSnapshot(); err != nil {
-		t.Fatalf("failed to snapshot: %s", err.Error())
-	}
-
-	keys := e.FileStore.Keys()
-	if exp, got := 3, len(keys); exp != got {
-		t.Fatalf("series count mismatch: exp %v, got %v", exp, got)
-	}
-
-	if err := e.DeleteSeries([]string{"cpu,host=A"}); err != nil {
-		t.Fatalf("failed to delete series: %v", err)
-	}
-
-	keys = e.FileStore.Keys()
-	if exp, got := 1, len(keys); exp != got {
-		t.Fatalf("series count mismatch: exp %v, got %v", exp, got)
-	}
-
-	exp := "cpu,host=B#!~#value"
-	if _, ok := keys[exp]; !ok {
-		t.Fatalf("wrong series deleted: exp %v, got %v", exp, keys)
-	}
-
-}
-
-func TestEngine_LastModified(t *testing.T) {
-	// Generate temporary file.
-	dir, _ := ioutil.TempDir("", "tsm")
-	walPath := filepath.Join(dir, "wal")
-	os.MkdirAll(walPath, 0777)
-	defer os.RemoveAll(dir)
-
-	// Create a few points.
-	p1 := MustParsePointString("cpu,host=A value=1.1 1000000000")
-	p2 := MustParsePointString("cpu,host=B value=1.2 2000000000")
-	p3 := MustParsePointString("cpu,host=A sum=1.3 3000000000")
-
-	// Write those points to the engine.
-	e := tsm1.NewEngine(1, dir, walPath, tsdb.NewEngineOptions()).(*tsm1.Engine)
-
-	// mock the planner so compactions don't run during the test
-	e.CompactionPlan = &mockPlanner{}
-
-	if lm := e.LastModified(); !lm.IsZero() {
-		t.Fatalf("expected zero time, got %v", lm.UTC())
-	}
-
-	e.SetEnabled(false)
-	if err := e.Open(); err != nil {
-		t.Fatalf("failed to open tsm1 engine: %s", err.Error())
-	}
-
-	if err := e.WritePoints([]models.Point{p1, p2, p3}); err != nil {
-		t.Fatalf("failed to write points: %s", err.Error())
-	}
-
-	lm := e.LastModified()
-	if lm.IsZero() {
-		t.Fatalf("expected non-zero time, got %v", lm.UTC())
-	}
-	e.SetEnabled(true)
-
-	if err := e.WriteSnapshot(); err != nil {
-		t.Fatalf("failed to snapshot: %s", err.Error())
-	}
-
-	lm2 := e.LastModified()
-
-	if got, exp := lm.Equal(lm2), false; exp != got {
-		t.Fatalf("expected time change, got %v, exp %v", got, exp)
-	}
-
-	if err := e.DeleteSeries([]string{"cpu,host=A"}); err != nil {
-		t.Fatalf("failed to delete series: %v", err)
-	}
-
-	lm3 := e.LastModified()
-	if got, exp := lm2.Equal(lm3), false; exp != got {
-		t.Fatalf("expected time change, got %v, exp %v", got, exp)
-	}
-}
-
-func BenchmarkEngine_CreateIterator_Count_1K(b *testing.B) {
-	benchmarkEngineCreateIteratorCount(b, 1000)
-}
-func BenchmarkEngine_CreateIterator_Count_100K(b *testing.B) {
-	benchmarkEngineCreateIteratorCount(b, 100000)
-}
-func BenchmarkEngine_CreateIterator_Count_1M(b *testing.B) {
-	benchmarkEngineCreateIteratorCount(b, 1000000)
-}
-
-func benchmarkEngineCreateIteratorCount(b *testing.B, pointN int) {
-	benchmarkIterator(b, influxql.IteratorOptions{
-		Expr:      influxql.MustParseExpr("count(value)"),
-		Ascending: true,
-		StartTime: influxql.MinTime,
-		EndTime:   influxql.MaxTime,
-	}, pointN)
-}
-
-func BenchmarkEngine_CreateIterator_First_1K(b *testing.B) {
-	benchmarkEngineCreateIteratorFirst(b, 1000)
-}
-func BenchmarkEngine_CreateIterator_First_100K(b *testing.B) {
-	benchmarkEngineCreateIteratorFirst(b, 100000)
-}
-func BenchmarkEngine_CreateIterator_First_1M(b *testing.B) {
-	benchmarkEngineCreateIteratorFirst(b, 1000000)
-}
-
-func benchmarkEngineCreateIteratorFirst(b *testing.B, pointN int) {
-	benchmarkIterator(b, influxql.IteratorOptions{
-		Expr:       influxql.MustParseExpr("first(value)"),
-		Dimensions: []string{"host"},
-		Ascending:  true,
-		StartTime:  influxql.MinTime,
-		EndTime:    influxql.MaxTime,
-	}, pointN)
-}
-
-func BenchmarkEngine_CreateIterator_Last_1K(b *testing.B) {
-	benchmarkEngineCreateIteratorLast(b, 1000)
-}
-func BenchmarkEngine_CreateIterator_Last_100K(b *testing.B) {
-	benchmarkEngineCreateIteratorLast(b, 100000)
-}
-func BenchmarkEngine_CreateIterator_Last_1M(b *testing.B) {
-	benchmarkEngineCreateIteratorLast(b, 1000000)
-}
-
-func benchmarkEngineCreateIteratorLast(b *testing.B, pointN int) {
-	benchmarkIterator(b, influxql.IteratorOptions{
-		Expr:       influxql.MustParseExpr("last(value)"),
-		Dimensions: []string{"host"},
-		Ascending:  true,
-		StartTime:  influxql.MinTime,
-		EndTime:    influxql.MaxTime,
-	}, pointN)
-}
-
-func BenchmarkEngine_CreateIterator_Limit_1K(b *testing.B) {
-	benchmarkEngineCreateIteratorLimit(b, 1000)
-}
-func BenchmarkEngine_CreateIterator_Limit_100K(b *testing.B) {
-	benchmarkEngineCreateIteratorLimit(b, 100000)
-}
-func BenchmarkEngine_CreateIterator_Limit_1M(b *testing.B) {
-	benchmarkEngineCreateIteratorLimit(b, 1000000)
-}
-
-func BenchmarkEngine_WritePoints_10(b *testing.B) {
-	benchmarkEngine_WritePoints(b, 10)
-}
-
-func BenchmarkEngine_WritePoints_100(b *testing.B) {
-	benchmarkEngine_WritePoints(b, 100)
-}
-
-func BenchmarkEngine_WritePoints_1000(b *testing.B) {
-	benchmarkEngine_WritePoints(b, 1000)
-}
-
-func BenchmarkEngine_WritePoints_5000(b *testing.B) {
-	benchmarkEngine_WritePoints(b, 5000)
-}
-
-func benchmarkEngine_WritePoints(b *testing.B, batchSize int) {
-	e := MustOpenEngine()
-	defer e.Close()
-
-	e.Index().CreateMeasurementIndexIfNotExists("cpu")
-	e.MeasurementFields("cpu").CreateFieldIfNotExists("value", influxql.Float, false)
-
-	pp := make([]models.Point, 0, batchSize)
-	for i := 0; i < batchSize; i++ {
-		p := MustParsePointString(fmt.Sprintf("cpu,host=%d value=1.2", i))
-		pp = append(pp, p)
-	}
-
-	b.ResetTimer()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		err := e.WritePoints(pp)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEngine_WritePoints_Parallel_1000(b *testing.B) {
-	benchmarkEngine_WritePoints(b, 1000)
-}
-
-func BenchmarkEngine_WritePoints_Parallel_5000(b *testing.B) {
-	benchmarkEngine_WritePoints_Parallel(b, 5000)
-}
-
-func BenchmarkEngine_WritePoints_Parallel_10000(b *testing.B) {
-	benchmarkEngine_WritePoints_Parallel(b, 10000)
-}
-
-func BenchmarkEngine_WritePoints_Parallel_25000(b *testing.B) {
-	benchmarkEngine_WritePoints_Parallel(b, 25000)
-}
-
-func BenchmarkEngine_WritePoints_Parallel_50000(b *testing.B) {
-	benchmarkEngine_WritePoints_Parallel(b, 50000)
-}
-
-func BenchmarkEngine_WritePoints_Parallel_75000(b *testing.B) {
-	benchmarkEngine_WritePoints_Parallel(b, 75000)
-}
-
-func BenchmarkEngine_WritePoints_Parallel_100000(b *testing.B) {
-	benchmarkEngine_WritePoints_Parallel(b, 100000)
-}
-
-func BenchmarkEngine_WritePoints_Parallel_200000(b *testing.B) {
-	benchmarkEngine_WritePoints_Parallel(b, 200000)
-}
-
-func benchmarkEngine_WritePoints_Parallel(b *testing.B, batchSize int) {
-	e := MustOpenEngine()
-	defer e.Close()
-
-	e.Index().CreateMeasurementIndexIfNotExists("cpu")
-	e.MeasurementFields("cpu").CreateFieldIfNotExists("value", influxql.Float, false)
-
-	b.ResetTimer()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-
-		b.StopTimer()
-		cpus := runtime.GOMAXPROCS(0)
-		pp := make([]models.Point, 0, batchSize*cpus)
-		for i := 0; i < batchSize*cpus; i++ {
-			p := MustParsePointString(fmt.Sprintf("cpu,host=%d value=1.2,other=%di", i, i))
-			pp = append(pp, p)
-		}
-		b.StartTimer()
-
-		var wg sync.WaitGroup
-		errC := make(chan error)
-		for i := 0; i < cpus; i++ {
-			wg.Add(1)
-			go func(i int) {
-				defer wg.Done()
-				from, to := i*batchSize, (i+1)*batchSize
-				err := e.WritePoints(pp[from:to])
-				if err != nil {
-					errC <- err
-					return
-				}
-			}(i)
-		}
-
-		go func() {
-			wg.Wait()
-			close(errC)
-		}()
-
-		for err := range errC {
-			if err != nil {
-				b.Error(err)
-			}
-		}
-	}
-}
-
-func benchmarkEngineCreateIteratorLimit(b *testing.B, pointN int) {
-	benchmarkIterator(b, influxql.IteratorOptions{
-		Expr:       influxql.MustParseExpr("value"),
-		Dimensions: []string{"host"},
-		Ascending:  true,
-		StartTime:  influxql.MinTime,
-		EndTime:    influxql.MaxTime,
-		Limit:      10,
-	}, pointN)
-}
-
-func benchmarkIterator(b *testing.B, opt influxql.IteratorOptions, pointN int) {
-	e := MustInitBenchmarkEngine(pointN)
-	b.ResetTimer()
-	b.ReportAllocs()
-
-	for i := 0; i < b.N; i++ {
-		itr, err := e.CreateIterator("cpu", opt)
-		if err != nil {
-			b.Fatal(err)
-		}
-		influxql.DrainIterator(itr)
-	}
-}
-
-var benchmark struct {
-	Engine *Engine
-	PointN int
-}
-
-var hostNames = []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J"}
-
-// MustInitBenchmarkEngine creates a new engine and fills it with points.
-// Reuses previous engine if the same parameters were used.
-func MustInitBenchmarkEngine(pointN int) *Engine {
-	// Reuse engine, if available.
-	if benchmark.Engine != nil {
-		if benchmark.PointN == pointN {
-			return benchmark.Engine
-		}
-
-		// Otherwise close and remove it.
-		benchmark.Engine.Close()
-		benchmark.Engine = nil
-	}
-
-	const batchSize = 1000
-	if pointN%batchSize != 0 {
-		panic(fmt.Sprintf("point count (%d) must be a multiple of batch size (%d)", pointN, batchSize))
-	}
-
-	e := MustOpenEngine()
-
-	// Initialize metadata.
-	e.Index().CreateMeasurementIndexIfNotExists("cpu")
-	e.MeasurementFields("cpu").CreateFieldIfNotExists("value", influxql.Float, false)
-	si := e.Index().CreateSeriesIndexIfNotExists("cpu", tsdb.NewSeries("cpu,host=A", models.NewTags(map[string]string{"host": "A"})))
-	si.AssignShard(1)
-
-	// Generate time ascending points with jitterred time & value.
-	rand := rand.New(rand.NewSource(0))
-	for i := 0; i < pointN; i += batchSize {
-		var buf bytes.Buffer
-		for j := 0; j < batchSize; j++ {
-			fmt.Fprintf(&buf, "cpu,host=%s value=%d %d",
-				hostNames[j%len(hostNames)],
-				100+rand.Intn(50)-25,
-				(time.Duration(i+j)*time.Second)+(time.Duration(rand.Intn(500)-250)*time.Millisecond),
-			)
-			if j != pointN-1 {
-				fmt.Fprint(&buf, "\n")
-			}
-		}
-
-		if err := e.WritePointsString(buf.String()); err != nil {
-			panic(err)
-		}
-	}
-
-	if err := e.WriteSnapshot(); err != nil {
-		panic(err)
-	}
-
-	// Force garbage collection.
-	runtime.GC()
-
-	// Save engine reference for reuse.
-	benchmark.Engine = e
-	benchmark.PointN = pointN
-
-	return e
 }
 
 // Engine is a test wrapper for tsm1.Engine.
@@ -955,7 +507,7 @@ func NewEngine() *Engine {
 		panic(err)
 	}
 	return &Engine{
-		Engine: tsm1.NewEngine(1,
+		Engine: tsm1.NewEngine(
 			filepath.Join(root, "data"),
 			filepath.Join(root, "wal"),
 			tsdb.NewEngineOptions()).(*tsm1.Engine),
@@ -969,7 +521,7 @@ func MustOpenEngine() *Engine {
 	if err := e.Open(); err != nil {
 		panic(err)
 	}
-	if err := e.LoadMetadataIndex(1, tsdb.NewDatabaseIndex("db")); err != nil {
+	if err := e.LoadMetadataIndex(nil, tsdb.NewDatabaseIndex("db")); err != nil {
 		panic(err)
 	}
 	return e
@@ -987,7 +539,7 @@ func (e *Engine) Reopen() error {
 		return err
 	}
 
-	e.Engine = tsm1.NewEngine(1,
+	e.Engine = tsm1.NewEngine(
 		filepath.Join(e.root, "data"),
 		filepath.Join(e.root, "wal"),
 		tsdb.NewEngineOptions()).(*tsm1.Engine)
@@ -1026,7 +578,6 @@ type mockPlanner struct{}
 
 func (m *mockPlanner) Plan(lastWrite time.Time) []tsm1.CompactionGroup { return nil }
 func (m *mockPlanner) PlanLevel(level int) []tsm1.CompactionGroup      { return nil }
-func (m *mockPlanner) PlanOptimize() []tsm1.CompactionGroup            { return nil }
 
 // ParseTags returns an instance of Tags for a comma-delimited list of key/values.
 func ParseTags(s string) influxql.Tags {

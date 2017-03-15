@@ -20,7 +20,7 @@ import (
 	"errors"
 	"sync"
 
-	"k8s.io/client-go/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 // PopProcessFunc is passed to Pop() method of Queue interface.
@@ -242,6 +242,16 @@ func (f *FIFO) GetByKey(key string) (item interface{}, exists bool, err error) {
 	return item, exists, nil
 }
 
+// Checks if the queue is closed
+func (f *FIFO) IsClosed() bool {
+	f.closedLock.Lock()
+	defer f.closedLock.Unlock()
+	if f.closed {
+		return true
+	}
+	return false
+}
+
 // Pop waits until an item is ready and processes it. If multiple items are
 // ready, they are returned in the order in which they were added/updated.
 // The item is removed from the queue (and the store) before it is processed,
@@ -256,12 +266,9 @@ func (f *FIFO) Pop(process PopProcessFunc) (interface{}, error) {
 			// When the queue is empty, invocation of Pop() is blocked until new item is enqueued.
 			// When Close() is called, the f.closed is set and the condition is broadcasted.
 			// Which causes this loop to continue and return from the Pop().
-			f.closedLock.Lock()
-			if f.closed {
-				f.closedLock.Unlock()
+			if f.IsClosed() {
 				return nil, FIFOClosedError
 			}
-			f.closedLock.Unlock()
 
 			f.cond.Wait()
 		}

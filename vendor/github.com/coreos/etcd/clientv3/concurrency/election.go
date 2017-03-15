@@ -29,7 +29,7 @@ var (
 )
 
 type Election struct {
-	session *Session
+	client *v3.Client
 
 	keyPrefix string
 
@@ -39,18 +39,20 @@ type Election struct {
 }
 
 // NewElection returns a new election on a given key prefix.
-func NewElection(s *Session, pfx string) *Election {
-	return &Election{session: s, keyPrefix: pfx + "/"}
+func NewElection(client *v3.Client, pfx string) *Election {
+	return &Election{client: client, keyPrefix: pfx + "/"}
 }
 
 // Campaign puts a value as eligible for the election. It blocks until
 // it is elected, an error occurs, or the context is cancelled.
 func (e *Election) Campaign(ctx context.Context, val string) error {
-	s := e.session
-	client := e.session.Client()
+	s, serr := NewSession(e.client)
+	if serr != nil {
+		return serr
+	}
 
-	k := fmt.Sprintf("%s%x", e.keyPrefix, s.Lease())
-	txn := client.Txn(ctx).If(v3.Compare(v3.CreateRevision(k), "=", 0))
+	k := fmt.Sprintf("%s/%x", e.keyPrefix, s.Lease())
+	txn := e.client.Txn(ctx).If(v3.Compare(v3.CreateRevision(k), "=", 0))
 	txn = txn.Then(v3.OpPut(k, val, v3.WithLease(s.Lease())))
 	txn = txn.Else(v3.OpGet(k))
 	resp, err := txn.Commit()
@@ -69,12 +71,12 @@ func (e *Election) Campaign(ctx context.Context, val string) error {
 		}
 	}
 
-	err = waitDeletes(ctx, client, e.keyPrefix, e.leaderRev-1)
+	err = waitDeletes(ctx, e.client, e.keyPrefix, v3.WithPrefix(), v3.WithRev(e.leaderRev-1))
 	if err != nil {
 		// clean up in case of context cancel
 		select {
 		case <-ctx.Done():
-			e.Resign(client.Ctx())
+			e.Resign(e.client.Ctx())
 		default:
 			e.leaderSession = nil
 		}
@@ -89,9 +91,8 @@ func (e *Election) Proclaim(ctx context.Context, val string) error {
 	if e.leaderSession == nil {
 		return ErrElectionNotLeader
 	}
-	client := e.session.Client()
 	cmp := v3.Compare(v3.CreateRevision(e.leaderKey), "=", e.leaderRev)
-	txn := client.Txn(ctx).If(cmp)
+	txn := e.client.Txn(ctx).If(cmp)
 	txn = txn.Then(v3.OpPut(e.leaderKey, val, v3.WithLease(e.leaderSession.Lease())))
 	tresp, terr := txn.Commit()
 	if terr != nil {
@@ -109,8 +110,7 @@ func (e *Election) Resign(ctx context.Context) (err error) {
 	if e.leaderSession == nil {
 		return nil
 	}
-	client := e.session.Client()
-	_, err = client.Delete(ctx, e.leaderKey)
+	_, err = e.client.Delete(ctx, e.leaderKey)
 	e.leaderKey = ""
 	e.leaderSession = nil
 	return err
@@ -118,8 +118,7 @@ func (e *Election) Resign(ctx context.Context) (err error) {
 
 // Leader returns the leader value for the current election.
 func (e *Election) Leader(ctx context.Context) (string, error) {
-	client := e.session.Client()
-	resp, err := client.Get(ctx, e.keyPrefix, v3.WithFirstCreate()...)
+	resp, err := e.client.Get(ctx, e.keyPrefix, v3.WithFirstCreate()...)
 	if err != nil {
 		return "", err
 	} else if len(resp.Kvs) == 0 {
@@ -139,11 +138,9 @@ func (e *Election) Observe(ctx context.Context) <-chan v3.GetResponse {
 }
 
 func (e *Election) observe(ctx context.Context, ch chan<- v3.GetResponse) {
-	client := e.session.Client()
-
 	defer close(ch)
 	for {
-		resp, err := client.Get(ctx, e.keyPrefix, v3.WithFirstCreate()...)
+		resp, err := e.client.Get(ctx, e.keyPrefix, v3.WithFirstCreate()...)
 		if err != nil {
 			return
 		}
@@ -154,7 +151,7 @@ func (e *Election) observe(ctx context.Context, ch chan<- v3.GetResponse) {
 		if len(resp.Kvs) == 0 {
 			// wait for first key put on prefix
 			opts := []v3.OpOption{v3.WithRev(resp.Header.Revision), v3.WithPrefix()}
-			wch := client.Watch(cctx, e.keyPrefix, opts...)
+			wch := e.client.Watch(cctx, e.keyPrefix, opts...)
 
 			for kv == nil {
 				wr, ok := <-wch
@@ -174,7 +171,7 @@ func (e *Election) observe(ctx context.Context, ch chan<- v3.GetResponse) {
 			kv = resp.Kvs[0]
 		}
 
-		wch := client.Watch(cctx, string(kv.Key), v3.WithRev(kv.ModRevision))
+		wch := e.client.Watch(cctx, string(kv.Key), v3.WithRev(kv.ModRevision))
 		keyDeleted := false
 		for !keyDeleted {
 			wr, ok := <-wch

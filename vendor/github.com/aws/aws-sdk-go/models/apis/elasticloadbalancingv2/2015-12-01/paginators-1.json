@@ -1,5 +1,10 @@
 {
   "pagination": {
+    "DescribeTargetGroups": {
+      "input_token": "Marker",
+      "output_token": "NextMarker",
+      "result_key": "TargetGroups"
+    },
     "DescribeListeners": {
       "input_token": "Marker",
       "output_token": "NextMarker",
@@ -9,11 +14,7 @@
       "input_token": "Marker",
       "output_token": "NextMarker",
       "result_key": "LoadBalancers"
-    },
-    "DescribeTargetGroups": {
-      "input_token": "Marker",
-      "output_token": "NextMarker",
-      "result_key": "TargetGroups"
     }
   }
 }
+

@@ -7,7 +7,7 @@ import (
 	"github.com/influxdata/influxdb/models"
 )
 
-// Emitter groups values together by name, tags, and time.
+// Emitter groups values together by name,
 type Emitter struct {
 	buf       []Point
 	itrs      []Iterator
@@ -41,22 +41,20 @@ func (e *Emitter) Close() error {
 }
 
 // Emit returns the next row from the iterators.
-func (e *Emitter) Emit() (*models.Row, bool, error) {
+func (e *Emitter) Emit() *models.Row {
 	// Immediately end emission if there are no iterators.
 	if len(e.itrs) == 0 {
-		return nil, false, nil
+		return nil
 	}
 
 	// Continually read from iterators until they are exhausted.
 	for {
 		// Fill buffer. Return row if no more points remain.
-		t, name, tags, err := e.loadBuf()
-		if err != nil {
-			return nil, false, err
-		} else if t == ZeroTime {
+		t, name, tags := e.loadBuf()
+		if t == ZeroTime {
 			row := e.row
 			e.row = nil
-			return row, false, nil
+			return row
 		}
 
 		// Read next set of values from all iterators at a given time/name/tags.
@@ -65,7 +63,7 @@ func (e *Emitter) Emit() (*models.Row, bool, error) {
 		if values == nil {
 			row := e.row
 			e.row = nil
-			return row, false, nil
+			return row
 		}
 
 		// If there's no row yet then create one.
@@ -74,34 +72,25 @@ func (e *Emitter) Emit() (*models.Row, bool, error) {
 		// Otherwise return existing row and add values to next emitted row.
 		if e.row == nil {
 			e.createRow(name, tags, values)
-		} else if e.row.Name == name && e.tags.Equals(&tags) {
-			if e.chunkSize > 0 && len(e.row.Values) >= e.chunkSize {
-				row := e.row
-				row.Partial = true
-				e.createRow(name, tags, values)
-				return row, true, nil
-			}
+		} else if e.row.Name == name && e.tags.Equals(&tags) && (e.chunkSize <= 0 || len(e.row.Values) < e.chunkSize) {
 			e.row.Values = append(e.row.Values, values)
 		} else {
 			row := e.row
 			e.createRow(name, tags, values)
-			return row, true, nil
+			return row
 		}
 	}
 }
 
 // loadBuf reads in points into empty buffer slots.
 // Returns the next time/name/tags to emit for.
-func (e *Emitter) loadBuf() (t int64, name string, tags Tags, err error) {
+func (e *Emitter) loadBuf() (t int64, name string, tags Tags) {
 	t = ZeroTime
 
 	for i := range e.itrs {
 		// Load buffer, if empty.
 		if e.buf[i] == nil {
-			e.buf[i], err = e.readIterator(e.itrs[i])
-			if err != nil {
-				break
-			}
+			e.buf[i] = e.readIterator(e.itrs[i])
 		}
 
 		// Skip if buffer is empty.
@@ -119,17 +108,18 @@ func (e *Emitter) loadBuf() (t int64, name string, tags Tags, err error) {
 
 		// Update range values if lower and emitter is in time ascending order.
 		if e.ascending {
-			if (itrName < name) || (itrName == name && itrTags.ID() < tags.ID()) || (itrName == name && itrTags.ID() == tags.ID() && itrTime < t) {
+			if (itrTime < t) || (itrTime == t && itrName < name) || (itrTime == t && itrName == name && itrTags.ID() < tags.ID()) {
 				t, name, tags = itrTime, itrName, itrTags
 			}
 			continue
 		}
 
 		// Update range values if higher and emitter is in time descending order.
-		if (itrName > name) || (itrName == name && itrTags.ID() > tags.ID()) || (itrName == name && itrTags.ID() == tags.ID() && itrTime > t) {
+		if (itrTime > t) || (itrTime == t && itrName > name) || (itrTime == t && itrName == name && itrTags.ID() > tags.ID()) {
 			t, name, tags = itrTime, itrName, itrTags
 		}
 	}
+
 	return
 }
 
@@ -147,6 +137,7 @@ func (e *Emitter) createRow(name string, tags Tags, values []interface{}) {
 // readAt returns the next slice of values from the iterators at time/name/tags.
 // Returns nil values once the iterators are exhausted.
 func (e *Emitter) readAt(t int64, name string, tags Tags) []interface{} {
+	// If time is included then move colums over by one.
 	offset := 1
 	if e.OmitTime {
 		offset = 0
@@ -156,66 +147,56 @@ func (e *Emitter) readAt(t int64, name string, tags Tags) []interface{} {
 	if !e.OmitTime {
 		values[0] = time.Unix(0, t).UTC()
 	}
-	e.readInto(t, name, tags, values[offset:])
-	return values
-}
 
-func (e *Emitter) readInto(t int64, name string, tags Tags, values []interface{}) {
 	for i, p := range e.buf {
 		// Skip if buffer is empty.
 		if p == nil {
-			values[i] = nil
+			values[i+offset] = nil
 			continue
 		}
 
 		// Skip point if it doesn't match time/name/tags.
 		pTags := p.tags()
 		if p.time() != t || p.name() != name || !pTags.Equals(&tags) {
-			values[i] = nil
+			values[i+offset] = nil
 			continue
 		}
 
 		// Read point value.
-		values[i] = p.value()
+		values[i+offset] = p.value()
 
 		// Clear buffer.
 		e.buf[i] = nil
 	}
+
+	return values
 }
 
 // readIterator reads the next point from itr.
-func (e *Emitter) readIterator(itr Iterator) (Point, error) {
+func (e *Emitter) readIterator(itr Iterator) Point {
 	if itr == nil {
-		return nil, nil
+		return nil
 	}
 
 	switch itr := itr.(type) {
 	case FloatIterator:
-		if p, err := itr.Next(); err != nil {
-			return nil, err
-		} else if p != nil {
-			return p, nil
+		if p := itr.Next(); p != nil {
+			return p
 		}
 	case IntegerIterator:
-		if p, err := itr.Next(); err != nil {
-			return nil, err
-		} else if p != nil {
-			return p, nil
+		if p := itr.Next(); p != nil {
+			return p
 		}
 	case StringIterator:
-		if p, err := itr.Next(); err != nil {
-			return nil, err
-		} else if p != nil {
-			return p, nil
+		if p := itr.Next(); p != nil {
+			return p
 		}
 	case BooleanIterator:
-		if p, err := itr.Next(); err != nil {
-			return nil, err
-		} else if p != nil {
-			return p, nil
+		if p := itr.Next(); p != nil {
+			return p
 		}
 	default:
 		panic(fmt.Sprintf("unsupported iterator: %T", itr))
 	}
-	return nil, nil
+	return nil
 }

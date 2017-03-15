@@ -1,7 +1,6 @@
 package tsdb_test
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -24,7 +23,7 @@ func TestStore_DeleteRetentionPolicy(t *testing.T) {
 	defer s.Close()
 
 	// Create a new shard and verify that it exists.
-	if err := s.CreateShard("db0", "rp0", 1, true); err != nil {
+	if err := s.CreateShard("db0", "rp0", 1); err != nil {
 		t.Fatal(err)
 	} else if sh := s.Shard(1); sh == nil {
 		t.Fatalf("expected shard")
@@ -32,7 +31,7 @@ func TestStore_DeleteRetentionPolicy(t *testing.T) {
 
 	// Create a new shard under the same retention policy,  and verify
 	// that it exists.
-	if err := s.CreateShard("db0", "rp0", 2, true); err != nil {
+	if err := s.CreateShard("db0", "rp0", 2); err != nil {
 		t.Fatal(err)
 	} else if sh := s.Shard(2); sh == nil {
 		t.Fatalf("expected shard")
@@ -40,7 +39,7 @@ func TestStore_DeleteRetentionPolicy(t *testing.T) {
 
 	// Create a new shard under a different retention policy, and
 	// verify that it exists.
-	if err := s.CreateShard("db0", "rp1", 3, true); err != nil {
+	if err := s.CreateShard("db0", "rp1", 3); err != nil {
 		t.Fatal(err)
 	} else if sh := s.Shard(3); sh == nil {
 		t.Fatalf("expected shard")
@@ -92,7 +91,7 @@ func TestStore_CreateShard(t *testing.T) {
 	defer s.Close()
 
 	// Create a new shard and verify that it exists.
-	if err := s.CreateShard("db0", "rp0", 1, true); err != nil {
+	if err := s.CreateShard("db0", "rp0", 1); err != nil {
 		t.Fatal(err)
 	} else if sh := s.Shard(1); sh == nil {
 		t.Fatalf("expected shard")
@@ -101,7 +100,7 @@ func TestStore_CreateShard(t *testing.T) {
 	}
 
 	// Create another shard and verify that it exists.
-	if err := s.CreateShard("db0", "rp0", 2, true); err != nil {
+	if err := s.CreateShard("db0", "rp0", 2); err != nil {
 		t.Fatal(err)
 	} else if sh := s.Shard(2); sh == nil {
 		t.Fatalf("expected shard")
@@ -123,7 +122,7 @@ func TestStore_DeleteShard(t *testing.T) {
 	defer s.Close()
 
 	// Create a new shard and verify that it exists.
-	if err := s.CreateShard("db0", "rp0", 1, true); err != nil {
+	if err := s.CreateShard("db0", "rp0", 1); err != nil {
 		t.Fatal(err)
 	} else if sh := s.Shard(1); sh == nil {
 		t.Fatalf("expected shard")
@@ -134,29 +133,6 @@ func TestStore_DeleteShard(t *testing.T) {
 		t.Fatal(err)
 	} else if sh := s.Shard(1); sh == nil {
 		t.Fatalf("shard exists")
-	}
-}
-
-// Ensure the store can create a snapshot to a shard.
-func TestStore_CreateShardSnapShot(t *testing.T) {
-	s := MustOpenStore()
-	defer s.Close()
-
-	// Create a new shard and verify that it exists.
-	if err := s.CreateShard("db0", "rp0", 1, true); err != nil {
-		t.Fatal(err)
-	} else if sh := s.Shard(1); sh == nil {
-		t.Fatalf("expected shard")
-	} else if di := s.DatabaseIndex("db0"); di == nil {
-		t.Errorf("expected database index")
-	}
-
-	dir, e := s.CreateShardSnapshot(1)
-	if e != nil {
-		t.Fatal(e)
-	}
-	if dir == "" {
-		t.Fatal("empty directory name")
 	}
 }
 
@@ -239,13 +215,18 @@ func TestShards_CreateIterator(t *testing.T) {
 		`cpu,host=serverC value=3 60`,
 	)
 
-	// Retrieve shard group.
-	shards := s.ShardGroup([]uint64{0, 1})
+	// Retrieve shards and convert to iterator creators.
+	shards := s.Shards([]uint64{0, 1})
+	ics := make(influxql.IteratorCreators, len(shards))
+	for i := range ics {
+		ics[i] = shards[i]
+	}
 
 	// Create iterator.
-	itr, err := shards.CreateIterator("cpu", influxql.IteratorOptions{
+	itr, err := ics.CreateIterator(influxql.IteratorOptions{
 		Expr:       influxql.MustParseExpr(`value`),
 		Dimensions: []string{"host"},
+		Sources:    []influxql.Source{&influxql.Measurement{Name: "cpu"}},
 		Ascending:  true,
 		StartTime:  influxql.MinTime,
 		EndTime:    influxql.MaxTime,
@@ -257,104 +238,27 @@ func TestShards_CreateIterator(t *testing.T) {
 	fitr := itr.(influxql.FloatIterator)
 
 	// Read values from iterator. The host=serverA points should come first.
-	if p, err := fitr.Next(); err != nil {
-		t.Fatalf("unexpected error(0): %s", err)
-	} else if !deep.Equal(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=serverA"), Time: time.Unix(0, 0).UnixNano(), Value: 1}) {
+	if p := fitr.Next(); !deep.Equal(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=serverA"), Time: time.Unix(0, 0).UnixNano(), Value: 1}) {
 		t.Fatalf("unexpected point(0): %s", spew.Sdump(p))
-	}
-	if p, err := fitr.Next(); err != nil {
-		t.Fatalf("unexpected error(1): %s", err)
-	} else if !deep.Equal(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=serverA"), Time: time.Unix(10, 0).UnixNano(), Value: 2}) {
+	} else if p = fitr.Next(); !deep.Equal(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=serverA"), Time: time.Unix(10, 0).UnixNano(), Value: 2}) {
 		t.Fatalf("unexpected point(1): %s", spew.Sdump(p))
-	}
-	if p, err := fitr.Next(); err != nil {
-		t.Fatalf("unexpected error(2): %s", err)
-	} else if !deep.Equal(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=serverA"), Time: time.Unix(30, 0).UnixNano(), Value: 1}) {
+	} else if p = fitr.Next(); !deep.Equal(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=serverA"), Time: time.Unix(30, 0).UnixNano(), Value: 1}) {
 		t.Fatalf("unexpected point(2): %s", spew.Sdump(p))
 	}
 
 	// Next the host=serverB point.
-	if p, err := fitr.Next(); err != nil {
-		t.Fatalf("unexpected error(3): %s", err)
-	} else if !deep.Equal(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=serverB"), Time: time.Unix(20, 0).UnixNano(), Value: 3}) {
+	if p := fitr.Next(); !deep.Equal(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=serverB"), Time: time.Unix(20, 0).UnixNano(), Value: 3}) {
 		t.Fatalf("unexpected point(3): %s", spew.Sdump(p))
 	}
 
 	// And finally the host=serverC point.
-	if p, err := fitr.Next(); err != nil {
-		t.Fatalf("unexpected error(4): %s", err)
-	} else if !deep.Equal(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=serverC"), Time: time.Unix(60, 0).UnixNano(), Value: 3}) {
+	if p := fitr.Next(); !deep.Equal(p, &influxql.FloatPoint{Name: "cpu", Tags: ParseTags("host=serverC"), Time: time.Unix(60, 0).UnixNano(), Value: 3}) {
 		t.Fatalf("unexpected point(4): %s", spew.Sdump(p))
 	}
 
 	// Then an EOF should occur.
-	if p, err := fitr.Next(); err != nil {
-		t.Fatalf("expected eof, got error: %s", err)
-	} else if p != nil {
+	if p := fitr.Next(); p != nil {
 		t.Fatalf("expected eof, got: %s", spew.Sdump(p))
-	}
-}
-
-// Ensure the store can backup a shard and another store can restore it.
-func TestStore_BackupRestoreShard(t *testing.T) {
-	s0, s1 := MustOpenStore(), MustOpenStore()
-	defer s0.Close()
-	defer s1.Close()
-
-	// Create shard with data.
-	s0.MustCreateShardWithData("db0", "rp0", 100,
-		`cpu value=1 0`,
-		`cpu value=2 10`,
-		`cpu value=3 20`,
-	)
-
-	// Backup shard to a buffer.
-	var buf bytes.Buffer
-	if err := s0.BackupShard(100, time.Time{}, &buf); err != nil {
-		t.Fatal(err)
-	}
-
-	// Create the shard on the other store and restore from buffer.
-	if err := s1.CreateShard("db0", "rp0", 100, true); err != nil {
-		t.Fatal(err)
-	}
-	if err := s1.RestoreShard(100, &buf); err != nil {
-		t.Fatal(err)
-	}
-
-	// Read data from
-	itr, err := s1.Shard(100).CreateIterator("cpu", influxql.IteratorOptions{
-		Expr:      influxql.MustParseExpr(`value`),
-		Ascending: true,
-		StartTime: influxql.MinTime,
-		EndTime:   influxql.MaxTime,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	fitr := itr.(influxql.FloatIterator)
-
-	// Read values from iterator. The host=serverA points should come first.
-	p, e := fitr.Next()
-	if e != nil {
-		t.Fatal(e)
-	}
-	if !deep.Equal(p, &influxql.FloatPoint{Name: "cpu", Time: time.Unix(0, 0).UnixNano(), Value: 1}) {
-		t.Fatalf("unexpected point(0): %s", spew.Sdump(p))
-	}
-	p, e = fitr.Next()
-	if e != nil {
-		t.Fatal(e)
-	}
-	if !deep.Equal(p, &influxql.FloatPoint{Name: "cpu", Time: time.Unix(10, 0).UnixNano(), Value: 2}) {
-		t.Fatalf("unexpected point(1): %s", spew.Sdump(p))
-	}
-	p, e = fitr.Next()
-	if e != nil {
-		t.Fatal(e)
-	}
-	if !deep.Equal(p, &influxql.FloatPoint{Name: "cpu", Time: time.Unix(20, 0).UnixNano(), Value: 3}) {
-		t.Fatalf("unexpected point(2): %s", spew.Sdump(p))
 	}
 }
 
@@ -381,7 +285,7 @@ func benchmarkStoreOpen(b *testing.B, mCnt, tkCnt, tvCnt, pntCnt, shardCnt int) 
 
 		// Create requested number of shards in the store & write points.
 		for shardID := 0; shardID < shardCnt; shardID++ {
-			if err := store.CreateShard("mydb", "myrp", uint64(shardID), true); err != nil {
+			if err := store.CreateShard("mydb", "myrp", uint64(shardID)); err != nil {
 				return fmt.Errorf("create shard: %s", err)
 			}
 			if err := store.BatchWrite(shardID, points); err != nil {
@@ -452,7 +356,7 @@ func (s *Store) Close() error {
 
 // MustCreateShardWithData creates a shard and writes line protocol data to it.
 func (s *Store) MustCreateShardWithData(db, rp string, shardID int, data ...string) {
-	if err := s.CreateShard(db, rp, uint64(shardID), true); err != nil {
+	if err := s.CreateShard(db, rp, uint64(shardID)); err != nil {
 		panic(err)
 	}
 	s.MustWriteToShardString(shardID, data...)

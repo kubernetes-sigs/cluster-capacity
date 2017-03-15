@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"sync"
 
-	"k8s.io/client-go/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/golang/glog"
 )
@@ -401,6 +401,16 @@ func (f *DeltaFIFO) GetByKey(key string) (item interface{}, exists bool, err err
 	return d, exists, nil
 }
 
+// Checks if the queue is closed
+func (f *DeltaFIFO) IsClosed() bool {
+	f.closedLock.Lock()
+	defer f.closedLock.Unlock()
+	if f.closed {
+		return true
+	}
+	return false
+}
+
 // Pop blocks until an item is added to the queue, and then returns it.  If
 // multiple items are ready, they are returned in the order in which they were
 // added/updated. The item is removed from the queue (and the store) before it
@@ -421,12 +431,9 @@ func (f *DeltaFIFO) Pop(process PopProcessFunc) (interface{}, error) {
 			// When the queue is empty, invocation of Pop() is blocked until new item is enqueued.
 			// When Close() is called, the f.closed is set and the condition is broadcasted.
 			// Which causes this loop to continue and return from the Pop().
-			f.closedLock.Lock()
-			if f.closed {
-				f.closedLock.Unlock()
+			if f.IsClosed() {
 				return nil, FIFOClosedError
 			}
-			f.closedLock.Unlock()
 
 			f.cond.Wait()
 		}
@@ -529,14 +536,12 @@ func (f *DeltaFIFO) Replace(list []interface{}, resourceVersion string) error {
 
 // Resync will send a sync event for each item
 func (f *DeltaFIFO) Resync() error {
-	var keys []string
-	func() {
-		f.lock.RLock()
-		defer f.lock.RUnlock()
-		keys = f.knownObjects.ListKeys()
-	}()
+	f.lock.Lock()
+	defer f.lock.Unlock()
+
+	keys := f.knownObjects.ListKeys()
 	for _, k := range keys {
-		if err := f.syncKey(k); err != nil {
+		if err := f.syncKeyLocked(k); err != nil {
 			return err
 		}
 	}
@@ -546,6 +551,11 @@ func (f *DeltaFIFO) Resync() error {
 func (f *DeltaFIFO) syncKey(key string) error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
+
+	return f.syncKeyLocked(key)
+}
+
+func (f *DeltaFIFO) syncKeyLocked(key string) error {
 	obj, exists, err := f.knownObjects.GetByKey(key)
 	if err != nil {
 		glog.Errorf("Unexpected error %v during lookup of key %v, unable to queue object for sync", err, key)

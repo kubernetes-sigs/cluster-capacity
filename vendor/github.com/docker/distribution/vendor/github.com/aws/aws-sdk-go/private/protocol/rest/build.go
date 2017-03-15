@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
 )
@@ -47,28 +46,13 @@ var BuildHandler = request.NamedHandler{Name: "awssdk.rest.Build", Fn: Build}
 func Build(r *request.Request) {
 	if r.ParamsFilled() {
 		v := reflect.ValueOf(r.Params).Elem()
-		buildLocationElements(r, v, false)
+		buildLocationElements(r, v)
 		buildBody(r, v)
 	}
 }
 
-// BuildAsGET builds the REST component of a service request with the ability to hoist
-// data from the body.
-func BuildAsGET(r *request.Request) {
-	if r.ParamsFilled() {
-		v := reflect.ValueOf(r.Params).Elem()
-		buildLocationElements(r, v, true)
-		buildBody(r, v)
-	}
-}
-
-func buildLocationElements(r *request.Request, v reflect.Value, buildGETQuery bool) {
+func buildLocationElements(r *request.Request, v reflect.Value) {
 	query := r.HTTPRequest.URL.Query()
-
-	// Setup the raw path to match the base path pattern. This is needed
-	// so that when the path is mutated a custom escaped version can be
-	// stored in RawPath that will be used by the Go client.
-	r.HTTPRequest.URL.RawPath = r.HTTPRequest.URL.Path
 
 	for i := 0; i < v.NumField(); i++ {
 		m := v.Field(i)
@@ -88,9 +72,6 @@ func buildLocationElements(r *request.Request, v reflect.Value, buildGETQuery bo
 			if !m.IsValid() {
 				continue
 			}
-			if field.Tag.Get("ignore") != "" {
-				continue
-			}
 
 			var err error
 			switch field.Tag.Get("location") {
@@ -102,10 +83,6 @@ func buildLocationElements(r *request.Request, v reflect.Value, buildGETQuery bo
 				err = buildURI(r.HTTPRequest.URL, m, name)
 			case "querystring":
 				err = buildQueryString(query, m, name)
-			default:
-				if buildGETQuery {
-					err = buildQueryString(query, m, name)
-				}
 			}
 			r.Error = err
 		}
@@ -115,9 +92,7 @@ func buildLocationElements(r *request.Request, v reflect.Value, buildGETQuery bo
 	}
 
 	r.HTTPRequest.URL.RawQuery = query.Encode()
-	if !aws.BoolValue(r.Config.DisableRestProtocolURICleaning) {
-		cleanPath(r.HTTPRequest.URL)
-	}
+	updatePath(r.HTTPRequest.URL, r.HTTPRequest.URL.Path)
 }
 
 func buildBody(r *request.Request, v reflect.Value) {
@@ -181,11 +156,10 @@ func buildURI(u *url.URL, v reflect.Value, name string) error {
 		return awserr.New("SerializationError", "failed to encode REST request", err)
 	}
 
-	u.Path = strings.Replace(u.Path, "{"+name+"}", value, -1)
-	u.Path = strings.Replace(u.Path, "{"+name+"+}", value, -1)
-
-	u.RawPath = strings.Replace(u.RawPath, "{"+name+"}", EscapePath(value, true), -1)
-	u.RawPath = strings.Replace(u.RawPath, "{"+name+"+}", EscapePath(value, false), -1)
+	uri := u.Path
+	uri = strings.Replace(uri, "{"+name+"}", EscapePath(value, true), -1)
+	uri = strings.Replace(uri, "{"+name+"+}", EscapePath(value, false), -1)
+	u.Path = uri
 
 	return nil
 }
@@ -219,17 +193,25 @@ func buildQueryString(query url.Values, v reflect.Value, name string) error {
 	return nil
 }
 
-func cleanPath(u *url.URL) {
-	hasSlash := strings.HasSuffix(u.Path, "/")
+func updatePath(url *url.URL, urlPath string) {
+	scheme, query := url.Scheme, url.RawQuery
 
-	// clean up path, removing duplicate `/`
-	u.Path = path.Clean(u.Path)
-	u.RawPath = path.Clean(u.RawPath)
+	hasSlash := strings.HasSuffix(urlPath, "/")
 
-	if hasSlash && !strings.HasSuffix(u.Path, "/") {
-		u.Path += "/"
-		u.RawPath += "/"
+	// clean up path
+	urlPath = path.Clean(urlPath)
+	if hasSlash && !strings.HasSuffix(urlPath, "/") {
+		urlPath += "/"
 	}
+
+	// get formatted URL minus scheme so we can build this into Opaque
+	url.Scheme, url.Path, url.RawQuery = "", "", ""
+	s := url.String()
+	url.Scheme = scheme
+	url.RawQuery = query
+
+	// build opaque URI
+	url.Opaque = s + urlPath
 }
 
 // EscapePath escapes part of a URL path in Amazon style
@@ -240,7 +222,8 @@ func EscapePath(path string, encodeSep bool) string {
 		if noEscape[c] || (c == '/' && !encodeSep) {
 			buf.WriteByte(c)
 		} else {
-			fmt.Fprintf(&buf, "%%%02X", c)
+			buf.WriteByte('%')
+			buf.WriteString(strings.ToUpper(strconv.FormatUint(uint64(c), 16)))
 		}
 	}
 	return buf.String()

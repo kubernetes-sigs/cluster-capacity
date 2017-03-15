@@ -1,7 +1,7 @@
-# Protocol Buffers for Go with Gadgets
+# Extensions for Protocol Buffers to create more go like structures.
 #
-# Copyright (c) 2013, The GoGo Authors. All rights reserved.
-# http://github.com/gogo/protobuf
+# Copyright (c) 2013, Vastech SA (PTY) LTD. All rights reserved.
+# http://github.com/gogo/protobuf/gogoproto
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
@@ -30,7 +30,7 @@
 
 all: clean install regenerate install tests errcheck vet
 
-buildserverall: clean install regenerate install tests vet js
+buildserverall: clean install regenerate install tests vet
 
 install:
 	go install ./proto
@@ -41,10 +41,8 @@ install:
 	go install ./protoc-gen-gogofast
 	go install ./protoc-gen-gogofaster
 	go install ./protoc-gen-gogoslick
-	go install ./protoc-gen-gostring
 	go install ./protoc-min-version
 	go install ./protoc-gen-combo
-	go install ./gogoreplace
 
 clean:
 	go clean ./...
@@ -62,8 +60,6 @@ regenerate:
 	make -C gogoproto regenerate
 	make -C proto/testdata regenerate
 	make -C jsonpb/jsonpb_test_proto regenerate
-	make -C _conformance regenerate
-	make -C types regenerate
 	make -C test regenerate
 	make -C test/example regenerate
 	make -C test/unrecognized regenerate
@@ -99,14 +95,6 @@ regenerate:
 	make -C test/asymetric-issue125 regenerate
 	make -C test/filedotname regenerate
 	make -C test/nopackage regenerate
-	make -C test/types regenerate
-	make -C test/proto3extension regenerate
-	make -C test/stdtypes regenerate
-	make -C test/data regenerate
-	make -C test/typedecl regenerate
-	make -C test/enumdecl regenerate
-	make -C test/typedecl_all regenerate
-	make -C test/enumdecl_all regenerate
 	make gofmt
 
 tests:
@@ -118,7 +106,7 @@ vet:
 	go tool vet --shadow .
 
 errcheck:
-	go get github.com/kisielk/errcheck
+	go get -u github.com/kisielk/errcheck
 	errcheck ./test/...
 
 drone:
@@ -137,9 +125,4 @@ bench:
 contributors:
 	git log --format='%aN <%aE>' | sort -fu > CONTRIBUTORS
 
-js:
-	go get github.com/gopherjs/gopherjs
-	gopherjs build github.com/gogo/protobuf/protoc-gen-gogo
 
-update:
-	(cd protobuf && make update)

@@ -111,7 +111,7 @@ func readKeyName(in []byte) (string, int, error) {
 		// Find key-value delimiter
 		i := strings.IndexAny(line[pos+startIdx:], "=:")
 		if i < 0 {
-			return "", -1, ErrDelimiterNotFound{line}
+			return "", -1, fmt.Errorf("key-value delimiter not found: %s", line)
 		}
 		endIdx = pos + i
 		return strings.TrimSpace(line[startIdx:pos]), endIdx + startIdx + 1, nil
@@ -119,7 +119,7 @@ func readKeyName(in []byte) (string, int, error) {
 
 	endIdx = strings.IndexAny(line, "=:")
 	if endIdx < 0 {
-		return "", -1, ErrDelimiterNotFound{line}
+		return "", -1, fmt.Errorf("key-value delimiter not found: %s", line)
 	}
 	return strings.TrimSpace(line[0:endIdx]), endIdx + 1, nil
 }
@@ -178,7 +178,7 @@ func hasSurroundedQuote(in string, quote byte) bool {
 		strings.IndexByte(in[1:], quote) == len(in)-2
 }
 
-func (p *parser) readValue(in []byte, ignoreContinuation bool) (string, error) {
+func (p *parser) readValue(in []byte) (string, error) {
 	line := strings.TrimLeftFunc(string(in), unicode.IsSpace)
 	if len(line) == 0 {
 		return "", nil
@@ -205,8 +205,8 @@ func (p *parser) readValue(in []byte, ignoreContinuation bool) (string, error) {
 	// Won't be able to reach here if value only contains whitespace.
 	line = strings.TrimSpace(line)
 
-	// Check continuation lines when desired.
-	if !ignoreContinuation && line[len(line)-1] == '\\' {
+	// Check continuation lines
+	if line[len(line)-1] == '\\' {
 		return p.readContinuationLines(line[:len(line)-1])
 	}
 
@@ -258,14 +258,12 @@ func (f *File) parse(reader io.Reader) (err error) {
 		// Section
 		if line[0] == '[' {
 			// Read to the next ']' (TODO: support quoted strings)
-			// TODO(unknwon): use LastIndexByte when stop supporting Go1.4
-			closeIdx := bytes.LastIndex(line, []byte("]"))
+			closeIdx := bytes.IndexByte(line, ']')
 			if closeIdx == -1 {
 				return fmt.Errorf("unclosed section: %s", line)
 			}
 
-			name := string(line[1:closeIdx])
-			section, err = f.NewSection(name)
+			section, err = f.NewSection(string(line[1:closeIdx]))
 			if err != nil {
 				return err
 			}
@@ -285,17 +283,6 @@ func (f *File) parse(reader io.Reader) (err error) {
 
 		kname, offset, err := readKeyName(line)
 		if err != nil {
-			// Treat as boolean key when desired, and whole line is key name.
-			if IsErrDelimiterNotFound(err) && f.options.AllowBooleanKeys {
-				key, err := section.NewKey(string(line), "true")
-				if err != nil {
-					return err
-				}
-				key.isBooleanType = true
-				key.Comment = strings.TrimSpace(p.comment.String())
-				p.comment.Reset()
-				continue
-			}
 			return err
 		}
 
@@ -311,9 +298,9 @@ func (f *File) parse(reader io.Reader) (err error) {
 		if err != nil {
 			return err
 		}
-		key.isAutoIncrement = isAutoIncr
+		key.isAutoIncr = isAutoIncr
 
-		value, err := p.readValue(line[offset:], f.options.IgnoreContinuation)
+		value, err := p.readValue(line[offset:])
 		if err != nil {
 			return err
 		}

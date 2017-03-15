@@ -3,18 +3,15 @@ package influxql
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"io"
-	"math"
 	"sort"
 
 	"github.com/gogo/protobuf/proto"
-	internal "github.com/influxdata/influxdb/influxql/internal"
+	"github.com/influxdata/influxdb/influxql/internal"
 )
 
-// ZeroTime is the Unix nanosecond timestamp for no time.
-// This time is not used by the query engine or the storage engine as a valid time.
-const ZeroTime = int64(math.MinInt64)
+// ZeroTime is the Unix nanosecond timestamp for time.Time{}.
+const ZeroTime = int64(-6795364578871345152)
 
 // Point represents a value in a series that occurred at a given time.
 type Point interface {
@@ -35,31 +32,6 @@ type Point interface {
 // Points represents a list of points.
 type Points []Point
 
-// Clone returns a deep copy of a.
-func (a Points) Clone() []Point {
-	other := make([]Point, len(a))
-	for i, p := range a {
-		if p == nil {
-			other[i] = nil
-			continue
-		}
-
-		switch p := p.(type) {
-		case *FloatPoint:
-			other[i] = p.Clone()
-		case *IntegerPoint:
-			other[i] = p.Clone()
-		case *StringPoint:
-			other[i] = p.Clone()
-		case *BooleanPoint:
-			other[i] = p.Clone()
-		default:
-			panic(fmt.Sprintf("unable to clone point: %T", p))
-		}
-	}
-	return other
-}
-
 // Tags represent a map of keys and values.
 // It memoizes its key so it can be used efficiently during query execution.
 type Tags struct {
@@ -78,7 +50,7 @@ func NewTags(m map[string]string) Tags {
 	}
 }
 
-// newTagsID returns a new instance of Tags by parsing the given tag ID.
+// newTagsID returns a new instance of Tags parses from a tag id.
 func newTagsID(id string) Tags {
 	m := decodeTags([]byte(id))
 	if len(m) == 0 {
@@ -117,7 +89,7 @@ func (t *Tags) Value(k string) string {
 
 // Subset returns a new tags object with a subset of the keys.
 func (t *Tags) Subset(keys []string) Tags {
-	if len(keys) == 0 {
+	if t.m == nil || len(keys) == 0 {
 		return Tags{}
 	}
 
@@ -207,12 +179,11 @@ func decodeTags(id []byte) map[string]string {
 	if len(a) == 0 {
 		return nil
 	}
-	mid := len(a) / 2
 
 	// Decode key/value tags.
 	m := make(map[string]string)
-	for i := 0; i < mid; i++ {
-		m[string(a[i])] = string(a[i+mid])
+	for i := 0; i < len(a); i += 2 {
+		m[string(a[i])] = string(a[i+1])
 	}
 	return m
 }
@@ -283,16 +254,7 @@ func decodeAux(pb []*internal.Aux) []interface{} {
 	return aux
 }
 
-func cloneAux(src []interface{}) []interface{} {
-	if src == nil {
-		return src
-	}
-	dest := make([]interface{}, len(src))
-	copy(dest, src)
-	return dest
-}
-
-// PointDecoder decodes generic points from a reader.
+// NewPointDecoder decodes generic points from a reader.
 type PointDecoder struct {
 	r     io.Reader
 	stats IteratorStats

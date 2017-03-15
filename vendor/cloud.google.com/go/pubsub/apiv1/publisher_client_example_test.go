@@ -1,10 +1,10 @@
-// Copyright 2016, Google Inc. All rights reserved.
+// Copyright 2016 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,40 +30,6 @@ func ExampleNewPublisherClient() {
 	}
 	// TODO: Use client.
 	_ = c
-}
-
-func ExamplePublisherClient_SubscriptionIAM() {
-	ctx := context.Background()
-	c, err := pubsub.NewPublisherClient(ctx)
-	if err != nil {
-		// TODO: Handle error.
-	}
-
-	subscription := &pubsubpb.Subscription{}
-	h := c.SubscriptionIAM(subscription)
-	policy, err := h.Policy(ctx)
-	if err != nil {
-		// TODO: Handle error.
-	}
-	//TODO: Use the IAM policy
-	_ = policy
-}
-
-func ExamplePublisherClient_TopicIAM() {
-	ctx := context.Background()
-	c, err := pubsub.NewPublisherClient(ctx)
-	if err != nil {
-		// TODO: Handle error.
-	}
-
-	topic := &pubsubpb.Topic{}
-	h := c.TopicIAM(topic)
-	policy, err := h.Policy(ctx)
-	if err != nil {
-		// TODO: Handle error.
-	}
-	//TODO: Use the IAM policy
-	_ = policy
 }
 
 func ExamplePublisherClient_CreateTopic() {

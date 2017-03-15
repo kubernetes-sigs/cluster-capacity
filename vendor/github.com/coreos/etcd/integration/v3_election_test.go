@@ -28,6 +28,7 @@ import (
 func TestElectionWait(t *testing.T) {
 	clus := NewClusterV3(t, &ClusterConfig{Size: 3})
 	defer clus.Terminate(t)
+	defer dropSessionLease(clus)
 
 	leaders := 3
 	followers := 3
@@ -43,12 +44,7 @@ func TestElectionWait(t *testing.T) {
 		nextc = append(nextc, make(chan struct{}))
 		go func(ch chan struct{}) {
 			for j := 0; j < leaders; j++ {
-				session, err := concurrency.NewSession(newClient())
-				if err != nil {
-					t.Error(err)
-				}
-				b := concurrency.NewElection(session, "test-election")
-
+				b := concurrency.NewElection(newClient(), "test-election")
 				cctx, cancel := context.WithCancel(context.TODO())
 				defer cancel()
 				s, ok := <-b.Observe(cctx)
@@ -58,7 +54,6 @@ func TestElectionWait(t *testing.T) {
 				electedc <- string(s.Kvs[0].Value)
 				// wait for next election round
 				<-ch
-				session.Orphan()
 			}
 			donec <- struct{}{}
 		}(nextc[i])
@@ -67,13 +62,7 @@ func TestElectionWait(t *testing.T) {
 	// elect some leaders
 	for i := 0; i < leaders; i++ {
 		go func() {
-			session, err := concurrency.NewSession(newClient())
-			if err != nil {
-				t.Error(err)
-			}
-			defer session.Orphan()
-
-			e := concurrency.NewElection(session, "test-election")
+			e := concurrency.NewElection(newClient(), "test-election")
 			ev := fmt.Sprintf("electval-%v", time.Now().UnixNano())
 			if err := e.Campaign(context.TODO(), ev); err != nil {
 				t.Fatalf("failed volunteer (%v)", err)
@@ -108,23 +97,13 @@ func TestElectionWait(t *testing.T) {
 func TestElectionFailover(t *testing.T) {
 	clus := NewClusterV3(t, &ClusterConfig{Size: 3})
 	defer clus.Terminate(t)
+	defer dropSessionLease(clus)
 
 	cctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
-	ss := make([]*concurrency.Session, 3, 3)
-
-	for i := 0; i < 3; i++ {
-		var err error
-		ss[i], err = concurrency.NewSession(clus.clients[i])
-		if err != nil {
-			t.Error(err)
-		}
-		defer ss[i].Orphan()
-	}
-
 	// first leader (elected)
-	e := concurrency.NewElection(ss[0], "test-election")
+	e := concurrency.NewElection(clus.clients[0], "test-election")
 	if err := e.Campaign(context.TODO(), "foo"); err != nil {
 		t.Fatalf("failed volunteer (%v)", err)
 	}
@@ -142,7 +121,7 @@ func TestElectionFailover(t *testing.T) {
 	// next leader
 	electedc := make(chan struct{})
 	go func() {
-		ee := concurrency.NewElection(ss[1], "test-election")
+		ee := concurrency.NewElection(clus.clients[1], "test-election")
 		if eer := ee.Campaign(context.TODO(), "bar"); eer != nil {
 			t.Fatal(eer)
 		}
@@ -150,12 +129,16 @@ func TestElectionFailover(t *testing.T) {
 	}()
 
 	// invoke leader failover
-	if err := ss[0].Close(); err != nil {
+	session, serr := concurrency.NewSession(clus.clients[0])
+	if serr != nil {
+		t.Fatal(serr)
+	}
+	if err := session.Close(); err != nil {
 		t.Fatal(err)
 	}
 
 	// check new leader
-	e = concurrency.NewElection(ss[2], "test-election")
+	e = concurrency.NewElection(clus.clients[2], "test-election")
 	resp, ok = <-e.Observe(cctx)
 	if !ok {
 		t.Fatalf("could not wait for second election; channel closed")
@@ -176,17 +159,11 @@ func TestElectionSessionRecampaign(t *testing.T) {
 	defer clus.Terminate(t)
 	cli := clus.RandClient()
 
-	session, err := concurrency.NewSession(cli)
-	if err != nil {
-		t.Error(err)
-	}
-	defer session.Orphan()
-
-	e := concurrency.NewElection(session, "test-elect")
+	e := concurrency.NewElection(cli, "test-elect")
 	if err := e.Campaign(context.TODO(), "abc"); err != nil {
 		t.Fatal(err)
 	}
-	e2 := concurrency.NewElection(session, "test-elect")
+	e2 := concurrency.NewElection(cli, "test-elect")
 	if err := e2.Campaign(context.TODO(), "def"); err != nil {
 		t.Fatal(err)
 	}
@@ -211,11 +188,8 @@ func TestElectionOnPrefixOfExistingKey(t *testing.T) {
 	if _, err := cli.Put(context.TODO(), "testa", "value"); err != nil {
 		t.Fatal(err)
 	}
-	s, serr := concurrency.NewSession(cli)
-	if serr != nil {
-		t.Fatal(serr)
-	}
-	e := concurrency.NewElection(s, "test")
+
+	e := concurrency.NewElection(cli, "test")
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	err := e.Campaign(ctx, "abc")
 	cancel()
@@ -223,52 +197,5 @@ func TestElectionOnPrefixOfExistingKey(t *testing.T) {
 		// after 5 seconds, deadlock results in
 		// 'context deadline exceeded' here.
 		t.Fatal(err)
-	}
-}
-
-// TestElectionOnSessionRestart tests that a quick restart of leader (resulting
-// in a new session with the same lease id) does not result in loss of
-// leadership.
-func TestElectionOnSessionRestart(t *testing.T) {
-	clus := NewClusterV3(t, &ClusterConfig{Size: 1})
-	defer clus.Terminate(t)
-	cli := clus.RandClient()
-
-	session, err := concurrency.NewSession(cli)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	e := concurrency.NewElection(session, "test-elect")
-	if cerr := e.Campaign(context.TODO(), "abc"); cerr != nil {
-		t.Fatal(cerr)
-	}
-
-	// ensure leader is not lost to waiter on fail-over
-	waitSession, werr := concurrency.NewSession(cli)
-	if werr != nil {
-		t.Fatal(werr)
-	}
-	defer waitSession.Orphan()
-	waitCtx, waitCancel := context.WithTimeout(context.TODO(), 5*time.Second)
-	defer waitCancel()
-	go concurrency.NewElection(waitSession, "test-elect").Campaign(waitCtx, "123")
-
-	// simulate restart by reusing the lease from the old session
-	newSession, nerr := concurrency.NewSession(cli, concurrency.WithLease(session.Lease()))
-	if nerr != nil {
-		t.Fatal(nerr)
-	}
-	defer newSession.Orphan()
-
-	newElection := concurrency.NewElection(newSession, "test-elect")
-	if ncerr := newElection.Campaign(context.TODO(), "def"); ncerr != nil {
-		t.Fatal(ncerr)
-	}
-
-	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
-	defer cancel()
-	if resp := <-newElection.Observe(ctx); len(resp.Kvs) == 0 || string(resp.Kvs[0].Value) != "def" {
-		t.Errorf("expected value=%q, got response %v", "def", resp)
 	}
 }

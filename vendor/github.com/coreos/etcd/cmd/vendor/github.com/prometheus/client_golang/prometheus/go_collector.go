@@ -17,7 +17,7 @@ type goCollector struct {
 
 // NewGoCollector returns a collector which exports metrics about the current
 // go process.
-func NewGoCollector() Collector {
+func NewGoCollector() *goCollector {
 	return &goCollector{
 		goroutines: NewGauge(GaugeOpts{
 			Namespace: "go",
@@ -211,7 +211,7 @@ func NewGoCollector() Collector {
 					"Number of seconds since 1970 of last garbage collection.",
 					nil, nil,
 				),
-				eval:    func(ms *runtime.MemStats) float64 { return float64(ms.LastGC) / 1e9 },
+				eval:    func(ms *runtime.MemStats) float64 { return float64(ms.LastGC*10 ^ 9) },
 				valType: GaugeValue,
 			},
 		},

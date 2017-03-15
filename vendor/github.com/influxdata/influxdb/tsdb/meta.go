@@ -1,18 +1,18 @@
 package tsdb
 
 import (
-	"bytes"
+	"expvar"
 	"fmt"
 	"regexp"
 	"sort"
+	"strings"
 	"sync"
-	"sync/atomic"
-	"unsafe"
+	"time"
 
+	"github.com/influxdata/influxdb"
 	"github.com/influxdata/influxdb/influxql"
-	"github.com/influxdata/influxdb/models"
 	"github.com/influxdata/influxdb/pkg/escape"
-	internal "github.com/influxdata/influxdb/tsdb/internal"
+	"github.com/influxdata/influxdb/tsdb/internal"
 
 	"github.com/gogo/protobuf/proto"
 )
@@ -20,14 +20,14 @@ import (
 //go:generate protoc --gogo_out=. internal/meta.proto
 
 const (
-	statDatabaseSeries              = "numSeries"              // number of series in this database
-	statDatabaseMeasurements        = "numMeasurements"        // number of measurements in this database
-	statDatabaseSeriesDropped       = "numSeriesDropped"       // number of series dropped from database
-	statDatabaseMeasurementsDropped = "numMeasurementsDropped" // number of measurements dropped from database
+	maxStringLength = 64 * 1024
+
+	statDatabaseSeries       = "numSeries"       // number of series in this database
+	statDatabaseMeasurements = "numMeasurements" // number of measurements in this database
 )
 
 // DatabaseIndex is the in memory index of a collection of measurements, time series, and their tags.
-// Exported functions are goroutine safe while un-exported functions assume the caller will use the appropriate locks.
+// Exported functions are goroutine safe while un-exported functions assume the caller will use the appropriate locks
 type DatabaseIndex struct {
 	// in memory metadata index, built on load and updated when new series come in
 	mu           sync.RWMutex
@@ -37,8 +37,7 @@ type DatabaseIndex struct {
 
 	name string // name of the database represented by this index
 
-	stats       *IndexStatistics
-	defaultTags models.StatisticTags
+	statMap *expvar.Map
 }
 
 // NewDatabaseIndex returns a new initialized DatabaseIndex.
@@ -47,56 +46,14 @@ func NewDatabaseIndex(name string) *DatabaseIndex {
 		measurements: make(map[string]*Measurement),
 		series:       make(map[string]*Series),
 		name:         name,
-		stats:        &IndexStatistics{},
-		defaultTags:  models.StatisticTags{"database": name},
+		statMap:      influxdb.NewStatistics("database:"+name, "database", map[string]string{"database": name}),
 	}
-}
-
-// IndexStatistics maintains statistics for the index.
-type IndexStatistics struct {
-	NumSeries              int64
-	NumMeasurements        int64
-	NumSeriesDropped       int64
-	NumMeasurementsDropped int64
-}
-
-// Statistics returns statistics for periodic monitoring.
-func (d *DatabaseIndex) Statistics(tags map[string]string) []models.Statistic {
-	return []models.Statistic{{
-		Name: "database",
-		Tags: d.defaultTags.Merge(tags),
-		Values: map[string]interface{}{
-			statDatabaseSeries:              atomic.LoadInt64(&d.stats.NumSeries),
-			statDatabaseMeasurements:        atomic.LoadInt64(&d.stats.NumMeasurements),
-			statDatabaseSeriesDropped:       atomic.LoadInt64(&d.stats.NumSeriesDropped),
-			statDatabaseMeasurementsDropped: atomic.LoadInt64(&d.stats.NumMeasurementsDropped),
-		},
-	}}
 }
 
 // Series returns a series by key.
 func (d *DatabaseIndex) Series(key string) *Series {
 	d.mu.RLock()
 	s := d.series[key]
-	d.mu.RUnlock()
-	return s
-}
-
-// SeriesBytes returns a series by key.
-func (d *DatabaseIndex) SeriesBytes(key []byte) *Series {
-	d.mu.RLock()
-	s := d.series[string(key)]
-	d.mu.RUnlock()
-	return s
-}
-
-// SeriesKeys returns a sorted slice of strings indicating all the series keys in the index.
-func (d *DatabaseIndex) SeriesKeys() []string {
-	d.mu.RLock()
-	s := make([]string, 0, len(d.series))
-	for k := range d.series {
-		s = append(s, k)
-	}
 	d.mu.RUnlock()
 	return s
 }
@@ -108,14 +65,14 @@ func (d *DatabaseIndex) SeriesN() int {
 	return len(d.series)
 }
 
-// Measurement returns the measurement object from the index by the name.
+// Measurement returns the measurement object from the index by the name
 func (d *DatabaseIndex) Measurement(name string) *Measurement {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 	return d.measurements[name]
 }
 
-// MeasurementsByName returns a list of all the measurements in the index that match any entry in names.
+// MeasurementsByName returns a list of measurements.
 func (d *DatabaseIndex) MeasurementsByName(names []string) []*Measurement {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
@@ -138,20 +95,7 @@ func (d *DatabaseIndex) MeasurementSeriesCounts() (nMeasurements int, nSeries in
 	return
 }
 
-// SeriesShardN returns the series count for a shard.
-func (d *DatabaseIndex) SeriesShardN(shardID uint64) int {
-	var n int
-	d.mu.RLock()
-	for _, s := range d.series {
-		if s.Assigned(shardID) {
-			n++
-		}
-	}
-	d.mu.RUnlock()
-	return n
-}
-
-// CreateSeriesIndexIfNotExists adds the series for the given measurement to the index and sets its ID or returns the existing series object.
+// CreateSeriesIndexIfNotExists adds the series for the given measurement to the index and sets its ID or returns the existing series object
 func (d *DatabaseIndex) CreateSeriesIndexIfNotExists(measurementName string, series *Series) *Series {
 	d.mu.RLock()
 	// if there is a measurement for this id, it's already been added
@@ -166,32 +110,23 @@ func (d *DatabaseIndex) CreateSeriesIndexIfNotExists(measurementName string, ser
 	m := d.CreateMeasurementIndexIfNotExists(measurementName)
 
 	d.mu.Lock()
-	// Check for the series again under a write lock
-	ss = d.series[series.Key]
-	if ss != nil {
-		d.mu.Unlock()
-		return ss
-	}
+	defer d.mu.Unlock()
 
 	// set the in memory ID for query processing on this shard
-	series.ID = d.lastID + 1
+	series.id = d.lastID + 1
 	d.lastID++
 
 	series.measurement = m
-
-	// Clone the tags to dereference any short-term buffers
-	series.Tags = series.Tags.Clone()
 	d.series[series.Key] = series
 
 	m.AddSeries(series)
 
-	atomic.AddInt64(&d.stats.NumSeries, 1)
-	d.mu.Unlock()
+	d.statMap.Add(statDatabaseSeries, 1)
 
 	return series
 }
 
-// CreateMeasurementIndexIfNotExists creates or retrieves an in-memory index object for the measurement.
+// CreateMeasurementIndexIfNotExists creates or retrieves an in memory index object for the measurement
 func (d *DatabaseIndex) CreateMeasurementIndexIfNotExists(name string) *Measurement {
 	name = escape.UnescapeString(name)
 
@@ -214,13 +149,13 @@ func (d *DatabaseIndex) CreateMeasurementIndexIfNotExists(name string) *Measurem
 	if m == nil {
 		m = NewMeasurement(name)
 		d.measurements[name] = m
-		atomic.AddInt64(&d.stats.NumMeasurements, 1)
+		d.statMap.Add(statDatabaseMeasurements, 1)
 	}
 	return m
 }
 
-// AssignShard updates the index to indicate that series k exists in
-// the given shardID.
+// AssignShard update the index to indicate that series k exists in
+// the given shardID
 func (d *DatabaseIndex) AssignShard(k string, shardID uint64) {
 	ss := d.Series(k)
 	if ss != nil {
@@ -228,50 +163,8 @@ func (d *DatabaseIndex) AssignShard(k string, shardID uint64) {
 	}
 }
 
-// UnassignShard updates the index to indicate that series k does not exist in
-// the given shardID.
-func (d *DatabaseIndex) UnassignShard(k string, shardID uint64) {
-	ss := d.Series(k)
-	if ss != nil {
-		if ss.Assigned(shardID) {
-			// Remove the shard from any series
-			ss.UnassignShard(shardID)
-
-			// If this series no longer has shards assigned, remove the series
-			if ss.ShardN() == 0 {
-
-				// Remove the series the measurements
-				ss.measurement.DropSeries(ss)
-
-				// If the measurement no longer has any series, remove it as well
-				if !ss.measurement.HasSeries() {
-					d.mu.Lock()
-					d.dropMeasurement(ss.measurement.Name)
-					d.mu.Unlock()
-				}
-
-				// Remove the series key from the series index
-				d.mu.Lock()
-				delete(d.series, k)
-				atomic.AddInt64(&d.stats.NumSeries, -1)
-				atomic.AddInt64(&d.stats.NumSeriesDropped, 1)
-				d.mu.Unlock()
-			}
-		}
-	}
-}
-
-// RemoveShard removes all references to shardID from any series or measurements
-// in the index.  If the shard was the only owner of data for the series, the series
-// is removed from the index.
-func (d *DatabaseIndex) RemoveShard(shardID uint64) {
-	for _, k := range d.SeriesKeys() {
-		d.UnassignShard(k, shardID)
-	}
-}
-
 // TagsForSeries returns the tag map for the passed in series
-func (d *DatabaseIndex) TagsForSeries(key string) models.Tags {
+func (d *DatabaseIndex) TagsForSeries(key string) map[string]string {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
@@ -282,23 +175,13 @@ func (d *DatabaseIndex) TagsForSeries(key string) models.Tags {
 	return ss.Tags
 }
 
-// MeasurementsByExpr takes an expression containing only tags and returns a
+// measurementsByExpr takes an expression containing only tags and returns a
 // list of matching *Measurement. The bool return argument returns if the
 // expression was a measurement expression. It is used to differentiate a list
 // of no measurements because all measurements were filtered out (when the bool
 // is true) against when there are no measurements because the expression
 // wasn't evaluated (when the bool is false).
-func (d *DatabaseIndex) MeasurementsByExpr(expr influxql.Expr) (Measurements, bool, error) {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-	return d.measurementsByExpr(expr)
-}
-
 func (d *DatabaseIndex) measurementsByExpr(expr influxql.Expr) (Measurements, bool, error) {
-	if expr == nil {
-		return nil, false, nil
-	}
-
 	switch e := expr.(type) {
 	case *influxql.BinaryExpr:
 		switch e.Op {
@@ -426,7 +309,7 @@ func (d *DatabaseIndex) measurementsByTagFilters(filters []*TagFilter) Measureme
 					tagMatch = true
 				}
 			} else {
-				// Else, the operator is a regex and we have to check all tag
+				// Else, the operator is regex and we have to check all tag
 				// values against the regular expression.
 				for tagVal := range tagVals {
 					if f.Regex.MatchString(tagVal) {
@@ -478,19 +361,14 @@ func (d *DatabaseIndex) Measurements() Measurements {
 		measurements = append(measurements, m)
 	}
 	d.mu.RUnlock()
-
 	return measurements
 }
 
-// DropMeasurement removes the measurement and all of its underlying
-// series from the database index.
+// DropMeasurement removes the measurement and all of its underlying series from the database index
 func (d *DatabaseIndex) DropMeasurement(name string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	d.dropMeasurement(name)
-}
 
-func (d *DatabaseIndex) dropMeasurement(name string) {
 	m := d.measurements[name]
 	if m == nil {
 		return
@@ -501,65 +379,44 @@ func (d *DatabaseIndex) dropMeasurement(name string) {
 		delete(d.series, s.Key)
 	}
 
-	atomic.AddInt64(&d.stats.NumSeries, int64(-len(m.seriesByID)))
-	atomic.AddInt64(&d.stats.NumSeriesDropped, int64(len(m.seriesByID)))
-	atomic.AddInt64(&d.stats.NumMeasurements, -1)
-	atomic.AddInt64(&d.stats.NumMeasurementsDropped, 1)
+	d.statMap.Add(statDatabaseSeries, int64(-len(m.seriesByID)))
+	d.statMap.Add(statDatabaseMeasurements, -1)
 }
 
-// DropSeries removes the series keys and their tags from the index.
+// DropSeries removes the series keys and their tags from the index
 func (d *DatabaseIndex) DropSeries(keys []string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	var (
-		mToDelete = map[string]struct{}{}
-		nDeleted  int64
-	)
-
+	var nDeleted int64
 	for _, k := range keys {
 		series := d.series[k]
 		if series == nil {
 			continue
 		}
-		series.measurement.DropSeries(series)
+		series.measurement.DropSeries(series.id)
 		delete(d.series, k)
 		nDeleted++
-
-		// If there are no more series in the measurement then we'll
-		// remove it.
-		if len(series.measurement.seriesByID) == 0 {
-			mToDelete[series.measurement.Name] = struct{}{}
-		}
 	}
 
-	for mname := range mToDelete {
-		d.dropMeasurement(mname)
-	}
-	atomic.AddInt64(&d.stats.NumSeries, -nDeleted)
-	atomic.AddInt64(&d.stats.NumSeriesDropped, nDeleted)
+	d.statMap.Add(statDatabaseSeries, -nDeleted)
 }
 
-// Dereference removes all references to data within b and moves them to the heap.
-func (d *DatabaseIndex) Dereference(b []byte) {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
+const (
+	statMeasurementSeries = "numSeries" // number of series contained in this measurement
+)
 
-	for _, s := range d.series {
-		s.Dereference(b)
-	}
-}
-
-// Measurement represents a collection of time series in a database. It also contains in-memory
+// Measurement represents a collection of time series in a database. It also contains in memory
 // structures for indexing tags. Exported functions are goroutine safe while un-exported functions
-// assume the caller will use the appropriate locks.
+// assume the caller will use the appropriate locks
 type Measurement struct {
 	mu         sync.RWMutex
 	Name       string `json:"name,omitempty"`
 	fieldNames map[string]struct{}
 
 	// in-memory index fields
-	seriesByID          map[uint64]*Series              // lookup table for series by their id
+	seriesByID          map[uint64]*Series // lookup table for series by their id
+	measurement         *Measurement
 	seriesByTagKeyValue map[string]map[string]SeriesIDs // map from tag key to value to sorted set of series ids
 	seriesIDs           SeriesIDs                       // sorted list of series IDs in this measurement
 }
@@ -572,11 +429,11 @@ func NewMeasurement(name string) *Measurement {
 
 		seriesByID:          make(map[uint64]*Series),
 		seriesByTagKeyValue: make(map[string]map[string]SeriesIDs),
-		seriesIDs:           make(SeriesIDs, 0, 1),
+		seriesIDs:           make(SeriesIDs, 0),
 	}
 }
 
-// HasField returns true if the measurement has a field by the given name.
+// HasField returns true if the measurement has a field by the given name
 func (m *Measurement) HasField(name string) bool {
 	m.mu.RLock()
 	hasField := m.hasField(name)
@@ -596,30 +453,7 @@ func (m *Measurement) SeriesByID(id uint64) *Series {
 	return m.seriesByID[id]
 }
 
-// SeriesByIDSlice returns a list of series by identifiers.
-func (m *Measurement) SeriesByIDSlice(ids []uint64) []*Series {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	a := make([]*Series, len(ids))
-	for i, id := range ids {
-		a[i] = m.seriesByID[id]
-	}
-	return a
-}
-
-// AppendSeriesKeysByID appends keys for a list of series ids to a buffer.
-func (m *Measurement) AppendSeriesKeysByID(dst []string, ids []uint64) []string {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	for _, id := range ids {
-		if s := m.seriesByID[id]; s != nil {
-			dst = append(dst, s.Key)
-		}
-	}
-	return dst
-}
-
-// SeriesKeys returns the keys of every series in this measurement.
+// SeriesKeys returns the keys of every series in this measurement
 func (m *Measurement) SeriesKeys() []string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -643,7 +477,7 @@ func (m *Measurement) ValidateGroupBy(stmt *influxql.SelectStatement) error {
 	return nil
 }
 
-// HasTagKey returns true if at least one series in this measurement has written a value for the passed in tag key.
+// HasTagKey returns true if at least one series in this measurement has written a value for the passed in tag key
 func (m *Measurement) HasTagKey(k string) bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -651,66 +485,23 @@ func (m *Measurement) HasTagKey(k string) bool {
 	return hasTag
 }
 
-// HasTagKeyValue returns true if at least one series in this measurement has written a value the given tag key and tag value.
-func (m *Measurement) HasTagKeyValue(k, v []byte) bool {
-	m.mu.RLock()
-	if vals, ok := m.seriesByTagKeyValue[string(k)]; ok {
-		_, ok := vals[string(v)]
-		m.mu.RUnlock()
-		return ok
-	}
-	m.mu.RUnlock()
-	return false
-}
-
-// HasSeries returns true if there is at least 1 series under this measurement.
+// HasSeries returns true if there is at least 1 series under this measurement
 func (m *Measurement) HasSeries() bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return len(m.seriesByID) > 0
 }
 
-// Cardinality returns the number of values associated with the given tag key.
-func (m *Measurement) Cardinality(key string) int {
-	var n int
-	m.mu.RLock()
-	n = m.cardinality(key)
-	m.mu.RUnlock()
-	return n
-}
-
-func (m *Measurement) cardinality(key string) int {
-	return len(m.seriesByTagKeyValue[key])
-}
-
-// CardinalityBytes returns the number of values associated with the given tag key.
-func (m *Measurement) CardinalityBytes(key []byte) int {
-	var n int
-	m.mu.RLock()
-	n = len(m.seriesByTagKeyValue[string(key)])
-	m.mu.RUnlock()
-	return n
-}
-
-// AddSeries adds a series to the measurement's index.
-// It returns true if the series was added successfully or false if the series was already present.
+// AddSeries will add a series to the measurementIndex. Returns false if already present
 func (m *Measurement) AddSeries(s *Series) bool {
-	m.mu.RLock()
-	if _, ok := m.seriesByID[s.ID]; ok {
-		m.mu.RUnlock()
-		return false
-	}
-	m.mu.RUnlock()
-
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if _, ok := m.seriesByID[s.ID]; ok {
+	if _, ok := m.seriesByID[s.id]; ok {
 		return false
 	}
-
-	m.seriesByID[s.ID] = s
-	m.seriesIDs = append(m.seriesIDs, s.ID)
+	m.seriesByID[s.id] = s
+	m.seriesIDs = append(m.seriesIDs, s.id)
 
 	// the series ID should always be higher than all others because it's a new
 	// series. So don't do the sort if we don't have to.
@@ -719,29 +510,28 @@ func (m *Measurement) AddSeries(s *Series) bool {
 	}
 
 	// add this series id to the tag index on the measurement
-	for _, t := range s.Tags {
-		valueMap := m.seriesByTagKeyValue[string(t.Key)]
+	for k, v := range s.Tags {
+		valueMap := m.seriesByTagKeyValue[k]
 		if valueMap == nil {
 			valueMap = make(map[string]SeriesIDs)
-			m.seriesByTagKeyValue[string(t.Key)] = valueMap
+			m.seriesByTagKeyValue[k] = valueMap
 		}
-		ids := valueMap[string(t.Value)]
-		ids = append(ids, s.ID)
+		ids := valueMap[v]
+		ids = append(ids, s.id)
 
 		// most of the time the series ID will be higher than all others because it's a new
 		// series. So don't do the sort if we don't have to.
 		if len(ids) > 1 && ids[len(ids)-1] < ids[len(ids)-2] {
 			sort.Sort(ids)
 		}
-		valueMap[string(t.Value)] = ids
+		valueMap[v] = ids
 	}
 
 	return true
 }
 
-// DropSeries removes a series from the measurement's index.
-func (m *Measurement) DropSeries(series *Series) {
-	seriesID := series.ID
+// DropSeries will remove a series from the measurementIndex.
+func (m *Measurement) DropSeries(seriesID uint64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -750,24 +540,37 @@ func (m *Measurement) DropSeries(series *Series) {
 	}
 	delete(m.seriesByID, seriesID)
 
-	ids := filter(m.seriesIDs, seriesID)
+	var ids []uint64
+	for _, id := range m.seriesIDs {
+		if id != seriesID {
+			ids = append(ids, id)
+		}
+	}
 	m.seriesIDs = ids
 
-	// remove this series id from the tag index on the measurement
+	// remove this series id to the tag index on the measurement
 	// s.seriesByTagKeyValue is defined as map[string]map[string]SeriesIDs
-	for _, t := range series.Tags {
-		values := m.seriesByTagKeyValue[string(t.Key)][string(t.Value)]
-		ids := filter(values, seriesID)
-		// Check to see if we have any ids, if not, remove the key
-		if len(ids) == 0 {
-			delete(m.seriesByTagKeyValue[string(t.Key)], string(t.Value))
-		} else {
-			m.seriesByTagKeyValue[string(t.Key)][string(t.Value)] = ids
+	for k, v := range m.seriesByTagKeyValue {
+		values := v
+		for kk, vv := range values {
+			var ids []uint64
+			for _, id := range vv {
+				if id != seriesID {
+					ids = append(ids, id)
+				}
+			}
+			// Check to see if we have any ids, if not, remove the key
+			if len(ids) == 0 {
+				delete(values, kk)
+			} else {
+				values[kk] = ids
+			}
 		}
-
 		// If we have no values, then we delete the key
-		if len(m.seriesByTagKeyValue[string(t.Key)]) == 0 {
-			delete(m.seriesByTagKeyValue, string(t.Key))
+		if len(values) == 0 {
+			delete(m.seriesByTagKeyValue, k)
+		} else {
+			m.seriesByTagKeyValue[k] = values
 		}
 	}
 
@@ -775,234 +578,170 @@ func (m *Measurement) DropSeries(series *Series) {
 }
 
 // filters walks the where clause of a select statement and returns a map with all series ids
-// matching the where clause and any filter expression that should be applied to each.
-func (m *Measurement) filters(condition influxql.Expr) ([]uint64, map[uint64]influxql.Expr, error) {
+// matching the where clause and any filter expression that should be applied to each
+func (m *Measurement) filters(condition influxql.Expr) (map[uint64]influxql.Expr, error) {
 	if condition == nil || influxql.OnlyTimeExpr(condition) {
-		return m.seriesIDs, nil, nil
+		seriesIdsToExpr := make(map[uint64]influxql.Expr, len(m.seriesIDs))
+		for _, id := range m.seriesIDs {
+			seriesIdsToExpr[id] = nil
+		}
+		return seriesIdsToExpr, nil
 	}
-	return m.walkWhereForSeriesIds(condition)
+
+	ids, seriesIdsToExpr, err := m.walkWhereForSeriesIds(condition)
+	if err != nil {
+		return nil, err
+	}
+
+	// Ensure every id is in the map and replace literal true expressions with
+	// nil so the engine doesn't waste time evaluating them.
+	for _, id := range ids {
+		if expr, ok := seriesIdsToExpr[id]; !ok {
+			seriesIdsToExpr[id] = nil
+		} else if b, ok := expr.(*influxql.BooleanLiteral); ok && b.Val {
+			seriesIdsToExpr[id] = nil
+		}
+	}
+	return seriesIdsToExpr, nil
 }
 
 // TagSets returns the unique tag sets that exist for the given tag keys. This is used to determine
 // what composite series will be created by a group by. i.e. "group by region" should return:
-//   {"region":"uswest"}, {"region":"useast"}
+// {"region":"uswest"}, {"region":"useast"}
 // or region, service returns
-//   {"region": "uswest", "service": "redis"}, {"region": "uswest", "service": "mysql"}, ...
+// {"region": "uswest", "service": "redis"}, {"region": "uswest", "service": "mysql"}, etc...
 // This will also populate the TagSet objects with the series IDs that match each tagset and any
 // influx filter expression that goes with the series
 // TODO: this shouldn't be exported. However, until tx.go and the engine get refactored into tsdb, we need it.
-func (m *Measurement) TagSets(shardID uint64, dimensions []string, condition influxql.Expr) ([]*influxql.TagSet, error) {
+func (m *Measurement) TagSets(dimensions []string, condition influxql.Expr) ([]*influxql.TagSet, error) {
 	m.mu.RLock()
+	defer m.mu.RUnlock()
 
 	// get the unique set of series ids and the filters that should be applied to each
-	ids, filters, err := m.filters(condition)
+	filters, err := m.filters(condition)
 	if err != nil {
-		m.mu.RUnlock()
 		return nil, err
 	}
 
 	// For every series, get the tag values for the requested tag keys i.e. dimensions. This is the
 	// TagSet for that series. Series with the same TagSet are then grouped together, because for the
 	// purpose of GROUP BY they are part of the same composite series.
-	tagSets := make(map[string]*influxql.TagSet, 64)
-	for _, id := range ids {
+	tagSets := make(map[string]*influxql.TagSet)
+	for id, filter := range filters {
 		s := m.seriesByID[id]
-		if !s.Assigned(shardID) {
-			continue
-		}
 		tags := make(map[string]string, len(dimensions))
 
 		// Build the TagSet for this series.
 		for _, dim := range dimensions {
-			tags[dim] = s.Tags.GetString(dim)
+			tags[dim] = s.Tags[dim]
 		}
+
 		// Convert the TagSet to a string, so it can be added to a map allowing TagSets to be handled
 		// as a set.
-		tagsAsKey := MarshalTags(tags)
-		tagSet, ok := tagSets[string(tagsAsKey)]
+		tagsAsKey := string(MarshalTags(tags))
+		tagSet, ok := tagSets[tagsAsKey]
 		if !ok {
 			// This TagSet is new, create a new entry for it.
-			tagSet = &influxql.TagSet{
-				Tags: tags,
-				Key:  tagsAsKey,
+			tagSet = &influxql.TagSet{}
+			tagsForSet := make(map[string]string, len(tags))
+			for k, v := range tags {
+				tagsForSet[k] = v
 			}
+			tagSet.Tags = tagsForSet
+			tagSet.Key = MarshalTags(tagsForSet)
 		}
+
 		// Associate the series and filter with the Tagset.
-		tagSet.AddFilter(m.seriesByID[id].Key, filters[id])
+		tagSet.AddFilter(m.seriesByID[id].Key, filter)
 
 		// Ensure it's back in the map.
-		tagSets[string(tagsAsKey)] = tagSet
-	}
-	// Release the lock while we sort all the tags
-	m.mu.RUnlock()
-
-	// Sort the series in each tag set.
-	for _, t := range tagSets {
-		sort.Sort(t)
+		tagSets[tagsAsKey] = tagSet
 	}
 
 	// The TagSets have been created, as a map of TagSets. Just send
 	// the values back as a slice, sorting for consistency.
-	sortedTagsSets := make([]*influxql.TagSet, 0, len(tagSets))
-	for _, v := range tagSets {
-		sortedTagsSets = append(sortedTagsSets, v)
+	sortedTagSetKeys := make([]string, 0, len(tagSets))
+	for k := range tagSets {
+		sortedTagSetKeys = append(sortedTagSetKeys, k)
 	}
-	sort.Sort(byTagKey(sortedTagsSets))
+	sort.Strings(sortedTagSetKeys)
+
+	sortedTagsSets := make([]*influxql.TagSet, 0, len(sortedTagSetKeys))
+	for _, k := range sortedTagSetKeys {
+		sortedTagsSets = append(sortedTagsSets, tagSets[k])
+	}
 
 	return sortedTagsSets, nil
 }
 
-// intersectSeriesFilters performs an intersection for two sets of ids and filter expressions.
-func intersectSeriesFilters(lids, rids SeriesIDs, lfilters, rfilters FilterExprs) (SeriesIDs, FilterExprs) {
-	// We only want to allocate a slice and map of the smaller size.
-	var ids []uint64
-	if len(lids) > len(rids) {
-		ids = make([]uint64, 0, len(rids))
-	} else {
-		ids = make([]uint64, 0, len(lids))
-	}
+// mergeSeriesFilters merges two sets of filter expressions and culls series IDs.
+func mergeSeriesFilters(op influxql.Token, ids SeriesIDs, lfilters, rfilters FilterExprs) (SeriesIDs, FilterExprs) {
+	// Create a map to hold the final set of series filter expressions.
+	filters := make(map[uint64]influxql.Expr, 0)
+	// Resulting list of series IDs
+	var series SeriesIDs
 
-	var filters FilterExprs
-	if len(lfilters) > len(rfilters) {
-		filters = make(FilterExprs, len(rfilters))
-	} else {
-		filters = make(FilterExprs, len(lfilters))
-	}
+	// Combining logic:
+	// +==========+==========+==========+=======================+=======================+
+	// | operator |   LHS    |   RHS    |   intermediate expr   |     reduced filter    |
+	// +==========+==========+==========+=======================+=======================+
+	// |          | <nil>    | <r-expr> | false OR <r-expr>     | <r-expr>              |
+	// |          |----------+----------+-----------------------+-----------------------+
+	// | OR       | <l-expr> | <nil>    | <l-expr> OR false     | <l-expr>              |
+	// |          |----------+----------+-----------------------+-----------------------+
+	// |          | <nil>    | <nil>    | false OR false        | false                 |
+	// |          |----------+----------+-----------------------+-----------------------+
+	// |          | <l-expr> | <r-expr> | <l-expr> OR <r-expr>  | <l-expr> OR <r-expr>  |
+	// +----------+----------+----------+-----------------------+-----------------------+
+	// |          | <nil>    | <r-expr> | false AND <r-expr>    | false*                |
+	// |          |----------+----------+-----------------------+-----------------------+
+	// | AND      | <l-expr> | <nil>    | <l-expr> AND false    | false                 |
+	// |          |----------+----------+-----------------------+-----------------------+
+	// |          | <nil>    | <nil>    | false AND false       | false                 |
+	// |          |----------+----------+-----------------------+-----------------------+
+	// |          | <l-expr> | <r-expr> | <l-expr> AND <r-expr> | <l-expr> AND <r-expr> |
+	// +----------+----------+----------+-----------------------+-----------------------+
+	// *literal false filters and series IDs should be excluded from the results
 
-	// They're in sorted order so advance the counter as needed.
-	// This is, don't run comparisons against lower values that we've already passed.
-	for len(lids) > 0 && len(rids) > 0 {
-		lid, rid := lids[0], rids[0]
-		if lid == rid {
-			ids = append(ids, lid)
+	for _, id := range ids {
+		// Get LHS and RHS filter expressions for this series ID.
+		lfilter, rfilter := lfilters[id], rfilters[id]
 
-			var expr influxql.Expr
-			lfilter := lfilters[lid]
-			rfilter := rfilters[rid]
-
-			if lfilter != nil && rfilter != nil {
-				be := &influxql.BinaryExpr{
-					Op:  influxql.AND,
-					LHS: lfilter,
-					RHS: rfilter,
-				}
-				expr = influxql.Reduce(be, nil)
-			} else if lfilter != nil {
-				expr = lfilter
-			} else if rfilter != nil {
-				expr = rfilter
-			}
-
-			if expr != nil {
-				filters[lid] = expr
-			}
-			lids, rids = lids[1:], rids[1:]
-		} else if lid < rid {
-			lids = lids[1:]
-		} else {
-			rids = rids[1:]
+		// Set filter to false if either LHS or RHS expressions were nil.
+		if lfilter == nil {
+			lfilter = &influxql.BooleanLiteral{Val: false}
 		}
+		if rfilter == nil {
+			rfilter = &influxql.BooleanLiteral{Val: false}
+		}
+
+		// Create the intermediate filter expression for this series ID.
+		be := &influxql.BinaryExpr{
+			Op:  op,
+			LHS: lfilter,
+			RHS: rfilter,
+		}
+
+		// Reduce the intermediate expression.
+		expr := influxql.Reduce(be, nil)
+
+		// If the expression reduced to false, exclude this series ID and filter.
+		if b, ok := expr.(*influxql.BooleanLiteral); ok && !b.Val {
+			continue
+		}
+
+		// Store the series ID and merged filter in the final results.
+		if expr != nil {
+			filters[id] = expr
+		}
+		series = append(series, id)
 	}
-	return ids, filters
+	return series, filters
 }
 
-// unionSeriesFilters performs a union for two sets of ids and filter expressions.
-func unionSeriesFilters(lids, rids SeriesIDs, lfilters, rfilters FilterExprs) (SeriesIDs, FilterExprs) {
-	ids := make([]uint64, 0, len(lids)+len(rids))
-
-	// Setup the filters with the smallest size since we will discard filters
-	// that do not have a match on the other side.
-	var filters FilterExprs
-	if len(lfilters) < len(rfilters) {
-		filters = make(FilterExprs, len(lfilters))
-	} else {
-		filters = make(FilterExprs, len(rfilters))
-	}
-
-	for len(lids) > 0 && len(rids) > 0 {
-		lid, rid := lids[0], rids[0]
-		if lid == rid {
-			ids = append(ids, lid)
-
-			// If one side does not have a filter, then the series has been
-			// included on one side of the OR with no condition. Eliminate the
-			// filter in this case.
-			var expr influxql.Expr
-			lfilter := lfilters[lid]
-			rfilter := rfilters[rid]
-			if lfilter != nil && rfilter != nil {
-				be := &influxql.BinaryExpr{
-					Op:  influxql.OR,
-					LHS: lfilter,
-					RHS: rfilter,
-				}
-				expr = influxql.Reduce(be, nil)
-			}
-
-			if expr != nil {
-				filters[lid] = expr
-			}
-			lids, rids = lids[1:], rids[1:]
-		} else if lid < rid {
-			ids = append(ids, lid)
-
-			filter := lfilters[lid]
-			if filter != nil {
-				filters[lid] = filter
-			}
-			lids = lids[1:]
-		} else {
-			ids = append(ids, rid)
-
-			filter := rfilters[rid]
-			if filter != nil {
-				filters[rid] = filter
-			}
-			rids = rids[1:]
-		}
-	}
-
-	// Now append the remainder.
-	if len(lids) > 0 {
-		for i := 0; i < len(lids); i++ {
-			ids = append(ids, lids[i])
-
-			filter := lfilters[lids[i]]
-			if filter != nil {
-				filters[lids[i]] = filter
-			}
-		}
-	} else if len(rids) > 0 {
-		for i := 0; i < len(rids); i++ {
-			ids = append(ids, rids[i])
-
-			filter := rfilters[rids[i]]
-			if filter != nil {
-				filters[rids[i]] = filter
-			}
-		}
-	}
-	return ids, filters
-}
-
-// IDsForExpr returns the series IDs that are candidates to match the given expression.
-func (m *Measurement) IDsForExpr(n *influxql.BinaryExpr) SeriesIDs {
-	ids, _, _ := m.idsForExpr(n)
-	return ids
-}
-
-// idsForExpr returns a collection of series ids and a filter expression that should
+// idsForExpr will return a collection of series ids and a filter expression that should
 // be used to filter points from those series.
 func (m *Measurement) idsForExpr(n *influxql.BinaryExpr) (SeriesIDs, influxql.Expr, error) {
-	// If this binary expression has another binary expression, then this
-	// is some expression math and we should just pass it to the underlying query.
-	if _, ok := n.LHS.(*influxql.BinaryExpr); ok {
-		return m.seriesIDs, n, nil
-	} else if _, ok := n.RHS.(*influxql.BinaryExpr); ok {
-		return m.seriesIDs, n, nil
-	}
-
-	// Retrieve the variable reference from the correct side of the expression.
 	name, ok := n.LHS.(*influxql.VarRef)
 	value := n.RHS
 	if !ok {
@@ -1020,17 +759,17 @@ func (m *Measurement) idsForExpr(n *influxql.BinaryExpr) (SeriesIDs, influxql.Ex
 
 	// For fields, return all series IDs from this measurement and return
 	// the expression passed in, as the filter.
-	if name.Val != "_name" && ((name.Type == influxql.Unknown && m.hasField(name.Val)) || name.Type == influxql.AnyField || (name.Type != influxql.Tag && name.Type != influxql.Unknown)) {
+	if name.Val != "_name" && m.hasField(name.Val) {
 		return m.seriesIDs, n, nil
-	} else if value, ok := value.(*influxql.VarRef); ok {
-		// Check if the RHS is a variable and if it is a field.
-		if value.Val != "_name" && ((value.Type == influxql.Unknown && m.hasField(value.Val)) || name.Type == influxql.AnyField || (value.Type != influxql.Tag && value.Type != influxql.Unknown)) {
-			return m.seriesIDs, n, nil
-		}
 	}
 
-	// Retrieve list of series with this tag key.
-	tagVals := m.seriesByTagKeyValue[name.Val]
+	tagVals, ok := m.seriesByTagKeyValue[name.Val]
+	if name.Val != "_name" && !ok {
+		if n.Op == influxql.NEQ || n.Op == influxql.NEQREGEX {
+			return m.seriesIDs, &influxql.BooleanLiteral{Val: true}, nil
+		}
+		return nil, nil, nil
+	}
 
 	// if we're looking for series with a specific tag value
 	if str, ok := value.(*influxql.StringLiteral); ok {
@@ -1039,39 +778,18 @@ func (m *Measurement) idsForExpr(n *influxql.BinaryExpr) (SeriesIDs, influxql.Ex
 		// Special handling for "_name" to match measurement name.
 		if name.Val == "_name" {
 			if (n.Op == influxql.EQ && str.Val == m.Name) || (n.Op == influxql.NEQ && str.Val != m.Name) {
-				return m.seriesIDs, nil, nil
+				return m.seriesIDs, &influxql.BooleanLiteral{Val: true}, nil
 			}
-			return nil, nil, nil
+			return nil, &influxql.BooleanLiteral{Val: true}, nil
 		}
 
 		if n.Op == influxql.EQ {
-			if str.Val != "" {
-				// return series that have a tag of specific value.
-				ids = tagVals[str.Val]
-			} else {
-				// Make a copy of all series ids and mark the ones we need to evict.
-				seriesIDs := newEvictSeriesIDs(m.seriesIDs)
-
-				// Go through each slice and mark the values we find as zero so
-				// they can be removed later.
-				for _, a := range tagVals {
-					seriesIDs.mark(a)
-				}
-
-				// Make a new slice with only the remaining ids.
-				ids = seriesIDs.evict()
-			}
+			// return series that have a tag of specific value.
+			ids = tagVals[str.Val]
 		} else if n.Op == influxql.NEQ {
-			if str.Val != "" {
-				ids = m.seriesIDs.Reject(tagVals[str.Val])
-			} else {
-				for k := range tagVals {
-					ids = append(ids, tagVals[k]...)
-				}
-				sort.Sort(ids)
-			}
+			ids = m.seriesIDs.Reject(tagVals[str.Val])
 		}
-		return ids, nil, nil
+		return ids, &influxql.BooleanLiteral{Val: true}, nil
 	}
 
 	// if we're looking for series with a tag value that matches a regex
@@ -1084,76 +802,29 @@ func (m *Measurement) idsForExpr(n *influxql.BinaryExpr) (SeriesIDs, influxql.Ex
 			if (n.Op == influxql.EQREGEX && match) || (n.Op == influxql.NEQREGEX && !match) {
 				return m.seriesIDs, &influxql.BooleanLiteral{Val: true}, nil
 			}
-			return nil, nil, nil
+			return nil, &influxql.BooleanLiteral{Val: true}, nil
 		}
 
-		// Check if we match the empty string to see if we should include series
-		// that are missing the tag.
-		empty := re.Val.MatchString("")
-
-		// Gather the series that match the regex. If we should include the empty string,
-		// start with the list of all series and reject series that don't match our condition.
-		// If we should not include the empty string, include series that match our condition.
-		if empty && n.Op == influxql.EQREGEX {
-			// See comments above for EQ with a StringLiteral.
-			seriesIDs := newEvictSeriesIDs(m.seriesIDs)
-			for k := range tagVals {
-				if !re.Val.MatchString(k) {
-					seriesIDs.mark(tagVals[k])
-				}
-			}
-			ids = seriesIDs.evict()
-		} else if empty && n.Op == influxql.NEQREGEX {
-			ids = make(SeriesIDs, 0, len(m.seriesIDs))
-			for k := range tagVals {
-				if !re.Val.MatchString(k) {
-					ids = append(ids, tagVals[k]...)
-				}
-			}
-			sort.Sort(ids)
-		} else if !empty && n.Op == influxql.EQREGEX {
-			ids = make(SeriesIDs, 0, len(m.seriesIDs))
-			for k := range tagVals {
-				if re.Val.MatchString(k) {
-					ids = append(ids, tagVals[k]...)
-				}
-			}
-			sort.Sort(ids)
-		} else if !empty && n.Op == influxql.NEQREGEX {
-			// See comments above for EQ with a StringLiteral.
-			seriesIDs := newEvictSeriesIDs(m.seriesIDs)
-			for k := range tagVals {
-				if re.Val.MatchString(k) {
-					seriesIDs.mark(tagVals[k])
-				}
-			}
-			ids = seriesIDs.evict()
-		}
-		return ids, nil, nil
-	}
-
-	// compare tag values
-	if ref, ok := value.(*influxql.VarRef); ok {
-		var ids SeriesIDs
-
-		if n.Op == influxql.NEQ {
+		// The operation is a NEQREGEX, code must start by assuming all match, even
+		// series without any tags.
+		if n.Op == influxql.NEQREGEX {
 			ids = m.seriesIDs
 		}
 
-		rhsTagVals := m.seriesByTagKeyValue[ref.Val]
 		for k := range tagVals {
-			tags := tagVals[k].Intersect(rhsTagVals[k])
-			if n.Op == influxql.EQ {
-				ids = ids.Union(tags)
-			} else if n.Op == influxql.NEQ {
-				ids = ids.Reject(tags)
+			match := re.Val.MatchString(k)
+
+			if match && n.Op == influxql.EQREGEX {
+				ids = ids.Union(tagVals[k])
+			} else if match && n.Op == influxql.NEQREGEX {
+				ids = ids.Reject(tagVals[k])
 			}
 		}
-		return ids, nil, nil
+		return ids, &influxql.BooleanLiteral{Val: true}, nil
 	}
 
 	if n.Op == influxql.NEQ || n.Op == influxql.NEQREGEX {
-		return m.seriesIDs, nil, nil
+		return m.seriesIDs, &influxql.BooleanLiteral{Val: true}, nil
 	}
 	return nil, nil, nil
 }
@@ -1164,7 +835,7 @@ type FilterExprs map[uint64]influxql.Expr
 // DeleteBoolLiteralTrues deletes all elements whose filter expression is a boolean literal true.
 func (fe FilterExprs) DeleteBoolLiteralTrues() {
 	for id, expr := range fe {
-		if e, ok := expr.(*influxql.BooleanLiteral); ok && e.Val {
+		if e, ok := expr.(*influxql.BooleanLiteral); ok && e.Val == true {
 			delete(fe, id)
 		}
 	}
@@ -1192,21 +863,9 @@ func (m *Measurement) walkWhereForSeriesIds(expr influxql.Expr) (SeriesIDs, Filt
 				return nil, nil, err
 			}
 
-			if len(ids) == 0 {
-				return ids, nil, nil
-			}
-
-			// If the expression is a boolean literal that is true, ignore it.
-			if b, ok := expr.(*influxql.BooleanLiteral); ok && b.Val {
-				expr = nil
-			}
-
-			var filters FilterExprs
-			if expr != nil {
-				filters = make(FilterExprs, len(ids))
-				for _, id := range ids {
-					filters[id] = expr
-				}
+			filters := FilterExprs{}
+			for _, id := range ids {
+				filters[id] = expr
 			}
 
 			return ids, filters, nil
@@ -1224,13 +883,18 @@ func (m *Measurement) walkWhereForSeriesIds(expr influxql.Expr) (SeriesIDs, Filt
 			}
 
 			// Combine the series IDs from the LHS and RHS.
-			if n.Op == influxql.AND {
-				ids, filters := intersectSeriesFilters(lids, rids, lfilters, rfilters)
-				return ids, filters, nil
-			} else {
-				ids, filters := unionSeriesFilters(lids, rids, lfilters, rfilters)
-				return ids, filters, nil
+			var ids SeriesIDs
+			switch n.Op {
+			case influxql.AND:
+				ids = lids.Intersect(rids)
+			case influxql.OR:
+				ids = lids.Union(rids)
 			}
+
+			// Merge the filter expressions for the LHS and RHS.
+			ids, filters := mergeSeriesFilters(n.Op, ids, lfilters, rfilters)
+
+			return ids, filters, nil
 		}
 
 		ids, _, err := m.idsForExpr(n)
@@ -1243,14 +907,65 @@ func (m *Measurement) walkWhereForSeriesIds(expr influxql.Expr) (SeriesIDs, Filt
 	}
 }
 
-// SeriesIDsAllOrByExpr walks an expressions for matching series IDs
-// or, if no expression is given, returns all series IDs for the measurement.
-func (m *Measurement) SeriesIDsAllOrByExpr(expr influxql.Expr) (SeriesIDs, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return m.seriesIDsAllOrByExpr(expr)
+// expandExpr returns a list of expressions expanded by all possible tag combinations.
+func (m *Measurement) expandExpr(expr influxql.Expr) []tagSetExpr {
+	// Retrieve list of unique values for each tag.
+	valuesByTagKey := m.uniqueTagValues(expr)
+
+	// Convert keys to slices.
+	keys := make([]string, 0, len(valuesByTagKey))
+	for key := range valuesByTagKey {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	// Order uniques by key.
+	uniques := make([][]string, len(keys))
+	for i, key := range keys {
+		uniques[i] = valuesByTagKey[key]
+	}
+
+	// Reduce a condition for each combination of tag values.
+	return expandExprWithValues(expr, keys, []tagExpr{}, uniques, 0)
 }
 
+func expandExprWithValues(expr influxql.Expr, keys []string, tagExprs []tagExpr, uniques [][]string, index int) []tagSetExpr {
+	// If we have no more keys left then execute the reduction and return.
+	if index == len(keys) {
+		// Create a map of tag key/values.
+		m := make(map[string]*string, len(keys))
+		for i, key := range keys {
+			if tagExprs[i].op == influxql.EQ {
+				m[key] = &tagExprs[i].values[0]
+			} else {
+				m[key] = nil
+			}
+		}
+
+		// TODO: Rewrite full expressions instead of VarRef replacement.
+
+		// Reduce using the current tag key/value set.
+		// Ignore it if reduces down to "false".
+		e := influxql.Reduce(expr, &tagValuer{tags: m})
+		if e, ok := e.(*influxql.BooleanLiteral); ok && e.Val == false {
+			return nil
+		}
+
+		return []tagSetExpr{{values: copyTagExprs(tagExprs), expr: e}}
+	}
+
+	// Otherwise expand for each possible equality value of the key.
+	var exprs []tagSetExpr
+	for _, v := range uniques[index] {
+		exprs = append(exprs, expandExprWithValues(expr, keys, append(tagExprs, tagExpr{keys[index], []string{v}, influxql.EQ}), uniques, index+1)...)
+	}
+	exprs = append(exprs, expandExprWithValues(expr, keys, append(tagExprs, tagExpr{keys[index], uniques[index], influxql.NEQ}), uniques, index+1)...)
+
+	return exprs
+}
+
+// seriesIDsAllOrByExpr walks an expressions for matching series IDs
+// or, if no expressions is given, returns all series IDs for the measurement.
 func (m *Measurement) seriesIDsAllOrByExpr(expr influxql.Expr) (SeriesIDs, error) {
 	// If no expression given or the measurement has no series,
 	// we can take just return the ids or nil accordingly.
@@ -1270,7 +985,7 @@ func (m *Measurement) seriesIDsAllOrByExpr(expr influxql.Expr) (SeriesIDs, error
 }
 
 // tagKeysByExpr extracts the tag keys wanted by the expression.
-func (m *Measurement) TagKeysByExpr(expr influxql.Expr) (stringSet, bool, error) {
+func (m *Measurement) tagKeysByExpr(expr influxql.Expr) (stringSet, bool, error) {
 	switch e := expr.(type) {
 	case *influxql.BinaryExpr:
 		switch e.Op {
@@ -1303,12 +1018,12 @@ func (m *Measurement) TagKeysByExpr(expr influxql.Expr) (stringSet, bool, error)
 			}
 			return m.tagKeysByFilter(tf.Op, tf.Value, tf.Regex), true, nil
 		case influxql.AND, influxql.OR:
-			lhsKeys, lhsOk, err := m.TagKeysByExpr(e.LHS)
+			lhsKeys, lhsOk, err := m.tagKeysByExpr(e.LHS)
 			if err != nil {
 				return nil, false, err
 			}
 
-			rhsKeys, rhsOk, err := m.TagKeysByExpr(e.RHS)
+			rhsKeys, rhsOk, err := m.tagKeysByExpr(e.RHS)
 			if err != nil {
 				return nil, false, err
 			}
@@ -1329,7 +1044,7 @@ func (m *Measurement) TagKeysByExpr(expr influxql.Expr) (stringSet, bool, error)
 			return nil, false, fmt.Errorf("invalid operator")
 		}
 	case *influxql.ParenExpr:
-		return m.TagKeysByExpr(e.Expr)
+		return m.tagKeysByExpr(e.Expr)
 	}
 	return nil, false, fmt.Errorf("%#v", expr)
 }
@@ -1358,17 +1073,170 @@ func (m *Measurement) tagKeysByFilter(op influxql.Token, val string, regex *rege
 	return ss
 }
 
+// tagValuer is used during expression expansion to evaluate all sets of tag values.
+type tagValuer struct {
+	tags map[string]*string
+}
+
+// Value returns the string value of a tag and true if it's listed in the tagset.
+func (v *tagValuer) Value(name string) (interface{}, bool) {
+	if value, ok := v.tags[name]; ok {
+		if value == nil {
+			return nil, true
+		}
+		return *value, true
+	}
+	return nil, false
+}
+
+// tagSetExpr represents a set of tag keys/values and associated expression.
+type tagSetExpr struct {
+	values []tagExpr
+	expr   influxql.Expr
+}
+
+// tagExpr represents one or more values assigned to a given tag.
+type tagExpr struct {
+	key    string
+	values []string
+	op     influxql.Token // EQ or NEQ
+}
+
+func copyTagExprs(a []tagExpr) []tagExpr {
+	other := make([]tagExpr, len(a))
+	copy(other, a)
+	return other
+}
+
+// uniqueTagValues returns a list of unique tag values used in an expression.
+func (m *Measurement) uniqueTagValues(expr influxql.Expr) map[string][]string {
+	// Track unique value per tag.
+	tags := make(map[string]map[string]struct{})
+
+	// Find all tag values referenced in the expression.
+	influxql.WalkFunc(expr, func(n influxql.Node) {
+		switch n := n.(type) {
+		case *influxql.BinaryExpr:
+			// Ignore operators that are not equality.
+			if n.Op != influxql.EQ {
+				return
+			}
+
+			// Extract ref and string literal.
+			var key, value string
+			switch lhs := n.LHS.(type) {
+			case *influxql.VarRef:
+				if rhs, ok := n.RHS.(*influxql.StringLiteral); ok {
+					key, value = lhs.Val, rhs.Val
+				}
+			case *influxql.StringLiteral:
+				if rhs, ok := n.RHS.(*influxql.VarRef); ok {
+					key, value = rhs.Val, lhs.Val
+				}
+			}
+			if key == "" {
+				return
+			}
+
+			// Add value to set.
+			if tags[key] == nil {
+				tags[key] = make(map[string]struct{})
+			}
+			tags[key][value] = struct{}{}
+		}
+	})
+
+	// Convert to map of slices.
+	out := make(map[string][]string)
+	for k, values := range tags {
+		out[k] = make([]string, 0, len(values))
+		for v := range values {
+			out[k] = append(out[k], v)
+		}
+		sort.Strings(out[k])
+	}
+	return out
+}
+
+// SelectFields returns a list of fields in the SELECT section of stmt.
+func (m *Measurement) SelectFields(stmt *influxql.SelectStatement) []string {
+	set := newStringSet()
+	for _, name := range stmt.NamesInSelect() {
+		if m.HasField(name) {
+			set.add(name)
+			continue
+		}
+	}
+	return set.list()
+}
+
+// SelectTags returns a list of non-field tags in the SELECT section of stmt.
+func (m *Measurement) SelectTags(stmt *influxql.SelectStatement) []string {
+	set := newStringSet()
+	for _, name := range stmt.NamesInSelect() {
+		if !m.HasField(name) && m.HasTagKey(name) {
+			set.add(name)
+		}
+	}
+	return set.list()
+}
+
+// WhereFields returns a list of non-"time" fields in the WHERE section of stmt.
+func (m *Measurement) WhereFields(stmt *influxql.SelectStatement) []string {
+	set := newStringSet()
+	for _, name := range stmt.NamesInWhere() {
+		if name != "time" && m.HasField(name) {
+			set.add(name)
+		}
+	}
+	return set.list()
+}
+
 // Measurements represents a list of *Measurement.
 type Measurements []*Measurement
 
-// Len implements sort.Interface.
-func (a Measurements) Len() int { return len(a) }
-
-// Less implements sort.Interface.
+func (a Measurements) Len() int           { return len(a) }
 func (a Measurements) Less(i, j int) bool { return a[i].Name < a[j].Name }
+func (a Measurements) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 
-// Swap implements sort.Interface.
-func (a Measurements) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+// SelectFields returns a list of fields in the SELECT section of stmt.
+func (a Measurements) SelectFields(stmt *influxql.SelectStatement) []string {
+	set := newStringSet()
+	for _, name := range stmt.NamesInSelect() {
+		for _, m := range a {
+			if m.HasField(name) {
+				set.add(name)
+			}
+		}
+	}
+	return set.list()
+}
+
+// SelectTags returns a list of non-field tags in the SELECT section of stmt.
+func (a Measurements) SelectTags(stmt *influxql.SelectStatement) []string {
+	set := newStringSet()
+	for _, name := range stmt.NamesInSelect() {
+		for _, m := range a {
+			if !m.HasField(name) && m.HasTagKey(name) {
+				set.add(name)
+			}
+		}
+	}
+	return set.list()
+}
+
+// WhereFields returns a list of non-"time" fields in the WHERE section of stmt.
+func (a Measurements) WhereFields(stmt *influxql.SelectStatement) []string {
+	set := newStringSet()
+	for _, name := range stmt.NamesInWhere() {
+		for _, m := range a {
+			if name != "time" && m.HasField(name) {
+				set.add(name)
+			}
+		}
+	}
+	return set.list()
+}
 
 func (a Measurements) intersect(other Measurements) Measurements {
 	l := a
@@ -1427,104 +1295,36 @@ func (a Measurements) union(other Measurements) Measurements {
 	return result
 }
 
-// Series belong to a Measurement and represent unique time series in a database.
+// Series belong to a Measurement and represent unique time series in a database
 type Series struct {
 	mu          sync.RWMutex
 	Key         string
-	Tags        models.Tags
-	ID          uint64
+	Tags        map[string]string
+	id          uint64
 	measurement *Measurement
-	shardIDs    []uint64 // shards that have this series defined
+	shardIDs    map[uint64]bool // shards that have this series defined
 }
 
-// NewSeries returns an initialized series struct.
-func NewSeries(key string, tags models.Tags) *Series {
+// NewSeries returns an initialized series struct
+func NewSeries(key string, tags map[string]string) *Series {
 	return &Series{
-		Key:  key,
-		Tags: tags,
+		Key:      key,
+		Tags:     tags,
+		shardIDs: make(map[uint64]bool),
 	}
 }
 
-// AssignShard adds shardID to the list of shards this series is assigned to.
 func (s *Series) AssignShard(shardID uint64) {
 	s.mu.Lock()
-	if !s.assigned(shardID) {
-		s.shardIDs = append(s.shardIDs, shardID)
-		sort.Sort(uint64Slice(s.shardIDs))
-	}
+	s.shardIDs[shardID] = true
 	s.mu.Unlock()
 }
 
-// UnassignShard removes the shardID from the list of shards this series is assigned to.
-func (s *Series) UnassignShard(shardID uint64) {
-	s.mu.Lock()
-	for i, v := range s.shardIDs {
-		if v == shardID {
-			s.shardIDs = append(s.shardIDs[:i], s.shardIDs[i+1:]...)
-			break
-		}
-	}
-	s.mu.Unlock()
-}
-
-// Assigned returns whether this series is assigned to the given shard.
 func (s *Series) Assigned(shardID uint64) bool {
 	s.mu.RLock()
-	b := s.assigned(shardID)
+	b := s.shardIDs[shardID]
 	s.mu.RUnlock()
 	return b
-}
-
-func (s *Series) assigned(shardID uint64) bool {
-	i := sort.Search(len(s.shardIDs), func(i int) bool { return s.shardIDs[i] >= shardID })
-	return i < len(s.shardIDs) && s.shardIDs[i] == shardID
-}
-
-// ShardN returns the number of shards this series is assigned to.
-func (s *Series) ShardN() int {
-	s.mu.RLock()
-	n := len(s.shardIDs)
-	s.mu.RUnlock()
-	return n
-}
-
-// ForEachTag executes fn for every tag. Iteration occurs under lock.
-func (s *Series) ForEachTag(fn func(models.Tag)) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	for _, t := range s.Tags {
-		fn(t)
-	}
-}
-
-// Dereference removes references to a byte slice.
-func (s *Series) Dereference(b []byte) {
-	s.mu.Lock()
-
-	min := uintptr(unsafe.Pointer(&b[0]))
-	max := min + uintptr(len(b))
-
-	for i := range s.Tags {
-		deref(&s.Tags[i].Key, min, max)
-		deref(&s.Tags[i].Value, min, max)
-	}
-
-	s.mu.Unlock()
-}
-
-func deref(v *[]byte, min, max uintptr) {
-	vv := *v
-
-	// Ignore if value is not within range.
-	ptr := uintptr(unsafe.Pointer(&vv[0]))
-	if ptr < min || ptr > max {
-		return
-	}
-
-	// Otherwise copy to the heap.
-	buf := make([]byte, len(vv))
-	copy(buf, vv)
-	*v = buf
 }
 
 // MarshalBinary encodes the object to a binary format.
@@ -1534,8 +1334,10 @@ func (s *Series) MarshalBinary() ([]byte, error) {
 
 	var pb internal.Series
 	pb.Key = &s.Key
-	for _, t := range s.Tags {
-		pb.Tags = append(pb.Tags, &internal.Tag{Key: proto.String(string(t.Key)), Value: proto.String(string(t.Value))})
+	for k, v := range s.Tags {
+		key := k
+		value := v
+		pb.Tags = append(pb.Tags, &internal.Tag{Key: &key, Value: &value})
 	}
 	return proto.Marshal(&pb)
 }
@@ -1550,25 +1352,27 @@ func (s *Series) UnmarshalBinary(buf []byte) error {
 		return err
 	}
 	s.Key = pb.GetKey()
-	s.Tags = make(models.Tags, len(pb.Tags))
-	for i, t := range pb.Tags {
-		s.Tags[i] = models.Tag{Key: []byte(t.GetKey()), Value: []byte(t.GetValue())}
+	s.Tags = make(map[string]string, len(pb.Tags))
+	for _, t := range pb.Tags {
+		s.Tags[t.GetKey()] = t.GetValue()
 	}
 	return nil
+}
+
+// InitializeShards initializes the list of shards.
+func (s *Series) InitializeShards() {
+	s.mu.Lock()
+	s.shardIDs = make(map[uint64]bool)
+	s.mu.Unlock()
 }
 
 // SeriesIDs is a convenience type for sorting, checking equality, and doing
 // union and intersection of collections of series ids.
 type SeriesIDs []uint64
 
-// Len implements sort.Interface.
-func (a SeriesIDs) Len() int { return len(a) }
-
-// Less implements sort.Interface.
+func (a SeriesIDs) Len() int           { return len(a) }
 func (a SeriesIDs) Less(i, j int) bool { return a[i] < a[j] }
-
-// Swap implements sort.Interface.
-func (a SeriesIDs) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a SeriesIDs) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 
 // Equals assumes that both are sorted.
 func (a SeriesIDs) Equals(other SeriesIDs) bool {
@@ -1674,84 +1478,6 @@ func (a SeriesIDs) Reject(other SeriesIDs) SeriesIDs {
 	return SeriesIDs(ids)
 }
 
-// seriesID is a series id that may or may not have been evicted from the
-// current id list.
-type seriesID struct {
-	val   uint64
-	evict bool
-}
-
-// evictSeriesIDs is a slice of SeriesIDs with an extra field to mark if the
-// field should be evicted or not.
-type evictSeriesIDs struct {
-	ids []seriesID
-	sz  int
-}
-
-// newEvictSeriesIDs copies the ids into a new slice that can be used for
-// evicting series from the slice.
-func newEvictSeriesIDs(ids []uint64) evictSeriesIDs {
-	a := make([]seriesID, len(ids))
-	for i, id := range ids {
-		a[i].val = id
-	}
-	return evictSeriesIDs{
-		ids: a,
-		sz:  len(a),
-	}
-}
-
-// mark marks all of the ids in the sorted slice to be evicted from the list of
-// series ids. If an id to be evicted does not exist, it just gets ignored.
-func (a *evictSeriesIDs) mark(ids []uint64) {
-	seriesIDs := a.ids
-	for _, id := range ids {
-		if len(seriesIDs) == 0 {
-			break
-		}
-
-		// Perform a binary search of the remaining slice if
-		// the first element does not match the value we're
-		// looking for.
-		i := 0
-		if seriesIDs[0].val < id {
-			i = sort.Search(len(seriesIDs), func(i int) bool {
-				return seriesIDs[i].val >= id
-			})
-		}
-
-		if i >= len(seriesIDs) {
-			break
-		} else if seriesIDs[i].val == id {
-			if !seriesIDs[i].evict {
-				seriesIDs[i].evict = true
-				a.sz--
-			}
-			// Skip over this series since it has been evicted and won't be
-			// encountered again.
-			i++
-		}
-		seriesIDs = seriesIDs[i:]
-	}
-}
-
-// evict creates a new slice with only the series that have not been evicted.
-func (a *evictSeriesIDs) evict() (ids SeriesIDs) {
-	if a.sz == 0 {
-		return ids
-	}
-
-	// Make a new slice with only the remaining ids.
-	ids = make([]uint64, 0, a.sz)
-	for _, id := range a.ids {
-		if id.evict {
-			continue
-		}
-		ids = append(ids, id.val)
-	}
-	return ids
-}
-
 // TagFilter represents a tag filter when looking up other tags or measurements.
 type TagFilter struct {
 	Op    influxql.Token
@@ -1760,7 +1486,7 @@ type TagFilter struct {
 	Regex *regexp.Regexp
 }
 
-// MarshalTags converts a tag set to bytes for use as a lookup key.
+// MarshalTags converts a  tag set to bytes for use as a lookup key
 func MarshalTags(tags map[string]string) []byte {
 	// Empty maps marshal to empty bytes.
 	if len(tags) == 0 {
@@ -1795,30 +1521,24 @@ func MarshalTags(tags map[string]string) []byte {
 	return b
 }
 
-// WalkTagKeys calls fn for each tag key associated with m.  The order of the
-// keys is undefined.
-func (m *Measurement) WalkTagKeys(fn func(k string)) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	for k := range m.seriesByTagKeyValue {
-		fn(k)
-	}
+// timeBetweenInclusive returns true if t is between min and max, inclusive.
+func timeBetweenInclusive(t, min, max time.Time) bool {
+	return (t.Equal(min) || t.After(min)) && (t.Equal(max) || t.Before(max))
 }
 
-// TagKeys returns a list of the measurement's tag names, in sorted order.
+// TagKeys returns a list of the measurement's tag names.
 func (m *Measurement) TagKeys() []string {
 	m.mu.RLock()
+	defer m.mu.RUnlock()
 	keys := make([]string, 0, len(m.seriesByTagKeyValue))
 	for k := range m.seriesByTagKeyValue {
 		keys = append(keys, k)
 	}
-	m.mu.RUnlock()
 	sort.Strings(keys)
 	return keys
 }
 
-// TagValues returns all the values for the given tag key, in an arbitrary order.
+// TagValues returns all the values for the given tag key
 func (m *Measurement) TagValues(key string) []string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -1843,7 +1563,7 @@ func (m *Measurement) SetFieldName(name string) {
 	m.mu.Unlock()
 }
 
-// FieldNames returns a list of the measurement's field names, in an arbitrary order.
+// FieldNames returns a list of the measurement's field names
 func (m *Measurement) FieldNames() []string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -1853,6 +1573,39 @@ func (m *Measurement) FieldNames() []string {
 		a = append(a, n)
 	}
 	return a
+}
+
+func (m *Measurement) tagValuesByKeyAndSeriesID(tagKeys []string, ids SeriesIDs) map[string]stringSet {
+	// If no tag keys were passed, get all tag keys for the measurement.
+	if len(tagKeys) == 0 {
+		for k := range m.seriesByTagKeyValue {
+			tagKeys = append(tagKeys, k)
+		}
+	}
+
+	// Mapping between tag keys to all existing tag values.
+	tagValues := make(map[string]stringSet, 0)
+
+	// Iterate all series to collect tag values.
+	for _, id := range ids {
+		s, ok := m.seriesByID[id]
+		if !ok {
+			continue
+		}
+
+		// Iterate the tag keys we're interested in and collect values
+		// from this series, if they exist.
+		for _, tagKey := range tagKeys {
+			if tagVal, ok := s.Tags[tagKey]; ok {
+				if _, ok = tagValues[tagKey]; !ok {
+					tagValues[tagKey] = newStringSet()
+				}
+				tagValues[tagKey].add(tagVal)
+			}
+		}
+	}
+
+	return tagValues
 }
 
 // stringSet represents a set of strings.
@@ -1868,6 +1621,12 @@ func (s stringSet) add(ss ...string) {
 	for _, n := range ss {
 		s[n] = struct{}{}
 	}
+}
+
+// contains returns whether the set contains the given string.
+func (s stringSet) contains(ss string) bool {
+	_, ok := s[ss]
+	return ok
 }
 
 // list returns the current elements in the set, in sorted order.
@@ -1908,36 +1667,12 @@ func (s stringSet) intersect(o stringSet) stringSet {
 	return ns
 }
 
-// filter removes v from a if it exists.  a must be sorted in ascending
-// order.
-func filter(a []uint64, v uint64) []uint64 {
-	// binary search for v
-	i := sort.Search(len(a), func(i int) bool { return a[i] >= v })
-	if i >= len(a) || a[i] != v {
-		return a
-	}
-
-	// we found it, so shift the right half down one, overwriting v's position.
-	copy(a[i:], a[i+1:])
-	return a[:len(a)-1]
-}
-
 // MeasurementFromSeriesKey returns the name of the measurement from a key that
 // contains a measurement name.
 func MeasurementFromSeriesKey(key string) string {
-	// Ignoring the error because the func returns "missing fields"
-	k, _, _ := models.ParseKey([]byte(key))
-	return escape.UnescapeString(k)
+	idx := strings.Index(key, ",")
+	if idx == -1 {
+		return key
+	}
+	return key[:idx]
 }
-
-type uint64Slice []uint64
-
-func (a uint64Slice) Len() int           { return len(a) }
-func (a uint64Slice) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a uint64Slice) Less(i, j int) bool { return a[i] < a[j] }
-
-type byTagKey []*influxql.TagSet
-
-func (t byTagKey) Len() int           { return len(t) }
-func (t byTagKey) Less(i, j int) bool { return bytes.Compare(t[i].Key, t[j].Key) < 0 }
-func (t byTagKey) Swap(i, j int)      { t[i], t[j] = t[j], t[i] }

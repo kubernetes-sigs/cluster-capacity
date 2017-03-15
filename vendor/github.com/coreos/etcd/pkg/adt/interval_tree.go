@@ -447,9 +447,6 @@ func (ivt *IntervalTree) Contains(iv Interval) bool {
 
 // Stab returns a slice with all elements in the tree intersecting the interval.
 func (ivt *IntervalTree) Stab(iv Interval) (ivs []*IntervalValue) {
-	if ivt.count == 0 {
-		return nil
-	}
 	f := func(n *IntervalValue) bool { ivs = append(ivs, n); return true }
 	ivt.Visit(iv, f)
 	return ivs

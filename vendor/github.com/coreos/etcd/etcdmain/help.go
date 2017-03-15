@@ -14,11 +14,7 @@
 
 package etcdmain
 
-import (
-	"strconv"
-
-	"github.com/coreos/etcd/embed"
-)
+import "strconv"
 
 var (
 	usageline = `usage: etcd [flags]
@@ -32,12 +28,6 @@ var (
 
        etcd --config-file
        path to the server configuration file
-
-       etcd gateway
-       run the stateless pass-through etcd TCP connection forwarding proxy
-
-       etcd grpc-proxy
-       run the stateless etcd v3 gRPC L7 reverse proxy
 	`
 	flagsline = `
 member flags:
@@ -48,7 +38,7 @@ member flags:
 		path to the data directory.
 	--wal-dir ''
 		path to the dedicated wal directory.
-	--snapshot-count '100000'
+	--snapshot-count '10000'
 		number of committed transactions to trigger a snapshot to disk.
 	--heartbeat-interval '100'
 		time (in milliseconds) of a heartbeat interval.
@@ -58,9 +48,9 @@ member flags:
 		list of URLs to listen on for peer traffic.
 	--listen-client-urls 'http://localhost:2379'
 		list of URLs to listen on for client traffic.
-	--max-snapshots '` + strconv.Itoa(embed.DefaultMaxSnapshots) + `'
+	--max-snapshots '` + strconv.Itoa(defaultMaxSnapshots) + `'
 		maximum number of snapshot files to retain (0 is unlimited).
-	--max-wals '` + strconv.Itoa(embed.DefaultMaxWALs) + `'
+	--max-wals '` + strconv.Itoa(defaultMaxWALs) + `'
 		maximum number of wal files to retain (0 is unlimited).
 	--cors ''
 		comma-separated whitelist of origins for CORS (cross-origin resource sharing).
@@ -94,8 +84,6 @@ clustering flags:
 		reject reconfiguration requests that would cause quorum loss.
 	--auto-compaction-retention '0'
 		auto compaction retention in hour. 0 means disable auto compaction.
-	--enable-v2
-		Accept etcd V2 client requests.
 
 proxy flags:
 	"proxy" supports v2 API only.
@@ -147,8 +135,6 @@ logging flags
 		enable debug-level logging for etcd.
 	--log-package-levels ''
 		specify a particular log level for each etcd package (eg: 'etcdmain=CRITICAL,etcdserver=DEBUG').
-	--log-output 'default'
-		specify 'stdout' or 'stderr' to skip journald logging even when running under systemd.
 
 unsafe flags:
 
@@ -157,11 +143,9 @@ given by the consensus protocol.
 
 	--force-new-cluster 'false'
 		force to create a new one-member cluster.
-
+	
 profiling flags:
 	--enable-pprof 'false'
-		Enable runtime profiling data via HTTP server. Address is at client URL + "/debug/pprof/"
-	--metrics 'basic'
-	  Set level of detail for exported metrics, specify 'extensive' to include histogram metrics.
+		Enable runtime profiling data via HTTP server. Address is at client URL + "/debug/pprof"
 `
 )

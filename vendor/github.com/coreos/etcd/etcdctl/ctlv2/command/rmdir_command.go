@@ -37,7 +37,7 @@ func NewRemoveDirCommand() cli.Command {
 // rmdirCommandFunc executes the "rmdir" command.
 func rmdirCommandFunc(c *cli.Context, ki client.KeysAPI) {
 	if len(c.Args()) == 0 {
-		handleError(c, ExitBadArgs, errors.New("key required"))
+		handleError(ExitBadArgs, errors.New("key required"))
 	}
 	key := c.Args()[0]
 
@@ -45,10 +45,10 @@ func rmdirCommandFunc(c *cli.Context, ki client.KeysAPI) {
 	resp, err := ki.Delete(ctx, key, &client.DeleteOptions{Dir: true})
 	cancel()
 	if err != nil {
-		handleError(c, ExitServerError, err)
+		handleError(ExitServerError, err)
 	}
 
-	if !resp.Node.Dir || c.GlobalString("output") != "simple" {
+	if !resp.Node.Dir {
 		printResponseKey(resp, c.GlobalString("output"))
 	}
 }

@@ -15,8 +15,8 @@
 package bigquery
 
 import (
-	"cloud.google.com/go/internal"
-	gax "github.com/googleapis/gax-go"
+	"errors"
+
 	"golang.org/x/net/context"
 	bq "google.golang.org/api/bigquery/v2"
 )
@@ -71,17 +71,25 @@ type JobStatus struct {
 	Errors []*Error
 }
 
-// setJobRef initializes job's JobReference if given a non-empty jobID.
-// projectID must be non-empty.
-func setJobRef(job *bq.Job, jobID, projectID string) {
-	if jobID == "" {
-		return
-	}
-	// We don't check whether projectID is empty; the server will return an
-	// error when it encounters the resulting JobReference.
+// jobOption is an Option which modifies a bq.Job proto.
+// This is used for configuring values that apply to all operations, such as setting a jobReference.
+type jobOption interface {
+	customizeJob(job *bq.Job, projectID string)
+}
 
+type jobID string
+
+// JobID returns an Option that sets the job ID of a BigQuery job.
+// If this Option is not used, a job ID is generated automatically.
+func JobID(ID string) Option {
+	return jobID(ID)
+}
+
+func (opt jobID) implementsOption() {}
+
+func (opt jobID) customizeJob(job *bq.Job, projectID string) {
 	job.JobReference = &bq.JobReference{
-		JobId:     jobID,
+		JobId:     string(opt),
 		ProjectId: projectID,
 	}
 }
@@ -109,25 +117,15 @@ func (j *Job) Cancel(ctx context.Context) error {
 	return j.service.jobCancel(ctx, j.projectID, j.jobID)
 }
 
-// Wait blocks until the job or th context is done. It returns the final status
-// of the job.
-// If an error occurs while retrieving the status, Wait returns that error. But
-// Wait returns nil if the status was retrieved successfully, even if
-// status.Err() != nil. So callers must check both errors. See the example.
-func (j *Job) Wait(ctx context.Context) (*JobStatus, error) {
-	var js *JobStatus
-	err := internal.Retry(ctx, gax.Backoff{}, func() (stop bool, err error) {
-		js, err = j.Status(ctx)
-		if err != nil {
-			return true, err
-		}
-		if js.Done() {
-			return true, nil
-		}
-		return false, nil
-	})
-	if err != nil {
-		return nil, err
+func (j *Job) implementsReadSource() {}
+
+func (j *Job) customizeReadQuery(cursor *readQueryConf) error {
+	// There are mulitple kinds of jobs, but only a query job is suitable for reading.
+	if !j.isQuery {
+		return errors.New("Cannot read from a non-query job")
 	}
-	return js, nil
+
+	cursor.projectID = j.projectID
+	cursor.jobID = j.jobID
+	return nil
 }

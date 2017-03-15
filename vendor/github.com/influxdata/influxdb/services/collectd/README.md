@@ -22,7 +22,7 @@ Please note that UDP packets larger than the standard size of 1452 are dropped a
 ## Config Example
 
 ```
-[[collectd]]
+[collectd]
   enabled = true
   bind-address = ":25826" # the bind address
   database = "collectd" # Name of the database that will be written to
@@ -32,6 +32,4 @@ Please note that UDP packets larger than the standard size of 1452 are dropped a
   batch-timeout = "10s"
   read-buffer = 0 # UDP read buffer size, 0 means to use OS default
   typesdb = "/usr/share/collectd/types.db"
-  security-level = "none" # "none", "sign", or "encrypt"
-  auth-file = "/etc/collectd/auth_file"
 ```

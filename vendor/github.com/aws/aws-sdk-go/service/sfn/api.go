@@ -65,11 +65,11 @@ func (c *SFN) CreateActivityRequest(input *CreateActivityInput) (req *request.Re
 // API operation CreateActivity for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeActivityLimitExceeded "ActivityLimitExceeded"
+//   * ActivityLimitExceeded
 //   The maximum number of activities has been reached. Existing activities must
 //   be deleted before a new activity can be created.
 //
-//   * ErrCodeInvalidName "InvalidName"
+//   * InvalidName
 //   The provided name is invalid.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/states-2016-11-23/CreateActivity
@@ -134,23 +134,23 @@ func (c *SFN) CreateStateMachineRequest(input *CreateStateMachineInput) (req *re
 // API operation CreateStateMachine for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidArn "InvalidArn"
+//   * InvalidArn
 //   The provided Amazon Resource Name (ARN) is invalid.
 //
-//   * ErrCodeInvalidDefinition "InvalidDefinition"
+//   * InvalidDefinition
 //   The provided Amazon States Language definition is invalid.
 //
-//   * ErrCodeInvalidName "InvalidName"
+//   * InvalidName
 //   The provided name is invalid.
 //
-//   * ErrCodeStateMachineAlreadyExists "StateMachineAlreadyExists"
+//   * StateMachineAlreadyExists
 //   A state machine with the same name but a different definition or role ARN
 //   already exists.
 //
-//   * ErrCodeStateMachineDeleting "StateMachineDeleting"
+//   * StateMachineDeleting
 //   The specified state machine is being deleted.
 //
-//   * ErrCodeStateMachineLimitExceeded "StateMachineLimitExceeded"
+//   * StateMachineLimitExceeded
 //   The maximum number of state machines has been reached. Existing state machines
 //   must be deleted before a new state machine can be created.
 //
@@ -216,7 +216,7 @@ func (c *SFN) DeleteActivityRequest(input *DeleteActivityInput) (req *request.Re
 // API operation DeleteActivity for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidArn "InvalidArn"
+//   * InvalidArn
 //   The provided Amazon Resource Name (ARN) is invalid.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/states-2016-11-23/DeleteActivity
@@ -282,7 +282,7 @@ func (c *SFN) DeleteStateMachineRequest(input *DeleteStateMachineInput) (req *re
 // API operation DeleteStateMachine for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidArn "InvalidArn"
+//   * InvalidArn
 //   The provided Amazon Resource Name (ARN) is invalid.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/states-2016-11-23/DeleteStateMachine
@@ -347,10 +347,10 @@ func (c *SFN) DescribeActivityRequest(input *DescribeActivityInput) (req *reques
 // API operation DescribeActivity for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeActivityDoesNotExist "ActivityDoesNotExist"
+//   * ActivityDoesNotExist
 //   The specified activity does not exist.
 //
-//   * ErrCodeInvalidArn "InvalidArn"
+//   * InvalidArn
 //   The provided Amazon Resource Name (ARN) is invalid.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/states-2016-11-23/DescribeActivity
@@ -415,10 +415,10 @@ func (c *SFN) DescribeExecutionRequest(input *DescribeExecutionInput) (req *requ
 // API operation DescribeExecution for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeExecutionDoesNotExist "ExecutionDoesNotExist"
+//   * ExecutionDoesNotExist
 //   The specified execution does not exist.
 //
-//   * ErrCodeInvalidArn "InvalidArn"
+//   * InvalidArn
 //   The provided Amazon Resource Name (ARN) is invalid.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/states-2016-11-23/DescribeExecution
@@ -483,10 +483,10 @@ func (c *SFN) DescribeStateMachineRequest(input *DescribeStateMachineInput) (req
 // API operation DescribeStateMachine for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidArn "InvalidArn"
+//   * InvalidArn
 //   The provided Amazon Resource Name (ARN) is invalid.
 //
-//   * ErrCodeStateMachineDoesNotExist "StateMachineDoesNotExist"
+//   * StateMachineDoesNotExist
 //   The specified state machine does not exist.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/states-2016-11-23/DescribeStateMachine
@@ -560,14 +560,14 @@ func (c *SFN) GetActivityTaskRequest(input *GetActivityTaskInput) (req *request.
 // API operation GetActivityTask for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeActivityDoesNotExist "ActivityDoesNotExist"
+//   * ActivityDoesNotExist
 //   The specified activity does not exist.
 //
-//   * ErrCodeActivityWorkerLimitExceeded "ActivityWorkerLimitExceeded"
+//   * ActivityWorkerLimitExceeded
 //   The maximum number of workers concurrently polling for activity tasks has
 //   been reached.
 //
-//   * ErrCodeInvalidArn "InvalidArn"
+//   * InvalidArn
 //   The provided Amazon Resource Name (ARN) is invalid.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/states-2016-11-23/GetActivityTask
@@ -642,13 +642,13 @@ func (c *SFN) GetExecutionHistoryRequest(input *GetExecutionHistoryInput) (req *
 // API operation GetExecutionHistory for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeExecutionDoesNotExist "ExecutionDoesNotExist"
+//   * ExecutionDoesNotExist
 //   The specified execution does not exist.
 //
-//   * ErrCodeInvalidArn "InvalidArn"
+//   * InvalidArn
 //   The provided Amazon Resource Name (ARN) is invalid.
 //
-//   * ErrCodeInvalidToken "InvalidToken"
+//   * InvalidToken
 //   The provided token is invalid.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/states-2016-11-23/GetExecutionHistory
@@ -746,7 +746,7 @@ func (c *SFN) ListActivitiesRequest(input *ListActivitiesInput) (req *request.Re
 // API operation ListActivities for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidToken "InvalidToken"
+//   * InvalidToken
 //   The provided token is invalid.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/states-2016-11-23/ListActivities
@@ -844,13 +844,13 @@ func (c *SFN) ListExecutionsRequest(input *ListExecutionsInput) (req *request.Re
 // API operation ListExecutions for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidArn "InvalidArn"
+//   * InvalidArn
 //   The provided Amazon Resource Name (ARN) is invalid.
 //
-//   * ErrCodeInvalidToken "InvalidToken"
+//   * InvalidToken
 //   The provided token is invalid.
 //
-//   * ErrCodeStateMachineDoesNotExist "StateMachineDoesNotExist"
+//   * StateMachineDoesNotExist
 //   The specified state machine does not exist.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/states-2016-11-23/ListExecutions
@@ -948,7 +948,7 @@ func (c *SFN) ListStateMachinesRequest(input *ListStateMachinesInput) (req *requ
 // API operation ListStateMachines for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidToken "InvalidToken"
+//   * InvalidToken
 //   The provided token is invalid.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/states-2016-11-23/ListStateMachines
@@ -1038,12 +1038,14 @@ func (c *SFN) SendTaskFailureRequest(input *SendTaskFailureInput) (req *request.
 // API operation SendTaskFailure for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeTaskDoesNotExist "TaskDoesNotExist"
+//   * TaskDoesNotExist
+
 //
-//   * ErrCodeInvalidToken "InvalidToken"
+//   * InvalidToken
 //   The provided token is invalid.
 //
-//   * ErrCodeTaskTimedOut "TaskTimedOut"
+//   * TaskTimedOut
+
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/states-2016-11-23/SendTaskFailure
 func (c *SFN) SendTaskFailure(input *SendTaskFailureInput) (*SendTaskFailureOutput, error) {
@@ -1119,12 +1121,14 @@ func (c *SFN) SendTaskHeartbeatRequest(input *SendTaskHeartbeatInput) (req *requ
 // API operation SendTaskHeartbeat for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeTaskDoesNotExist "TaskDoesNotExist"
+//   * TaskDoesNotExist
+
 //
-//   * ErrCodeInvalidToken "InvalidToken"
+//   * InvalidToken
 //   The provided token is invalid.
 //
-//   * ErrCodeTaskTimedOut "TaskTimedOut"
+//   * TaskTimedOut
+
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/states-2016-11-23/SendTaskHeartbeat
 func (c *SFN) SendTaskHeartbeat(input *SendTaskHeartbeatInput) (*SendTaskHeartbeatOutput, error) {
@@ -1189,15 +1193,17 @@ func (c *SFN) SendTaskSuccessRequest(input *SendTaskSuccessInput) (req *request.
 // API operation SendTaskSuccess for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeTaskDoesNotExist "TaskDoesNotExist"
+//   * TaskDoesNotExist
+
 //
-//   * ErrCodeInvalidOutput "InvalidOutput"
+//   * InvalidOutput
 //   The provided JSON output data is invalid.
 //
-//   * ErrCodeInvalidToken "InvalidToken"
+//   * InvalidToken
 //   The provided token is invalid.
 //
-//   * ErrCodeTaskTimedOut "TaskTimedOut"
+//   * TaskTimedOut
+
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/states-2016-11-23/SendTaskSuccess
 func (c *SFN) SendTaskSuccess(input *SendTaskSuccessInput) (*SendTaskSuccessOutput, error) {
@@ -1261,26 +1267,26 @@ func (c *SFN) StartExecutionRequest(input *StartExecutionInput) (req *request.Re
 // API operation StartExecution for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeExecutionLimitExceeded "ExecutionLimitExceeded"
+//   * ExecutionLimitExceeded
 //   The maximum number of running executions has been reached. Running executions
 //   must end or be stopped before a new execution can be started.
 //
-//   * ErrCodeExecutionAlreadyExists "ExecutionAlreadyExists"
+//   * ExecutionAlreadyExists
 //   An execution with the same name already exists.
 //
-//   * ErrCodeInvalidArn "InvalidArn"
+//   * InvalidArn
 //   The provided Amazon Resource Name (ARN) is invalid.
 //
-//   * ErrCodeInvalidExecutionInput "InvalidExecutionInput"
+//   * InvalidExecutionInput
 //   The provided JSON input data is invalid.
 //
-//   * ErrCodeInvalidName "InvalidName"
+//   * InvalidName
 //   The provided name is invalid.
 //
-//   * ErrCodeStateMachineDoesNotExist "StateMachineDoesNotExist"
+//   * StateMachineDoesNotExist
 //   The specified state machine does not exist.
 //
-//   * ErrCodeStateMachineDeleting "StateMachineDeleting"
+//   * StateMachineDeleting
 //   The specified state machine is being deleted.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/states-2016-11-23/StartExecution
@@ -1345,10 +1351,10 @@ func (c *SFN) StopExecutionRequest(input *StopExecutionInput) (req *request.Requ
 // API operation StopExecution for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeExecutionDoesNotExist "ExecutionDoesNotExist"
+//   * ExecutionDoesNotExist
 //   The specified execution does not exist.
 //
-//   * ErrCodeInvalidArn "InvalidArn"
+//   * InvalidArn
 //   The provided Amazon Resource Name (ARN) is invalid.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/states-2016-11-23/StopExecution

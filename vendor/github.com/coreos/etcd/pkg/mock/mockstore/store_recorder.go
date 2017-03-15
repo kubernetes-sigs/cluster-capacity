@@ -127,13 +127,6 @@ func (s *storeRecorder) DeleteExpiredKeys(cutoff time.Time) {
 	})
 }
 
-func (s *storeRecorder) HasTTLKeys() bool {
-	s.Record(testutil.Action{
-		Name: "HasTTLKeys",
-	})
-	return true
-}
-
 // errStoreRecorder is a storeRecorder, but returns the given error on
 // Get, Watch methods.
 type errStoreRecorder struct {

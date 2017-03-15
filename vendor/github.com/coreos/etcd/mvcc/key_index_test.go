@@ -239,7 +239,7 @@ func TestKeyIndexCompact(t *testing.T) {
 				},
 			},
 			map[revision]struct{}{
-				{main: 2}: {},
+				revision{main: 2}: {},
 			},
 		},
 		{
@@ -255,7 +255,7 @@ func TestKeyIndexCompact(t *testing.T) {
 				},
 			},
 			map[revision]struct{}{
-				{main: 2}: {},
+				revision{main: 2}: {},
 			},
 		},
 		{
@@ -271,7 +271,7 @@ func TestKeyIndexCompact(t *testing.T) {
 				},
 			},
 			map[revision]struct{}{
-				{main: 4}: {},
+				revision{main: 4}: {},
 			},
 		},
 		{
@@ -287,7 +287,7 @@ func TestKeyIndexCompact(t *testing.T) {
 				},
 			},
 			map[revision]struct{}{
-				{main: 4}: {},
+				revision{main: 4}: {},
 			},
 		},
 		{
@@ -328,7 +328,7 @@ func TestKeyIndexCompact(t *testing.T) {
 				},
 			},
 			map[revision]struct{}{
-				{main: 8}: {},
+				revision{main: 8}: {},
 			},
 		},
 		{
@@ -343,7 +343,7 @@ func TestKeyIndexCompact(t *testing.T) {
 				},
 			},
 			map[revision]struct{}{
-				{main: 8}: {},
+				revision{main: 8}: {},
 			},
 		},
 		{
@@ -358,7 +358,7 @@ func TestKeyIndexCompact(t *testing.T) {
 				},
 			},
 			map[revision]struct{}{
-				{main: 10}: {},
+				revision{main: 10}: {},
 			},
 		},
 		{
@@ -373,7 +373,7 @@ func TestKeyIndexCompact(t *testing.T) {
 				},
 			},
 			map[revision]struct{}{
-				{main: 10}: {},
+				revision{main: 10}: {},
 			},
 		},
 		{
@@ -411,7 +411,7 @@ func TestKeyIndexCompact(t *testing.T) {
 				},
 			},
 			map[revision]struct{}{
-				{main: 14, sub: 1}: {},
+				revision{main: 14, sub: 1}: {},
 			},
 		},
 		{
@@ -425,7 +425,7 @@ func TestKeyIndexCompact(t *testing.T) {
 				},
 			},
 			map[revision]struct{}{
-				{main: 14, sub: 1}: {},
+				revision{main: 14, sub: 1}: {},
 			},
 		},
 		{
@@ -499,7 +499,7 @@ func TestKeyIndexCompactOnFurtherRev(t *testing.T) {
 		},
 	}
 	wam := map[revision]struct{}{
-		{main: 2}: {},
+		revision{main: 2}: {},
 	}
 	if !reflect.DeepEqual(ki, wki) {
 		t.Errorf("ki = %+v, want %+v", ki, wki)

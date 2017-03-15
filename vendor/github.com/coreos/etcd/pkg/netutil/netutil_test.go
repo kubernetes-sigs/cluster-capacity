@@ -21,9 +21,6 @@ import (
 	"reflect"
 	"strconv"
 	"testing"
-	"time"
-
-	"golang.org/x/net/context"
 )
 
 func TestResolveTCPAddrs(t *testing.T) {
@@ -127,9 +124,7 @@ func TestResolveTCPAddrs(t *testing.T) {
 			}
 			return &net.TCPAddr{IP: net.ParseIP(tt.hostMap[host]), Port: i, Zone: ""}, nil
 		}
-		ctx, cancel := context.WithTimeout(context.TODO(), time.Second)
-		urls, err := resolveTCPAddrs(ctx, tt.urls)
-		cancel()
+		urls, err := resolveTCPAddrs(tt.urls)
 		if tt.hasError {
 			if err == nil {
 				t.Errorf("expected error")
@@ -249,14 +244,14 @@ func TestURLsEqual(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		result := urlsEqual(context.TODO(), test.a, test.b)
+		result := urlsEqual(test.a, test.b)
 		if result != test.expect {
 			t.Errorf("a:%v b:%v, expected %v but %v", test.a, test.b, test.expect, result)
 		}
 	}
 }
 func TestURLStringsEqual(t *testing.T) {
-	result := URLStringsEqual(context.TODO(), []string{"http://127.0.0.1:8080"}, []string{"http://127.0.0.1:8080"})
+	result := URLStringsEqual([]string{"http://127.0.0.1:8080"}, []string{"http://127.0.0.1:8080"})
 	if !result {
 		t.Errorf("unexpected result %v", result)
 	}

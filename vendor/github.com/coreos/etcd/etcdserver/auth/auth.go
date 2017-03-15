@@ -46,7 +46,7 @@ const (
 )
 
 var (
-	plog = capnslog.NewPackageLogger("github.com/coreos/etcd", "etcdserver/auth")
+	plog = capnslog.NewPackageLogger("github.com/coreos/etcd/etcdserver", "auth")
 )
 
 var rootRole = Role{
@@ -167,7 +167,7 @@ func (_ passwordStore) HashPassword(password string) (string, error) {
 }
 
 func (s *store) AllUsers() ([]string, error) {
-	resp, err := s.requestResource("/users/", false, false)
+	resp, err := s.requestResource("/users/", false)
 	if err != nil {
 		if e, ok := err.(*etcderr.Error); ok {
 			if e.ErrorCode == etcderr.EcodeKeyNotFound {
@@ -185,13 +185,33 @@ func (s *store) AllUsers() ([]string, error) {
 	return nodes, nil
 }
 
-func (s *store) GetUser(name string) (User, error) { return s.getUser(name, false) }
+func (s *store) GetUser(name string) (User, error) {
+	resp, err := s.requestResource("/users/"+name, false)
+	if err != nil {
+		if e, ok := err.(*etcderr.Error); ok {
+			if e.ErrorCode == etcderr.EcodeKeyNotFound {
+				return User{}, authErr(http.StatusNotFound, "User %s does not exist.", name)
+			}
+		}
+		return User{}, err
+	}
+	var u User
+	err = json.Unmarshal([]byte(*resp.Event.Node.Value), &u)
+	if err != nil {
+		return u, err
+	}
+	// Attach root role to root user.
+	if u.User == "root" {
+		u = attachRootRole(u)
+	}
+	return u, nil
+}
 
 // CreateOrUpdateUser should be only used for creating the new user or when you are not
 // sure if it is a create or update. (When only password is passed in, we are not sure
 // if it is a update or create)
 func (s *store) CreateOrUpdateUser(user User) (out User, created bool, err error) {
-	_, err = s.getUser(user.User, true)
+	_, err = s.GetUser(user.User)
 	if err == nil {
 		out, err = s.UpdateUser(user)
 		return out, false, err
@@ -251,7 +271,7 @@ func (s *store) DeleteUser(name string) error {
 }
 
 func (s *store) UpdateUser(user User) (User, error) {
-	old, err := s.getUser(user.User, true)
+	old, err := s.GetUser(user.User)
 	if err != nil {
 		if e, ok := err.(*etcderr.Error); ok {
 			if e.ErrorCode == etcderr.EcodeKeyNotFound {
@@ -277,7 +297,7 @@ func (s *store) UpdateUser(user User) (User, error) {
 
 func (s *store) AllRoles() ([]string, error) {
 	nodes := []string{RootRoleName}
-	resp, err := s.requestResource("/roles/", false, false)
+	resp, err := s.requestResource("/roles/", false)
 	if err != nil {
 		if e, ok := err.(*etcderr.Error); ok {
 			if e.ErrorCode == etcderr.EcodeKeyNotFound {
@@ -294,7 +314,23 @@ func (s *store) AllRoles() ([]string, error) {
 	return nodes, nil
 }
 
-func (s *store) GetRole(name string) (Role, error) { return s.getRole(name, false) }
+func (s *store) GetRole(name string) (Role, error) {
+	if name == RootRoleName {
+		return rootRole, nil
+	}
+	resp, err := s.requestResource("/roles/"+name, false)
+	if err != nil {
+		if e, ok := err.(*etcderr.Error); ok {
+			if e.ErrorCode == etcderr.EcodeKeyNotFound {
+				return Role{}, authErr(http.StatusNotFound, "Role %s does not exist.", name)
+			}
+		}
+		return Role{}, err
+	}
+	var r Role
+	err = json.Unmarshal([]byte(*resp.Event.Node.Value), &r)
+	return r, err
+}
 
 func (s *store) CreateRole(role Role) error {
 	if role.Role == RootRoleName {
@@ -336,7 +372,7 @@ func (s *store) UpdateRole(role Role) (Role, error) {
 	if role.Role == RootRoleName {
 		return Role{}, authErr(http.StatusForbidden, "Cannot modify role %s: is root role.", role.Role)
 	}
-	old, err := s.getRole(role.Role, true)
+	old, err := s.GetRole(role.Role)
 	if err != nil {
 		if e, ok := err.(*etcderr.Error); ok {
 			if e.ErrorCode == etcderr.EcodeKeyNotFound {
@@ -368,10 +404,10 @@ func (s *store) EnableAuth() error {
 		return authErr(http.StatusConflict, "already enabled")
 	}
 
-	if _, err := s.getUser("root", true); err != nil {
+	if _, err := s.GetUser("root"); err != nil {
 		return authErr(http.StatusConflict, "No root user available, please create one")
 	}
-	if _, err := s.getRole(GuestRoleName, true); err != nil {
+	if _, err := s.GetRole(GuestRoleName); err != nil {
 		plog.Printf("no guest role access found, creating default")
 		if err := s.CreateRole(guestRole); err != nil {
 			plog.Errorf("error creating guest role. aborting auth enable.")
@@ -604,44 +640,4 @@ func attachRootRole(u User) User {
 		u.Roles = append(u.Roles, RootRoleName)
 	}
 	return u
-}
-
-func (s *store) getUser(name string, quorum bool) (User, error) {
-	resp, err := s.requestResource("/users/"+name, false, quorum)
-	if err != nil {
-		if e, ok := err.(*etcderr.Error); ok {
-			if e.ErrorCode == etcderr.EcodeKeyNotFound {
-				return User{}, authErr(http.StatusNotFound, "User %s does not exist.", name)
-			}
-		}
-		return User{}, err
-	}
-	var u User
-	err = json.Unmarshal([]byte(*resp.Event.Node.Value), &u)
-	if err != nil {
-		return u, err
-	}
-	// Attach root role to root user.
-	if u.User == "root" {
-		u = attachRootRole(u)
-	}
-	return u, nil
-}
-
-func (s *store) getRole(name string, quorum bool) (Role, error) {
-	if name == RootRoleName {
-		return rootRole, nil
-	}
-	resp, err := s.requestResource("/roles/"+name, false, quorum)
-	if err != nil {
-		if e, ok := err.(*etcderr.Error); ok {
-			if e.ErrorCode == etcderr.EcodeKeyNotFound {
-				return Role{}, authErr(http.StatusNotFound, "Role %s does not exist.", name)
-			}
-		}
-		return Role{}, err
-	}
-	var r Role
-	err = json.Unmarshal([]byte(*resp.Event.Node.Value), &r)
-	return r, err
 }

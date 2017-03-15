@@ -3,14 +3,15 @@ package admin // import "github.com/influxdata/influxdb/services/admin"
 import (
 	"crypto/tls"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 
 	// Register static assets via statik.
 	_ "github.com/influxdata/influxdb/services/admin/statik"
 	"github.com/rakyll/statik/fs"
-	"go.uber.org/zap"
 )
 
 // Service manages the listener for an admin endpoint.
@@ -22,7 +23,7 @@ type Service struct {
 	err      chan error
 	version  string
 
-	logger zap.Logger
+	logger *log.Logger
 }
 
 // NewService returns a new instance of Service.
@@ -33,14 +34,13 @@ func NewService(c Config) *Service {
 		cert:    c.HTTPSCertificate,
 		err:     make(chan error),
 		version: c.Version,
-		logger:  zap.New(zap.NullEncoder()),
+		logger:  log.New(os.Stderr, "[admin] ", log.LstdFlags),
 	}
 }
 
 // Open starts the service
 func (s *Service) Open() error {
-	s.logger.Info("Starting admin service")
-	s.logger.Info("DEPRECATED: This plugin is deprecated as of 1.1.0 and will be removed in a future release")
+	s.logger.Printf("Starting admin service")
 
 	// Open listener.
 	if s.https {
@@ -56,7 +56,7 @@ func (s *Service) Open() error {
 			return err
 		}
 
-		s.logger.Info(fmt.Sprint("Listening on HTTPS: ", listener.Addr().String()))
+		s.logger.Println("Listening on HTTPS:", listener.Addr().String())
 		s.listener = listener
 	} else {
 		listener, err := net.Listen("tcp", s.addr)
@@ -64,7 +64,7 @@ func (s *Service) Open() error {
 			return err
 		}
 
-		s.logger.Info(fmt.Sprint("Listening on HTTP: ", listener.Addr().String()))
+		s.logger.Println("Listening on HTTP:", listener.Addr().String())
 		s.listener = listener
 	}
 
@@ -81,8 +81,9 @@ func (s *Service) Close() error {
 	return nil
 }
 
-func (s *Service) WithLogger(log zap.Logger) {
-	s.logger = log.With(zap.String("service", "admin"))
+// SetLogger sets the internal logger to the logger passed in.
+func (s *Service) SetLogger(l *log.Logger) {
+	s.logger = l
 }
 
 // Err returns a channel for fatal errors that occur on the listener.

@@ -2,7 +2,6 @@ package tcp_test
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -42,8 +41,6 @@ func TestMux(t *testing.T) {
 		if !testing.Verbose() {
 			mux.Logger = log.New(ioutil.Discard, "", 0)
 		}
-
-		errC := make(chan error)
 		for i := uint8(0); i < n; i++ {
 			ln := mux.Listen(byte(i))
 
@@ -61,8 +58,7 @@ func TestMux(t *testing.T) {
 				// doesn't match then expect close.
 				if len(msg) == 0 || msg[0] != byte(i) {
 					if err == nil || err.Error() != "network connection closed" {
-						errC <- fmt.Errorf("unexpected error: %s", err)
-						return
+						t.Fatalf("unexpected error: %s", err)
 					}
 					return
 				}
@@ -71,17 +67,14 @@ func TestMux(t *testing.T) {
 				// then expect a connection and read the message.
 				var buf bytes.Buffer
 				if _, err := io.CopyN(&buf, conn, int64(len(msg)-1)); err != nil {
-					errC <- err
-					return
+					t.Fatal(err)
 				} else if !bytes.Equal(msg[1:], buf.Bytes()) {
-					errC <- fmt.Errorf("message mismatch:\n\nexp=%x\n\ngot=%x\n\n", msg[1:], buf.Bytes())
-					return
+					t.Fatalf("message mismatch:\n\nexp=%x\n\ngot=%x\n\n", msg[1:], buf.Bytes())
 				}
 
 				// Write response.
 				if _, err := conn.Write([]byte("OK")); err != nil {
-					errC <- err
-					return
+					t.Fatal(err)
 				}
 			}(i, ln)
 		}
@@ -121,21 +114,9 @@ func TestMux(t *testing.T) {
 
 		// Close original TCP listener and wait for all goroutines to close.
 		tcpListener.Close()
+		wg.Wait()
 
-		go func() {
-			wg.Wait()
-			close(errC)
-		}()
-
-		ok := true
-		for err := range errC {
-			if err != nil {
-				ok = false
-				t.Error(err)
-			}
-		}
-
-		return ok
+		return true
 	}, nil); err != nil {
 		t.Error(err)
 	}

@@ -34,14 +34,18 @@ import (
 // TestPipelineSend tests that pipeline could send data using roundtripper
 // and increase success count in stats.
 func TestPipelineSend(t *testing.T) {
-	tr := &roundTripperRecorder{rec: testutil.NewRecorderStream()}
+	tr := &roundTripperRecorder{}
 	picker := mustNewURLPicker(t, []string{"http://localhost:2380"})
 	tp := &Transport{pipelineRt: tr}
 	p := startTestPipeline(tp, picker)
 
 	p.msgc <- raftpb.Message{Type: raftpb.MsgApp}
-	tr.rec.Wait(1)
+	testutil.WaitSchedule()
 	p.stop()
+
+	if tr.Request() == nil {
+		t.Errorf("sender fails to post the data")
+	}
 	if p.followerStats.Counts.Success != 1 {
 		t.Errorf("success = %d, want 1", p.followerStats.Counts.Success)
 	}
@@ -67,20 +71,23 @@ func TestPipelineKeepSendingWhenPostError(t *testing.T) {
 }
 
 func TestPipelineExceedMaximumServing(t *testing.T) {
-	rt := newRoundTripperBlocker()
+	tr := newRoundTripperBlocker()
 	picker := mustNewURLPicker(t, []string{"http://localhost:2380"})
-	tp := &Transport{pipelineRt: rt}
+	tp := &Transport{pipelineRt: tr}
 	p := startTestPipeline(tp, picker)
 	defer p.stop()
 
 	// keep the sender busy and make the buffer full
 	// nothing can go out as we block the sender
+	testutil.WaitSchedule()
 	for i := 0; i < connPerPipeline+pipelineBufSize; i++ {
 		select {
 		case p.msgc <- raftpb.Message{}:
-		case <-time.After(time.Second):
+		default:
 			t.Errorf("failed to send out message")
 		}
+		// force the sender to grab data
+		testutil.WaitSchedule()
 	}
 
 	// try to send a data when we are sure the buffer is full
@@ -91,12 +98,13 @@ func TestPipelineExceedMaximumServing(t *testing.T) {
 	}
 
 	// unblock the senders and force them to send out the data
-	rt.unblock()
+	tr.unblock()
+	testutil.WaitSchedule()
 
 	// It could send new data after previous ones succeed
 	select {
 	case p.msgc <- raftpb.Message{}:
-	case <-time.After(time.Second):
+	default:
 		t.Errorf("failed to send out message")
 	}
 }
@@ -105,16 +113,11 @@ func TestPipelineExceedMaximumServing(t *testing.T) {
 // it increases fail count in stats.
 func TestPipelineSendFailed(t *testing.T) {
 	picker := mustNewURLPicker(t, []string{"http://localhost:2380"})
-	rt := newRespRoundTripper(0, errors.New("blah"))
-	rt.rec = testutil.NewRecorderStream()
-	tp := &Transport{pipelineRt: rt}
+	tp := &Transport{pipelineRt: newRespRoundTripper(0, errors.New("blah"))}
 	p := startTestPipeline(tp, picker)
 
 	p.msgc <- raftpb.Message{Type: raftpb.MsgApp}
-	if _, err := rt.rec.Wait(1); err != nil {
-		t.Fatal(err)
-	}
-
+	testutil.WaitSchedule()
 	p.stop()
 
 	if p.followerStats.Counts.Fail != 1 {
@@ -123,40 +126,34 @@ func TestPipelineSendFailed(t *testing.T) {
 }
 
 func TestPipelinePost(t *testing.T) {
-	tr := &roundTripperRecorder{rec: &testutil.RecorderBuffered{}}
+	tr := &roundTripperRecorder{}
 	picker := mustNewURLPicker(t, []string{"http://localhost:2380"})
 	tp := &Transport{ClusterID: types.ID(1), pipelineRt: tr}
 	p := startTestPipeline(tp, picker)
 	if err := p.post([]byte("some data")); err != nil {
 		t.Fatalf("unexpected post error: %v", err)
 	}
-	act, err := tr.rec.Wait(1)
-	if err != nil {
-		t.Fatal(err)
-	}
 	p.stop()
 
-	req := act[0].Params[0].(*http.Request)
-
-	if g := req.Method; g != "POST" {
+	if g := tr.Request().Method; g != "POST" {
 		t.Errorf("method = %s, want %s", g, "POST")
 	}
-	if g := req.URL.String(); g != "http://localhost:2380/raft" {
+	if g := tr.Request().URL.String(); g != "http://localhost:2380/raft" {
 		t.Errorf("url = %s, want %s", g, "http://localhost:2380/raft")
 	}
-	if g := req.Header.Get("Content-Type"); g != "application/protobuf" {
+	if g := tr.Request().Header.Get("Content-Type"); g != "application/protobuf" {
 		t.Errorf("content type = %s, want %s", g, "application/protobuf")
 	}
-	if g := req.Header.Get("X-Server-Version"); g != version.Version {
+	if g := tr.Request().Header.Get("X-Server-Version"); g != version.Version {
 		t.Errorf("version = %s, want %s", g, version.Version)
 	}
-	if g := req.Header.Get("X-Min-Cluster-Version"); g != version.MinClusterVersion {
+	if g := tr.Request().Header.Get("X-Min-Cluster-Version"); g != version.MinClusterVersion {
 		t.Errorf("min version = %s, want %s", g, version.MinClusterVersion)
 	}
-	if g := req.Header.Get("X-Etcd-Cluster-ID"); g != "1" {
+	if g := tr.Request().Header.Get("X-Etcd-Cluster-ID"); g != "1" {
 		t.Errorf("cluster id = %s, want %s", g, "1")
 	}
-	b, err := ioutil.ReadAll(req.Body)
+	b, err := ioutil.ReadAll(tr.Request().Body)
 	if err != nil {
 		t.Fatalf("unexpected ReadAll error: %v", err)
 	}
@@ -281,14 +278,20 @@ func (t *respRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) 
 }
 
 type roundTripperRecorder struct {
-	rec testutil.Recorder
+	req *http.Request
+	sync.Mutex
 }
 
 func (t *roundTripperRecorder) RoundTrip(req *http.Request) (*http.Response, error) {
-	if t.rec != nil {
-		t.rec.Record(testutil.Action{Name: "req", Params: []interface{}{req}})
-	}
+	t.Lock()
+	defer t.Unlock()
+	t.req = req
 	return &http.Response{StatusCode: http.StatusNoContent, Body: &nopReadCloser{}}, nil
+}
+func (t *roundTripperRecorder) Request() *http.Request {
+	t.Lock()
+	defer t.Unlock()
+	return t.req
 }
 
 type nopReadCloser struct{}

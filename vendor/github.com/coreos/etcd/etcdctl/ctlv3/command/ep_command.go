@@ -21,9 +21,7 @@ import (
 	"time"
 
 	v3 "github.com/coreos/etcd/clientv3"
-	"github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
 	"github.com/coreos/etcd/pkg/flags"
-
 	"github.com/spf13/cobra"
 )
 
@@ -46,7 +44,6 @@ func newEpHealthCommand() *cobra.Command {
 		Short: "Checks the healthiness of endpoints specified in `--endpoints` flag",
 		Run:   epHealthCommandFunc,
 	}
-
 	return cmd
 }
 
@@ -71,10 +68,9 @@ func epHealthCommandFunc(cmd *cobra.Command, args []string) {
 
 	sec := secureCfgFromCmd(cmd)
 	dt := dialTimeoutFromCmd(cmd)
-	auth := authCfgFromCmd(cmd)
 	cfgs := []*v3.Config{}
 	for _, ep := range endpoints {
-		cfg, err := newClientCfg([]string{ep}, dt, sec, auth)
+		cfg, err := newClientCfg([]string{ep}, dt, sec, nil)
 		if err != nil {
 			ExitWithError(ExitBadArgs, err)
 		}
@@ -99,11 +95,10 @@ func epHealthCommandFunc(cmd *cobra.Command, args []string) {
 			ctx, cancel := commandCtx(cmd)
 			_, err = cli.Get(ctx, "health")
 			cancel()
-			// permission denied is OK since proposal goes through consensus to get it
-			if err == nil || err == rpctypes.ErrPermissionDenied {
-				fmt.Printf("%s is healthy: successfully committed proposal: took = %v\n", ep, time.Since(st))
-			} else {
+			if err != nil {
 				fmt.Printf("%s is unhealthy: failed to commit proposal: %v\n", ep, err)
+			} else {
+				fmt.Printf("%s is healthy: successfully committed proposal: took = %v\n", ep, time.Since(st))
 			}
 		}(cfg)
 	}

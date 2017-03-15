@@ -93,7 +93,7 @@ The items in the lists are hash, revision, total keys, total size.
 
 func NewSnapshotRestoreCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "restore <filename> [options]",
+		Use:   "restore <filename>",
 		Short: "Restores an etcd member snapshot to an etcd directory",
 		Run:   snapshotRestoreCommandFunc,
 	}

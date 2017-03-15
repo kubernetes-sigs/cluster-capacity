@@ -112,6 +112,11 @@ func actionUserAdd(c *cli.Context) error {
 	ctx, cancel := contextWithTotalTimeout(c)
 	defer cancel()
 	user, _, _ := getUsernamePassword("", userarg+":")
+	currentUser, err := api.GetUser(ctx, user)
+	if currentUser != nil {
+		fmt.Fprintf(os.Stderr, "User %s already exists\n", user)
+		os.Exit(1)
+	}
 
 	_, pass, err := getUsernamePassword("New password: ", userarg)
 	if err != nil {
@@ -146,6 +151,11 @@ func actionUserPasswd(c *cli.Context) error {
 	api, user := mustUserAPIAndName(c)
 	ctx, cancel := contextWithTotalTimeout(c)
 	defer cancel()
+	currentUser, err := api.GetUser(ctx, user)
+	if currentUser == nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(1)
+	}
 	pass, err := speakeasy.Ask("New password: ")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error reading password:", err)
@@ -183,7 +193,12 @@ func userGrantRevoke(c *cli.Context, grant bool) {
 	defer cancel()
 
 	api, user := mustUserAPIAndName(c)
-	var err error
+	currentUser, err := api.GetUser(ctx, user)
+	if currentUser == nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(1)
+	}
+
 	if grant {
 		_, err = api.GrantUser(ctx, user, roles)
 	} else {

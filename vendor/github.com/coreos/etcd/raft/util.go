@@ -48,23 +48,11 @@ func max(a, b uint64) uint64 {
 
 func IsLocalMsg(msgt pb.MessageType) bool {
 	return msgt == pb.MsgHup || msgt == pb.MsgBeat || msgt == pb.MsgUnreachable ||
-		msgt == pb.MsgSnapStatus || msgt == pb.MsgCheckQuorum
+		msgt == pb.MsgSnapStatus || msgt == pb.MsgCheckQuorum || msgt == pb.MsgTransferLeader
 }
 
 func IsResponseMsg(msgt pb.MessageType) bool {
-	return msgt == pb.MsgAppResp || msgt == pb.MsgVoteResp || msgt == pb.MsgHeartbeatResp || msgt == pb.MsgUnreachable || msgt == pb.MsgPreVoteResp
-}
-
-// voteResponseType maps vote and prevote message types to their corresponding responses.
-func voteRespMsgType(msgt pb.MessageType) pb.MessageType {
-	switch msgt {
-	case pb.MsgVote:
-		return pb.MsgVoteResp
-	case pb.MsgPreVote:
-		return pb.MsgPreVoteResp
-	default:
-		panic(fmt.Sprintf("not a vote message: %s", msgt))
-	}
+	return msgt == pb.MsgAppResp || msgt == pb.MsgVoteResp || msgt == pb.MsgHeartbeatResp || msgt == pb.MsgUnreachable
 }
 
 // EntryFormatter can be implemented by the application to provide human-readable formatting

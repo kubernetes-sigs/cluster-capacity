@@ -59,15 +59,15 @@ func main() {
 
 	table := client.Dataset(*dataset).Table(*table)
 
-	gcs := bigquery.NewGCSReference(fmt.Sprintf("gs://%s/%s", *bucket, *object))
+	gcs := client.NewGCSReference(fmt.Sprintf("gs://%s/%s", *bucket, *object))
 	gcs.SkipLeadingRows = *skiprows
-	gcs.MaxBadRecords = 1
-	gcs.AllowQuotedNewlines = true
 
 	// Load data from Google Cloud Storage into a BigQuery table.
-	loader := table.LoaderFrom(gcs)
-	loader.WriteDisposition = bigquery.WriteTruncate
-	job, err := loader.Run(ctx)
+	job, err := client.Copy(
+		ctx, table, gcs,
+		bigquery.MaxBadRecords(1),
+		bigquery.AllowQuotedNewlines(),
+		bigquery.WriteTruncate)
 
 	if err != nil {
 		log.Fatalf("Loading data: %v", err)

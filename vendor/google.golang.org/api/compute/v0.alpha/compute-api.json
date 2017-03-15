@@ -1,11 +1,11 @@
 {
  "kind": "discovery#restDescription",
- "etag": "\"tbys6C40o18GZwyMen5GMkdK-3s/2elvVtUis8Edx7anV3MuaVUCiBY\"",
+ "etag": "\"tbys6C40o18GZwyMen5GMkdK-3s/eiXhqgDoyaiszL8oF7RwvXINmog\"",
  "discoveryVersion": "v1",
  "id": "compute:alpha",
  "name": "compute",
  "version": "alpha",
- "revision": "20170118",
+ "revision": "20161115",
  "title": "Compute Engine API",
  "description": "Creates and runs virtual machines on Google Cloud Platform.",
  "ownerDomain": "google.com",
@@ -91,27 +91,15 @@
   }
  },
  "schemas": {
-  "AcceleratorConfig": {
-   "id": "AcceleratorConfig",
-   "type": "object",
-   "description": "A specification of the type and number of accelerator cards attached to the instance.",
-   "properties": {
-    "acceleratorCount": {
-     "type": "integer",
-     "description": "The number of the guest accelerator cards exposed to this instance.",
-     "format": "int32"
-    },
-    "acceleratorType": {
-     "type": "string",
-     "description": "Full or partial URL of the accelerator type resource to expose to this instance."
-    }
-   }
-  },
   "AccessConfig": {
    "id": "AccessConfig",
    "type": "object",
    "description": "An access configuration attached to an instance's network interface. Only one access config per instance is supported.",
    "properties": {
+    "dnsName": {
+     "type": "string",
+     "description": "[Output Only] The public DNS domain name for the instance."
+    },
     "kind": {
      "type": "string",
      "description": "[Output Only] Type of the resource. Always compute#accessConfig for access configs.",
@@ -127,31 +115,27 @@
     },
     "networkTier": {
      "type": "string",
-     "description": "This signifies the networking tier used for configuring this access configuration and can only take the following values: CLOUD_NETWORK_PREMIUM , CLOUD_NETWORK_SELECT. If this field is not specified, it is assumed to be CLOUD_NETWORK_PREMIUM.",
+     "description": "This signifies the networking tier used for configuring this access configuration and can only take the following values: CLOUD_NETWORK_PREMIUM , CLOUD_NETWORK_STANDARD. If this field is not specified, it is assumed to be CLOUD_NETWORK_PREMIUM.",
      "enum": [
       "CLOUD_NETWORK_PREMIUM",
-      "CLOUD_NETWORK_SELECT"
+      "CLOUD_NETWORK_STANDARD"
      ],
      "enumDescriptions": [
       "",
       ""
      ]
     },
-    "publicDnsName": {
+    "ptrDomainName": {
      "type": "string",
-     "description": "[Output Only] The public DNS domain name for the instance."
+     "description": "The DNS domain name for the public PTR record. This field can only be set when the set_ptr field is enabled."
     },
-    "publicPtrDomainName": {
-     "type": "string",
-     "description": "The DNS domain name for the public PTR record. This field can only be set when the set_public_ptr field is enabled."
+    "setPtr": {
+     "type": "boolean",
+     "description": "Specifies whether a public DNS ?PTR? record should be created to map the external IP address of the instance to a DNS domain name."
     },
     "setPublicDns": {
      "type": "boolean",
      "description": "Specifies whether a public DNS ?A? record should be created for the external IP address of this access configuration."
-    },
-    "setPublicPtr": {
-     "type": "boolean",
-     "description": "Specifies whether a public DNS ?PTR? record should be created to map the external IP address of the instance to a DNS domain name."
     },
     "type": {
      "type": "string",
@@ -173,7 +157,7 @@
    "properties": {
     "address": {
      "type": "string",
-     "description": "The static external IP address represented by this resource. Only IPv4 is supported."
+     "description": "The static external IP address represented by this resource."
     },
     "creationTimestamp": {
      "type": "string",
@@ -217,10 +201,10 @@
     },
     "networkTier": {
      "type": "string",
-     "description": "This signifies the networking tier used for configuring this Address and can only take the following values: CLOUD_NETWORK_PREMIUM , CLOUD_NETWORK_SELECT. If this field is not specified, it is assumed to be CLOUD_NETWORK_PREMIUM.",
+     "description": "This signifies the networking tier used for configuring this Address and can only take the following values: CLOUD_NETWORK_PREMIUM , CLOUD_NETWORK_STANDARD. If this field is not specified, it is assumed to be CLOUD_NETWORK_PREMIUM.",
      "enum": [
       "CLOUD_NETWORK_PREMIUM",
-      "CLOUD_NETWORK_SELECT"
+      "CLOUD_NETWORK_STANDARD"
      ],
      "enumDescriptions": [
       "",
@@ -550,15 +534,8 @@
   "AuditConfig": {
    "id": "AuditConfig",
    "type": "object",
-   "description": "Provides the configuration for non-admin_activity logging for a service. Controls exemptions and specific log sub-types.",
+   "description": "Enables \"data access\" audit logging for a service and specifies a list of members that are log-exempted.",
    "properties": {
-    "auditLogConfigs": {
-     "type": "array",
-     "description": "The configuration for each type of logging",
-     "items": {
-      "$ref": "AuditLogConfig"
-     }
-    },
     "exemptedMembers": {
      "type": "array",
      "description": "Specifies the identities that are exempted from \"data access\" audit logging for the `service` specified above. Follows the same format of Binding.members.",
@@ -568,37 +545,7 @@
     },
     "service": {
      "type": "string",
-     "description": "Specifies a service that will be enabled for audit logging. For example, `resourcemanager`, `storage`, `compute`. `allServices` is a special value that covers all services."
-    }
-   }
-  },
-  "AuditLogConfig": {
-   "id": "AuditLogConfig",
-   "type": "object",
-   "description": "Provides the configuration for a sub-type of logging.",
-   "properties": {
-    "exemptedMembers": {
-     "type": "array",
-     "description": "Specifies the identities that are exempted from this type of logging Follows the same format of Binding.members.",
-     "items": {
-      "type": "string"
-     }
-    },
-    "logType": {
-     "type": "string",
-     "description": "The log type that this config enables.",
-     "enum": [
-      "ADMIN_READ",
-      "DATA_READ",
-      "DATA_WRITE",
-      "LOG_TYPE_UNSPECIFIED"
-     ],
-     "enumDescriptions": [
-      "",
-      "",
-      "",
-      ""
-     ]
+     "description": "Specifies a service that will be enabled for \"data access\" audit logging. For example, `resourcemanager`, `storage`, `compute`. `allServices` is a special value that covers all services."
     }
    }
   },
@@ -1025,10 +972,6 @@
      "type": "string",
      "description": "An optional description of this resource. Provide this property when you create the resource."
     },
-    "failover": {
-     "type": "boolean",
-     "description": "This field designates whether this is a failover backend. More than one failover backend can be configured for a given BackendService."
-    },
     "group": {
      "type": "string",
      "description": "The fully-qualified URL of a zonal Instance Group resource. This instance group defines the list of instances that serve traffic. Member virtual machine instances from each instance group must live in the same zone as the instance group itself. No two backends in a backend service are allowed to use same Instance Group resource.\n\nNote that you must specify an Instance Group resource using the fully-qualified URL, rather than a partial URL.\n\nWhen the BackendService has load balancing scheme INTERNAL, the instance group must be in a zone within the same region as the BackendService."
@@ -1179,13 +1122,6 @@
      "type": "string",
      "description": "[Output Only] Creation timestamp in RFC3339 text format."
     },
-    "customRequestHeaders": {
-     "type": "array",
-     "description": "Headers that the HTTP/S load balancer should add to proxied requests.",
-     "items": {
-      "type": "string"
-     }
-    },
     "description": {
      "type": "string",
      "description": "An optional description of this resource. Provide this property when you create the resource."
@@ -1251,14 +1187,12 @@
      "description": "The protocol this BackendService uses to communicate with backends.\n\nPossible values are HTTP, HTTPS, HTTP2, TCP and SSL. The default is HTTP.\n\nFor internal load balancing, the possible values are TCP and UDP, and the default is TCP.",
      "enum": [
       "HTTP",
-      "HTTP2",
       "HTTPS",
       "SSL",
       "TCP",
       "UDP"
      ],
      "enumDescriptions": [
-      "",
       "",
       "",
       "",
@@ -2491,48 +2425,9 @@
      "type": "string",
      "description": "[Output Only] Creation timestamp in RFC3339 text format."
     },
-    "denied": {
-     "type": "array",
-     "description": "The list of DENY rules specified by this firewall. Each rule specifies a protocol and port-range tuple that describes a permitted connection.",
-     "items": {
-      "type": "object",
-      "properties": {
-       "IPProtocol": {
-        "type": "string",
-        "description": "The IP protocol to which this rule applies. The protocol type is required when creating a firewall rule. This value can either be one of the following well known protocol strings (tcp, udp, icmp, esp, ah, sctp), or the IP protocol number."
-       },
-       "ports": {
-        "type": "array",
-        "description": "An optional list of ports to which this rule applies. This field is only applicable for UDP or TCP protocol. Each entry must be either an integer or a range. If not specified, this rule applies to connections through any port.\n\nExample inputs include: [\"22\"], [\"80\",\"443\"], and [\"12345-12349\"].",
-        "items": {
-         "type": "string"
-        }
-       }
-      }
-     }
-    },
     "description": {
      "type": "string",
      "description": "An optional description of this resource. Provide this property when you create the resource."
-    },
-    "destinationRanges": {
-     "type": "array",
-     "description": "If destination ranges are specified, the firewall will apply only to traffic that has destination IP address in these ranges. These ranges must be expressed in CIDR format. Only IPv4 is supported.",
-     "items": {
-      "type": "string"
-     }
-    },
-    "direction": {
-     "type": "string",
-     "description": "Direction of traffic to which this firewall applies; default is INGRESS. Note: For INGRESS traffic, it is NOT supported to specify destinationRanges; For EGRESS traffic, it is NOT supported to specify sourceRanges OR sourceTags.",
-     "enum": [
-      "EGRESS",
-      "INGRESS"
-     ],
-     "enumDescriptions": [
-      "",
-      ""
-     ]
     },
     "id": {
      "type": "string",
@@ -2559,18 +2454,13 @@
      "type": "string",
      "description": "URL of the network resource for this firewall rule. If not specified when creating a firewall rule, the default network is used:\nglobal/networks/default\nIf you choose to specify this property, you can specify the network as a full or partial URL. For example, the following are all valid URLs:  \n- https://www.googleapis.com/compute/v1/projects/myproject/global/networks/my-network \n- projects/myproject/global/networks/my-network \n- global/networks/default"
     },
-    "priority": {
-     "type": "integer",
-     "description": "Priority for this rule. This is an integer between 0 and 65535, both inclusive. When not specified, the value assumed is 1000. Relative priorities determine precedence of conflicting rules. Lower value of priority implies higher precedence (eg, a rule with priority 0 has higher precedence than a rule with priority 1). DENY rules take precedence over ALLOW rules having equal priority.",
-     "format": "int32"
-    },
     "selfLink": {
      "type": "string",
      "description": "[Output Only] Server-defined URL for the resource."
     },
     "sourceRanges": {
      "type": "array",
-     "description": "If source ranges are specified, the firewall will apply only to traffic that has source IP address in these ranges. These ranges must be expressed in CIDR format. One or both of sourceRanges and sourceTags may be set. If both properties are set, the firewall will apply to traffic that has source IP address within sourceRanges OR the source IP that belongs to a tag listed in the sourceTags property. The connection does not need to match both properties for the firewall to apply. Only IPv4 is supported.",
+     "description": "If source ranges are specified, the firewall will apply only to traffic that has source IP address in these ranges. These ranges must be expressed in CIDR format. One or both of sourceRanges and sourceTags may be set. If both properties are set, the firewall will apply to traffic that has source IP address within sourceRanges OR the source IP that belongs to a tag listed in the sourceTags property. The connection does not need to match both properties for the firewall to apply.",
      "items": {
       "type": "string"
      }
@@ -2578,13 +2468,6 @@
     "sourceTags": {
      "type": "array",
      "description": "If source tags are specified, the firewall will apply only to traffic with source IP that belongs to a tag listed in source tags. Source tags cannot be used to control traffic to an instance's external IP address. Because tags are associated with an instance, not an IP address. One or both of sourceRanges and sourceTags may be set. If both properties are set, the firewall will apply to traffic that has source IP address within sourceRanges OR the source IP that belongs to a tag listed in the sourceTags property. The connection does not need to match both properties for the firewall to apply.",
-     "items": {
-      "type": "string"
-     }
-    },
-    "targetServiceAccounts": {
-     "type": "array",
-     "description": "A list of service accounts indicating sets of instances located in the network that may make network connections as specified in allowed[]. targetServiceAccounts cannot be used at the same time as targetTags or sourceTags. If neither targetServiceAccounts nor targetTags are specified, the firewall rule applies to all instances on the specified network.",
      "items": {
       "type": "string"
      }
@@ -2658,7 +2541,7 @@
    "properties": {
     "IPAddress": {
      "type": "string",
-     "description": "The IP address that this forwarding rule is serving on behalf of.\n\nFor global forwarding rules, the address must be a global IP; for regional forwarding rules, the address must live in the same region as the forwarding rule. By default, this field is empty and an ephemeral IP from the same scope (global or regional) will be assigned.\n\nWhen the load balancing scheme is INTERNAL, this can only be an RFC 1918 IP address belonging to the network/subnetwork configured for the forwarding rule. A reserved address cannot be used. If the field is empty, the IP address will be automatically allocated from the internal IP range of the subnetwork or network configured for this forwarding rule. Only IPv4 is supported."
+     "description": "The IP address that this forwarding rule is serving on behalf of.\n\nFor global forwarding rules, the address must be a global IP; for regional forwarding rules, the address must live in the same region as the forwarding rule. By default, this field is empty and an ephemeral IP from the same scope (global or regional) will be assigned.\n\nWhen the load balancing scheme is INTERNAL, this can only be an RFC 1918 IP address belonging to the network/subnetwork configured for the forwarding rule. A reserved address cannot be used. If the field is empty, the IP address will be automatically allocated from the internal IP range of the subnetwork or network configured for this forwarding rule."
     },
     "IPProtocol": {
      "type": "string",
@@ -2739,10 +2622,10 @@
     },
     "networkTier": {
      "type": "string",
-     "description": "This signifies the networking tier used for configuring this load balancer and can only take the following values: CLOUD_NETWORK_PREMIUM , CLOUD_NETWORK_SELECT. If this field is not specified, it is assumed to be CLOUD_NETWORK_PREMIUM.",
+     "description": "This signifies the networking tier used for configuring this load balancer and can only take the following values: CLOUD_NETWORK_PREMIUM , CLOUD_NETWORK_STANDARD. If this field is not specified, it is assumed to be CLOUD_NETWORK_PREMIUM.",
      "enum": [
       "CLOUD_NETWORK_PREMIUM",
-      "CLOUD_NETWORK_SELECT"
+      "CLOUD_NETWORK_STANDARD"
      ],
      "enumDescriptions": [
       "",
@@ -2957,12 +2840,10 @@
      "description": "The type of supported feature. Currenty only VIRTIO_SCSI_MULTIQUEUE is supported. For newer Windows images, the server might also populate this property with the value WINDOWS to indicate that this is a Windows image. This value is purely informational and does not enable or disable any features.",
      "enum": [
       "FEATURE_TYPE_UNSPECIFIED",
-      "MULTI_IP_SUBNET",
       "VIRTIO_SCSI_MULTIQUEUE",
       "WINDOWS"
      ],
      "enumDescriptions": [
-      "",
       "",
       "",
       ""
@@ -3151,7 +3032,7 @@
     },
     "type": {
      "type": "string",
-     "description": "Specifies the type of the healthCheck, either TCP, SSL, HTTP or HTTPS. If not specified, the default is TCP. Exactly one of the protocol-specific health check field must be specified, which must match type field.",
+     "description": "Specifies the type of the healthCheck, either TCP, UDP, SSL, HTTP, HTTPS or HTTP2. If not specified, the default is TCP. Exactly one of the protocol-specific health check field must be specified, which must match type field.",
      "enum": [
       "HTTP",
       "HTTP2",
@@ -3895,12 +3776,6 @@
       "$ref": "AttachedDisk"
      }
     },
-    "guestAccelerators": {
-     "type": "array",
-     "items": {
-      "$ref": "AcceleratorConfig"
-     }
-    },
     "host": {
      "type": "string",
      "description": "Full or partial URL of the host resource that the instance should be placed on, in the format: zones/zone/hosts/host.\n\nOptional, Private Host (physical machine) that the instance will be placed on when it's created. The instance is guaranteed to be placed on the same machine as other instances with the same private host.\n\nThe request will be rejected if the private host has run out of resources."
@@ -4274,10 +4149,6 @@
      "type": "string",
      "description": "Service account will be used as credentials for all operations performed by managed instance group on instances. The service accounts needs all permissions required to create and delete instances. When not specified, the service account {projectNumber}@cloudservices.gserviceaccount.com will be used."
     },
-    "spreadingPolicy": {
-     "$ref": "SpreadingPolicy",
-     "description": "Policy valid only for regional managed instance groups."
-    },
     "targetPools": {
      "type": "array",
      "description": "The URLs for all TargetPool resources to which instances in the instanceGroup field are added. The target pools automatically apply to all of the instances in the managed instance group.",
@@ -4355,11 +4226,6 @@
      "type": "integer",
      "description": "[Output Only] The number of instances in the managed instance group that are scheduled to be restarted or are currently being restarted.",
      "format": "int32"
-    },
-    "verifying": {
-     "type": "integer",
-     "description": "[Output Only] The number of instances in the managed instance group that are being verified. More details regarding verification process are covered in the documentation of ManagedInstance.InstanceAction.VERIFYING enum field.",
-     "format": "int32"
     }
    }
   },
@@ -4400,7 +4266,7 @@
    "properties": {
     "healthCheck": {
      "type": "string",
-     "description": "The URL for the health check that signals autohealing."
+     "description": "The URL for the HttpHealthCheck or HttpsHealthCheck that signals autohealing."
     },
     "initialDelaySec": {
      "type": "integer",
@@ -4409,7 +4275,7 @@
     },
     "maxUnavailable": {
      "$ref": "FixedOrPercent",
-     "description": "Maximum number of instances that can be unavailable when autohealing. The instance is considered available if all of the following conditions are satisfied: 1. Instance's status is RUNNING. 2. Instance's liveness health check result was observed to be HEALTHY at least once. By default, a percent value of 100% is used."
+     "description": "Maximum number of instances that can be unavailable when auto-healing. The instance is considered available if all of the following conditions are satisfied: 1. instance's status is RUNNING 2. instance's liveness health check result was observed to be HEALTHY at least once By default, a percent value of 100% is used."
     }
    }
   },
@@ -4480,7 +4346,7 @@
     },
     "maxUnavailable": {
      "$ref": "FixedOrPercent",
-     "description": "Maximum number of instances that can be unavailable during the update process. The instance is considered available if all of the following conditions are satisfied: 1. Instance's status is RUNNING. 2. Instance's liveness health check result was observed to be HEALTHY at least once. By default, a fixed value of 1 is used. At least one of { maxSurge, maxUnavailable } must be greater than 0."
+     "description": "Maximum number of instances that can be unavailable during the update process. The instance is considered available if all of the following conditions are satisfied: 1. instance's status is RUNNING 2. instance's liveness health check result was observed to be HEALTHY at least once By default, a fixed value of 1 is used. At least one of { maxSurge, maxUnavailable } must be greater than 0."
     },
     "minReadySec": {
      "type": "integer",
@@ -5556,11 +5422,9 @@
       "NONE",
       "RECREATING",
       "REFRESHING",
-      "RESTARTING",
-      "VERIFYING"
+      "RESTARTING"
      ],
      "enumDescriptions": [
-      "",
       "",
       "",
       "",
@@ -5834,11 +5698,6 @@
       "$ref": "AliasIpRange"
      }
     },
-    "kind": {
-     "type": "string",
-     "description": "[Output Only] Type of the resource. Always compute#networkInterface for network interfaces.",
-     "default": "compute#networkInterface"
-    },
     "name": {
      "type": "string",
      "description": "[Output Only] The name of the network interface, generated by the server. For network devices, these are eth0, eth1, etc."
@@ -5925,34 +5784,6 @@
     "stateDetails": {
      "type": "string",
      "description": "[Output Only] Details about the current state of the peering."
-    }
-   }
-  },
-  "NetworksAddPeeringRequest": {
-   "id": "NetworksAddPeeringRequest",
-   "type": "object",
-   "properties": {
-    "autoCreateRoutes": {
-     "type": "boolean",
-     "description": "Whether Google Compute Engine manages the routes automatically."
-    },
-    "name": {
-     "type": "string",
-     "description": "Name of the peering, which should conform to RFC1035."
-    },
-    "peerNetwork": {
-     "type": "string",
-     "description": "URL of the peer network. It can be either full URL or partial URL. The peer network may belong to a different project. If the partial URL does not contain project, it is assumed that the peer network is in the same project as the current network."
-    }
-   }
-  },
-  "NetworksRemovePeeringRequest": {
-   "id": "NetworksRemovePeeringRequest",
-   "type": "object",
-   "properties": {
-    "name": {
-     "type": "string",
-     "description": "Name of the peering, which should conform to RFC1035."
     }
    }
   },
@@ -6487,10 +6318,6 @@
      "description": "[Output Only] Type of resource. Always compute#projectsGetXpnResources for lists of XPN resources.",
      "default": "compute#projectsGetXpnResources"
     },
-    "nextPageToken": {
-     "type": "string",
-     "description": "[Output Only] This token allows you to get the next page of results for list requests. If the number of results is larger than maxResults, use the nextPageToken as a value for the query parameter pageToken in the next list request. Subsequent list requests will have their own nextPageToken to continue paging through the results."
-    },
     "resources": {
      "type": "array",
      "description": "XPN resources attached to this project as their XPN host.",
@@ -6568,12 +6395,10 @@
       "TARGET_SSL_PROXIES",
       "TARGET_TCP_PROXIES",
       "TARGET_VPN_GATEWAYS",
-      "TOTAL_CPUS",
       "URL_MAPS",
       "VPN_TUNNELS"
      ],
      "enumDescriptions": [
-      "",
       "",
       "",
       "",
@@ -7081,7 +6906,7 @@
     },
     "destRange": {
      "type": "string",
-     "description": "The destination range of outgoing packets that this route applies to. Only IPv4 is supported.",
+     "description": "The destination range of outgoing packets that this route applies to.",
      "annotations": {
       "required": [
        "compute.routes.insert"
@@ -7127,7 +6952,7 @@
     },
     "nextHopIp": {
      "type": "string",
-     "description": "The network IP address of an instance that should handle matching packets. Only IPv4 is supported."
+     "description": "The network IP address of an instance that should handle matching packets."
     },
     "nextHopNetwork": {
      "type": "string",
@@ -7398,7 +7223,7 @@
     },
     "ipAddress": {
      "type": "string",
-     "description": "IP address of the interface inside Google Cloud Platform. Only IPv4 is supported."
+     "description": "IP address of the interface inside Google Cloud Platform."
     },
     "name": {
      "type": "string",
@@ -7412,7 +7237,7 @@
     },
     "peerIpAddress": {
      "type": "string",
-     "description": "IP address of the BGP interface outside Google cloud. Only IPv4 is supported."
+     "description": "IP address of the BGP interface outside Google cloud."
     }
    }
   },
@@ -7969,28 +7794,6 @@
     }
    }
   },
-  "SpreadingPolicy": {
-   "id": "SpreadingPolicy",
-   "type": "object",
-   "properties": {
-    "zones": {
-     "type": "array",
-     "items": {
-      "$ref": "SpreadingPolicyZoneConfiguration"
-     }
-    }
-   }
-  },
-  "SpreadingPolicyZoneConfiguration": {
-   "id": "SpreadingPolicyZoneConfiguration",
-   "type": "object",
-   "properties": {
-    "zone": {
-     "type": "string",
-     "description": "URL of the zone where managed instance group is spawning instances (for regional resources). Zone has to belong to the region where managed instance group is located."
-    }
-   }
-  },
   "SslCertificate": {
    "id": "SslCertificate",
    "type": "object",
@@ -8025,7 +7828,7 @@
     },
     "privateKey": {
      "type": "string",
-     "description": "A write-only private key in PEM format. Only insert requests will include this field."
+     "description": "A write-only private key in PEM format. Only insert RPCs will include this field."
     },
     "selfLink": {
      "type": "string",
@@ -8088,7 +7891,7 @@
     },
     "ipCidrRange": {
      "type": "string",
-     "description": "The range of internal addresses that are owned by this subnetwork. Provide this property when you create the subnetwork. For example, 10.0.0.0/8 or 192.168.0.0/16. Ranges must be unique and non-overlapping within a network. Only IPv4 is supported."
+     "description": "The range of internal addresses that are owned by this subnetwork. Provide this property when you create the subnetwork. For example, 10.0.0.0/8 or 192.168.0.0/16. Ranges must be unique and non-overlapping within a network."
     },
     "kind": {
      "type": "string",
@@ -8194,7 +7997,7 @@
    "properties": {
     "ipCidrRange": {
      "type": "string",
-     "description": "The range of IP addresses belonging to this subnetwork secondary range. Provide this property when you create the subnetwork. Ranges must be unique and non-overlapping with all primary and secondary IP ranges within a network. Only IPv4 is supported."
+     "description": "The range of IP addresses belonging to this subnetwork secondary range. Provide this property when you create the subnetwork. Ranges must be unique and non-overlapping with all primary and secondary IP ranges within a network."
     },
     "rangeName": {
      "type": "string",
@@ -9776,7 +9579,7 @@
     },
     "localTrafficSelector": {
      "type": "array",
-     "description": "Local traffic selector to use when establishing the VPN tunnel with peer VPN gateway. The value should be a CIDR formatted string, for example: 192.168.0.0/16. The ranges should be disjoint. Only IPv4 is supported.",
+     "description": "Local traffic selector to use when establishing the VPN tunnel with peer VPN gateway. The value should be a CIDR formatted string, for example: 192.168.0.0/16. The ranges should be disjoint.",
      "items": {
       "type": "string"
      }
@@ -9793,7 +9596,7 @@
     },
     "peerIp": {
      "type": "string",
-     "description": "IP address of the peer VPN gateway. Only IPv4 is supported."
+     "description": "IP address of the peer VPN gateway."
     },
     "region": {
      "type": "string",
@@ -9801,7 +9604,7 @@
     },
     "remoteTrafficSelector": {
      "type": "array",
-     "description": "Remote traffic selectors to use when establishing the VPN tunnel with peer VPN gateway. The value should be a CIDR formatted string, for example: 192.168.0.0/16. The ranges should be disjoint. Only IPv4 is supported.",
+     "description": "Remote traffic selectors to use when establishing the VPN tunnel with peer VPN gateway. The value should be a CIDR formatted string, for example: 192.168.0.0/16. The ranges should be disjoint.",
      "items": {
       "type": "string"
      }
@@ -15307,31 +15110,11 @@
      "httpMethod": "POST",
      "description": "Lists all of the instances in the managed instance group. Each instance in the list has a currentAction, which indicates the action that the managed instance group is performing on the instance. For example, if the group is still creating an instance, the currentAction is CREATING. If a previous action failed, the list displays the errors for that failed action.",
      "parameters": {
-      "filter": {
-       "type": "string",
-       "location": "query"
-      },
       "instanceGroupManager": {
        "type": "string",
        "description": "The name of the managed instance group.",
        "required": true,
        "location": "path"
-      },
-      "maxResults": {
-       "type": "integer",
-       "default": "500",
-       "format": "uint32",
-       "minimum": "0",
-       "maximum": "500",
-       "location": "query"
-      },
-      "order_by": {
-       "type": "string",
-       "location": "query"
-      },
-      "pageToken": {
-       "type": "string",
-       "location": "query"
       },
       "project": {
        "type": "string",
@@ -17428,7 +17211,7 @@
      "parameters": {
       "discardLocalSsd": {
        "type": "boolean",
-       "description": "If true, discard the contents of any attached localSSD partitions. Default value is false (== preserve localSSD data).",
+       "description": "If true, discard the contents of any attached localSSD partitions. Default value is false.",
        "location": "query"
       },
       "instance": {
@@ -17474,7 +17257,7 @@
      "parameters": {
       "discardLocalSsd": {
        "type": "boolean",
-       "description": "If true, discard the contents of any attached localSSD partitions. Default value is false (== preserve localSSD data).",
+       "description": "If true, discard the contents of any attached localSSD partitions. Default value is false.",
        "location": "query"
       },
       "instance": {
@@ -17804,42 +17587,6 @@
   },
   "networks": {
    "methods": {
-    "addPeering": {
-     "id": "compute.networks.addPeering",
-     "path": "{project}/global/networks/{network}/addPeering",
-     "httpMethod": "POST",
-     "description": "Adds a peering to the specified network.",
-     "parameters": {
-      "network": {
-       "type": "string",
-       "description": "Name of the network resource to add peering to.",
-       "required": true,
-       "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?",
-       "location": "path"
-      },
-      "project": {
-       "type": "string",
-       "description": "Project ID for this request.",
-       "required": true,
-       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?))",
-       "location": "path"
-      }
-     },
-     "parameterOrder": [
-      "project",
-      "network"
-     ],
-     "request": {
-      "$ref": "NetworksAddPeeringRequest"
-     },
-     "response": {
-      "$ref": "Operation"
-     },
-     "scopes": [
-      "https://www.googleapis.com/auth/cloud-platform",
-      "https://www.googleapis.com/auth/compute"
-     ]
-    },
     "delete": {
      "id": "compute.networks.delete",
      "path": "{project}/global/networks/{network}",
@@ -17983,42 +17730,6 @@
       "https://www.googleapis.com/auth/cloud-platform",
       "https://www.googleapis.com/auth/compute",
       "https://www.googleapis.com/auth/compute.readonly"
-     ]
-    },
-    "removePeering": {
-     "id": "compute.networks.removePeering",
-     "path": "{project}/global/networks/{network}/removePeering",
-     "httpMethod": "POST",
-     "description": "Removes a peering from the specified network.",
-     "parameters": {
-      "network": {
-       "type": "string",
-       "description": "Name of the network resource to remove peering from.",
-       "required": true,
-       "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?",
-       "location": "path"
-      },
-      "project": {
-       "type": "string",
-       "description": "Project ID for this request.",
-       "required": true,
-       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?))",
-       "location": "path"
-      }
-     },
-     "parameterOrder": [
-      "project",
-      "network"
-     ],
-     "request": {
-      "$ref": "NetworksRemovePeeringRequest"
-     },
-     "response": {
-      "$ref": "Operation"
-     },
-     "scopes": [
-      "https://www.googleapis.com/auth/cloud-platform",
-      "https://www.googleapis.com/auth/compute"
      ]
     },
     "switchToCustomMode": {
@@ -18259,26 +17970,6 @@
      "httpMethod": "GET",
      "description": "Get XPN resources associated with this host project.",
      "parameters": {
-      "filter": {
-       "type": "string",
-       "location": "query"
-      },
-      "maxResults": {
-       "type": "integer",
-       "default": "500",
-       "format": "uint32",
-       "minimum": "0",
-       "maximum": "500",
-       "location": "query"
-      },
-      "order_by": {
-       "type": "string",
-       "location": "query"
-      },
-      "pageToken": {
-       "type": "string",
-       "location": "query"
-      },
       "project": {
        "type": "string",
        "description": "Project ID for this request.",
@@ -19876,31 +19567,11 @@
      "httpMethod": "POST",
      "description": "Lists the instances in the managed instance group and instances that are scheduled to be created. The list includes any current actions that the group has scheduled for its instances.",
      "parameters": {
-      "filter": {
-       "type": "string",
-       "location": "query"
-      },
       "instanceGroupManager": {
        "type": "string",
        "description": "The name of the managed instance group.",
        "required": true,
        "location": "path"
-      },
-      "maxResults": {
-       "type": "integer",
-       "default": "500",
-       "format": "uint32",
-       "minimum": "0",
-       "maximum": "500",
-       "location": "query"
-      },
-      "order_by": {
-       "type": "string",
-       "location": "query"
-      },
-      "pageToken": {
-       "type": "string",
-       "location": "query"
       },
       "project": {
        "type": "string",

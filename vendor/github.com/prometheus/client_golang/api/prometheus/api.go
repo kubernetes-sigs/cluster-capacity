@@ -42,11 +42,10 @@ const (
 	epSeries      = "/series"
 )
 
-// ErrorType models the different API error types.
 type ErrorType string
 
-// Possible values for ErrorType.
 const (
+	// The different API error types.
 	ErrBadData     ErrorType = "bad_data"
 	ErrTimeout               = "timeout"
 	ErrCanceled              = "canceled"
@@ -71,7 +70,6 @@ type CancelableTransport interface {
 	CancelRequest(req *http.Request)
 }
 
-// DefaultTransport is used if no Transport is set in Config.
 var DefaultTransport CancelableTransport = &http.Transport{
 	Proxy: http.ProxyFromEnvironment,
 	Dial: (&net.Dialer{
@@ -98,21 +96,18 @@ func (cfg *Config) transport() CancelableTransport {
 	return cfg.Transport
 }
 
-// Client is the interface for an API client.
 type Client interface {
 	url(ep string, args map[string]string) *url.URL
 	do(context.Context, *http.Request) (*http.Response, []byte, error)
 }
 
 // New returns a new Client.
-//
-// It is safe to use the returned Client from multiple goroutines.
 func New(cfg Config) (Client, error) {
 	u, err := url.Parse(cfg.Address)
 	if err != nil {
 		return nil, err
 	}
-	u.Path = strings.TrimRight(u.Path, "/") + apiPrefix
+	u.Path = apiPrefix
 
 	return &httpClient{
 		endpoint:  u,
@@ -285,8 +280,6 @@ type QueryAPI interface {
 }
 
 // NewQueryAPI returns a new QueryAPI for the client.
-//
-// It is safe to use the returned QueryAPI from multiple goroutines.
 func NewQueryAPI(c Client) QueryAPI {
 	return &httpQueryAPI{client: apiClient{c}}
 }

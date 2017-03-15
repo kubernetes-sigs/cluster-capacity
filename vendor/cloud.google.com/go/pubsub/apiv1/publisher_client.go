@@ -1,10 +1,10 @@
-// Copyright 2016, Google Inc. All rights reserved.
+// Copyright 2016 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,13 +20,10 @@ import (
 	"fmt"
 	"math"
 	"runtime"
-	"strings"
 	"time"
 
-	"cloud.google.com/go/iam"
 	gax "github.com/googleapis/gax-go"
 	"golang.org/x/net/context"
-	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 	"google.golang.org/api/transport"
 	pubsubpb "google.golang.org/genproto/googleapis/pubsub/v1"
@@ -40,7 +37,7 @@ var (
 	publisherTopicPathTemplate   = gax.MustCompilePathTemplate("projects/{project}/topics/{topic}")
 )
 
-// PublisherCallOptions contains the retry settings for each method of PublisherClient.
+// PublisherCallOptions contains the retry settings for each method of this client.
 type PublisherCallOptions struct {
 	CreateTopic            []gax.CallOption
 	Publish                []gax.CallOption
@@ -87,6 +84,7 @@ func defaultPublisherCallOptions() *PublisherCallOptions {
 			}),
 		},
 	}
+
 	return &PublisherCallOptions{
 		CreateTopic:            retry[[2]string{"default", "idempotent"}],
 		Publish:                retry[[2]string{"messaging", "one_plus_delivery"}],
@@ -97,22 +95,22 @@ func defaultPublisherCallOptions() *PublisherCallOptions {
 	}
 }
 
-// PublisherClient is a client for interacting with Google Cloud Pub/Sub API.
+// PublisherClient is a client for interacting with Publisher.
 type PublisherClient struct {
 	// The connection to the service.
 	conn *grpc.ClientConn
 
 	// The gRPC API client.
-	publisherClient pubsubpb.PublisherClient
+	client pubsubpb.PublisherClient
 
 	// The call options for this service.
 	CallOptions *PublisherCallOptions
 
 	// The metadata to be sent with each request.
-	metadata metadata.MD
+	metadata map[string][]string
 }
 
-// NewPublisherClient creates a new publisher client.
+// NewPublisherClient creates a new publisher service client.
 //
 // The service that an application uses to manipulate topics, and to send
 // messages to a topic.
@@ -123,9 +121,8 @@ func NewPublisherClient(ctx context.Context, opts ...option.ClientOption) (*Publ
 	}
 	c := &PublisherClient{
 		conn:        conn,
+		client:      pubsubpb.NewPublisherClient(conn),
 		CallOptions: defaultPublisherCallOptions(),
-
-		publisherClient: pubsubpb.NewPublisherClient(conn),
 	}
 	c.SetGoogleClientInfo("gax", gax.Version)
 	return c, nil
@@ -146,12 +143,12 @@ func (c *PublisherClient) Close() error {
 // the `x-goog-api-client` header passed on each request. Intended for
 // use by Google-written clients.
 func (c *PublisherClient) SetGoogleClientInfo(name, version string) {
-	goVersion := strings.Replace(runtime.Version(), " ", "_", -1)
-	v := fmt.Sprintf("%s/%s %s gax/%s go/%s", name, version, gapicNameVersion, gax.Version, goVersion)
-	c.metadata = metadata.Pairs("x-goog-api-client", v)
+	c.metadata = map[string][]string{
+		"x-goog-api-client": {fmt.Sprintf("%s/%s %s gax/%s go/%s", name, version, gapicNameVersion, gax.Version, runtime.Version())},
+	}
 }
 
-// PublisherProjectPath returns the path for the project resource.
+// ProjectPath returns the path for the project resource.
 func PublisherProjectPath(project string) string {
 	path, err := publisherProjectPathTemplate.Render(map[string]string{
 		"project": project,
@@ -162,8 +159,8 @@ func PublisherProjectPath(project string) string {
 	return path
 }
 
-// PublisherTopicPath returns the path for the topic resource.
-func PublisherTopicPath(project, topic string) string {
+// TopicPath returns the path for the topic resource.
+func PublisherTopicPath(project string, topic string) string {
 	path, err := publisherTopicPathTemplate.Render(map[string]string{
 		"project": project,
 		"topic":   topic,
@@ -174,22 +171,13 @@ func PublisherTopicPath(project, topic string) string {
 	return path
 }
 
-func (c *PublisherClient) SubscriptionIAM(subscription *pubsubpb.Subscription) *iam.Handle {
-	return iam.InternalNewHandle(c.Connection(), subscription.Name)
-}
-
-func (c *PublisherClient) TopicIAM(topic *pubsubpb.Topic) *iam.Handle {
-	return iam.InternalNewHandle(c.Connection(), topic.Name)
-}
-
 // CreateTopic creates the given topic with the given name.
 func (c *PublisherClient) CreateTopic(ctx context.Context, req *pubsubpb.Topic) (*pubsubpb.Topic, error) {
-	md, _ := metadata.FromContext(ctx)
-	ctx = metadata.NewContext(ctx, metadata.Join(md, c.metadata))
+	ctx = metadata.NewContext(ctx, c.metadata)
 	var resp *pubsubpb.Topic
 	err := gax.Invoke(ctx, func(ctx context.Context) error {
 		var err error
-		resp, err = c.publisherClient.CreateTopic(ctx, req)
+		resp, err = c.client.CreateTopic(ctx, req)
 		return err
 	}, c.CallOptions.CreateTopic...)
 	if err != nil {
@@ -202,12 +190,11 @@ func (c *PublisherClient) CreateTopic(ctx context.Context, req *pubsubpb.Topic) 
 // does not exist. The message payload must not be empty; it must contain
 //  either a non-empty data field, or at least one attribute.
 func (c *PublisherClient) Publish(ctx context.Context, req *pubsubpb.PublishRequest) (*pubsubpb.PublishResponse, error) {
-	md, _ := metadata.FromContext(ctx)
-	ctx = metadata.NewContext(ctx, metadata.Join(md, c.metadata))
+	ctx = metadata.NewContext(ctx, c.metadata)
 	var resp *pubsubpb.PublishResponse
 	err := gax.Invoke(ctx, func(ctx context.Context) error {
 		var err error
-		resp, err = c.publisherClient.Publish(ctx, req)
+		resp, err = c.client.Publish(ctx, req)
 		return err
 	}, c.CallOptions.Publish...)
 	if err != nil {
@@ -218,12 +205,11 @@ func (c *PublisherClient) Publish(ctx context.Context, req *pubsubpb.PublishRequ
 
 // GetTopic gets the configuration of a topic.
 func (c *PublisherClient) GetTopic(ctx context.Context, req *pubsubpb.GetTopicRequest) (*pubsubpb.Topic, error) {
-	md, _ := metadata.FromContext(ctx)
-	ctx = metadata.NewContext(ctx, metadata.Join(md, c.metadata))
+	ctx = metadata.NewContext(ctx, c.metadata)
 	var resp *pubsubpb.Topic
 	err := gax.Invoke(ctx, func(ctx context.Context) error {
 		var err error
-		resp, err = c.publisherClient.GetTopic(ctx, req)
+		resp, err = c.client.GetTopic(ctx, req)
 		return err
 	}, c.CallOptions.GetTopic...)
 	if err != nil {
@@ -234,71 +220,53 @@ func (c *PublisherClient) GetTopic(ctx context.Context, req *pubsubpb.GetTopicRe
 
 // ListTopics lists matching topics.
 func (c *PublisherClient) ListTopics(ctx context.Context, req *pubsubpb.ListTopicsRequest) *TopicIterator {
-	md, _ := metadata.FromContext(ctx)
-	ctx = metadata.NewContext(ctx, metadata.Join(md, c.metadata))
+	ctx = metadata.NewContext(ctx, c.metadata)
 	it := &TopicIterator{}
-	it.InternalFetch = func(pageSize int, pageToken string) ([]*pubsubpb.Topic, string, error) {
+	it.apiCall = func() error {
 		var resp *pubsubpb.ListTopicsResponse
-		req.PageToken = pageToken
-		if pageSize > math.MaxInt32 {
-			req.PageSize = math.MaxInt32
-		} else {
-			req.PageSize = int32(pageSize)
-		}
 		err := gax.Invoke(ctx, func(ctx context.Context) error {
 			var err error
-			resp, err = c.publisherClient.ListTopics(ctx, req)
+			req.PageToken = it.nextPageToken
+			req.PageSize = it.pageSize
+			resp, err = c.client.ListTopics(ctx, req)
 			return err
 		}, c.CallOptions.ListTopics...)
 		if err != nil {
-			return nil, "", err
+			return err
 		}
-		return resp.Topics, resp.NextPageToken, nil
-	}
-	fetch := func(pageSize int, pageToken string) (string, error) {
-		items, nextPageToken, err := it.InternalFetch(pageSize, pageToken)
-		if err != nil {
-			return "", err
+		if resp.NextPageToken == "" {
+			it.atLastPage = true
 		}
-		it.items = append(it.items, items...)
-		return nextPageToken, nil
+		it.nextPageToken = resp.NextPageToken
+		it.items = resp.Topics
+		return nil
 	}
-	it.pageInfo, it.nextFunc = iterator.NewPageInfo(fetch, it.bufLen, it.takeBuf)
 	return it
 }
 
 // ListTopicSubscriptions lists the name of the subscriptions for this topic.
 func (c *PublisherClient) ListTopicSubscriptions(ctx context.Context, req *pubsubpb.ListTopicSubscriptionsRequest) *StringIterator {
-	md, _ := metadata.FromContext(ctx)
-	ctx = metadata.NewContext(ctx, metadata.Join(md, c.metadata))
+	ctx = metadata.NewContext(ctx, c.metadata)
 	it := &StringIterator{}
-	it.InternalFetch = func(pageSize int, pageToken string) ([]string, string, error) {
+	it.apiCall = func() error {
 		var resp *pubsubpb.ListTopicSubscriptionsResponse
-		req.PageToken = pageToken
-		if pageSize > math.MaxInt32 {
-			req.PageSize = math.MaxInt32
-		} else {
-			req.PageSize = int32(pageSize)
-		}
 		err := gax.Invoke(ctx, func(ctx context.Context) error {
 			var err error
-			resp, err = c.publisherClient.ListTopicSubscriptions(ctx, req)
+			req.PageToken = it.nextPageToken
+			req.PageSize = it.pageSize
+			resp, err = c.client.ListTopicSubscriptions(ctx, req)
 			return err
 		}, c.CallOptions.ListTopicSubscriptions...)
 		if err != nil {
-			return nil, "", err
+			return err
 		}
-		return resp.Subscriptions, resp.NextPageToken, nil
-	}
-	fetch := func(pageSize int, pageToken string) (string, error) {
-		items, nextPageToken, err := it.InternalFetch(pageSize, pageToken)
-		if err != nil {
-			return "", err
+		if resp.NextPageToken == "" {
+			it.atLastPage = true
 		}
-		it.items = append(it.items, items...)
-		return nextPageToken, nil
+		it.nextPageToken = resp.NextPageToken
+		it.items = resp.Subscriptions
+		return nil
 	}
-	it.pageInfo, it.nextFunc = iterator.NewPageInfo(fetch, it.bufLen, it.takeBuf)
 	return it
 }
 
@@ -308,96 +276,179 @@ func (c *PublisherClient) ListTopicSubscriptions(ctx context.Context, req *pubsu
 // configuration or subscriptions. Existing subscriptions to this topic are
 // not deleted, but their `topic` field is set to `_deleted-topic_`.
 func (c *PublisherClient) DeleteTopic(ctx context.Context, req *pubsubpb.DeleteTopicRequest) error {
-	md, _ := metadata.FromContext(ctx)
-	ctx = metadata.NewContext(ctx, metadata.Join(md, c.metadata))
+	ctx = metadata.NewContext(ctx, c.metadata)
 	err := gax.Invoke(ctx, func(ctx context.Context) error {
 		var err error
-		_, err = c.publisherClient.DeleteTopic(ctx, req)
+		_, err = c.client.DeleteTopic(ctx, req)
 		return err
 	}, c.CallOptions.DeleteTopic...)
 	return err
 }
 
-// StringIterator manages a stream of string.
-type StringIterator struct {
-	items    []string
-	pageInfo *iterator.PageInfo
-	nextFunc func() error
-
-	// InternalFetch is for use by the Google Cloud Libraries only.
-	// It is not part of the stable interface of this package.
-	//
-	// InternalFetch returns results from a single call to the underlying RPC.
-	// The number of results is no greater than pageSize.
-	// If there are no more results, nextPageToken is empty and err is nil.
-	InternalFetch func(pageSize int, pageToken string) (results []string, nextPageToken string, err error)
-}
-
-// PageInfo supports pagination. See the google.golang.org/api/iterator package for details.
-func (it *StringIterator) PageInfo() *iterator.PageInfo {
-	return it.pageInfo
-}
-
-// Next returns the next result. Its second return value is iterator.Done if there are no more
-// results. Once Next returns Done, all subsequent calls will return Done.
-func (it *StringIterator) Next() (string, error) {
-	var item string
-	if err := it.nextFunc(); err != nil {
-		return item, err
-	}
-	item = it.items[0]
-	it.items = it.items[1:]
-	return item, nil
-}
-
-func (it *StringIterator) bufLen() int {
-	return len(it.items)
-}
-
-func (it *StringIterator) takeBuf() interface{} {
-	b := it.items
-	it.items = nil
-	return b
-}
-
 // TopicIterator manages a stream of *pubsubpb.Topic.
 type TopicIterator struct {
-	items    []*pubsubpb.Topic
-	pageInfo *iterator.PageInfo
-	nextFunc func() error
-
-	// InternalFetch is for use by the Google Cloud Libraries only.
-	// It is not part of the stable interface of this package.
-	//
-	// InternalFetch returns results from a single call to the underlying RPC.
-	// The number of results is no greater than pageSize.
-	// If there are no more results, nextPageToken is empty and err is nil.
-	InternalFetch func(pageSize int, pageToken string) (results []*pubsubpb.Topic, nextPageToken string, err error)
+	// The current page data.
+	items         []*pubsubpb.Topic
+	atLastPage    bool
+	currentIndex  int
+	pageSize      int32
+	nextPageToken string
+	apiCall       func() error
 }
 
-// PageInfo supports pagination. See the google.golang.org/api/iterator package for details.
-func (it *TopicIterator) PageInfo() *iterator.PageInfo {
-	return it.pageInfo
-}
-
-// Next returns the next result. Its second return value is iterator.Done if there are no more
-// results. Once Next returns Done, all subsequent calls will return Done.
-func (it *TopicIterator) Next() (*pubsubpb.Topic, error) {
-	var item *pubsubpb.Topic
-	if err := it.nextFunc(); err != nil {
-		return item, err
+// NextPage returns the next page of results.
+// It will return at most the number of results specified by the last call to SetPageSize.
+// If SetPageSize was never called or was called with a value less than 1,
+// the page size is determined by the underlying service.
+//
+// NextPage may return a second return value of Done along with the last page of results. After
+// NextPage returns Done, all subsequent calls to NextPage will return (nil, Done).
+//
+// Next and NextPage should not be used with the same iterator.
+func (it *TopicIterator) NextPage() ([]*pubsubpb.Topic, error) {
+	if it.atLastPage {
+		// We already returned Done with the last page of items. Continue to
+		// return Done, but with no items.
+		return nil, Done
 	}
-	item = it.items[0]
-	it.items = it.items[1:]
-	return item, nil
+	if err := it.apiCall(); err != nil {
+		return nil, err
+	}
+	if it.atLastPage {
+		return it.items, Done
+	}
+	return it.items, nil
 }
 
-func (it *TopicIterator) bufLen() int {
-	return len(it.items)
+// Next returns the next result. Its second return value is Done if there are no more results.
+// Once next returns Done, all subsequent calls will return Done.
+//
+// Internally, Next retrieves results in bulk. You can call SetPageSize as a performance hint to
+// affect how many results are retrieved in a single RPC.
+//
+// SetPageToken should not be called when using Next.
+//
+// Next and NextPage should not be used with the same iterator.
+func (it *TopicIterator) Next() (*pubsubpb.Topic, error) {
+	for it.currentIndex >= len(it.items) {
+		if it.atLastPage {
+			return nil, Done
+		}
+		if err := it.apiCall(); err != nil {
+			return nil, err
+		}
+		it.currentIndex = 0
+	}
+	result := it.items[it.currentIndex]
+	it.currentIndex++
+	return result, nil
 }
 
-func (it *TopicIterator) takeBuf() interface{} {
-	b := it.items
-	it.items = nil
-	return b
+// PageSize returns the page size for all subsequent calls to NextPage.
+func (it *TopicIterator) PageSize() int {
+	return int(it.pageSize)
+}
+
+// SetPageSize sets the page size for all subsequent calls to NextPage.
+func (it *TopicIterator) SetPageSize(pageSize int) {
+	if pageSize > math.MaxInt32 {
+		pageSize = math.MaxInt32
+	}
+	it.pageSize = int32(pageSize)
+}
+
+// SetPageToken sets the page token for the next call to NextPage, to resume the iteration from
+// a previous point.
+func (it *TopicIterator) SetPageToken(token string) {
+	it.nextPageToken = token
+}
+
+// NextPageToken returns a page token that can be used with SetPageToken to resume
+// iteration from the next page. It returns the empty string if there are no more pages.
+func (it *TopicIterator) NextPageToken() string {
+	return it.nextPageToken
+}
+
+// StringIterator manages a stream of string.
+type StringIterator struct {
+	// The current page data.
+	items         []string
+	atLastPage    bool
+	currentIndex  int
+	pageSize      int32
+	nextPageToken string
+	apiCall       func() error
+}
+
+// NextPage returns the next page of results.
+// It will return at most the number of results specified by the last call to SetPageSize.
+// If SetPageSize was never called or was called with a value less than 1,
+// the page size is determined by the underlying service.
+//
+// NextPage may return a second return value of Done along with the last page of results. After
+// NextPage returns Done, all subsequent calls to NextPage will return (nil, Done).
+//
+// Next and NextPage should not be used with the same iterator.
+func (it *StringIterator) NextPage() ([]string, error) {
+	if it.atLastPage {
+		// We already returned Done with the last page of items. Continue to
+		// return Done, but with no items.
+		return nil, Done
+	}
+	if err := it.apiCall(); err != nil {
+		return nil, err
+	}
+	if it.atLastPage {
+		return it.items, Done
+	}
+	return it.items, nil
+}
+
+// Next returns the next result. Its second return value is Done if there are no more results.
+// Once next returns Done, all subsequent calls will return Done.
+//
+// Internally, Next retrieves results in bulk. You can call SetPageSize as a performance hint to
+// affect how many results are retrieved in a single RPC.
+//
+// SetPageToken should not be called when using Next.
+//
+// Next and NextPage should not be used with the same iterator.
+func (it *StringIterator) Next() (string, error) {
+	for it.currentIndex >= len(it.items) {
+		if it.atLastPage {
+			return "", Done
+		}
+		if err := it.apiCall(); err != nil {
+			return "", err
+		}
+		it.currentIndex = 0
+	}
+	result := it.items[it.currentIndex]
+	it.currentIndex++
+	return result, nil
+}
+
+// PageSize returns the page size for all subsequent calls to NextPage.
+func (it *StringIterator) PageSize() int {
+	return int(it.pageSize)
+}
+
+// SetPageSize sets the page size for all subsequent calls to NextPage.
+func (it *StringIterator) SetPageSize(pageSize int) {
+	if pageSize > math.MaxInt32 {
+		pageSize = math.MaxInt32
+	}
+	it.pageSize = int32(pageSize)
+}
+
+// SetPageToken sets the page token for the next call to NextPage, to resume the iteration from
+// a previous point.
+func (it *StringIterator) SetPageToken(token string) {
+	it.nextPageToken = token
+}
+
+// NextPageToken returns a page token that can be used with SetPageToken to resume
+// iteration from the next page. It returns the empty string if there are no more pages.
+func (it *StringIterator) NextPageToken() string {
+	return it.nextPageToken
 }

@@ -39,27 +39,23 @@ func defaultExtractJob() *bq.Job {
 }
 
 func TestExtract(t *testing.T) {
-	s := &testService{}
-	c := &Client{
-		service:   s,
-		projectID: "project-id",
-	}
-
 	testCases := []struct {
-		dst    *GCSReference
-		src    *Table
-		config ExtractConfig
-		want   *bq.Job
+		dst     *GCSReference
+		src     *Table
+		options []Option
+		want    *bq.Job
 	}{
 		{
-			dst:  defaultGCS(),
-			src:  c.Dataset("dataset-id").Table("table-id"),
+			dst:  defaultGCS,
+			src:  defaultTable(nil),
 			want: defaultExtractJob(),
 		},
 		{
-			dst:    defaultGCS(),
-			src:    c.Dataset("dataset-id").Table("table-id"),
-			config: ExtractConfig{DisableHeader: true},
+			dst: defaultGCS,
+			src: defaultTable(nil),
+			options: []Option{
+				DisableHeader(),
+			},
 			want: func() *bq.Job {
 				j := defaultExtractJob()
 				f := false
@@ -68,14 +64,13 @@ func TestExtract(t *testing.T) {
 			}(),
 		},
 		{
-			dst: func() *GCSReference {
-				g := NewGCSReference("uri")
-				g.Compression = Gzip
-				g.DestinationFormat = JSON
-				g.FieldDelimiter = "\t"
-				return g
-			}(),
-			src: c.Dataset("dataset-id").Table("table-id"),
+			dst: &GCSReference{
+				uris:              []string{"uri"},
+				Compression:       Gzip,
+				DestinationFormat: JSON,
+				FieldDelimiter:    "\t",
+			},
+			src: defaultTable(nil),
 			want: func() *bq.Job {
 				j := defaultExtractJob()
 				j.Configuration.Extract.Compression = "GZIP"
@@ -87,11 +82,11 @@ func TestExtract(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		ext := tc.src.ExtractorTo(tc.dst)
-		tc.config.Src = ext.Src
-		tc.config.Dst = ext.Dst
-		ext.ExtractConfig = tc.config
-		if _, err := ext.Run(context.Background()); err != nil {
+		s := &testService{}
+		c := &Client{
+			service: s,
+		}
+		if _, err := c.Copy(context.Background(), tc.dst, tc.src, tc.options...); err != nil {
 			t.Errorf("err calling extract: %v", err)
 			continue
 		}

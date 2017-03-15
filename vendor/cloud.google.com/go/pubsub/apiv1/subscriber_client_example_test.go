@@ -1,10 +1,10 @@
-// Copyright 2016, Google Inc. All rights reserved.
+// Copyright 2016 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,8 +17,6 @@
 package pubsub_test
 
 import (
-	"io"
-
 	"cloud.google.com/go/pubsub/apiv1"
 	"golang.org/x/net/context"
 	pubsubpb "google.golang.org/genproto/googleapis/pubsub/v1"
@@ -32,40 +30,6 @@ func ExampleNewSubscriberClient() {
 	}
 	// TODO: Use client.
 	_ = c
-}
-
-func ExampleSubscriberClient_SubscriptionIAM() {
-	ctx := context.Background()
-	c, err := pubsub.NewSubscriberClient(ctx)
-	if err != nil {
-		// TODO: Handle error.
-	}
-
-	subscription := &pubsubpb.Subscription{}
-	h := c.SubscriptionIAM(subscription)
-	policy, err := h.Policy(ctx)
-	if err != nil {
-		// TODO: Handle error.
-	}
-	//TODO: Use the IAM policy
-	_ = policy
-}
-
-func ExampleSubscriberClient_TopicIAM() {
-	ctx := context.Background()
-	c, err := pubsub.NewSubscriberClient(ctx)
-	if err != nil {
-		// TODO: Handle error.
-	}
-
-	topic := &pubsubpb.Topic{}
-	h := c.TopicIAM(topic)
-	policy, err := h.Policy(ctx)
-	if err != nil {
-		// TODO: Handle error.
-	}
-	//TODO: Use the IAM policy
-	_ = policy
 }
 
 func ExampleSubscriberClient_CreateSubscription() {
@@ -190,40 +154,6 @@ func ExampleSubscriberClient_Pull() {
 	}
 	// TODO: Use resp.
 	_ = resp
-}
-
-func ExampleSubscriberClient_StreamingPull() {
-	ctx := context.Background()
-	c, err := pubsub.NewSubscriberClient(ctx)
-	if err != nil {
-		// TODO: Handle error.
-	}
-	stream, err := c.StreamingPull(ctx)
-	if err != nil {
-		// TODO: Handle error.
-	}
-	go func() {
-		reqs := []*pubsubpb.StreamingPullRequest{
-		// TODO: Create requests.
-		}
-		for _, req := range reqs {
-			if err := stream.Send(req); err != nil {
-				// TODO: Handle error.
-			}
-		}
-		stream.CloseSend()
-	}()
-	for {
-		resp, err := stream.Recv()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			// TODO: handle error.
-		}
-		// TODO: Use resp.
-		_ = resp
-	}
 }
 
 func ExampleSubscriberClient_ModifyPushConfig() {

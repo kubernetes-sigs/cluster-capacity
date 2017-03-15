@@ -13,7 +13,7 @@ func PointLimitMonitor(itrs Iterators, interval time.Duration, limit int) QueryM
 			case <-ticker.C:
 				stats := itrs.Stats()
 				if stats.PointN >= limit {
-					return ErrMaxSelectPointsLimitExceeded(stats.PointN, limit)
+					return ErrMaxPointsReached
 				}
 			case <-closing:
 				return nil

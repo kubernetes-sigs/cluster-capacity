@@ -159,12 +159,12 @@ var handleSubmit = function(e) {
     var q = queryElement.value;
 
     clearResults();
-    hideQueryError();
-    hideQuerySuccess();
 
     if (q == "") { return };
 
     var query = $.get(connectionString() + "/query", {q: q, db: currentlySelectedDatabase}, function() {
+        hideQueryError();
+        hideQuerySuccess();
     });
 
     recentQueries.push(q);
@@ -228,13 +228,6 @@ var handleRequestError = function(e) {
 var handleKeypress = function(e) {
     var queryElement = document.getElementById('query');
 
-    // Enable/Disable the generate permalink button
-    if(queryElement.value == "" && !$("#generate-query-url").hasClass("disabled")) {
-        $("#generate-query-url").addClass("disabled");
-    } else {
-        $("#generate-query-url").removeClass("disabled");
-    }
-
     // key press == enter
     if (e.keyCode == 13) {
         e.preventDefault();
@@ -247,10 +240,6 @@ var handleKeypress = function(e) {
 
     // key press == up arrow
     if (e.keyCode == 38) {
-        clearResults()
-        hideQuerySuccess()
-        hideQueryError()
-
         // TODO: stash the current query, if there is one?
         if (queryPointer == recentQueries.length - 1) {
             // this is buggy.
@@ -352,25 +341,15 @@ var pretty = function(val) {
     }
 }
 
-var truncateVersion = function (version) {
-  var parts = version.split(".")
-  if (parts.length > 2) {
-    parts = parts.slice(0, 2)
-  }
-  return parts.join(".")
-}
-
 var getClientVersion = function () {
-    var query = $.get(window.location.origin + window.location.pathname);
+    var query = $.get(window.location.origin + "/");
 
     query.fail(handleRequestError);
 
     query.done(function (data, status, xhr) {
         var version = xhr.getResponseHeader('X-InfluxDB-Version');
         if (version.indexOf("unknown") == -1) {
-            console.log('got client version v'+version);
-            version = 'v' + truncateVersion(version);
-            $('#influxdb-doc-link').attr('href', 'https://docs.influxdata.com/influxdb/'+version+'/introduction/getting_started/');
+            version = 'v' + version;
         }
         $('.influxdb-client-version').html(version);
     });
@@ -441,17 +420,6 @@ var updateDatabaseList = function() {
     }
 }
 
-var generateQueryURL = function() {
-    var q = document.getElementById('query').value;
-
-    var query = connectionString() + "/query?";
-    var queryParams = {q: q, db: currentlySelectedDatabase};
-    query += $.param(queryParams);
-
-    var textarea = $("#query-url");
-    textarea.val(query);
-}
-
 // when the page is ready, start everything up
 $(document).ready(function () {
     loadSettings();
@@ -502,18 +470,6 @@ $(document).ready(function () {
             showModalSuccess("Write succeeded. (" + elapsed + "ms)");
         });
 
-    });
-
-    // Enable auto select of the text in modal
-    $('#queryURLModal').on('shown.bs.modal', function () {
-        var textarea = $("#query-url");
-        textarea.focus();
-        textarea.select();
-    });
-
-    //bind to the generate permalink button
-    $("#generate-query-url").click(function (e) {
-        generateQueryURL();
     });
 
     // handle submit actions on the query bar

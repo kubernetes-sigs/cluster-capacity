@@ -15,15 +15,11 @@
 package cache
 
 import (
-	"errors"
 	"sync"
-	"time"
-
-	"github.com/karlseguin/ccache"
 
 	"github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
 	pb "github.com/coreos/etcd/etcdserver/etcdserverpb"
-	"github.com/coreos/etcd/pkg/adt"
+	"github.com/golang/groupcache/lru"
 )
 
 var (
@@ -31,15 +27,10 @@ var (
 	ErrCompacted      = rpctypes.ErrGRPCCompacted
 )
 
-const defaultHistoricTTL = time.Hour
-const defaultCurrentTTL = time.Minute
-
 type Cache interface {
 	Add(req *pb.RangeRequest, resp *pb.RangeResponse)
 	Get(req *pb.RangeRequest) (*pb.RangeResponse, error)
 	Compact(revision int64)
-	Invalidate(key []byte, endkey []byte)
-	Close()
 }
 
 // keyFunc returns the key of an request, which is used to look up in the cache for it's caching response.
@@ -54,21 +45,14 @@ func keyFunc(req *pb.RangeRequest) string {
 
 func NewCache(maxCacheEntries int) Cache {
 	return &cache{
-		lru:          ccache.New(ccache.Configure().MaxSize(int64(maxCacheEntries))),
-		compactedRev: -1,
+		lru: lru.New(maxCacheEntries),
 	}
 }
 
-func (c *cache) Close() { c.lru.Stop() }
-
 // cache implements Cache
 type cache struct {
-	mu  sync.RWMutex
-	lru *ccache.Cache
-
-	// a reverse index for cache invalidation
-	cachedRanges adt.IntervalTree
-
+	mu           sync.RWMutex
+	lru          *lru.Cache
 	compactedRev int64
 }
 
@@ -80,34 +64,7 @@ func (c *cache) Add(req *pb.RangeRequest, resp *pb.RangeResponse) {
 	defer c.mu.Unlock()
 
 	if req.Revision > c.compactedRev {
-		if req.Revision == 0 {
-			c.lru.Set(key, resp, defaultCurrentTTL)
-		} else {
-			c.lru.Set(key, resp, defaultHistoricTTL)
-		}
-	}
-	// we do not need to invalidate a request with a revision specified.
-	// so we do not need to add it into the reverse index.
-	if req.Revision != 0 {
-		return
-	}
-
-	var (
-		iv  *adt.IntervalValue
-		ivl adt.Interval
-	)
-	if len(req.RangeEnd) != 0 {
-		ivl = adt.NewStringAffineInterval(string(req.Key), string(req.RangeEnd))
-	} else {
-		ivl = adt.NewStringAffinePoint(string(req.Key))
-	}
-
-	iv = c.cachedRanges.Find(ivl)
-
-	if iv == nil {
-		c.cachedRanges.Insert(ivl, []string{key})
-	} else {
-		iv.Val = append(iv.Val.([]string), key)
+		c.lru.Add(key, resp)
 	}
 }
 
@@ -116,44 +73,18 @@ func (c *cache) Add(req *pb.RangeRequest, resp *pb.RangeResponse) {
 func (c *cache) Get(req *pb.RangeRequest) (*pb.RangeResponse, error) {
 	key := keyFunc(req)
 
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	if req.Revision < c.compactedRev {
-		c.lru.Delete(key)
-		return nil, ErrCompacted
-	}
-
-	if item := c.lru.Get(key); item != nil {
-		return item.Value().(*pb.RangeResponse), nil
-	}
-	return nil, errors.New("not exist")
-}
-
-// Invalidate invalidates the cache entries that intersecting with the given range from key to endkey.
-func (c *cache) Invalidate(key, endkey []byte) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	var (
-		ivs []*adt.IntervalValue
-		ivl adt.Interval
-	)
-	if len(endkey) == 0 {
-		ivl = adt.NewStringAffinePoint(string(key))
-	} else {
-		ivl = adt.NewStringAffineInterval(string(key), string(endkey))
+	if req.Revision > c.compactedRev {
+		c.lru.Remove(key)
+		return nil, ErrCompacted
 	}
 
-	ivs = c.cachedRanges.Stab(ivl)
-	for _, iv := range ivs {
-		keys := iv.Val.([]string)
-		for _, key := range keys {
-			c.lru.Delete(key)
-		}
+	if resp, ok := c.lru.Get(key); ok {
+		return resp.(*pb.RangeResponse), nil
 	}
-	// delete after removing all keys since it is destructive to 'ivs'
-	c.cachedRanges.Delete(ivl)
+	return nil, nil
 }
 
 // Compact invalidate all caching response before the given rev.

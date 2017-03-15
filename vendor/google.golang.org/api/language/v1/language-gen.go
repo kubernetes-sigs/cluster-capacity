@@ -633,8 +633,9 @@ type Document struct {
 	// accepted.<br>
 	// **Current Language Restrictions:**
 	//
-	//  * Only English, Spanish, and Japanese textual content are
-	// supported.
+	//  * Only English, Spanish, and Japanese textual content
+	//    are supported, with the following additional restriction:
+	//    * `analyzeSentiment` only supports English text.
 	// If the language (either specified by the caller or automatically
 	// detected)
 	// is not supported by the called API method, an `INVALID_ARGUMENT`
@@ -743,20 +744,6 @@ func (s *Entity) MarshalJSON() ([]byte, error) {
 	type noMethod Entity
 	raw := noMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
-}
-
-func (s *Entity) UnmarshalJSON(data []byte) error {
-	type noMethod Entity
-	var s1 struct {
-		Salience gensupport.JSONFloat64 `json:"salience"`
-		*noMethod
-	}
-	s1.noMethod = (*noMethod)(s)
-	if err := json.Unmarshal(data, &s1); err != nil {
-		return err
-	}
-	s.Salience = float64(s1.Salience)
-	return nil
 }
 
 // EntityMention: Represents a mention for an entity in the text.
@@ -1067,7 +1054,7 @@ type Sentiment struct {
 
 	// Score: Sentiment score between -1.0 (negative sentiment) and
 	// 1.0
-	// (positive sentiment).
+	// (positive sentiment.)
 	Score float64 `json:"score,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Magnitude") to
@@ -1091,22 +1078,6 @@ func (s *Sentiment) MarshalJSON() ([]byte, error) {
 	type noMethod Sentiment
 	raw := noMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
-}
-
-func (s *Sentiment) UnmarshalJSON(data []byte) error {
-	type noMethod Sentiment
-	var s1 struct {
-		Magnitude gensupport.JSONFloat64 `json:"magnitude"`
-		Score     gensupport.JSONFloat64 `json:"score"`
-		*noMethod
-	}
-	s1.noMethod = (*noMethod)(s)
-	if err := json.Unmarshal(data, &s1); err != nil {
-		return err
-	}
-	s.Magnitude = float64(s1.Magnitude)
-	s.Score = float64(s1.Score)
-	return nil
 }
 
 // Status: The `Status` type defines a logical error model that is
@@ -1266,8 +1237,9 @@ type Token struct {
 	// DependencyEdge: Dependency tree parse for this token.
 	DependencyEdge *DependencyEdge `json:"dependencyEdge,omitempty"`
 
-	// Lemma: [Lemma](https://en.wikipedia.org/wiki/Lemma_%28morphology%29)
-	// of the token.
+	// Lemma: <a
+	// href="https://en.wikipedia.org/wiki/Lemma_(morphology)">
+	// Lemma</a> of the token.
 	Lemma string `json:"lemma,omitempty"`
 
 	// PartOfSpeech: Parts of speech tag for this token.

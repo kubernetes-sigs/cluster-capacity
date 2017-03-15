@@ -50,24 +50,22 @@ const (
 	// Delete your Google Tag Manager containers
 	TagmanagerDeleteContainersScope = "https://www.googleapis.com/auth/tagmanager.delete.containers"
 
-	// Manage your Google Tag Manager container and its subcomponents,
-	// excluding versioning and publishing
+	// Manage your Google Tag Manager containers
 	TagmanagerEditContainersScope = "https://www.googleapis.com/auth/tagmanager.edit.containers"
 
 	// Manage your Google Tag Manager container versions
 	TagmanagerEditContainerversionsScope = "https://www.googleapis.com/auth/tagmanager.edit.containerversions"
 
-	// View and manage your Google Tag Manager accounts
+	// Manage your Google Tag Manager accounts
 	TagmanagerManageAccountsScope = "https://www.googleapis.com/auth/tagmanager.manage.accounts"
 
-	// Manage user permissions of your Google Tag Manager account and
-	// container
+	// Manage user permissions of your Google Tag Manager data
 	TagmanagerManageUsersScope = "https://www.googleapis.com/auth/tagmanager.manage.users"
 
-	// Publish your Google Tag Manager container versions
+	// Publish your Google Tag Manager containers
 	TagmanagerPublishScope = "https://www.googleapis.com/auth/tagmanager.publish"
 
-	// View your Google Tag Manager container and its subcomponents
+	// View your Google Tag Manager containers
 	TagmanagerReadonlyScope = "https://www.googleapis.com/auth/tagmanager.readonly"
 )
 

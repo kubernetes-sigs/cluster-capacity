@@ -26,6 +26,11 @@ import (
 	"strings"
 	"time"
 
+	// Uncomment when you want to rollback to 2.2.1 version.
+	oldwal "k8s.io/kubernetes/third_party/forked/etcd221/wal"
+	// Uncomment when you want to rollback to 2.3.7 version.
+	// oldwal "k8s.io/kubernetes/third_party/forked/etcd237/wal"
+
 	"github.com/coreos/etcd/etcdserver"
 	pb "github.com/coreos/etcd/etcdserver/etcdserverpb"
 	"github.com/coreos/etcd/etcdserver/membership"
@@ -38,10 +43,11 @@ import (
 	"github.com/coreos/etcd/store"
 	"github.com/coreos/etcd/wal"
 	"github.com/coreos/etcd/wal/walpb"
+	"github.com/coreos/go-semver/semver"
 	"github.com/golang/glog"
 )
 
-const rollbackVersion = "2.3.7"
+const rollbackVersion = "2.2.0"
 
 var (
 	migrateDatadir = flag.String("data-dir", "", "Path to the data directory")
@@ -115,7 +121,7 @@ func main() {
 	}
 	walDir := path.Join(*migrateDatadir, "member", "wal")
 
-	w, err := wal.Create(walDir, metadata)
+	w, err := oldwal.Create(walDir, metadata)
 	if err != nil {
 		glog.Fatal(err)
 	}
@@ -263,6 +269,7 @@ func rebuild(datadir string) ([]byte, *raftpb.HardState, store.Store, error) {
 
 	cluster := membership.NewCluster("")
 	cluster.SetStore(st)
+	cluster.Recover(func(*semver.Version) {})
 
 	applier := etcdserver.NewApplierV2(st, cluster)
 	for _, ent := range ents {

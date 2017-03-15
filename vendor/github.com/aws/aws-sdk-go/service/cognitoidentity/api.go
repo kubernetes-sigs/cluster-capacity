@@ -82,23 +82,23 @@ func (c *CognitoIdentity) CreateIdentityPoolRequest(input *CreateIdentityPoolInp
 // API operation CreateIdentityPool for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   Thrown for missing or bad input parameter(s).
 //
-//   * ErrCodeNotAuthorizedException "NotAuthorizedException"
+//   * NotAuthorizedException
 //   Thrown when a user is not authorized to access the requested resource.
 //
-//   * ErrCodeResourceConflictException "ResourceConflictException"
+//   * ResourceConflictException
 //   Thrown when a user tries to use a login which is already linked to another
 //   account.
 //
-//   * ErrCodeTooManyRequestsException "TooManyRequestsException"
+//   * TooManyRequestsException
 //   Thrown when a request is throttled.
 //
-//   * ErrCodeInternalErrorException "InternalErrorException"
+//   * InternalErrorException
 //   Thrown when the service encounters an error during processing the request.
 //
-//   * ErrCodeLimitExceededException "LimitExceededException"
+//   * LimitExceededException
 //   Thrown when the total number of user pools has exceeded a preset limit.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cognito-identity-2014-06-30/CreateIdentityPool
@@ -166,13 +166,13 @@ func (c *CognitoIdentity) DeleteIdentitiesRequest(input *DeleteIdentitiesInput) 
 // API operation DeleteIdentities for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   Thrown for missing or bad input parameter(s).
 //
-//   * ErrCodeTooManyRequestsException "TooManyRequestsException"
+//   * TooManyRequestsException
 //   Thrown when a request is throttled.
 //
-//   * ErrCodeInternalErrorException "InternalErrorException"
+//   * InternalErrorException
 //   Thrown when the service encounters an error during processing the request.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cognito-identity-2014-06-30/DeleteIdentities
@@ -242,20 +242,20 @@ func (c *CognitoIdentity) DeleteIdentityPoolRequest(input *DeleteIdentityPoolInp
 // API operation DeleteIdentityPool for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   Thrown for missing or bad input parameter(s).
 //
-//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
+//   * ResourceNotFoundException
 //   Thrown when the requested resource (for example, a dataset or record) does
 //   not exist.
 //
-//   * ErrCodeNotAuthorizedException "NotAuthorizedException"
+//   * NotAuthorizedException
 //   Thrown when a user is not authorized to access the requested resource.
 //
-//   * ErrCodeTooManyRequestsException "TooManyRequestsException"
+//   * TooManyRequestsException
 //   Thrown when a request is throttled.
 //
-//   * ErrCodeInternalErrorException "InternalErrorException"
+//   * InternalErrorException
 //   Thrown when the service encounters an error during processing the request.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cognito-identity-2014-06-30/DeleteIdentityPool
@@ -323,20 +323,20 @@ func (c *CognitoIdentity) DescribeIdentityRequest(input *DescribeIdentityInput) 
 // API operation DescribeIdentity for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   Thrown for missing or bad input parameter(s).
 //
-//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
+//   * ResourceNotFoundException
 //   Thrown when the requested resource (for example, a dataset or record) does
 //   not exist.
 //
-//   * ErrCodeNotAuthorizedException "NotAuthorizedException"
+//   * NotAuthorizedException
 //   Thrown when a user is not authorized to access the requested resource.
 //
-//   * ErrCodeTooManyRequestsException "TooManyRequestsException"
+//   * TooManyRequestsException
 //   Thrown when a request is throttled.
 //
-//   * ErrCodeInternalErrorException "InternalErrorException"
+//   * InternalErrorException
 //   Thrown when the service encounters an error during processing the request.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cognito-identity-2014-06-30/DescribeIdentity
@@ -404,20 +404,20 @@ func (c *CognitoIdentity) DescribeIdentityPoolRequest(input *DescribeIdentityPoo
 // API operation DescribeIdentityPool for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   Thrown for missing or bad input parameter(s).
 //
-//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
+//   * ResourceNotFoundException
 //   Thrown when the requested resource (for example, a dataset or record) does
 //   not exist.
 //
-//   * ErrCodeNotAuthorizedException "NotAuthorizedException"
+//   * NotAuthorizedException
 //   Thrown when a user is not authorized to access the requested resource.
 //
-//   * ErrCodeTooManyRequestsException "TooManyRequestsException"
+//   * TooManyRequestsException
 //   Thrown when a request is throttled.
 //
-//   * ErrCodeInternalErrorException "InternalErrorException"
+//   * InternalErrorException
 //   Thrown when the service encounters an error during processing the request.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cognito-identity-2014-06-30/DescribeIdentityPool
@@ -487,31 +487,31 @@ func (c *CognitoIdentity) GetCredentialsForIdentityRequest(input *GetCredentials
 // API operation GetCredentialsForIdentity for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   Thrown for missing or bad input parameter(s).
 //
-//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
+//   * ResourceNotFoundException
 //   Thrown when the requested resource (for example, a dataset or record) does
 //   not exist.
 //
-//   * ErrCodeNotAuthorizedException "NotAuthorizedException"
+//   * NotAuthorizedException
 //   Thrown when a user is not authorized to access the requested resource.
 //
-//   * ErrCodeResourceConflictException "ResourceConflictException"
+//   * ResourceConflictException
 //   Thrown when a user tries to use a login which is already linked to another
 //   account.
 //
-//   * ErrCodeTooManyRequestsException "TooManyRequestsException"
+//   * TooManyRequestsException
 //   Thrown when a request is throttled.
 //
-//   * ErrCodeInvalidIdentityPoolConfigurationException "InvalidIdentityPoolConfigurationException"
+//   * InvalidIdentityPoolConfigurationException
 //   Thrown if the identity pool has no role associated for the given auth type
 //   (auth/unauth) or if the AssumeRole fails.
 //
-//   * ErrCodeInternalErrorException "InternalErrorException"
+//   * InternalErrorException
 //   Thrown when the service encounters an error during processing the request.
 //
-//   * ErrCodeExternalServiceException "ExternalServiceException"
+//   * ExternalServiceException
 //   An exception thrown when a dependent service such as Facebook or Twitter
 //   is not responding
 //
@@ -580,30 +580,30 @@ func (c *CognitoIdentity) GetIdRequest(input *GetIdInput) (req *request.Request,
 // API operation GetId for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   Thrown for missing or bad input parameter(s).
 //
-//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
+//   * ResourceNotFoundException
 //   Thrown when the requested resource (for example, a dataset or record) does
 //   not exist.
 //
-//   * ErrCodeNotAuthorizedException "NotAuthorizedException"
+//   * NotAuthorizedException
 //   Thrown when a user is not authorized to access the requested resource.
 //
-//   * ErrCodeResourceConflictException "ResourceConflictException"
+//   * ResourceConflictException
 //   Thrown when a user tries to use a login which is already linked to another
 //   account.
 //
-//   * ErrCodeTooManyRequestsException "TooManyRequestsException"
+//   * TooManyRequestsException
 //   Thrown when a request is throttled.
 //
-//   * ErrCodeInternalErrorException "InternalErrorException"
+//   * InternalErrorException
 //   Thrown when the service encounters an error during processing the request.
 //
-//   * ErrCodeLimitExceededException "LimitExceededException"
+//   * LimitExceededException
 //   Thrown when the total number of user pools has exceeded a preset limit.
 //
-//   * ErrCodeExternalServiceException "ExternalServiceException"
+//   * ExternalServiceException
 //   An exception thrown when a dependent service such as Facebook or Twitter
 //   is not responding
 //
@@ -671,24 +671,24 @@ func (c *CognitoIdentity) GetIdentityPoolRolesRequest(input *GetIdentityPoolRole
 // API operation GetIdentityPoolRoles for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   Thrown for missing or bad input parameter(s).
 //
-//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
+//   * ResourceNotFoundException
 //   Thrown when the requested resource (for example, a dataset or record) does
 //   not exist.
 //
-//   * ErrCodeNotAuthorizedException "NotAuthorizedException"
+//   * NotAuthorizedException
 //   Thrown when a user is not authorized to access the requested resource.
 //
-//   * ErrCodeResourceConflictException "ResourceConflictException"
+//   * ResourceConflictException
 //   Thrown when a user tries to use a login which is already linked to another
 //   account.
 //
-//   * ErrCodeTooManyRequestsException "TooManyRequestsException"
+//   * TooManyRequestsException
 //   Thrown when a request is throttled.
 //
-//   * ErrCodeInternalErrorException "InternalErrorException"
+//   * InternalErrorException
 //   Thrown when the service encounters an error during processing the request.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cognito-identity-2014-06-30/GetIdentityPoolRoles
@@ -759,27 +759,27 @@ func (c *CognitoIdentity) GetOpenIdTokenRequest(input *GetOpenIdTokenInput) (req
 // API operation GetOpenIdToken for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   Thrown for missing or bad input parameter(s).
 //
-//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
+//   * ResourceNotFoundException
 //   Thrown when the requested resource (for example, a dataset or record) does
 //   not exist.
 //
-//   * ErrCodeNotAuthorizedException "NotAuthorizedException"
+//   * NotAuthorizedException
 //   Thrown when a user is not authorized to access the requested resource.
 //
-//   * ErrCodeResourceConflictException "ResourceConflictException"
+//   * ResourceConflictException
 //   Thrown when a user tries to use a login which is already linked to another
 //   account.
 //
-//   * ErrCodeTooManyRequestsException "TooManyRequestsException"
+//   * TooManyRequestsException
 //   Thrown when a request is throttled.
 //
-//   * ErrCodeInternalErrorException "InternalErrorException"
+//   * InternalErrorException
 //   Thrown when the service encounters an error during processing the request.
 //
-//   * ErrCodeExternalServiceException "ExternalServiceException"
+//   * ExternalServiceException
 //   An exception thrown when a dependent service such as Facebook or Twitter
 //   is not responding
 //
@@ -860,27 +860,27 @@ func (c *CognitoIdentity) GetOpenIdTokenForDeveloperIdentityRequest(input *GetOp
 // API operation GetOpenIdTokenForDeveloperIdentity for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   Thrown for missing or bad input parameter(s).
 //
-//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
+//   * ResourceNotFoundException
 //   Thrown when the requested resource (for example, a dataset or record) does
 //   not exist.
 //
-//   * ErrCodeNotAuthorizedException "NotAuthorizedException"
+//   * NotAuthorizedException
 //   Thrown when a user is not authorized to access the requested resource.
 //
-//   * ErrCodeResourceConflictException "ResourceConflictException"
+//   * ResourceConflictException
 //   Thrown when a user tries to use a login which is already linked to another
 //   account.
 //
-//   * ErrCodeTooManyRequestsException "TooManyRequestsException"
+//   * TooManyRequestsException
 //   Thrown when a request is throttled.
 //
-//   * ErrCodeInternalErrorException "InternalErrorException"
+//   * InternalErrorException
 //   Thrown when the service encounters an error during processing the request.
 //
-//   * ErrCodeDeveloperUserAlreadyRegisteredException "DeveloperUserAlreadyRegisteredException"
+//   * DeveloperUserAlreadyRegisteredException
 //   The provided developer user identifier is already registered with Cognito
 //   under a different identity ID.
 //
@@ -948,20 +948,20 @@ func (c *CognitoIdentity) ListIdentitiesRequest(input *ListIdentitiesInput) (req
 // API operation ListIdentities for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   Thrown for missing or bad input parameter(s).
 //
-//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
+//   * ResourceNotFoundException
 //   Thrown when the requested resource (for example, a dataset or record) does
 //   not exist.
 //
-//   * ErrCodeNotAuthorizedException "NotAuthorizedException"
+//   * NotAuthorizedException
 //   Thrown when a user is not authorized to access the requested resource.
 //
-//   * ErrCodeTooManyRequestsException "TooManyRequestsException"
+//   * TooManyRequestsException
 //   Thrown when a request is throttled.
 //
-//   * ErrCodeInternalErrorException "InternalErrorException"
+//   * InternalErrorException
 //   Thrown when the service encounters an error during processing the request.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cognito-identity-2014-06-30/ListIdentities
@@ -1028,16 +1028,16 @@ func (c *CognitoIdentity) ListIdentityPoolsRequest(input *ListIdentityPoolsInput
 // API operation ListIdentityPools for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   Thrown for missing or bad input parameter(s).
 //
-//   * ErrCodeNotAuthorizedException "NotAuthorizedException"
+//   * NotAuthorizedException
 //   Thrown when a user is not authorized to access the requested resource.
 //
-//   * ErrCodeTooManyRequestsException "TooManyRequestsException"
+//   * TooManyRequestsException
 //   Thrown when a request is throttled.
 //
-//   * ErrCodeInternalErrorException "InternalErrorException"
+//   * InternalErrorException
 //   Thrown when the service encounters an error during processing the request.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cognito-identity-2014-06-30/ListIdentityPools
@@ -1111,24 +1111,24 @@ func (c *CognitoIdentity) LookupDeveloperIdentityRequest(input *LookupDeveloperI
 // API operation LookupDeveloperIdentity for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   Thrown for missing or bad input parameter(s).
 //
-//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
+//   * ResourceNotFoundException
 //   Thrown when the requested resource (for example, a dataset or record) does
 //   not exist.
 //
-//   * ErrCodeNotAuthorizedException "NotAuthorizedException"
+//   * NotAuthorizedException
 //   Thrown when a user is not authorized to access the requested resource.
 //
-//   * ErrCodeResourceConflictException "ResourceConflictException"
+//   * ResourceConflictException
 //   Thrown when a user tries to use a login which is already linked to another
 //   account.
 //
-//   * ErrCodeTooManyRequestsException "TooManyRequestsException"
+//   * TooManyRequestsException
 //   Thrown when a request is throttled.
 //
-//   * ErrCodeInternalErrorException "InternalErrorException"
+//   * InternalErrorException
 //   Thrown when the service encounters an error during processing the request.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cognito-identity-2014-06-30/LookupDeveloperIdentity
@@ -1201,24 +1201,24 @@ func (c *CognitoIdentity) MergeDeveloperIdentitiesRequest(input *MergeDeveloperI
 // API operation MergeDeveloperIdentities for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   Thrown for missing or bad input parameter(s).
 //
-//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
+//   * ResourceNotFoundException
 //   Thrown when the requested resource (for example, a dataset or record) does
 //   not exist.
 //
-//   * ErrCodeNotAuthorizedException "NotAuthorizedException"
+//   * NotAuthorizedException
 //   Thrown when a user is not authorized to access the requested resource.
 //
-//   * ErrCodeResourceConflictException "ResourceConflictException"
+//   * ResourceConflictException
 //   Thrown when a user tries to use a login which is already linked to another
 //   account.
 //
-//   * ErrCodeTooManyRequestsException "TooManyRequestsException"
+//   * TooManyRequestsException
 //   Thrown when a request is throttled.
 //
-//   * ErrCodeInternalErrorException "InternalErrorException"
+//   * InternalErrorException
 //   Thrown when the service encounters an error during processing the request.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cognito-identity-2014-06-30/MergeDeveloperIdentities
@@ -1288,27 +1288,27 @@ func (c *CognitoIdentity) SetIdentityPoolRolesRequest(input *SetIdentityPoolRole
 // API operation SetIdentityPoolRoles for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   Thrown for missing or bad input parameter(s).
 //
-//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
+//   * ResourceNotFoundException
 //   Thrown when the requested resource (for example, a dataset or record) does
 //   not exist.
 //
-//   * ErrCodeNotAuthorizedException "NotAuthorizedException"
+//   * NotAuthorizedException
 //   Thrown when a user is not authorized to access the requested resource.
 //
-//   * ErrCodeResourceConflictException "ResourceConflictException"
+//   * ResourceConflictException
 //   Thrown when a user tries to use a login which is already linked to another
 //   account.
 //
-//   * ErrCodeTooManyRequestsException "TooManyRequestsException"
+//   * TooManyRequestsException
 //   Thrown when a request is throttled.
 //
-//   * ErrCodeInternalErrorException "InternalErrorException"
+//   * InternalErrorException
 //   Thrown when the service encounters an error during processing the request.
 //
-//   * ErrCodeConcurrentModificationException "ConcurrentModificationException"
+//   * ConcurrentModificationException
 //   Thrown if there are parallel requests to modify a resource.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cognito-identity-2014-06-30/SetIdentityPoolRoles
@@ -1380,24 +1380,24 @@ func (c *CognitoIdentity) UnlinkDeveloperIdentityRequest(input *UnlinkDeveloperI
 // API operation UnlinkDeveloperIdentity for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   Thrown for missing or bad input parameter(s).
 //
-//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
+//   * ResourceNotFoundException
 //   Thrown when the requested resource (for example, a dataset or record) does
 //   not exist.
 //
-//   * ErrCodeNotAuthorizedException "NotAuthorizedException"
+//   * NotAuthorizedException
 //   Thrown when a user is not authorized to access the requested resource.
 //
-//   * ErrCodeResourceConflictException "ResourceConflictException"
+//   * ResourceConflictException
 //   Thrown when a user tries to use a login which is already linked to another
 //   account.
 //
-//   * ErrCodeTooManyRequestsException "TooManyRequestsException"
+//   * TooManyRequestsException
 //   Thrown when a request is throttled.
 //
-//   * ErrCodeInternalErrorException "InternalErrorException"
+//   * InternalErrorException
 //   Thrown when the service encounters an error during processing the request.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cognito-identity-2014-06-30/UnlinkDeveloperIdentity
@@ -1468,27 +1468,27 @@ func (c *CognitoIdentity) UnlinkIdentityRequest(input *UnlinkIdentityInput) (req
 // API operation UnlinkIdentity for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   Thrown for missing or bad input parameter(s).
 //
-//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
+//   * ResourceNotFoundException
 //   Thrown when the requested resource (for example, a dataset or record) does
 //   not exist.
 //
-//   * ErrCodeNotAuthorizedException "NotAuthorizedException"
+//   * NotAuthorizedException
 //   Thrown when a user is not authorized to access the requested resource.
 //
-//   * ErrCodeResourceConflictException "ResourceConflictException"
+//   * ResourceConflictException
 //   Thrown when a user tries to use a login which is already linked to another
 //   account.
 //
-//   * ErrCodeTooManyRequestsException "TooManyRequestsException"
+//   * TooManyRequestsException
 //   Thrown when a request is throttled.
 //
-//   * ErrCodeInternalErrorException "InternalErrorException"
+//   * InternalErrorException
 //   Thrown when the service encounters an error during processing the request.
 //
-//   * ErrCodeExternalServiceException "ExternalServiceException"
+//   * ExternalServiceException
 //   An exception thrown when a dependent service such as Facebook or Twitter
 //   is not responding
 //
@@ -1556,30 +1556,30 @@ func (c *CognitoIdentity) UpdateIdentityPoolRequest(input *IdentityPool) (req *r
 // API operation UpdateIdentityPool for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   Thrown for missing or bad input parameter(s).
 //
-//   * ErrCodeResourceNotFoundException "ResourceNotFoundException"
+//   * ResourceNotFoundException
 //   Thrown when the requested resource (for example, a dataset or record) does
 //   not exist.
 //
-//   * ErrCodeNotAuthorizedException "NotAuthorizedException"
+//   * NotAuthorizedException
 //   Thrown when a user is not authorized to access the requested resource.
 //
-//   * ErrCodeResourceConflictException "ResourceConflictException"
+//   * ResourceConflictException
 //   Thrown when a user tries to use a login which is already linked to another
 //   account.
 //
-//   * ErrCodeTooManyRequestsException "TooManyRequestsException"
+//   * TooManyRequestsException
 //   Thrown when a request is throttled.
 //
-//   * ErrCodeInternalErrorException "InternalErrorException"
+//   * InternalErrorException
 //   Thrown when the service encounters an error during processing the request.
 //
-//   * ErrCodeConcurrentModificationException "ConcurrentModificationException"
+//   * ConcurrentModificationException
 //   Thrown if there are parallel requests to modify a resource.
 //
-//   * ErrCodeLimitExceededException "LimitExceededException"
+//   * LimitExceededException
 //   Thrown when the total number of user pools has exceeded a preset limit.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cognito-identity-2014-06-30/UpdateIdentityPool

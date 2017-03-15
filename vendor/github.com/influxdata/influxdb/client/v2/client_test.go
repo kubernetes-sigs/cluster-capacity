@@ -2,12 +2,10 @@ package client
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 )
@@ -73,68 +71,6 @@ func TestUDPClient_BadAddr(t *testing.T) {
 	}
 }
 
-func TestUDPClient_Batches(t *testing.T) {
-	var logger writeLogger
-	var cl udpclient
-
-	cl.conn = &logger
-	cl.payloadSize = 20 // should allow for two points per batch
-
-	// expected point should look like this: "cpu a=1i"
-	fields := map[string]interface{}{"a": 1}
-
-	p, _ := NewPoint("cpu", nil, fields, time.Time{})
-
-	bp, _ := NewBatchPoints(BatchPointsConfig{})
-
-	for i := 0; i < 9; i++ {
-		bp.AddPoint(p)
-	}
-
-	if err := cl.Write(bp); err != nil {
-		t.Fatalf("Unexpected error during Write: %v", err)
-	}
-
-	if len(logger.writes) != 5 {
-		t.Errorf("Mismatched write count: got %v, exp %v", len(logger.writes), 5)
-	}
-}
-
-func TestUDPClient_Split(t *testing.T) {
-	var logger writeLogger
-	var cl udpclient
-
-	cl.conn = &logger
-	cl.payloadSize = 1 // force one field per point
-
-	fields := map[string]interface{}{"a": 1, "b": 2, "c": 3, "d": 4}
-
-	p, _ := NewPoint("cpu", nil, fields, time.Unix(1, 0))
-
-	bp, _ := NewBatchPoints(BatchPointsConfig{})
-
-	bp.AddPoint(p)
-
-	if err := cl.Write(bp); err != nil {
-		t.Fatalf("Unexpected error during Write: %v", err)
-	}
-
-	if len(logger.writes) != len(fields) {
-		t.Errorf("Mismatched write count: got %v, exp %v", len(logger.writes), len(fields))
-	}
-}
-
-type writeLogger struct {
-	writes [][]byte
-}
-
-func (w *writeLogger) Write(b []byte) (int, error) {
-	w.writes = append(w.writes, append([]byte(nil), b...))
-	return len(b), nil
-}
-
-func (w *writeLogger) Close() error { return nil }
-
 func TestClient_Query(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var data Response
@@ -151,47 +87,6 @@ func TestClient_Query(t *testing.T) {
 	_, err := c.Query(query)
 	if err != nil {
 		t.Errorf("unexpected error.  expected %v, actual %v", nil, err)
-	}
-}
-
-func TestClient_BoundParameters(t *testing.T) {
-	var parameterString string
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var data Response
-		r.ParseForm()
-		parameterString = r.FormValue("params")
-		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(data)
-	}))
-	defer ts.Close()
-
-	config := HTTPConfig{Addr: ts.URL}
-	c, _ := NewHTTPClient(config)
-	defer c.Close()
-
-	expectedParameters := map[string]interface{}{
-		"testStringParameter": "testStringValue",
-		"testNumberParameter": 12.3,
-	}
-
-	query := Query{
-		Parameters: expectedParameters,
-	}
-
-	_, err := c.Query(query)
-	if err != nil {
-		t.Errorf("unexpected error.  expected %v, actual %v", nil, err)
-	}
-
-	var actualParameters map[string]interface{}
-
-	err = json.Unmarshal([]byte(parameterString), &actualParameters)
-	if err != nil {
-		t.Errorf("unexpected error. expected %v, actual %v", nil, err)
-	}
-
-	if !reflect.DeepEqual(expectedParameters, actualParameters) {
-		t.Errorf("unexpected parameters. expected %v, actual %v", expectedParameters, actualParameters)
 	}
 }
 
@@ -240,68 +135,6 @@ func TestClient_Ping(t *testing.T) {
 	_, _, err := c.Ping(0)
 	if err != nil {
 		t.Errorf("unexpected error.  expected %v, actual %v", nil, err)
-	}
-}
-
-func TestClient_Concurrent_Use(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{}`))
-	}))
-	defer ts.Close()
-
-	config := HTTPConfig{Addr: ts.URL}
-	c, _ := NewHTTPClient(config)
-	defer c.Close()
-
-	var wg sync.WaitGroup
-	wg.Add(3)
-	n := 1000
-
-	errC := make(chan error)
-	go func() {
-		defer wg.Done()
-		bp, err := NewBatchPoints(BatchPointsConfig{})
-		if err != nil {
-			errC <- fmt.Errorf("got error %v", err)
-			return
-		}
-
-		for i := 0; i < n; i++ {
-			if err = c.Write(bp); err != nil {
-				errC <- fmt.Errorf("got error %v", err)
-				return
-			}
-		}
-	}()
-
-	go func() {
-		defer wg.Done()
-		var q Query
-		for i := 0; i < n; i++ {
-			if _, err := c.Query(q); err != nil {
-				errC <- fmt.Errorf("got error %v", err)
-				return
-			}
-		}
-	}()
-
-	go func() {
-		defer wg.Done()
-		for i := 0; i < n; i++ {
-			c.Ping(time.Second)
-		}
-	}()
-
-	go func() {
-		wg.Wait()
-		close(errC)
-	}()
-
-	for err := range errC {
-		if err != nil {
-			t.Error(err)
-		}
 	}
 }
 
@@ -474,13 +307,9 @@ func TestClient_PointFields(t *testing.T) {
 	fields := map[string]interface{}{"idle": 10.1, "system": 50.9, "user": 39.0}
 	p, _ := NewPoint("cpu_usage", tags, fields)
 
-	pfields, err := p.Fields()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(fields, pfields) {
+	if !reflect.DeepEqual(fields, p.Fields()) {
 		t.Errorf("Error, got %v, expected %v",
-			pfields, fields)
+			p.Fields(), fields)
 	}
 }
 

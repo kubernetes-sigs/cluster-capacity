@@ -1,4 +1,3 @@
-// Package run is the run (default) subcommand for the influxd command.
 package run
 
 import (
@@ -13,7 +12,7 @@ import (
 	"strconv"
 	"time"
 
-	"go.uber.org/zap"
+	"github.com/BurntSushi/toml"
 )
 
 const logo = `
@@ -41,7 +40,6 @@ type Command struct {
 	Stdin  io.Reader
 	Stdout io.Writer
 	Stderr io.Writer
-	Logger zap.Logger
 
 	Server *Server
 }
@@ -54,7 +52,6 @@ func NewCommand() *Command {
 		Stdin:   os.Stdin,
 		Stdout:  os.Stdout,
 		Stderr:  os.Stderr,
-		Logger:  zap.New(zap.NullEncoder()),
 	}
 }
 
@@ -69,18 +66,28 @@ func (cmd *Command) Run(args ...string) error {
 	// Print sweet InfluxDB logo.
 	fmt.Print(logo)
 
+	// Configure default logging.
+	log.SetPrefix("[run] ")
+	log.SetFlags(log.LstdFlags)
+
+	// Set parallelism.
+	runtime.GOMAXPROCS(runtime.NumCPU())
+
 	// Mark start-up in log.
-	cmd.Logger.Info(fmt.Sprintf("InfluxDB starting, version %s, branch %s, commit %s",
-		cmd.Version, cmd.Branch, cmd.Commit))
-	cmd.Logger.Info(fmt.Sprintf("Go version %s, GOMAXPROCS set to %d", runtime.Version(), runtime.GOMAXPROCS(0)))
+	log.Printf("InfluxDB starting, version %s, branch %s, commit %s",
+		cmd.Version, cmd.Branch, cmd.Commit)
+	log.Printf("Go version %s, GOMAXPROCS set to %d", runtime.Version(), runtime.GOMAXPROCS(0))
 
 	// Write the PID file.
 	if err := cmd.writePIDFile(options.PIDFile); err != nil {
 		return fmt.Errorf("write pid file: %s", err)
 	}
 
+	// Turn on block profiling to debug stuck databases
+	runtime.SetBlockProfileRate(int(1 * time.Second))
+
 	// Parse config
-	config, err := cmd.ParseConfig(options.GetConfigPath())
+	config, err := cmd.ParseConfig(options.ConfigPath)
 	if err != nil {
 		return fmt.Errorf("parse config: %s", err)
 	}
@@ -90,14 +97,13 @@ func (cmd *Command) Run(args ...string) error {
 		return fmt.Errorf("apply env config: %v", err)
 	}
 
+	if options.Hostname != "" {
+		config.Hostname = options.Hostname
+	}
+
 	// Validate the configuration.
 	if err := config.Validate(); err != nil {
 		return fmt.Errorf("%s. To generate a valid configuration file run `influxd config > influxdb.generated.conf`", err)
-	}
-
-	if config.HTTPD.PprofEnabled {
-		// Turn on block profiling to debug stuck databases
-		runtime.SetBlockProfileRate(int(1 * time.Second))
 	}
 
 	// Create server from config and start it.
@@ -111,7 +117,6 @@ func (cmd *Command) Run(args ...string) error {
 	if err != nil {
 		return fmt.Errorf("create server: %s", err)
 	}
-	s.Logger = cmd.Logger
 	s.CPUProfile = options.CPUProfile
 	s.MemProfile = options.MemProfile
 	if err := s.Open(); err != nil {
@@ -153,8 +158,7 @@ func (cmd *Command) ParseFlags(args ...string) (Options, error) {
 	fs := flag.NewFlagSet("", flag.ContinueOnError)
 	fs.StringVar(&options.ConfigPath, "config", "", "")
 	fs.StringVar(&options.PIDFile, "pidfile", "", "")
-	// Ignore hostname option.
-	_ = fs.String("hostname", "", "")
+	fs.StringVar(&options.Hostname, "hostname", "", "")
 	fs.StringVar(&options.CPUProfile, "cpuprofile", "", "")
 	fs.StringVar(&options.MemProfile, "memprofile", "", "")
 	fs.Usage = func() { fmt.Fprintln(cmd.Stderr, usage) }
@@ -187,75 +191,51 @@ func (cmd *Command) writePIDFile(path string) error {
 }
 
 // ParseConfig parses the config at path.
-// It returns a demo configuration if path is blank.
+// Returns a demo configuration if path is blank.
 func (cmd *Command) ParseConfig(path string) (*Config, error) {
 	// Use demo configuration if no config path is specified.
 	if path == "" {
-		cmd.Logger.Info("no configuration provided, using default settings")
+		log.Println("no configuration provided, using default settings")
 		return NewDemoConfig()
 	}
 
-	cmd.Logger.Info(fmt.Sprintf("Using configuration at: %s", path))
+	log.Printf("Using configuration at: %s\n", path)
 
 	config := NewConfig()
-	if err := config.FromTomlFile(path); err != nil {
+	if _, err := toml.DecodeFile(path, &config); err != nil {
 		return nil, err
 	}
 
 	return config, nil
 }
 
-const usage = `Runs the InfluxDB server.
+var usage = `usage: run [flags]
 
-Usage: influxd run [flags]
+run starts the InfluxDB server. If this is the first time running the command
+then a new cluster will be initialized unless the -join argument is used.
 
-    -config <path>
-            Set the path to the configuration file.
-            This defaults to the environment variable INFLUXDB_CONFIG_PATH,
-            ~/.influxdb/influxdb.conf, or /etc/influxdb/influxdb.conf if a file
-            is present at any of these locations.
-            Disable the automatic loading of a configuration file using
-            the null device (such as /dev/null).
-    -pidfile <path>
-            Write process ID to a file.
-    -cpuprofile <path>
-            Write CPU profiling information to a file.
-    -memprofile <path>
-            Write memory usage information to a file.
+        -config <path>
+                          Set the path to the configuration file.
+
+        -hostname <name>
+                          Override the hostname, the 'hostname' configuration
+                          option will be overridden.
+
+        -pidfile <path>
+                          Write process ID to a file.
+
+        -cpuprofile <path>
+                          Write CPU profiling information to a file.
+
+        -memprofile <path>
+                          Write memory usage information to a file.
 `
 
 // Options represents the command line options that can be parsed.
 type Options struct {
 	ConfigPath string
 	PIDFile    string
+	Hostname   string
 	CPUProfile string
 	MemProfile string
-}
-
-// GetConfigPath returns the config path from the options.
-// It will return a path by searching in this order:
-//   1. The CLI option in ConfigPath
-//   2. The environment variable INFLUXDB_CONFIG_PATH
-//   3. The first influxdb.conf file on the path:
-//        - ~/.influxdb
-//        - /etc/influxdb
-func (opt *Options) GetConfigPath() string {
-	if opt.ConfigPath != "" {
-		if opt.ConfigPath == os.DevNull {
-			return ""
-		}
-		return opt.ConfigPath
-	} else if envVar := os.Getenv("INFLUXDB_CONFIG_PATH"); envVar != "" {
-		return envVar
-	}
-
-	for _, path := range []string{
-		os.ExpandEnv("${HOME}/.influxdb/influxdb.conf"),
-		"/etc/influxdb/influxdb.conf",
-	} {
-		if _, err := os.Stat(path); err == nil {
-			return path
-		}
-	}
-	return ""
 }

@@ -73,7 +73,7 @@ func (c *S3) AbortMultipartUploadRequest(input *AbortMultipartUploadInput) (req 
 // API operation AbortMultipartUpload for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeNoSuchUpload "NoSuchUpload"
+//   * NoSuchUpload
 //   The specified multipart upload does not exist.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/s3-2006-03-01/AbortMultipartUpload
@@ -198,7 +198,7 @@ func (c *S3) CopyObjectRequest(input *CopyObjectInput) (req *request.Request, ou
 // API operation CopyObject for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeObjectNotInActiveTierError "ObjectNotInActiveTierError"
+//   * ObjectNotInActiveTierError
 //   The source object of the COPY operation is not in the active tier and is
 //   only stored in Amazon Glacier.
 //
@@ -264,11 +264,12 @@ func (c *S3) CreateBucketRequest(input *CreateBucketInput) (req *request.Request
 // API operation CreateBucket for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeBucketAlreadyExists "BucketAlreadyExists"
+//   * BucketAlreadyExists
 //   The requested bucket name is not available. The bucket namespace is shared
 //   by all users of the system. Please select a different name and try again.
 //
-//   * ErrCodeBucketAlreadyOwnedByYou "BucketAlreadyOwnedByYou"
+//   * BucketAlreadyOwnedByYou
+
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/s3-2006-03-01/CreateBucket
 func (c *S3) CreateBucket(input *CreateBucketInput) (*CreateBucketOutput, error) {
@@ -2295,7 +2296,7 @@ func (c *S3) GetObjectRequest(input *GetObjectInput) (req *request.Request, outp
 // API operation GetObject for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeNoSuchKey "NoSuchKey"
+//   * NoSuchKey
 //   The specified key does not exist.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/s3-2006-03-01/GetObject
@@ -2360,7 +2361,7 @@ func (c *S3) GetObjectAclRequest(input *GetObjectAclInput) (req *request.Request
 // API operation GetObjectAcl for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeNoSuchKey "NoSuchKey"
+//   * NoSuchKey
 //   The specified key does not exist.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/s3-2006-03-01/GetObjectAcl
@@ -2548,7 +2549,7 @@ func (c *S3) HeadBucketRequest(input *HeadBucketInput) (req *request.Request, ou
 // API operation HeadBucket for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeNoSuchBucket "NoSuchBucket"
+//   * NoSuchBucket
 //   The specified bucket does not exist.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/s3-2006-03-01/HeadBucket
@@ -2615,7 +2616,7 @@ func (c *S3) HeadObjectRequest(input *HeadObjectInput) (req *request.Request, ou
 // API operation HeadObject for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeNoSuchKey "NoSuchKey"
+//   * NoSuchKey
 //   The specified key does not exist.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/s3-2006-03-01/HeadObject
@@ -3110,7 +3111,7 @@ func (c *S3) ListObjectsRequest(input *ListObjectsInput) (req *request.Request, 
 // API operation ListObjects for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeNoSuchBucket "NoSuchBucket"
+//   * NoSuchBucket
 //   The specified bucket does not exist.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/s3-2006-03-01/ListObjects
@@ -3209,7 +3210,7 @@ func (c *S3) ListObjectsV2Request(input *ListObjectsV2Input) (req *request.Reque
 // API operation ListObjectsV2 for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeNoSuchBucket "NoSuchBucket"
+//   * NoSuchBucket
 //   The specified bucket does not exist.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/s3-2006-03-01/ListObjectsV2
@@ -4524,7 +4525,7 @@ func (c *S3) PutObjectAclRequest(input *PutObjectAclInput) (req *request.Request
 // API operation PutObjectAcl for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeNoSuchKey "NoSuchKey"
+//   * NoSuchKey
 //   The specified key does not exist.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/s3-2006-03-01/PutObjectAcl
@@ -4649,7 +4650,7 @@ func (c *S3) RestoreObjectRequest(input *RestoreObjectInput) (req *request.Reque
 // API operation RestoreObject for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeObjectAlreadyInActiveTierError "ObjectAlreadyInActiveTierError"
+//   * ObjectAlreadyInActiveTierError
 //   This operation is not allowed against this storage tier
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/s3-2006-03-01/RestoreObject

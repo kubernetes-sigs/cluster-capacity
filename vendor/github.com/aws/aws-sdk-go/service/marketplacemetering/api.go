@@ -75,25 +75,25 @@ func (c *MarketplaceMetering) BatchMeterUsageRequest(input *BatchMeterUsageInput
 // API operation BatchMeterUsage for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInternalServiceErrorException "InternalServiceErrorException"
+//   * InternalServiceErrorException
 //   An internal error has occurred. Retry your request. If the problem persists,
 //   post a message with details on the AWS forums.
 //
-//   * ErrCodeInvalidProductCodeException "InvalidProductCodeException"
+//   * InvalidProductCodeException
 //   The product code passed does not match the product code used for publishing
 //   the product.
 //
-//   * ErrCodeInvalidUsageDimensionException "InvalidUsageDimensionException"
+//   * InvalidUsageDimensionException
 //   The usage dimension does not match one of the UsageDimensions associated
 //   with products.
 //
-//   * ErrCodeInvalidCustomerIdentifierException "InvalidCustomerIdentifierException"
+//   * InvalidCustomerIdentifierException
 //   You have metered usage for a CustomerIdentifier that does not exist.
 //
-//   * ErrCodeTimestampOutOfBoundsException "TimestampOutOfBoundsException"
+//   * TimestampOutOfBoundsException
 //   The timestamp value passed in the meterUsage() is out of allowed range.
 //
-//   * ErrCodeThrottlingException "ThrottlingException"
+//   * ThrottlingException
 //   The calls to the MeterUsage API are throttled.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/meteringmarketplace-2016-01-14/BatchMeterUsage
@@ -162,31 +162,31 @@ func (c *MarketplaceMetering) MeterUsageRequest(input *MeterUsageInput) (req *re
 // API operation MeterUsage for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInternalServiceErrorException "InternalServiceErrorException"
+//   * InternalServiceErrorException
 //   An internal error has occurred. Retry your request. If the problem persists,
 //   post a message with details on the AWS forums.
 //
-//   * ErrCodeInvalidProductCodeException "InvalidProductCodeException"
+//   * InvalidProductCodeException
 //   The product code passed does not match the product code used for publishing
 //   the product.
 //
-//   * ErrCodeInvalidUsageDimensionException "InvalidUsageDimensionException"
+//   * InvalidUsageDimensionException
 //   The usage dimension does not match one of the UsageDimensions associated
 //   with products.
 //
-//   * ErrCodeInvalidEndpointRegionException "InvalidEndpointRegionException"
+//   * InvalidEndpointRegionException
 //   The endpoint being called is in a region different from your EC2 instance.
 //   The region of the Metering service endpoint and the region of the EC2 instance
 //   must match.
 //
-//   * ErrCodeTimestampOutOfBoundsException "TimestampOutOfBoundsException"
+//   * TimestampOutOfBoundsException
 //   The timestamp value passed in the meterUsage() is out of allowed range.
 //
-//   * ErrCodeDuplicateRequestException "DuplicateRequestException"
+//   * DuplicateRequestException
 //   A metering record has already been emitted by the same EC2 instance for the
 //   given {usageDimension, timestamp} with a different usageQuantity.
 //
-//   * ErrCodeThrottlingException "ThrottlingException"
+//   * ThrottlingException
 //   The calls to the MeterUsage API are throttled.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/meteringmarketplace-2016-01-14/MeterUsage
@@ -254,19 +254,20 @@ func (c *MarketplaceMetering) ResolveCustomerRequest(input *ResolveCustomerInput
 // API operation ResolveCustomer for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidTokenException "InvalidTokenException"
+//   * InvalidTokenException
+
 //
-//   * ErrCodeExpiredTokenException "ExpiredTokenException"
+//   * ExpiredTokenException
 //   The submitted registration token has expired. This can happen if the buyer's
 //   browser takes too long to redirect to your page, the buyer has resubmitted
 //   the registration token, or your application has held on to the registration
 //   token for too long. Your SaaS registration website should redeem this token
 //   as soon as it is submitted by the buyer's browser.
 //
-//   * ErrCodeThrottlingException "ThrottlingException"
+//   * ThrottlingException
 //   The calls to the MeterUsage API are throttled.
 //
-//   * ErrCodeInternalServiceErrorException "InternalServiceErrorException"
+//   * InternalServiceErrorException
 //   An internal error has occurred. Retry your request. If the problem persists,
 //   post a message with details on the AWS forums.
 //

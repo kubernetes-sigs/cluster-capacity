@@ -6,10 +6,6 @@ import (
 	"github.com/aws/aws-sdk-go/private/waiter"
 )
 
-// WaitUntilBucketExists uses the Amazon S3 API operation
-// HeadBucket to wait for a condition to be met before returning.
-// If the condition is not meet within the max attempt window an error will
-// be returned.
 func (c *S3) WaitUntilBucketExists(input *HeadBucketInput) error {
 	waiterCfg := waiter.Config{
 		Operation:   "HeadBucket",
@@ -21,12 +17,6 @@ func (c *S3) WaitUntilBucketExists(input *HeadBucketInput) error {
 				Matcher:  "status",
 				Argument: "",
 				Expected: 200,
-			},
-			{
-				State:    "success",
-				Matcher:  "status",
-				Argument: "",
-				Expected: 301,
 			},
 			{
 				State:    "success",
@@ -51,10 +41,6 @@ func (c *S3) WaitUntilBucketExists(input *HeadBucketInput) error {
 	return w.Wait()
 }
 
-// WaitUntilBucketNotExists uses the Amazon S3 API operation
-// HeadBucket to wait for a condition to be met before returning.
-// If the condition is not meet within the max attempt window an error will
-// be returned.
 func (c *S3) WaitUntilBucketNotExists(input *HeadBucketInput) error {
 	waiterCfg := waiter.Config{
 		Operation:   "HeadBucket",
@@ -78,10 +64,6 @@ func (c *S3) WaitUntilBucketNotExists(input *HeadBucketInput) error {
 	return w.Wait()
 }
 
-// WaitUntilObjectExists uses the Amazon S3 API operation
-// HeadObject to wait for a condition to be met before returning.
-// If the condition is not meet within the max attempt window an error will
-// be returned.
 func (c *S3) WaitUntilObjectExists(input *HeadObjectInput) error {
 	waiterCfg := waiter.Config{
 		Operation:   "HeadObject",
@@ -111,10 +93,6 @@ func (c *S3) WaitUntilObjectExists(input *HeadObjectInput) error {
 	return w.Wait()
 }
 
-// WaitUntilObjectNotExists uses the Amazon S3 API operation
-// HeadObject to wait for a condition to be met before returning.
-// If the condition is not meet within the max attempt window an error will
-// be returned.
 func (c *S3) WaitUntilObjectNotExists(input *HeadObjectInput) error {
 	waiterCfg := waiter.Config{
 		Operation:   "HeadObject",

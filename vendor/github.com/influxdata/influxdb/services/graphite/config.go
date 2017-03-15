@@ -23,7 +23,7 @@ const (
 	DefaultConsistencyLevel = "one"
 
 	// DefaultSeparator is the default join character to use when joining multiple
-	// measurement parts in a template.
+	// measurment parts in a template.
 	DefaultSeparator = "."
 
 	// DefaultBatchSize is the default write batch size.
@@ -54,7 +54,6 @@ type Config struct {
 	Enabled          bool          `toml:"enabled"`
 	BindAddress      string        `toml:"bind-address"`
 	Database         string        `toml:"database"`
-	RetentionPolicy  string        `toml:"retention-policy"`
 	Protocol         string        `toml:"protocol"`
 	BatchSize        int           `toml:"batch-size"`
 	BatchPending     int           `toml:"batch-pending"`
@@ -116,12 +115,12 @@ func (c *Config) WithDefaults() *Config {
 
 // DefaultTags returns the config's tags.
 func (c *Config) DefaultTags() models.Tags {
-	m := make(map[string]string, len(c.Tags))
+	tags := models.Tags{}
 	for _, t := range c.Tags {
 		parts := strings.Split(t, "=")
-		m[parts[0]] = parts[1]
+		tags[parts[0]] = parts[1]
 	}
-	return models.NewTags(m)
+	return tags
 }
 
 // Validate validates the config's templates and tags.

@@ -68,15 +68,15 @@ func (c *Snowball) CancelClusterRequest(input *CancelClusterInput) (req *request
 // API operation CancelCluster for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeKMSRequestFailedException "KMSRequestFailedException"
+//   * KMSRequestFailedException
 //   The provided AWS Key Management Service key lacks the permissions to perform
 //   the specified CreateJob or UpdateJob action.
 //
-//   * ErrCodeInvalidJobStateException "InvalidJobStateException"
+//   * InvalidJobStateException
 //   The action can't be performed because the job's current state doesn't allow
 //   that action to be performed.
 //
-//   * ErrCodeInvalidResourceException "InvalidResourceException"
+//   * InvalidResourceException
 //   The specified resource can't be found. Check the information you provided
 //   in your last request, and try again.
 //
@@ -145,15 +145,15 @@ func (c *Snowball) CancelJobRequest(input *CancelJobInput) (req *request.Request
 // API operation CancelJob for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidResourceException "InvalidResourceException"
+//   * InvalidResourceException
 //   The specified resource can't be found. Check the information you provided
 //   in your last request, and try again.
 //
-//   * ErrCodeInvalidJobStateException "InvalidJobStateException"
+//   * InvalidJobStateException
 //   The action can't be performed because the job's current state doesn't allow
 //   that action to be performed.
 //
-//   * ErrCodeKMSRequestFailedException "KMSRequestFailedException"
+//   * KMSRequestFailedException
 //   The provided AWS Key Management Service key lacks the permissions to perform
 //   the specified CreateJob or UpdateJob action.
 //
@@ -223,11 +223,11 @@ func (c *Snowball) CreateAddressRequest(input *CreateAddressInput) (req *request
 // API operation CreateAddress for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidAddressException "InvalidAddressException"
+//   * InvalidAddressException
 //   The address provided was invalid. Check the address with your region's carrier,
 //   and try again.
 //
-//   * ErrCodeUnsupportedAddressException "UnsupportedAddressException"
+//   * UnsupportedAddressException
 //   The address is either outside the serviceable area for your region, or an
 //   error occurred. Check the address with your region's carrier and try again.
 //   If the issue persists, contact AWS Support.
@@ -296,15 +296,15 @@ func (c *Snowball) CreateClusterRequest(input *CreateClusterInput) (req *request
 // API operation CreateCluster for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidResourceException "InvalidResourceException"
+//   * InvalidResourceException
 //   The specified resource can't be found. Check the information you provided
 //   in your last request, and try again.
 //
-//   * ErrCodeKMSRequestFailedException "KMSRequestFailedException"
+//   * KMSRequestFailedException
 //   The provided AWS Key Management Service key lacks the permissions to perform
 //   the specified CreateJob or UpdateJob action.
 //
-//   * ErrCodeInvalidInputCombinationException "InvalidInputCombinationException"
+//   * InvalidInputCombinationException
 //   Job or cluster creation failed. One ore more inputs were invalid. Confirm
 //   that the CreateClusterRequest$SnowballType value supports your CreateJobRequest$JobType,
 //   and try again.
@@ -375,20 +375,20 @@ func (c *Snowball) CreateJobRequest(input *CreateJobInput) (req *request.Request
 // API operation CreateJob for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidResourceException "InvalidResourceException"
+//   * InvalidResourceException
 //   The specified resource can't be found. Check the information you provided
 //   in your last request, and try again.
 //
-//   * ErrCodeKMSRequestFailedException "KMSRequestFailedException"
+//   * KMSRequestFailedException
 //   The provided AWS Key Management Service key lacks the permissions to perform
 //   the specified CreateJob or UpdateJob action.
 //
-//   * ErrCodeInvalidInputCombinationException "InvalidInputCombinationException"
+//   * InvalidInputCombinationException
 //   Job or cluster creation failed. One ore more inputs were invalid. Confirm
 //   that the CreateClusterRequest$SnowballType value supports your CreateJobRequest$JobType,
 //   and try again.
 //
-//   * ErrCodeClusterLimitExceededException "ClusterLimitExceededException"
+//   * ClusterLimitExceededException
 //   Job creation failed. Currently, clusters support five nodes. If you have
 //   less than five nodes for your cluster and you have more nodes to create for
 //   this cluster, try again and create jobs until your cluster has exactly five
@@ -457,7 +457,7 @@ func (c *Snowball) DescribeAddressRequest(input *DescribeAddressInput) (req *req
 // API operation DescribeAddress for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidResourceException "InvalidResourceException"
+//   * InvalidResourceException
 //   The specified resource can't be found. Check the information you provided
 //   in your last request, and try again.
 //
@@ -531,7 +531,7 @@ func (c *Snowball) DescribeAddressesRequest(input *DescribeAddressesInput) (req 
 // API operation DescribeAddresses for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidResourceException "InvalidResourceException"
+//   * InvalidResourceException
 //   The specified resource can't be found. Check the information you provided
 //   in your last request, and try again.
 //
@@ -623,7 +623,7 @@ func (c *Snowball) DescribeClusterRequest(input *DescribeClusterInput) (req *req
 // API operation DescribeCluster for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidResourceException "InvalidResourceException"
+//   * InvalidResourceException
 //   The specified resource can't be found. Check the information you provided
 //   in your last request, and try again.
 //
@@ -690,7 +690,7 @@ func (c *Snowball) DescribeJobRequest(input *DescribeJobInput) (req *request.Req
 // API operation DescribeJob for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidResourceException "InvalidResourceException"
+//   * InvalidResourceException
 //   The specified resource can't be found. Check the information you provided
 //   in your last request, and try again.
 //
@@ -773,11 +773,11 @@ func (c *Snowball) GetJobManifestRequest(input *GetJobManifestInput) (req *reque
 // API operation GetJobManifest for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidResourceException "InvalidResourceException"
+//   * InvalidResourceException
 //   The specified resource can't be found. Check the information you provided
 //   in your last request, and try again.
 //
-//   * ErrCodeInvalidJobStateException "InvalidJobStateException"
+//   * InvalidJobStateException
 //   The action can't be performed because the job's current state doesn't allow
 //   that action to be performed.
 //
@@ -855,11 +855,11 @@ func (c *Snowball) GetJobUnlockCodeRequest(input *GetJobUnlockCodeInput) (req *r
 // API operation GetJobUnlockCode for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidResourceException "InvalidResourceException"
+//   * InvalidResourceException
 //   The specified resource can't be found. Check the information you provided
 //   in your last request, and try again.
 //
-//   * ErrCodeInvalidJobStateException "InvalidJobStateException"
+//   * InvalidJobStateException
 //   The action can't be performed because the job's current state doesn't allow
 //   that action to be performed.
 //
@@ -991,7 +991,7 @@ func (c *Snowball) ListClusterJobsRequest(input *ListClusterJobsInput) (req *req
 // API operation ListClusterJobs for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidResourceException "InvalidResourceException"
+//   * InvalidResourceException
 //   The specified resource can't be found. Check the information you provided
 //   in your last request, and try again.
 //
@@ -1217,19 +1217,19 @@ func (c *Snowball) UpdateClusterRequest(input *UpdateClusterInput) (req *request
 // API operation UpdateCluster for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidResourceException "InvalidResourceException"
+//   * InvalidResourceException
 //   The specified resource can't be found. Check the information you provided
 //   in your last request, and try again.
 //
-//   * ErrCodeInvalidJobStateException "InvalidJobStateException"
+//   * InvalidJobStateException
 //   The action can't be performed because the job's current state doesn't allow
 //   that action to be performed.
 //
-//   * ErrCodeKMSRequestFailedException "KMSRequestFailedException"
+//   * KMSRequestFailedException
 //   The provided AWS Key Management Service key lacks the permissions to perform
 //   the specified CreateJob or UpdateJob action.
 //
-//   * ErrCodeInvalidInputCombinationException "InvalidInputCombinationException"
+//   * InvalidInputCombinationException
 //   Job or cluster creation failed. One ore more inputs were invalid. Confirm
 //   that the CreateClusterRequest$SnowballType value supports your CreateJobRequest$JobType,
 //   and try again.
@@ -1298,24 +1298,24 @@ func (c *Snowball) UpdateJobRequest(input *UpdateJobInput) (req *request.Request
 // API operation UpdateJob for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidResourceException "InvalidResourceException"
+//   * InvalidResourceException
 //   The specified resource can't be found. Check the information you provided
 //   in your last request, and try again.
 //
-//   * ErrCodeInvalidJobStateException "InvalidJobStateException"
+//   * InvalidJobStateException
 //   The action can't be performed because the job's current state doesn't allow
 //   that action to be performed.
 //
-//   * ErrCodeKMSRequestFailedException "KMSRequestFailedException"
+//   * KMSRequestFailedException
 //   The provided AWS Key Management Service key lacks the permissions to perform
 //   the specified CreateJob or UpdateJob action.
 //
-//   * ErrCodeInvalidInputCombinationException "InvalidInputCombinationException"
+//   * InvalidInputCombinationException
 //   Job or cluster creation failed. One ore more inputs were invalid. Confirm
 //   that the CreateClusterRequest$SnowballType value supports your CreateJobRequest$JobType,
 //   and try again.
 //
-//   * ErrCodeClusterLimitExceededException "ClusterLimitExceededException"
+//   * ClusterLimitExceededException
 //   Job creation failed. Currently, clusters support five nodes. If you have
 //   less than five nodes for your cluster and you have more nodes to create for
 //   this cluster, try again and create jobs until your cluster has exactly five

@@ -16,12 +16,10 @@ package bigquery
 
 import (
 	"reflect"
-	"strings"
 	"testing"
 
 	"golang.org/x/net/context"
 
-	"cloud.google.com/go/internal/pretty"
 	bq "google.golang.org/api/bigquery/v2"
 )
 
@@ -68,48 +66,26 @@ func bqNestedFieldSchema() *bq.TableFieldSchema {
 }
 
 func TestLoad(t *testing.T) {
-	c := &Client{projectID: "project-id"}
-
 	testCases := []struct {
-		dst    *Table
-		src    LoadSource
-		config LoadConfig
-		want   *bq.Job
+		dst     *Table
+		src     *GCSReference
+		options []Option
+		want    *bq.Job
 	}{
 		{
-			dst:  c.Dataset("dataset-id").Table("table-id"),
-			src:  NewGCSReference("uri"),
+			dst:  defaultTable(nil),
+			src:  defaultGCS,
 			want: defaultLoadJob(),
 		},
 		{
-			dst: c.Dataset("dataset-id").Table("table-id"),
-			config: LoadConfig{
-				CreateDisposition: CreateNever,
-				WriteDisposition:  WriteTruncate,
-				JobID:             "ajob",
+			dst: defaultTable(nil),
+			src: defaultGCS,
+			options: []Option{
+				MaxBadRecords(1),
+				AllowJaggedRows(),
+				AllowQuotedNewlines(),
+				IgnoreUnknownValues(),
 			},
-			src: NewGCSReference("uri"),
-			want: func() *bq.Job {
-				j := defaultLoadJob()
-				j.Configuration.Load.CreateDisposition = "CREATE_NEVER"
-				j.Configuration.Load.WriteDisposition = "WRITE_TRUNCATE"
-				j.JobReference = &bq.JobReference{
-					JobId:     "ajob",
-					ProjectId: "project-id",
-				}
-				return j
-			}(),
-		},
-		{
-			dst: c.Dataset("dataset-id").Table("table-id"),
-			src: func() *GCSReference {
-				g := NewGCSReference("uri")
-				g.MaxBadRecords = 1
-				g.AllowJaggedRows = true
-				g.AllowQuotedNewlines = true
-				g.IgnoreUnknownValues = true
-				return g
-			}(),
 			want: func() *bq.Job {
 				j := defaultLoadJob()
 				j.Configuration.Load.MaxBadRecords = 1
@@ -120,15 +96,33 @@ func TestLoad(t *testing.T) {
 			}(),
 		},
 		{
-			dst: c.Dataset("dataset-id").Table("table-id"),
-			src: func() *GCSReference {
-				g := NewGCSReference("uri")
-				g.Schema = Schema{
+			dst: &Table{
+				ProjectID: "project-id",
+				DatasetID: "dataset-id",
+				TableID:   "table-id",
+			},
+			options: []Option{CreateNever, WriteTruncate},
+			src:     defaultGCS,
+			want: func() *bq.Job {
+				j := defaultLoadJob()
+				j.Configuration.Load.CreateDisposition = "CREATE_NEVER"
+				j.Configuration.Load.WriteDisposition = "WRITE_TRUNCATE"
+				return j
+			}(),
+		},
+		{
+			dst: &Table{
+				ProjectID: "project-id",
+				DatasetID: "dataset-id",
+				TableID:   "table-id",
+			},
+			src: defaultGCS,
+			options: []Option{
+				DestinationSchema(Schema{
 					stringFieldSchema(),
 					nestedFieldSchema(),
-				}
-				return g
-			}(),
+				}),
+			},
 			want: func() *bq.Job {
 				j := defaultLoadJob()
 				j.Configuration.Load.Schema = &bq.TableSchema{
@@ -140,16 +134,15 @@ func TestLoad(t *testing.T) {
 			}(),
 		},
 		{
-			dst: c.Dataset("dataset-id").Table("table-id"),
-			src: func() *GCSReference {
-				g := NewGCSReference("uri")
-				g.SkipLeadingRows = 1
-				g.SourceFormat = JSON
-				g.Encoding = UTF_8
-				g.FieldDelimiter = "\t"
-				g.Quote = "-"
-				return g
-			}(),
+			dst: defaultTable(nil),
+			src: &GCSReference{
+				uris:            []string{"uri"},
+				SkipLeadingRows: 1,
+				SourceFormat:    JSON,
+				Encoding:        UTF_8,
+				FieldDelimiter:  "\t",
+				Quote:           "-",
+			},
 			want: func() *bq.Job {
 				j := defaultLoadJob()
 				j.Configuration.Load.SkipLeadingRows = 1
@@ -162,22 +155,24 @@ func TestLoad(t *testing.T) {
 			}(),
 		},
 		{
-			dst: c.Dataset("dataset-id").Table("table-id"),
-			src: NewGCSReference("uri"),
+			dst: defaultTable(nil),
+			src: &GCSReference{
+				uris:  []string{"uri"},
+				Quote: "",
+			},
 			want: func() *bq.Job {
 				j := defaultLoadJob()
-				// Quote is left unset in GCSReference, so should be nil here.
 				j.Configuration.Load.Quote = nil
 				return j
 			}(),
 		},
 		{
-			dst: c.Dataset("dataset-id").Table("table-id"),
-			src: func() *GCSReference {
-				g := NewGCSReference("uri")
-				g.ForceZeroQuote = true
-				return g
-			}(),
+			dst: defaultTable(nil),
+			src: &GCSReference{
+				uris:           []string{"uri"},
+				Quote:          "",
+				ForceZeroQuote: true,
+			},
 			want: func() *bq.Job {
 				j := defaultLoadJob()
 				empty := ""
@@ -185,45 +180,19 @@ func TestLoad(t *testing.T) {
 				return j
 			}(),
 		},
-		{
-			dst: c.Dataset("dataset-id").Table("table-id"),
-			src: func() *ReaderSource {
-				r := NewReaderSource(strings.NewReader("foo"))
-				r.SkipLeadingRows = 1
-				r.SourceFormat = JSON
-				r.Encoding = UTF_8
-				r.FieldDelimiter = "\t"
-				r.Quote = "-"
-				return r
-			}(),
-			want: func() *bq.Job {
-				j := defaultLoadJob()
-				j.Configuration.Load.SourceUris = nil
-				j.Configuration.Load.SkipLeadingRows = 1
-				j.Configuration.Load.SourceFormat = "NEWLINE_DELIMITED_JSON"
-				j.Configuration.Load.Encoding = "UTF-8"
-				j.Configuration.Load.FieldDelimiter = "\t"
-				hyphen := "-"
-				j.Configuration.Load.Quote = &hyphen
-				return j
-			}(),
-		},
 	}
 
-	for i, tc := range testCases {
+	for _, tc := range testCases {
 		s := &testService{}
-		c.service = s
-		loader := tc.dst.LoaderFrom(tc.src)
-		tc.config.Src = tc.src
-		tc.config.Dst = tc.dst
-		loader.LoadConfig = tc.config
-		if _, err := loader.Run(context.Background()); err != nil {
-			t.Errorf("%d: err calling Loader.Run: %v", i, err)
+		c := &Client{
+			service: s,
+		}
+		if _, err := c.Copy(context.Background(), tc.dst, tc.src, tc.options...); err != nil {
+			t.Errorf("err calling load: %v", err)
 			continue
 		}
 		if !reflect.DeepEqual(s.Job, tc.want) {
-			t.Errorf("loading %d: got:\n%v\nwant:\n%v",
-				i, pretty.Value(s.Job), pretty.Value(tc.want))
+			t.Errorf("loading: got:\n%v\nwant:\n%v", s.Job, tc.want)
 		}
 	}
 }

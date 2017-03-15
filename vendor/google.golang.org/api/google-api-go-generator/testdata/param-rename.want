@@ -88,10 +88,6 @@ type ReportsService struct {
 	s *Service
 }
 
-type Event string
-
-type ResultTable string
-
 // method id "calendar.events.move":
 
 type EventsMoveCall struct {
