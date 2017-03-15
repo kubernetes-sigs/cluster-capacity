@@ -25,6 +25,7 @@ import:
   - pkg/apis/extensions
   - pkg/client/clientset_generated/internalclientset
   - pkg/client/clientset_generated/internalclientset/typed/extensions/unversioned
+  - pkg/client/informers/informers_generated/internalversion
   - pkg/client/record
   - pkg/client/restclient
   - pkg/fields
