@@ -1,4 +1,4 @@
-package: github.com/ingvagabund/cluster-capacity
+package: github.com/kubernetes-incubator/cluster-capacity
 import:
 - package: github.com/emicklei/go-restful
   version: v1.2
