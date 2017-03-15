@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"reflect"
 
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/meta"
 	"k8s.io/kubernetes/pkg/apis/extensions"
-	"k8s.io/kubernetes/pkg/client/cache"
 
 	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
 )
