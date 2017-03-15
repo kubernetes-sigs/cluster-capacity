@@ -1,6 +1,6 @@
 # Cluster capacity analysis framework
 
-Implementation of [cluster capacity analysis](https://github.com/ingvagabund/kubernetes/blob/a6cf56c2482627b0adebaffe1953c69ea4b4e4db/docs/proposals/cluster-capacity.md).
+Implementation of [cluster capacity analysis](https://github.com/kubernetes-incubator/cluster-capacity/blob/master/doc/cluster-capacity.md).
 
 ## Intro
 
