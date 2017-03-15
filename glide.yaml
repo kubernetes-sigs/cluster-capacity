@@ -11,6 +11,7 @@ import:
   - tools/cache
   - tools/record
   - rest
+  - util/flowcontrol
 - package: k8s.io/apiserver
   subpackages:
   - pkg/admission
@@ -32,7 +33,6 @@ import:
   - pkg/kubeapiserver/authorizer
   - pkg/labels
   - pkg/runtime
-  - pkg/util/flowcontrol
   - pkg/util/yaml
   - pkg/watch
   - plugin/cmd/kube-scheduler/app/options
