@@ -10,6 +10,7 @@ import:
   - tools/clientcmd
   - tools/cache
   - tools/record
+  - rest
 - package: k8s.io/apiserver
   subpackages:
   - pkg/admission
@@ -27,7 +28,6 @@ import:
   - pkg/client/clientset_generated/internalclientset
   - pkg/client/clientset_generated/internalclientset/typed/extensions/unversioned
   - pkg/client/informers/informers_generated/internalversion
-  - pkg/client/restclient
   - pkg/fields
   - pkg/kubeapiserver/authorizer
   - pkg/labels
