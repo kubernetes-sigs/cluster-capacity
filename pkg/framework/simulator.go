@@ -26,6 +26,7 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/kubernetes/pkg/api"
@@ -36,7 +37,6 @@ import (
 	informers "k8s.io/kubernetes/pkg/client/informers/informers_generated/internalversion"
 	"k8s.io/kubernetes/pkg/fields"
 	"k8s.io/kubernetes/pkg/kubeapiserver/authorizer"
-	"k8s.io/kubernetes/pkg/runtime"
 	"k8s.io/kubernetes/pkg/util/sets"
 	"k8s.io/kubernetes/pkg/watch"
 	soptions "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app/options"

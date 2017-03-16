@@ -27,6 +27,7 @@ import (
 	"strings"
 	"sync"
 
+	"k8s.io/apimachinery/pkg/runtime"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/util/flowcontrol"
 	"k8s.io/kubernetes/pkg/api"
@@ -34,7 +35,6 @@ import (
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/apis/extensions"
 	"k8s.io/kubernetes/pkg/fields"
-	"k8s.io/kubernetes/pkg/runtime"
 	"k8s.io/kubernetes/pkg/watch"
 
 	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"

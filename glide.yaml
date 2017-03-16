@@ -15,6 +15,9 @@ import:
 - package: k8s.io/apiserver
   subpackages:
   - pkg/admission
+- package: k8s.io/apimachinery
+  subpackages:
+  - pkg/runtime
 - package: k8s.io/kubernetes
   version: release-1.6
   subpackages:
@@ -32,7 +35,6 @@ import:
   - pkg/fields
   - pkg/kubeapiserver/authorizer
   - pkg/labels
-  - pkg/runtime
   - pkg/util/yaml
   - pkg/watch
   - plugin/cmd/kube-scheduler/app/options

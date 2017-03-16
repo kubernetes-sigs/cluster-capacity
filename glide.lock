@@ -1,5 +1,5 @@
-hash: 53e0ae47cae21ca273c448d5504867a13282664805538c52c0d25be14d5074f2
-updated: 2017-03-15T17:58:36.055955225-04:00
+hash: 6392f509d2eb48fade7bbd075cc8f82f16b71a7fe6bf20b61d0187c6d1dfcf6a
+updated: 2017-03-15T18:59:40.82530145-04:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -343,7 +343,6 @@ imports:
   - pkg/util/diff
   - pkg/util/errors
   - pkg/util/framer
-  - pkg/util/httpstream
   - pkg/util/intstr
   - pkg/util/json
   - pkg/util/mergepatch
@@ -622,7 +621,6 @@ imports:
   - pkg/quota/generic
   - pkg/quota/install
   - pkg/registry/rbac/validation
-  - pkg/runtime
   - pkg/security/apparmor
   - pkg/security/podsecuritypolicy
   - pkg/security/podsecuritypolicy/apparmor
