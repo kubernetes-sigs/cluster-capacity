@@ -19,9 +19,9 @@ package api
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/apis/extensions"
-	"k8s.io/kubernetes/pkg/runtime"
 )
 
 type ResourceType string
