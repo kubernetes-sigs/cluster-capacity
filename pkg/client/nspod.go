@@ -19,22 +19,23 @@ package client
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/resource"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
-	"k8s.io/kubernetes/pkg/labels"
 )
 
 // Retrieve a namespace pod constructed from the namespace limitations.
 // Limitations cover pod resource limits and node selector if available
 func RetrieveNamespacePod(client clientset.Interface, namespace string) (*api.Pod, error) {
-	ns, err := client.Core().Namespaces().Get(namespace)
+	ns, err := client.Core().Namespaces().Get(namespace, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("Namespace %v not found: %v", namespace, err)
 	}
 
 	// Iterate through all limit ranges and pick the minimum of all related to pod constraints
-	limits, err := client.Core().LimitRanges(namespace).List(api.ListOptions{})
+	limits, err := client.Core().LimitRanges(namespace).List(metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("Could not retrieve limit ranges for %v namespaces: %v", namespace, err)
 	}
