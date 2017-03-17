@@ -21,6 +21,8 @@ import:
   - pkg/apis/meta/v1
   - pkg/api/resource
   - pkg/labels
+  - pkg/watch
+  - pkg/runtime/schema
 - package: k8s.io/kubernetes
   version: v1.6.0-beta.0
   subpackages:
