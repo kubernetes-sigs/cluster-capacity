@@ -33,17 +33,10 @@ const (
 	// ClusterUpgrade indicates that both master and nodes are
 	// being upgraded.
 	ClusterUpgrade
-
-	// EtcdUpgrade indicates that only etcd is being upgraded (or migrated
-	// between storage versions).
-	EtcdUpgrade
 )
 
 // Test is an interface for upgrade tests.
 type Test interface {
-	// Name should return a test name sans spaces.
-	Name() string
-
 	// Setup should create and verify whatever objects need to
 	// exist before the upgrade disruption starts.
 	Setup(f *framework.Framework)

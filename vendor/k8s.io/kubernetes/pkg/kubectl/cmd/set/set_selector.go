@@ -112,7 +112,7 @@ func (o *SelectorOptions) Complete(f cmdutil.Factory, cmd *cobra.Command, args [
 		return err
 	}
 
-	o.changeCause = f.Command(cmd, false)
+	o.changeCause = f.Command()
 	mapper, _ := f.Object()
 	o.mapper = mapper
 	o.encoder = f.JSONEncoder()

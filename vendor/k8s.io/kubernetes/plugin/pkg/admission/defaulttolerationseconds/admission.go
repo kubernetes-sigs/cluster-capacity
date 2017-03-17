@@ -21,15 +21,16 @@ import (
 	"fmt"
 	"io"
 
-	"k8s.io/apimachinery/pkg/api/errors"
+	"github.com/golang/glog"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/admission"
-	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api/v1"
 )
 
 var (
 	defaultNotReadyTolerationSeconds = flag.Int64("default-not-ready-toleration-seconds", 300,
-		"Indicates the tolerationSeconds of the toleration for notReady:NoExecute"+
+		"Indicates the tolerationSeconds of the toleration for `notReady:NoExecute`"+
 			" that is added by default to every pod that does not already have such a toleration.")
 
 	defaultUnreachableTolerationSeconds = flag.Int64("default-unreachable-toleration-seconds", 300,
@@ -61,32 +62,32 @@ func NewDefaultTolerationSeconds() admission.Interface {
 }
 
 func (p *plugin) Admit(attributes admission.Attributes) (err error) {
-	if attributes.GetResource().GroupResource() != api.Resource("pods") {
+	if attributes.GetResource().GroupResource() != v1.Resource("pods") {
 		return nil
 	}
 
-	if len(attributes.GetSubresource()) > 0 {
-		// only run the checks below on pods proper and not subresources
-		return nil
-	}
-
-	pod, ok := attributes.GetObject().(*api.Pod)
+	pod, ok := attributes.GetObject().(*v1.Pod)
 	if !ok {
-		return errors.NewBadRequest(fmt.Sprintf("expected *api.Pod but got %T", attributes.GetObject()))
+		glog.Errorf("expected pod but got %s", attributes.GetKind().Kind)
+		return nil
 	}
 
-	tolerations := pod.Spec.Tolerations
+	tolerations, err := v1.GetPodTolerations(pod)
+	if err != nil {
+		glog.V(5).Infof("Invalid pod tolerations detected, but we will leave handling of this to validation phase")
+		return nil
+	}
 
 	toleratesNodeNotReady := false
 	toleratesNodeUnreachable := false
 	for _, toleration := range tolerations {
 		if (toleration.Key == metav1.TaintNodeNotReady || len(toleration.Key) == 0) &&
-			(toleration.Effect == api.TaintEffectNoExecute || len(toleration.Effect) == 0) {
+			(toleration.Effect == v1.TaintEffectNoExecute || len(toleration.Effect) == 0) {
 			toleratesNodeNotReady = true
 		}
 
 		if (toleration.Key == metav1.TaintNodeUnreachable || len(toleration.Key) == 0) &&
-			(toleration.Effect == api.TaintEffectNoExecute || len(toleration.Effect) == 0) {
+			(toleration.Effect == v1.TaintEffectNoExecute || len(toleration.Effect) == 0) {
 			toleratesNodeUnreachable = true
 		}
 	}
@@ -97,10 +98,10 @@ func (p *plugin) Admit(attributes admission.Attributes) (err error) {
 	}
 
 	if !toleratesNodeNotReady {
-		_, err := api.AddOrUpdateTolerationInPod(pod, &api.Toleration{
+		_, err := v1.AddOrUpdateTolerationInPod(pod, &v1.Toleration{
 			Key:               metav1.TaintNodeNotReady,
-			Operator:          api.TolerationOpExists,
-			Effect:            api.TaintEffectNoExecute,
+			Operator:          v1.TolerationOpExists,
+			Effect:            v1.TaintEffectNoExecute,
 			TolerationSeconds: defaultNotReadyTolerationSeconds,
 		})
 		if err != nil {
@@ -110,10 +111,10 @@ func (p *plugin) Admit(attributes admission.Attributes) (err error) {
 	}
 
 	if !toleratesNodeUnreachable {
-		_, err := api.AddOrUpdateTolerationInPod(pod, &api.Toleration{
+		_, err := v1.AddOrUpdateTolerationInPod(pod, &v1.Toleration{
 			Key:               metav1.TaintNodeUnreachable,
-			Operator:          api.TolerationOpExists,
-			Effect:            api.TaintEffectNoExecute,
+			Operator:          v1.TolerationOpExists,
+			Effect:            v1.TaintEffectNoExecute,
 			TolerationSeconds: defaultUnreachableTolerationSeconds,
 		})
 		if err != nil {

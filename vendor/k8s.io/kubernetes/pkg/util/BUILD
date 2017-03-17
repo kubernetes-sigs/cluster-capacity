@@ -65,7 +65,6 @@ filegroup(
         "//pkg/util/interrupt:all-srcs",
         "//pkg/util/intstr:all-srcs",
         "//pkg/util/io:all-srcs",
-        "//pkg/util/ipconfig:all-srcs",
         "//pkg/util/iptables:all-srcs",
         "//pkg/util/json:all-srcs",
         "//pkg/util/keymutex:all-srcs",

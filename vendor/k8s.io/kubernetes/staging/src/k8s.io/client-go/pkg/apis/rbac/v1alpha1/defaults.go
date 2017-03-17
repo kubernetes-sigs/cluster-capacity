@@ -25,7 +25,6 @@ func addDefaultingFuncs(scheme *runtime.Scheme) error {
 	return scheme.AddDefaultingFuncs(
 		SetDefaults_ClusterRoleBinding,
 		SetDefaults_RoleBinding,
-		SetDefaults_Subject,
 	)
 }
 
@@ -37,17 +36,5 @@ func SetDefaults_ClusterRoleBinding(obj *ClusterRoleBinding) {
 func SetDefaults_RoleBinding(obj *RoleBinding) {
 	if len(obj.RoleRef.APIGroup) == 0 {
 		obj.RoleRef.APIGroup = GroupName
-	}
-}
-func SetDefaults_Subject(obj *Subject) {
-	if len(obj.APIVersion) == 0 {
-		switch obj.Kind {
-		case ServiceAccountKind:
-			obj.APIVersion = "v1"
-		case UserKind:
-			obj.APIVersion = SchemeGroupVersion.String()
-		case GroupKind:
-			obj.APIVersion = SchemeGroupVersion.String()
-		}
 	}
 }

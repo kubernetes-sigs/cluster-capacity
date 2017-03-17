@@ -22,7 +22,6 @@ import (
 	watch "k8s.io/apimachinery/pkg/watch"
 	rest "k8s.io/client-go/rest"
 	api "k8s.io/kubernetes/pkg/api"
-	scheme "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/scheme"
 )
 
 // SecretsGetter has a method to return a SecretInterface.
@@ -99,7 +98,7 @@ func (c *secrets) DeleteCollection(options *v1.DeleteOptions, listOptions v1.Lis
 	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("secrets").
-		VersionedParams(&listOptions, scheme.ParameterCodec).
+		VersionedParams(&listOptions, api.ParameterCodec).
 		Body(options).
 		Do().
 		Error()
@@ -112,7 +111,7 @@ func (c *secrets) Get(name string, options v1.GetOptions) (result *api.Secret, e
 		Namespace(c.ns).
 		Resource("secrets").
 		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
+		VersionedParams(&options, api.ParameterCodec).
 		Do().
 		Into(result)
 	return
@@ -124,7 +123,7 @@ func (c *secrets) List(opts v1.ListOptions) (result *api.SecretList, err error) 
 	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("secrets").
-		VersionedParams(&opts, scheme.ParameterCodec).
+		VersionedParams(&opts, api.ParameterCodec).
 		Do().
 		Into(result)
 	return
@@ -132,11 +131,11 @@ func (c *secrets) List(opts v1.ListOptions) (result *api.SecretList, err error) 
 
 // Watch returns a watch.Interface that watches the requested secrets.
 func (c *secrets) Watch(opts v1.ListOptions) (watch.Interface, error) {
-	opts.Watch = true
 	return c.client.Get().
+		Prefix("watch").
 		Namespace(c.ns).
 		Resource("secrets").
-		VersionedParams(&opts, scheme.ParameterCodec).
+		VersionedParams(&opts, api.ParameterCodec).
 		Watch()
 }
 

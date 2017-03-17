@@ -74,7 +74,7 @@ func (s *storage) GetService(ctx genericapirequest.Context, name string, options
 }
 
 func (s *storage) DeleteService(ctx genericapirequest.Context, name string) error {
-	_, _, err := s.Delete(ctx, name, nil)
+	_, err := s.Delete(ctx, name, nil)
 	return err
 }
 

@@ -290,7 +290,7 @@ func (p dockerPuller) GetImageRef(image string) (string, error) {
 		}
 		return imageRef, nil
 	}
-	if IsImageNotFoundError(err) {
+	if _, ok := err.(imageNotFoundError); ok {
 		return "", nil
 	}
 	return "", err

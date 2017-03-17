@@ -99,14 +99,6 @@ func (plugin *cinderPlugin) RequiresRemount() bool {
 	return false
 }
 
-func (plugin *cinderPlugin) SupportsMountOption() bool {
-	return true
-
-}
-func (plugin *cinderPlugin) SupportsBulkVolumeVerification() bool {
-	return false
-}
-
 func (plugin *cinderPlugin) GetAccessModes() []v1.PersistentVolumeAccessMode {
 	return []v1.PersistentVolumeAccessMode{
 		v1.ReadWriteOnce,

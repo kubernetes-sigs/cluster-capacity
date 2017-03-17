@@ -87,6 +87,7 @@ func (s *storage) UpdateConfigMap(ctx genericapirequest.Context, cfg *api.Config
 }
 
 func (s *storage) DeleteConfigMap(ctx genericapirequest.Context, name string) error {
-	_, _, err := s.Delete(ctx, name, nil)
+	_, err := s.Delete(ctx, name, nil)
+
 	return err
 }

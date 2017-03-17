@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/generic"
-	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/apiserver/pkg/storage"
 	"k8s.io/apiserver/pkg/storage/names"
 	"k8s.io/kubernetes/pkg/api"
@@ -43,12 +42,6 @@ type daemonSetStrategy struct {
 // Strategy is the default logic that applies when creating and updating DaemonSet objects.
 var Strategy = daemonSetStrategy{api.Scheme, names.SimpleNameGenerator}
 
-// DefaultGarbageCollectionPolicy returns Orphan because that was the default
-// behavior before the server-side garbage collection was implemented.
-func (daemonSetStrategy) DefaultGarbageCollectionPolicy() rest.GarbageCollectionPolicy {
-	return rest.OrphanDependents
-}
-
 // NamespaceScoped returns true because all DaemonSets need to be within a namespace.
 func (daemonSetStrategy) NamespaceScoped() bool {
 	return true
@@ -60,9 +53,6 @@ func (daemonSetStrategy) PrepareForCreate(ctx genericapirequest.Context, obj run
 	daemonSet.Status = extensions.DaemonSetStatus{}
 
 	daemonSet.Generation = 1
-	if daemonSet.Spec.TemplateGeneration < 1 {
-		daemonSet.Spec.TemplateGeneration = 1
-	}
 }
 
 // PrepareForUpdate clears fields that are not allowed to be set by end users on update.
@@ -72,9 +62,6 @@ func (daemonSetStrategy) PrepareForUpdate(ctx genericapirequest.Context, obj, ol
 
 	// update is not allowed to set status
 	newDaemonSet.Status = oldDaemonSet.Status
-
-	// update is not allowed to set TemplateGeneration
-	newDaemonSet.Spec.TemplateGeneration = oldDaemonSet.Spec.TemplateGeneration
 
 	// Any changes to the spec increment the generation number, any changes to the
 	// status should reflect the generation number of the corresponding object. We push
@@ -87,11 +74,6 @@ func (daemonSetStrategy) PrepareForUpdate(ctx genericapirequest.Context, obj, ol
 	//
 	// TODO: Any changes to a part of the object that represents desired state (labels,
 	// annotations etc) should also increment the generation.
-	if !reflect.DeepEqual(oldDaemonSet.Spec.Template, newDaemonSet.Spec.Template) {
-		newDaemonSet.Spec.TemplateGeneration = oldDaemonSet.Spec.TemplateGeneration + 1
-		newDaemonSet.Generation = oldDaemonSet.Generation + 1
-		return
-	}
 	if !reflect.DeepEqual(oldDaemonSet.Spec, newDaemonSet.Spec) {
 		newDaemonSet.Generation = oldDaemonSet.Generation + 1
 	}

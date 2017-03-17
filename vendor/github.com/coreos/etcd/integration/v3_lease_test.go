@@ -19,13 +19,11 @@ import (
 	"testing"
 	"time"
 
-	"golang.org/x/net/context"
-	"google.golang.org/grpc/metadata"
-
 	"github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
 	pb "github.com/coreos/etcd/etcdserver/etcdserverpb"
 	"github.com/coreos/etcd/mvcc/mvccpb"
 	"github.com/coreos/etcd/pkg/testutil"
+	"golang.org/x/net/context"
 )
 
 // TestV3LeasePrmote ensures the newly elected leader can promote itself
@@ -334,9 +332,7 @@ func TestV3LeaseFailover(t *testing.T) {
 
 	lreq := &pb.LeaseKeepAliveRequest{ID: lresp.ID}
 
-	md := metadata.Pairs(rpctypes.MetadataRequireLeaderKey, rpctypes.MetadataHasLeader)
-	mctx := metadata.NewContext(context.Background(), md)
-	ctx, cancel := context.WithCancel(mctx)
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	lac, err := lc.LeaseKeepAlive(ctx)
 	if err != nil {

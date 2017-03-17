@@ -186,11 +186,6 @@ func DeepCopy_v1_DeleteOptions(in interface{}, out interface{}, c *conversion.Cl
 			*out = new(bool)
 			**out = **in
 		}
-		if in.PropagationPolicy != nil {
-			in, out := &in.PropagationPolicy, &out.PropagationPolicy
-			*out = new(DeletionPropagation)
-			**out = **in
-		}
 		return nil
 	}
 }
@@ -414,11 +409,6 @@ func DeepCopy_v1_OwnerReference(in interface{}, out interface{}, c *conversion.C
 		*out = *in
 		if in.Controller != nil {
 			in, out := &in.Controller, &out.Controller
-			*out = new(bool)
-			**out = **in
-		}
-		if in.BlockOwnerDeletion != nil {
-			in, out := &in.BlockOwnerDeletion, &out.BlockOwnerDeletion
 			*out = new(bool)
 			**out = **in
 		}

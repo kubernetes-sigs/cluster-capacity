@@ -33,7 +33,6 @@ import (
 	apitesting "k8s.io/kubernetes/pkg/api/testing"
 	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
-	informers "k8s.io/kubernetes/pkg/client/informers/informers_generated/externalversions"
 	"k8s.io/kubernetes/plugin/pkg/scheduler/algorithm"
 	schedulerapi "k8s.io/kubernetes/plugin/pkg/scheduler/api"
 	latestschedulerapi "k8s.io/kubernetes/plugin/pkg/scheduler/api/latest"
@@ -50,19 +49,7 @@ func TestCreate(t *testing.T) {
 	server := httptest.NewServer(&handler)
 	defer server.Close()
 	client := clientset.NewForConfigOrDie(&restclient.Config{Host: server.URL, ContentConfig: restclient.ContentConfig{GroupVersion: &api.Registry.GroupOrDie(v1.GroupName).GroupVersion}})
-	informerFactory := informers.NewSharedInformerFactory(client, 0)
-	factory := NewConfigFactory(
-		v1.DefaultSchedulerName,
-		client,
-		informerFactory.Core().V1().Nodes(),
-		informerFactory.Core().V1().PersistentVolumes(),
-		informerFactory.Core().V1().PersistentVolumeClaims(),
-		informerFactory.Core().V1().ReplicationControllers(),
-		informerFactory.Extensions().V1beta1().ReplicaSets(),
-		informerFactory.Apps().V1beta1().StatefulSets(),
-		informerFactory.Core().V1().Services(),
-		v1.DefaultHardPodAffinitySymmetricWeight,
-	)
+	factory := NewConfigFactory(client, v1.DefaultSchedulerName, v1.DefaultHardPodAffinitySymmetricWeight)
 	factory.Create()
 }
 
@@ -80,19 +67,7 @@ func TestCreateFromConfig(t *testing.T) {
 	server := httptest.NewServer(&handler)
 	defer server.Close()
 	client := clientset.NewForConfigOrDie(&restclient.Config{Host: server.URL, ContentConfig: restclient.ContentConfig{GroupVersion: &api.Registry.GroupOrDie(v1.GroupName).GroupVersion}})
-	informerFactory := informers.NewSharedInformerFactory(client, 0)
-	factory := NewConfigFactory(
-		v1.DefaultSchedulerName,
-		client,
-		informerFactory.Core().V1().Nodes(),
-		informerFactory.Core().V1().PersistentVolumes(),
-		informerFactory.Core().V1().PersistentVolumeClaims(),
-		informerFactory.Core().V1().ReplicationControllers(),
-		informerFactory.Extensions().V1beta1().ReplicaSets(),
-		informerFactory.Apps().V1beta1().StatefulSets(),
-		informerFactory.Core().V1().Services(),
-		v1.DefaultHardPodAffinitySymmetricWeight,
-	)
+	factory := NewConfigFactory(client, v1.DefaultSchedulerName, v1.DefaultHardPodAffinitySymmetricWeight)
 
 	// Pre-register some predicate and priority functions
 	RegisterFitPredicate("PredicateOne", PredicateOne)
@@ -133,19 +108,7 @@ func TestCreateFromEmptyConfig(t *testing.T) {
 	server := httptest.NewServer(&handler)
 	defer server.Close()
 	client := clientset.NewForConfigOrDie(&restclient.Config{Host: server.URL, ContentConfig: restclient.ContentConfig{GroupVersion: &api.Registry.GroupOrDie(v1.GroupName).GroupVersion}})
-	informerFactory := informers.NewSharedInformerFactory(client, 0)
-	factory := NewConfigFactory(
-		v1.DefaultSchedulerName,
-		client,
-		informerFactory.Core().V1().Nodes(),
-		informerFactory.Core().V1().PersistentVolumes(),
-		informerFactory.Core().V1().PersistentVolumeClaims(),
-		informerFactory.Core().V1().ReplicationControllers(),
-		informerFactory.Extensions().V1beta1().ReplicaSets(),
-		informerFactory.Apps().V1beta1().StatefulSets(),
-		informerFactory.Core().V1().Services(),
-		v1.DefaultHardPodAffinitySymmetricWeight,
-	)
+	factory := NewConfigFactory(client, v1.DefaultSchedulerName, v1.DefaultHardPodAffinitySymmetricWeight)
 
 	configData = []byte(`{}`)
 	if err := runtime.DecodeInto(latestschedulerapi.Codec, configData, &policy); err != nil {
@@ -187,20 +150,7 @@ func TestDefaultErrorFunc(t *testing.T) {
 	mux.Handle(testapi.Default.ResourcePath("pods", "bar", "foo"), &handler)
 	server := httptest.NewServer(mux)
 	defer server.Close()
-	client := clientset.NewForConfigOrDie(&restclient.Config{Host: server.URL, ContentConfig: restclient.ContentConfig{GroupVersion: &api.Registry.GroupOrDie(v1.GroupName).GroupVersion}})
-	informerFactory := informers.NewSharedInformerFactory(client, 0)
-	factory := NewConfigFactory(
-		v1.DefaultSchedulerName,
-		client,
-		informerFactory.Core().V1().Nodes(),
-		informerFactory.Core().V1().PersistentVolumes(),
-		informerFactory.Core().V1().PersistentVolumeClaims(),
-		informerFactory.Core().V1().ReplicationControllers(),
-		informerFactory.Extensions().V1beta1().ReplicaSets(),
-		informerFactory.Apps().V1beta1().StatefulSets(),
-		informerFactory.Core().V1().Services(),
-		v1.DefaultHardPodAffinitySymmetricWeight,
-	)
+	factory := NewConfigFactory(clientset.NewForConfigOrDie(&restclient.Config{Host: server.URL, ContentConfig: restclient.ContentConfig{GroupVersion: &api.Registry.GroupOrDie(v1.GroupName).GroupVersion}}), v1.DefaultSchedulerName, v1.DefaultHardPodAffinitySymmetricWeight)
 	queue := cache.NewFIFO(cache.MetaNamespaceKeyFunc)
 	podBackoff := util.CreatePodBackoff(1*time.Millisecond, 1*time.Second)
 	errFunc := factory.MakeDefaultErrorFunc(podBackoff, queue)
@@ -297,32 +247,9 @@ func TestResponsibleForPod(t *testing.T) {
 	defer server.Close()
 	client := clientset.NewForConfigOrDie(&restclient.Config{Host: server.URL, ContentConfig: restclient.ContentConfig{GroupVersion: &api.Registry.GroupOrDie(v1.GroupName).GroupVersion}})
 	// factory of "default-scheduler"
-	informerFactory := informers.NewSharedInformerFactory(client, 0)
-	factoryDefaultScheduler := NewConfigFactory(
-		v1.DefaultSchedulerName,
-		client,
-		informerFactory.Core().V1().Nodes(),
-		informerFactory.Core().V1().PersistentVolumes(),
-		informerFactory.Core().V1().PersistentVolumeClaims(),
-		informerFactory.Core().V1().ReplicationControllers(),
-		informerFactory.Extensions().V1beta1().ReplicaSets(),
-		informerFactory.Apps().V1beta1().StatefulSets(),
-		informerFactory.Core().V1().Services(),
-		v1.DefaultHardPodAffinitySymmetricWeight,
-	)
+	factoryDefaultScheduler := NewConfigFactory(client, v1.DefaultSchedulerName, v1.DefaultHardPodAffinitySymmetricWeight)
 	// factory of "foo-scheduler"
-	factoryFooScheduler := NewConfigFactory(
-		"foo-scheduler",
-		client,
-		informerFactory.Core().V1().Nodes(),
-		informerFactory.Core().V1().PersistentVolumes(),
-		informerFactory.Core().V1().PersistentVolumeClaims(),
-		informerFactory.Core().V1().ReplicationControllers(),
-		informerFactory.Extensions().V1beta1().ReplicaSets(),
-		informerFactory.Apps().V1beta1().StatefulSets(),
-		informerFactory.Core().V1().Services(),
-		v1.DefaultHardPodAffinitySymmetricWeight,
-	)
+	factoryFooScheduler := NewConfigFactory(client, "foo-scheduler", v1.DefaultHardPodAffinitySymmetricWeight)
 	// scheduler annotations to be tested
 	schedulerFitsDefault := "default-scheduler"
 	schedulerFitsFoo := "foo-scheduler"
@@ -378,19 +305,7 @@ func TestInvalidHardPodAffinitySymmetricWeight(t *testing.T) {
 	// defer server.Close()
 	client := clientset.NewForConfigOrDie(&restclient.Config{Host: server.URL, ContentConfig: restclient.ContentConfig{GroupVersion: &api.Registry.GroupOrDie(v1.GroupName).GroupVersion}})
 	// factory of "default-scheduler"
-	informerFactory := informers.NewSharedInformerFactory(client, 0)
-	factory := NewConfigFactory(
-		v1.DefaultSchedulerName,
-		client,
-		informerFactory.Core().V1().Nodes(),
-		informerFactory.Core().V1().PersistentVolumes(),
-		informerFactory.Core().V1().PersistentVolumeClaims(),
-		informerFactory.Core().V1().ReplicationControllers(),
-		informerFactory.Extensions().V1beta1().ReplicaSets(),
-		informerFactory.Apps().V1beta1().StatefulSets(),
-		informerFactory.Core().V1().Services(),
-		-1,
-	)
+	factory := NewConfigFactory(client, v1.DefaultSchedulerName, -1)
 	_, err := factory.Create()
 	if err == nil {
 		t.Errorf("expected err: invalid hardPodAffinitySymmetricWeight, got nothing")
@@ -422,19 +337,7 @@ func TestInvalidFactoryArgs(t *testing.T) {
 	}
 
 	for _, test := range testCases {
-		informerFactory := informers.NewSharedInformerFactory(client, 0)
-		factory := NewConfigFactory(
-			v1.DefaultSchedulerName,
-			client,
-			informerFactory.Core().V1().Nodes(),
-			informerFactory.Core().V1().PersistentVolumes(),
-			informerFactory.Core().V1().PersistentVolumeClaims(),
-			informerFactory.Core().V1().ReplicationControllers(),
-			informerFactory.Extensions().V1beta1().ReplicaSets(),
-			informerFactory.Apps().V1beta1().StatefulSets(),
-			informerFactory.Core().V1().Services(),
-			test.hardPodAffinitySymmetricWeight,
-		)
+		factory := NewConfigFactory(client, v1.DefaultSchedulerName, test.hardPodAffinitySymmetricWeight)
 		_, err := factory.Create()
 		if err == nil {
 			t.Errorf("expected err: %s, got nothing", test.expectErr)

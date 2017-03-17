@@ -75,11 +75,6 @@ func (d *CachedDiscoveryClient) ServerResourcesForGroupVersion(groupVersion stri
 
 	liveResources, err := d.delegate.ServerResourcesForGroupVersion(groupVersion)
 	if err != nil {
-		glog.V(3).Infof("skipped caching discovery info due to %v", err)
-		return liveResources, err
-	}
-	if liveResources == nil || len(liveResources.APIResources) == 0 {
-		glog.V(3).Infof("skipped caching discovery info, no resources found")
 		return liveResources, err
 	}
 
@@ -122,11 +117,6 @@ func (d *CachedDiscoveryClient) ServerGroups() (*metav1.APIGroupList, error) {
 
 	liveGroups, err := d.delegate.ServerGroups()
 	if err != nil {
-		glog.V(3).Infof("skipped caching discovery info due to %v", err)
-		return liveGroups, err
-	}
-	if liveGroups == nil || len(liveGroups.Groups) == 0 {
-		glog.V(3).Infof("skipped caching discovery info, no groups found")
 		return liveGroups, err
 	}
 
@@ -151,7 +141,6 @@ func (d *CachedDiscoveryClient) getCachedFile(filename string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
 
 	fileInfo, err := file.Stat()
 	if err != nil {

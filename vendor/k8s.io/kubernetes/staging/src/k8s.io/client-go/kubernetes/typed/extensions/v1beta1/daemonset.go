@@ -20,7 +20,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
-	scheme "k8s.io/client-go/kubernetes/scheme"
+	api "k8s.io/client-go/pkg/api"
 	v1beta1 "k8s.io/client-go/pkg/apis/extensions/v1beta1"
 	rest "k8s.io/client-go/rest"
 )
@@ -116,7 +116,7 @@ func (c *daemonSets) DeleteCollection(options *v1.DeleteOptions, listOptions v1.
 	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("daemonsets").
-		VersionedParams(&listOptions, scheme.ParameterCodec).
+		VersionedParams(&listOptions, api.ParameterCodec).
 		Body(options).
 		Do().
 		Error()
@@ -129,7 +129,7 @@ func (c *daemonSets) Get(name string, options v1.GetOptions) (result *v1beta1.Da
 		Namespace(c.ns).
 		Resource("daemonsets").
 		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
+		VersionedParams(&options, api.ParameterCodec).
 		Do().
 		Into(result)
 	return
@@ -141,7 +141,7 @@ func (c *daemonSets) List(opts v1.ListOptions) (result *v1beta1.DaemonSetList, e
 	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("daemonsets").
-		VersionedParams(&opts, scheme.ParameterCodec).
+		VersionedParams(&opts, api.ParameterCodec).
 		Do().
 		Into(result)
 	return
@@ -149,11 +149,11 @@ func (c *daemonSets) List(opts v1.ListOptions) (result *v1beta1.DaemonSetList, e
 
 // Watch returns a watch.Interface that watches the requested daemonSets.
 func (c *daemonSets) Watch(opts v1.ListOptions) (watch.Interface, error) {
-	opts.Watch = true
 	return c.client.Get().
+		Prefix("watch").
 		Namespace(c.ns).
 		Resource("daemonsets").
-		VersionedParams(&opts, scheme.ParameterCodec).
+		VersionedParams(&opts, api.ParameterCodec).
 		Watch()
 }
 

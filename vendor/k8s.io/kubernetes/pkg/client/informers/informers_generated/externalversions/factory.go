@@ -32,7 +32,6 @@ import (
 	internalinterfaces "k8s.io/kubernetes/pkg/client/informers/informers_generated/externalversions/internalinterfaces"
 	policy "k8s.io/kubernetes/pkg/client/informers/informers_generated/externalversions/policy"
 	rbac "k8s.io/kubernetes/pkg/client/informers/informers_generated/externalversions/rbac"
-	settings "k8s.io/kubernetes/pkg/client/informers/informers_generated/externalversions/settings"
 	storage "k8s.io/kubernetes/pkg/client/informers/informers_generated/externalversions/storage"
 	reflect "reflect"
 	sync "sync"
@@ -104,7 +103,6 @@ type SharedInformerFactory interface {
 	Extensions() extensions.Interface
 	Policy() policy.Interface
 	Rbac() rbac.Interface
-	Settings() settings.Interface
 	Storage() storage.Interface
 }
 
@@ -138,10 +136,6 @@ func (f *sharedInformerFactory) Policy() policy.Interface {
 
 func (f *sharedInformerFactory) Rbac() rbac.Interface {
 	return rbac.New(f)
-}
-
-func (f *sharedInformerFactory) Settings() settings.Interface {
-	return settings.New(f)
 }
 
 func (f *sharedInformerFactory) Storage() storage.Interface {

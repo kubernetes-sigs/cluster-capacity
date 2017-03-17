@@ -18,6 +18,7 @@ package framework
 
 import (
 	"fmt"
+	"io/ioutil"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -37,7 +38,6 @@ import (
 	"k8s.io/kubernetes/pkg/api/v1"
 	apps "k8s.io/kubernetes/pkg/apis/apps/v1beta1"
 	"k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
-	"k8s.io/kubernetes/test/e2e/generated"
 )
 
 const (
@@ -70,7 +70,8 @@ func CreateStatefulSetService(name string, labels map[string]string) *v1.Service
 func StatefulSetFromManifest(fileName, ns string) *apps.StatefulSet {
 	var ss apps.StatefulSet
 	Logf("Parsing statefulset from %v", fileName)
-	data := generated.ReadOrDie(fileName)
+	data, err := ioutil.ReadFile(fileName)
+	Expect(err).NotTo(HaveOccurred())
 	json, err := utilyaml.ToJSON(data)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -98,17 +99,15 @@ func NewStatefulSetTester(c clientset.Interface) *StatefulSetTester {
 // CreateStatefulSet creates a StatefulSet from the manifest at manifestPath in the Namespace ns using kubectl create.
 func (s *StatefulSetTester) CreateStatefulSet(manifestPath, ns string) *apps.StatefulSet {
 	mkpath := func(file string) string {
-		return filepath.Join(manifestPath, file)
+		return filepath.Join(TestContext.RepoRoot, manifestPath, file)
 	}
 	ss := StatefulSetFromManifest(mkpath("statefulset.yaml"), ns)
-	svcYaml := generated.ReadOrDie(mkpath("service.yaml"))
-	ssYaml := generated.ReadOrDie(mkpath("statefulset.yaml"))
 
 	Logf(fmt.Sprintf("creating " + ss.Name + " service"))
-	RunKubectlOrDieInput(string(svcYaml[:]), "create", "-f", "-", fmt.Sprintf("--namespace=%v", ns))
+	RunKubectlOrDie("create", "-f", mkpath("service.yaml"), fmt.Sprintf("--namespace=%v", ns))
 
 	Logf(fmt.Sprintf("creating statefulset %v/%v with %d replicas and selector %+v", ss.Namespace, ss.Name, *(ss.Spec.Replicas), ss.Spec.Selector))
-	RunKubectlOrDieInput(string(ssYaml[:]), "create", "-f", "-", fmt.Sprintf("--namespace=%v", ns))
+	RunKubectlOrDie("create", "-f", mkpath("statefulset.yaml"), fmt.Sprintf("--namespace=%v", ns))
 	s.WaitForRunningAndReady(*ss.Spec.Replicas, ss)
 	return ss
 }
@@ -357,8 +356,7 @@ func (s *StatefulSetTester) SetHealthy(ss *apps.StatefulSet) {
 	}
 }
 
-// WaitForStatus waits for the ss.Status.Replicas to be equal to expectedReplicas
-func (s *StatefulSetTester) WaitForStatus(ss *apps.StatefulSet, expectedReplicas int32) {
+func (s *StatefulSetTester) waitForStatus(ss *apps.StatefulSet, expectedReplicas int32) {
 	Logf("Waiting for statefulset status.replicas updated to %d", expectedReplicas)
 
 	ns, name := ss.Namespace, ss.Name
@@ -367,9 +365,6 @@ func (s *StatefulSetTester) WaitForStatus(ss *apps.StatefulSet, expectedReplicas
 			ssGet, err := s.c.Apps().StatefulSets(ns).Get(name, metav1.GetOptions{})
 			if err != nil {
 				return false, err
-			}
-			if *ssGet.Status.ObservedGeneration < ss.Generation {
-				return false, nil
 			}
 			if ssGet.Status.Replicas != expectedReplicas {
 				Logf("Waiting for stateful set status to become %d, currently %d", expectedReplicas, ssGet.Status.Replicas)
@@ -408,11 +403,9 @@ func DeleteAllStatefulSets(c clientset.Interface, ns string) {
 		if err := sst.Scale(&ss, 0); err != nil {
 			errList = append(errList, fmt.Sprintf("%v", err))
 		}
-		sst.WaitForStatus(&ss, 0)
+		sst.waitForStatus(&ss, 0)
 		Logf("Deleting statefulset %v", ss.Name)
-		// Use OrphanDependents=false so it's deleted synchronously.
-		// We already made sure the Pods are gone inside Scale().
-		if err := c.Apps().StatefulSets(ss.Namespace).Delete(ss.Name, &metav1.DeleteOptions{OrphanDependents: new(bool)}); err != nil {
+		if err := c.Apps().StatefulSets(ss.Namespace).Delete(ss.Name, nil); err != nil {
 			errList = append(errList, fmt.Sprintf("%v", err))
 		}
 	}

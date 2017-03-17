@@ -90,7 +90,7 @@ func ReaperFor(kind schema.GroupKind, c internalclientset.Interface) (Reaper, er
 	case apps.Kind("StatefulSet"):
 		return &StatefulSetReaper{c.Apps(), c.Core(), Interval, Timeout}, nil
 
-	case extensions.Kind("Deployment"), apps.Kind("Deployment"):
+	case extensions.Kind("Deployment"):
 		return &DeploymentReaper{c.Extensions(), c.Extensions(), Interval, Timeout}, nil
 
 	}
@@ -322,21 +322,19 @@ func (reaper *DaemonSetReaper) Stop(namespace, name string, timeout time.Duratio
 		return err
 	}
 
-	falseVar := false
-	deleteOptions := &metav1.DeleteOptions{OrphanDependents: &falseVar}
-	return reaper.client.DaemonSets(namespace).Delete(name, deleteOptions)
+	return reaper.client.DaemonSets(namespace).Delete(name, nil)
 }
 
 func (reaper *StatefulSetReaper) Stop(namespace, name string, timeout time.Duration, gracePeriod *metav1.DeleteOptions) error {
 	statefulsets := reaper.client.StatefulSets(namespace)
 	scaler := &StatefulSetScaler{reaper.client}
-	ss, err := statefulsets.Get(name, metav1.GetOptions{})
+	ps, err := statefulsets.Get(name, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
 	if timeout == 0 {
-		numReplicas := ss.Spec.Replicas
-		timeout = Timeout + time.Duration(10*numReplicas)*time.Second
+		numPets := ps.Spec.Replicas
+		timeout = Timeout + time.Duration(10*numPets)*time.Second
 	}
 	retry := NewRetryParams(reaper.pollInterval, reaper.timeout)
 	waitForStatefulSet := NewRetryParams(reaper.pollInterval, reaper.timeout)
@@ -344,10 +342,10 @@ func (reaper *StatefulSetReaper) Stop(namespace, name string, timeout time.Durat
 		return err
 	}
 
-	// TODO: This shouldn't be needed, see corresponding TODO in StatefulSetHasDesiredReplicas.
+	// TODO: This shouldn't be needed, see corresponding TODO in StatefulSetHasDesiredPets.
 	// StatefulSet should track generation number.
 	pods := reaper.podClient.Pods(namespace)
-	selector, _ := metav1.LabelSelectorAsSelector(ss.Spec.Selector)
+	selector, _ := metav1.LabelSelectorAsSelector(ps.Spec.Selector)
 	options := metav1.ListOptions{LabelSelector: selector.String()}
 	podList, err := pods.List(options)
 	if err != nil {
@@ -368,9 +366,7 @@ func (reaper *StatefulSetReaper) Stop(namespace, name string, timeout time.Durat
 
 	// TODO: Cleanup volumes? We don't want to accidentally delete volumes from
 	// stop, so just leave this up to the statefulset.
-	falseVar := false
-	deleteOptions := &metav1.DeleteOptions{OrphanDependents: &falseVar}
-	return statefulsets.Delete(name, deleteOptions)
+	return statefulsets.Delete(name, nil)
 }
 
 func (reaper *JobReaper) Stop(namespace, name string, timeout time.Duration, gracePeriod *metav1.DeleteOptions) error {
@@ -412,14 +408,13 @@ func (reaper *JobReaper) Stop(namespace, name string, timeout time.Duration, gra
 	if len(errList) > 0 {
 		return utilerrors.NewAggregate(errList)
 	}
-	// once we have all the pods removed we can safely remove the job itself.
-	falseVar := false
-	deleteOptions := &metav1.DeleteOptions{OrphanDependents: &falseVar}
-	return jobs.Delete(name, deleteOptions)
+	// once we have all the pods removed we can safely remove the job itself
+	return jobs.Delete(name, nil)
 }
 
 func (reaper *DeploymentReaper) Stop(namespace, name string, timeout time.Duration, gracePeriod *metav1.DeleteOptions) error {
 	deployments := reaper.dClient.Deployments(namespace)
+	replicaSets := reaper.rsClient.ReplicaSets(namespace)
 	rsReaper := &ReplicaSetReaper{reaper.rsClient, reaper.pollInterval, reaper.timeout}
 
 	deployment, err := reaper.updateDeploymentWithRetries(namespace, name, func(d *extensions.Deployment) {
@@ -440,26 +435,25 @@ func (reaper *DeploymentReaper) Stop(namespace, name string, timeout time.Durati
 		return err
 	}
 
-	// Stop all replica sets belonging to this Deployment.
-	rss, err := deploymentutil.ListReplicaSetsInternal(deployment,
-		func(namespace string, options metav1.ListOptions) ([]*extensions.ReplicaSet, error) {
-			rsList, err := reaper.rsClient.ReplicaSets(namespace).List(options)
-			if err != nil {
-				return nil, err
-			}
-			rss := make([]*extensions.ReplicaSet, 0, len(rsList.Items))
-			for i := range rsList.Items {
-				rss = append(rss, &rsList.Items[i])
-			}
-			return rss, nil
-		})
+	// Do not cascade deletion for overlapping deployments.
+	if len(deployment.Annotations[deploymentutil.OverlapAnnotation]) > 0 {
+		return deployments.Delete(name, nil)
+	}
+
+	// Stop all replica sets.
+	selector, err := metav1.LabelSelectorAsSelector(deployment.Spec.Selector)
 	if err != nil {
 		return err
 	}
 
+	options := metav1.ListOptions{LabelSelector: selector.String()}
+	rsList, err := replicaSets.List(options)
+	if err != nil {
+		return err
+	}
 	errList := []error{}
-	for _, rs := range rss {
-		if err := rsReaper.Stop(rs.Namespace, rs.Name, timeout, gracePeriod); err != nil {
+	for _, rc := range rsList.Items {
+		if err := rsReaper.Stop(rc.Namespace, rc.Name, timeout, gracePeriod); err != nil {
 			scaleGetErr, ok := err.(ScaleError)
 			if errors.IsNotFound(err) || (ok && errors.IsNotFound(scaleGetErr.ActualError)) {
 				continue
@@ -515,7 +509,5 @@ func (reaper *ServiceReaper) Stop(namespace, name string, timeout time.Duration,
 	if err != nil {
 		return err
 	}
-	falseVar := false
-	deleteOptions := &metav1.DeleteOptions{OrphanDependents: &falseVar}
-	return services.Delete(name, deleteOptions)
+	return services.Delete(name, nil)
 }

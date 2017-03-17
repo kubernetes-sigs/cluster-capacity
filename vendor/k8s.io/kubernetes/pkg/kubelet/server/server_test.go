@@ -240,7 +240,6 @@ func newServerTest() *serverTestFramework {
 		stats.NewResourceAnalyzer(fw.fakeKubelet, time.Minute, &kubecontainertesting.FakeRuntime{}),
 		fw.fakeAuth,
 		true,
-		false,
 		&kubecontainertesting.Mock{},
 		fw.criHandler)
 	fw.serverUnderTest = &server

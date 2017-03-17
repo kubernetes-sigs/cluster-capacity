@@ -38,7 +38,6 @@ func main() {
 	hk.AddServer(NewScheduler())
 	hk.AddServer(NewKubelet())
 	hk.AddServer(NewKubeProxy())
-	hk.AddServer(NewKubeAggregator())
 
 	//Federation servers
 	hk.AddServer(NewFederationAPIServer())

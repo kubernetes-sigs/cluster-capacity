@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"fmt"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -84,26 +85,31 @@ func (cc *clusterClientCache) syncService(key, clusterName string, clusterCache 
 		// if serviceCache does not exists, that means the service is not created by federation, we should skip it
 		return nil
 	}
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
+	serviceInterface, exists, err := clusterCache.serviceStore.Indexer.GetByKey(key)
 	if err != nil {
 		glog.Errorf("Did not successfully get %v from store: %v, will retry later", key, err)
 		clusterCache.serviceQueue.Add(key)
 		return err
 	}
 	var needUpdate, isDeletion bool
-	service, err := clusterCache.serviceStore.Services(namespace).Get(name)
-	switch {
-	case errors.IsNotFound(err):
+	if exists {
+		service, ok := serviceInterface.(*v1.Service)
+		if ok {
+			glog.V(4).Infof("Found service for federation service %s/%s from cluster %s", service.Namespace, service.Name, clusterName)
+			needUpdate = cc.processServiceUpdate(cachedService, service, clusterName)
+		} else {
+			_, ok := serviceInterface.(cache.DeletedFinalStateUnknown)
+			if !ok {
+				return fmt.Errorf("Object contained wasn't a service or a deleted key: %+v", serviceInterface)
+			}
+			glog.Infof("Found tombstone for %v", key)
+			needUpdate = cc.processServiceDeletion(cachedService, clusterName)
+			isDeletion = true
+		}
+	} else {
 		glog.Infof("Can not get service %v for cluster %s from serviceStore", key, clusterName)
 		needUpdate = cc.processServiceDeletion(cachedService, clusterName)
 		isDeletion = true
-	case err != nil:
-		glog.Errorf("Did not successfully get %v from store: %v, will retry later", key, err)
-		clusterCache.serviceQueue.Add(key)
-		return err
-	default:
-		glog.V(4).Infof("Found service for federation service %s/%s from cluster %s", service.Namespace, service.Name, clusterName)
-		needUpdate = cc.processServiceUpdate(cachedService, service, clusterName)
 	}
 
 	if needUpdate {

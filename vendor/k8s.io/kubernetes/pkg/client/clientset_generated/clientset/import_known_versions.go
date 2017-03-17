@@ -31,7 +31,6 @@ import (
 	_ "k8s.io/kubernetes/pkg/apis/extensions/install"
 	_ "k8s.io/kubernetes/pkg/apis/policy/install"
 	_ "k8s.io/kubernetes/pkg/apis/rbac/install"
-	_ "k8s.io/kubernetes/pkg/apis/settings/install"
 	_ "k8s.io/kubernetes/pkg/apis/storage/install"
 )
 

@@ -63,7 +63,7 @@ func TestCmdInitKubernetesVersion(t *testing.T) {
 		args     string
 		expected bool
 	}{
-		{"--kubernetes-version=foobar", false},
+		{"--use-kubernetes-version=foobar", false},
 	}
 
 	for _, rt := range initTest {

@@ -68,10 +68,4 @@ if false; then
   echo "Running:" "${kubectl}" "${config[@]:+${config[@]}}" "${@+$@}" >&2
 fi
 
-if [[ "${1:-}" =~ ^(path)$ ]]; then
-  echo "${kubectl}"
-  exit 0
-fi
-
 "${kubectl}" "${config[@]:+${config[@]}}" "${@+$@}"
-

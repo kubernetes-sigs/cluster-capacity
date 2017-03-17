@@ -119,14 +119,14 @@ var _ = framework.KubeDescribe("PersistentVolumes [Feature:ReclaimPolicy]", func
 			writeContentToVSpherePV(c, pvc, volumeFileContent)
 
 			By("Delete PVC")
-			framework.DeletePersistentVolumeClaim(c, pvc.Name, ns)
+			deletePersistentVolumeClaim(c, pvc.Name, ns)
 			pvc = nil
 
 			By("Verify PV is retained")
 			framework.Logf("Waiting for PV %v to become Released", pv.Name)
 			err = framework.WaitForPersistentVolumePhase(v1.VolumeReleased, c, pv.Name, 3*time.Second, 300*time.Second)
 			Expect(err).NotTo(HaveOccurred())
-			framework.DeletePersistentVolume(c, pv.Name)
+			deletePersistentVolume(c, pv.Name)
 
 			By("Creating the PV for same volume path")
 			pv = getVSpherePersistentVolumeSpec(volumePath, v1.PersistentVolumeReclaimRetain, nil)
@@ -139,7 +139,7 @@ var _ = framework.KubeDescribe("PersistentVolumes [Feature:ReclaimPolicy]", func
 			Expect(err).NotTo(HaveOccurred())
 
 			By("wait for the pv and pvc to bind")
-			framework.WaitOnPVandPVC(c, ns, pv, pvc)
+			waitOnPVandPVC(c, ns, pv, pvc)
 			verifyContentOfVSpherePV(c, pvc, volumeFileContent)
 
 		})
@@ -173,10 +173,10 @@ func testCleanupVSpherePersistentVolumeReclaim(vsp *vsphere.VSphere, c clientset
 		vsp.DeleteVolume(volumePath)
 	}
 	if pv != nil {
-		framework.DeletePersistentVolume(c, pv.Name)
+		deletePersistentVolume(c, pv.Name)
 	}
 	if pvc != nil {
-		framework.DeletePersistentVolumeClaim(c, pvc.Name, ns)
+		deletePersistentVolumeClaim(c, pvc.Name, ns)
 	}
 }
 
@@ -185,10 +185,10 @@ func deletePVCAfterBind(c clientset.Interface, ns string, pvc *v1.PersistentVolu
 	var err error
 
 	By("wait for the pv and pvc to bind")
-	framework.WaitOnPVandPVC(c, ns, pv, pvc)
+	waitOnPVandPVC(c, ns, pv, pvc)
 
 	By("delete pvc")
-	framework.DeletePersistentVolumeClaim(c, pvc.Name, ns)
+	deletePersistentVolumeClaim(c, pvc.Name, ns)
 	pvc, err = c.CoreV1().PersistentVolumeClaims(ns).Get(pvc.Name, metav1.GetOptions{})
 	if !apierrs.IsNotFound(err) {
 		Expect(err).NotTo(HaveOccurred())

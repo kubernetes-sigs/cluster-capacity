@@ -29,8 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	clientv1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/api/v1"
-	batchv1 "k8s.io/kubernetes/pkg/apis/batch/v1"
-	batchv2alpha1 "k8s.io/kubernetes/pkg/apis/batch/v2alpha1"
+	"k8s.io/kubernetes/pkg/apis/batch/v2alpha1"
 	"k8s.io/kubernetes/test/e2e/framework"
 
 	. "github.com/onsi/ginkgo"
@@ -100,19 +99,12 @@ func observeCreation(w watch.Interface) {
 }
 
 func observeObjectDeletion(w watch.Interface) (obj runtime.Object) {
-	// output to give us a duration to failure.  Maybe we aren't getting the
-	// full timeout for some reason.  My guess would be watch failure
-	framework.Logf("Starting to observe pod deletion")
 	deleted := false
 	timeout := false
-	timer := time.After(framework.DefaultPodDeletionTimeout)
+	timer := time.After(60 * time.Second)
 	for !deleted && !timeout {
 		select {
-		case event, normal := <-w.ResultChan():
-			if !normal {
-				framework.Failf("The channel was closed unexpectedly")
-				return
-			}
+		case event, _ := <-w.ResultChan():
 			if event.Type == watch.Deleted {
 				obj = event.Object
 				deleted = true
@@ -127,31 +119,9 @@ func observeObjectDeletion(w watch.Interface) (obj runtime.Object) {
 	return
 }
 
-func observerUpdate(w watch.Interface, expectedUpdate func(runtime.Object) bool) {
-	timer := time.After(30 * time.Second)
-	updated := false
-	timeout := false
-	for !updated && !timeout {
-		select {
-		case event, _ := <-w.ResultChan():
-			if event.Type == watch.Modified {
-				if expectedUpdate(event.Object) {
-					updated = true
-				}
-			}
-		case <-timer:
-			timeout = true
-		}
-	}
-	if !updated {
-		framework.Failf("Failed to observe pod update")
-	}
-	return
-}
-
 var _ = framework.KubeDescribe("Generated release_1_5 clientset", func() {
 	f := framework.NewDefaultFramework("clientset")
-	It("should create pods, set the deletionTimestamp and deletionGracePeriodSeconds of the pod", func() {
+	It("should create pods, delete pods, watch pods", func() {
 		podClient := f.ClientSet.Core().Pods(f.Namespace.Name)
 		By("constructing the pod")
 		name := "pod" + string(uuid.NewUUID())
@@ -200,34 +170,40 @@ var _ = framework.KubeDescribe("Generated release_1_5 clientset", func() {
 		framework.ExpectNoError(f.WaitForPodRunning(pod.Name))
 
 		By("deleting the pod gracefully")
-		gracePeriod := int64(31)
-		if err := podClient.Delete(pod.Name, metav1.NewDeleteOptions(gracePeriod)); err != nil {
+		if err := podClient.Delete(pod.Name, metav1.NewDeleteOptions(30)); err != nil {
 			framework.Failf("Failed to delete pod: %v", err)
 		}
 
-		By("verifying the deletionTimestamp and deletionGracePeriodSeconds of the pod is set")
-		observerUpdate(w, func(obj runtime.Object) bool {
-			pod := obj.(*v1.Pod)
-			return pod.ObjectMeta.DeletionTimestamp != nil && *pod.ObjectMeta.DeletionGracePeriodSeconds == gracePeriod
-		})
+		By("verifying pod deletion was observed")
+		obj := observeObjectDeletion(w)
+		lastPod := obj.(*v1.Pod)
+		Expect(lastPod.DeletionTimestamp).ToNot(BeNil())
+		Expect(lastPod.Spec.TerminationGracePeriodSeconds).ToNot(BeZero())
+
+		options = metav1.ListOptions{LabelSelector: selector}
+		pods, err = podClient.List(options)
+		if err != nil {
+			framework.Failf("Failed to list pods to verify deletion: %v", err)
+		}
+		Expect(len(pods.Items)).To(Equal(0))
 	})
 })
 
-func newTestingCronJob(name string, value string) *batchv2alpha1.CronJob {
+func newTestingCronJob(name string, value string) *v2alpha1.CronJob {
 	parallelism := int32(1)
 	completions := int32(1)
-	return &batchv2alpha1.CronJob{
+	return &v2alpha1.CronJob{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 			Labels: map[string]string{
 				"time": value,
 			},
 		},
-		Spec: batchv2alpha1.CronJobSpec{
+		Spec: v2alpha1.CronJobSpec{
 			Schedule:          "*/1 * * * ?",
-			ConcurrencyPolicy: batchv2alpha1.AllowConcurrent,
-			JobTemplate: batchv2alpha1.JobTemplateSpec{
-				Spec: batchv1.JobSpec{
+			ConcurrencyPolicy: v2alpha1.AllowConcurrent,
+			JobTemplate: v2alpha1.JobTemplateSpec{
+				Spec: v2alpha1.JobSpec{
 					Parallelism: &parallelism,
 					Completions: &completions,
 					Template: v1.PodTemplateSpec{
@@ -268,9 +244,9 @@ var _ = framework.KubeDescribe("Generated release_1_5 clientset", func() {
 		groupList, err := f.ClientSet.Discovery().ServerGroups()
 		framework.ExpectNoError(err)
 		for _, group := range groupList.Groups {
-			if group.Name == batchv2alpha1.GroupName {
+			if group.Name == v2alpha1.GroupName {
 				for _, version := range group.Versions {
-					if version.Version == batchv2alpha1.SchemeGroupVersion.Version {
+					if version.Version == v2alpha1.SchemeGroupVersion.Version {
 						enabled = true
 						break
 					}
@@ -278,7 +254,7 @@ var _ = framework.KubeDescribe("Generated release_1_5 clientset", func() {
 			}
 		}
 		if !enabled {
-			framework.Logf("%s is not enabled, test skipped", batchv2alpha1.SchemeGroupVersion)
+			framework.Logf("%s is not enabled, test skipped", v2alpha1.SchemeGroupVersion)
 			return
 		}
 		cronJobClient := f.ClientSet.BatchV2alpha1().CronJobs(f.Namespace.Name)

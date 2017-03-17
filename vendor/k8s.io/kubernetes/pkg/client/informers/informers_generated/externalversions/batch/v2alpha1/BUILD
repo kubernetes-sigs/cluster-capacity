@@ -12,6 +12,7 @@ go_library(
     srcs = [
         "cronjob.go",
         "interface.go",
+        "job.go",
     ],
     tags = ["automanaged"],
     deps = [

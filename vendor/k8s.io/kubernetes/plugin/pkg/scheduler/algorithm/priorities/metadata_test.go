@@ -17,6 +17,7 @@ limitations under the License.
 package priorities
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 
@@ -42,6 +43,7 @@ func TestPriorityMetadata(t *testing.T) {
 		Value:    "bar",
 		Effect:   v1.TaintEffectPreferNoSchedule,
 	}}
+	tolerationData, _ := json.Marshal(tolerations)
 	podAffinity := &v1.Affinity{
 		PodAffinity: &v1.PodAffinity{
 			PreferredDuringSchedulingIgnoredDuringExecution: []v1.WeightedPodAffinityTerm{
@@ -64,6 +66,11 @@ func TestPriorityMetadata(t *testing.T) {
 		},
 	}
 	podWithTolerationsAndAffinity := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				v1.TolerationsAnnotationKey: string(tolerationData),
+			},
+		},
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
 				{
@@ -72,11 +79,15 @@ func TestPriorityMetadata(t *testing.T) {
 					ImagePullPolicy: "Always",
 				},
 			},
-			Affinity:    podAffinity,
-			Tolerations: tolerations,
+			Affinity: podAffinity,
 		},
 	}
 	podWithTolerationsAndRequests := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				v1.TolerationsAnnotationKey: string(tolerationData),
+			},
+		},
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
 				{
@@ -91,7 +102,6 @@ func TestPriorityMetadata(t *testing.T) {
 					},
 				},
 			},
-			Tolerations: tolerations,
 		},
 	}
 	tests := []struct {

@@ -143,8 +143,7 @@ func (pb *prober) runProbe(p *v1.Probe, pod *v1.Pod, status v1.PodStatus, contai
 	timeout := time.Duration(p.TimeoutSeconds) * time.Second
 	if p.Exec != nil {
 		glog.V(4).Infof("Exec-Probe Pod: %v, Container: %v, Command: %v", pod, container, p.Exec.Command)
-		command := kubecontainer.ExpandContainerCommandOnlyStatic(p.Exec.Command, container.Env)
-		return pb.exec.Probe(pb.newExecInContainer(container, containerID, command, timeout))
+		return pb.exec.Probe(pb.newExecInContainer(container, containerID, p.Exec.Command, timeout))
 	}
 	if p.HTTPGet != nil {
 		scheme := strings.ToLower(string(p.HTTPGet.Scheme))
@@ -250,9 +249,5 @@ func (eic execInContainer) SetStdin(in io.Reader) {
 }
 
 func (eic execInContainer) SetStdout(out io.Writer) {
-	//unimplemented
-}
-
-func (eic execInContainer) Stop() {
 	//unimplemented
 }

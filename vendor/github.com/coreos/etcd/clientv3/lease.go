@@ -143,6 +143,9 @@ func (l *lessor) Grant(ctx context.Context, ttl int64) (*LeaseGrantResponse, err
 		if isHaltErr(cctx, err) {
 			return nil, toErr(ctx, err)
 		}
+		if nerr := l.newStream(); nerr != nil {
+			return nil, nerr
+		}
 	}
 }
 
@@ -160,6 +163,9 @@ func (l *lessor) Revoke(ctx context.Context, id LeaseID) (*LeaseRevokeResponse, 
 		}
 		if isHaltErr(ctx, err) {
 			return nil, toErr(ctx, err)
+		}
+		if nerr := l.newStream(); nerr != nil {
+			return nil, nerr
 		}
 	}
 }
@@ -206,6 +212,10 @@ func (l *lessor) KeepAliveOnce(ctx context.Context, id LeaseID) (*LeaseKeepAlive
 		}
 		if isHaltErr(ctx, err) {
 			return nil, toErr(ctx, err)
+		}
+
+		if nerr := l.newStream(); nerr != nil {
+			return nil, nerr
 		}
 	}
 }
@@ -302,23 +312,10 @@ func (l *lessor) recvKeepAliveLoop() {
 
 // resetRecv opens a new lease stream and starts sending LeaseKeepAliveRequests
 func (l *lessor) resetRecv() (pb.Lease_LeaseKeepAliveClient, error) {
-	sctx, cancel := context.WithCancel(l.stopCtx)
-	stream, err := l.remote.LeaseKeepAlive(sctx, grpc.FailFast(false))
-	if err = toErr(sctx, err); err != nil {
-		cancel()
+	if err := l.newStream(); err != nil {
 		return nil, err
 	}
-
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	if l.stream != nil && l.streamCancel != nil {
-		l.stream.CloseSend()
-		l.streamCancel()
-	}
-
-	l.streamCancel = cancel
-	l.stream = stream
-
+	stream := l.getKeepAliveStream()
 	go l.sendKeepAliveLoop(stream)
 	return stream, nil
 }
@@ -412,6 +409,32 @@ func (l *lessor) sendKeepAliveLoop(stream pb.Lease_LeaseKeepAliveClient) {
 			}
 		}
 	}
+}
+
+func (l *lessor) getKeepAliveStream() pb.Lease_LeaseKeepAliveClient {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.stream
+}
+
+func (l *lessor) newStream() error {
+	sctx, cancel := context.WithCancel(l.stopCtx)
+	stream, err := l.remote.LeaseKeepAlive(sctx, grpc.FailFast(false))
+	if err != nil {
+		cancel()
+		return toErr(sctx, err)
+	}
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.stream != nil && l.streamCancel != nil {
+		l.stream.CloseSend()
+		l.streamCancel()
+	}
+
+	l.streamCancel = cancel
+	l.stream = stream
+	return nil
 }
 
 func (ka *keepAlive) Close() {

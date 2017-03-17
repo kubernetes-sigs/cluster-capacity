@@ -22,17 +22,16 @@ import (
 	"strings"
 	"testing"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/rest/fake"
 	"k8s.io/kubernetes/pkg/api"
 	cmdtesting "k8s.io/kubernetes/pkg/kubectl/cmd/testing"
+	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
 	"k8s.io/kubernetes/pkg/kubectl/resource"
-	"k8s.io/kubernetes/pkg/printers"
 )
 
 func TestImageLocal(t *testing.T) {
-	f, tf, codec, ns := cmdtesting.NewAPIFactory()
+	f, tf, _, ns := cmdtesting.NewAPIFactory()
 	tf.Client = &fake.RESTClient{
 		APIRegistry:          api.Registry,
 		NegotiatedSerializer: ns,
@@ -48,8 +47,7 @@ func TestImageLocal(t *testing.T) {
 	cmd := NewCmdImage(f, buf, buf)
 	cmd.SetOutput(buf)
 	cmd.Flags().Set("output", "name")
-	mapper, typer := f.Object()
-	tf.Printer = &printers.NamePrinter{Decoders: []runtime.Decoder{codec}, Typer: typer, Mapper: mapper}
+	tf.Printer, _, _ = cmdutil.PrinterForCommand(cmd)
 
 	opts := ImageOptions{FilenameOptions: resource.FilenameOptions{
 		Filenames: []string{"../../../../examples/storage/cassandra/cassandra-controller.yaml"}},
@@ -65,7 +63,7 @@ func TestImageLocal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !strings.Contains(buf.String(), "replicationcontrollers/cassandra") {
+	if !strings.Contains(buf.String(), "replicationcontroller/cassandra") {
 		t.Errorf("did not set image: %s", buf.String())
 	}
 }

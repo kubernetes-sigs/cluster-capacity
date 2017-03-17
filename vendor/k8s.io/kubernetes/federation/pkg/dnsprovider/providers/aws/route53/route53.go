@@ -20,7 +20,6 @@ package route53
 import (
 	"io"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/route53"
@@ -54,13 +53,7 @@ func route53HandlerLogger(req *request.Request) {
 func newRoute53(config io.Reader) (*Interface, error) {
 	// Connect to AWS Route53 - TODO: Do more sophisticated auth
 
-	awsConfig := aws.NewConfig()
-
-	// This avoids a confusing error message when we fail to get credentials
-	// e.g. https://github.com/kubernetes/kops/issues/605
-	awsConfig = awsConfig.WithCredentialsChainVerboseErrors(true)
-
-	svc := route53.New(session.New(), awsConfig)
+	svc := route53.New(session.New())
 
 	// Add our handler that will log requests
 	svc.Handlers.Sign.PushFrontNamed(request.NamedHandler{

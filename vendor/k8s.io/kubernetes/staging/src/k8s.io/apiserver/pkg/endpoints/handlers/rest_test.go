@@ -36,11 +36,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
-	"k8s.io/client-go/pkg/api"
-	"k8s.io/client-go/pkg/api/v1"
-
-	// need to register pods
-	_ "k8s.io/client-go/pkg/api/install"
+	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api/testapi"
+	"k8s.io/kubernetes/pkg/api/v1"
 )
 
 type testPatchType struct {
@@ -61,7 +59,6 @@ func TestPatchAnonymousField(t *testing.T) {
 	testGV := schema.GroupVersion{Group: "", Version: "v"}
 	api.Scheme.AddKnownTypes(testGV, &testPatchType{})
 	codec := api.Codecs.LegacyCodec(testGV)
-	defaulter := runtime.ObjectDefaulter(api.Scheme)
 
 	original := &testPatchType{
 		TypeMeta:         metav1.TypeMeta{Kind: "testPatchType", APIVersion: "v"},
@@ -74,7 +71,7 @@ func TestPatchAnonymousField(t *testing.T) {
 	}
 
 	actual := &testPatchType{}
-	_, _, err := strategicPatchObject(codec, defaulter, original, []byte(patch), actual, &testPatchType{})
+	_, _, err := strategicPatchObject(codec, original, []byte(patch), actual, &testPatchType{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -185,7 +182,7 @@ func (tc *patchTestCase) Run(t *testing.T) {
 	namespace := tc.startingPod.Namespace
 	name := tc.startingPod.Name
 
-	codec := api.Codecs.LegacyCodec(schema.GroupVersion{Version: "v1"})
+	codec := testapi.Default.Codec()
 	admit := tc.admit
 	if admit == nil {
 		admit = func(updatedObject runtime.Object, currentObject runtime.Object) error {
@@ -203,10 +200,6 @@ func (tc *patchTestCase) Run(t *testing.T) {
 
 	namer := &testNamer{namespace, name}
 	copier := runtime.ObjectCopier(api.Scheme)
-	creater := runtime.ObjectCreater(api.Scheme)
-	defaulter := runtime.ObjectDefaulter(api.Scheme)
-	convertor := runtime.UnsafeObjectConvertor(api.Scheme)
-	kind := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}
 	resource := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
 	versionedObj := &v1.Pod{}
 
@@ -249,7 +242,7 @@ func (tc *patchTestCase) Run(t *testing.T) {
 
 		}
 
-		resultObj, err := patchResource(ctx, admit, 1*time.Second, versionedObj, testPatcher, name, patchType, patch, namer, copier, creater, defaulter, convertor, kind, resource, codec)
+		resultObj, err := patchResource(ctx, admit, 1*time.Second, versionedObj, testPatcher, name, patchType, patch, namer, copier, resource, codec)
 		if len(tc.expectedError) != 0 {
 			if err == nil || err.Error() != tc.expectedError {
 				t.Errorf("%s: expected error %v, but got %v", tc.name, tc.expectedError, err)
@@ -290,38 +283,6 @@ func (tc *patchTestCase) Run(t *testing.T) {
 		}
 	}
 
-}
-
-func TestNumberConversion(t *testing.T) {
-	codec := api.Codecs.LegacyCodec(schema.GroupVersion{Version: "v1"})
-	defaulter := runtime.ObjectDefaulter(api.Scheme)
-
-	currentVersionedObject := &v1.Service{
-		TypeMeta:   metav1.TypeMeta{Kind: "Service", APIVersion: "v1"},
-		ObjectMeta: metav1.ObjectMeta{Name: "test-service"},
-		Spec: v1.ServiceSpec{
-			Ports: []v1.ServicePort{
-				{
-					Port:     80,
-					Protocol: "TCP",
-					NodePort: 31678,
-				},
-			},
-		},
-	}
-	versionedObjToUpdate := &v1.Service{}
-	versionedObj := &v1.Service{}
-
-	patchJS := []byte(`{"spec":{"ports":[{"port":80,"nodePort":31789}]}}`)
-
-	_, _, err := strategicPatchObject(codec, defaulter, currentVersionedObject, patchJS, versionedObjToUpdate, versionedObj)
-	if err != nil {
-		t.Fatal(err)
-	}
-	ports := versionedObjToUpdate.Spec.Ports
-	if len(ports) != 1 || ports[0].Port != 80 || ports[0].NodePort != 31789 {
-		t.Fatal(errors.New("Ports failed to merge because of number conversion issue"))
-	}
 }
 
 func TestPatchResourceWithVersionConflict(t *testing.T) {

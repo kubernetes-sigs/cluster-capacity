@@ -32,7 +32,6 @@ const (
 	PodStartLatencyKey            = "pod_start_latency_microseconds"
 	PodStatusLatencyKey           = "generate_pod_status_latency_microseconds"
 	ContainerManagerOperationsKey = "container_manager_latency_microseconds"
-	CgroupManagerOperationsKey    = "cgroup_manager_latency_microseconds"
 	DockerOperationsLatencyKey    = "docker_operations_latency_microseconds"
 	DockerOperationsKey           = "docker_operations"
 	DockerOperationsErrorsKey     = "docker_operations_errors"
@@ -88,14 +87,6 @@ var (
 			Subsystem: KubeletSubsystem,
 			Name:      ContainerManagerOperationsKey,
 			Help:      "Latency in microseconds for container manager operations. Broken down by method.",
-		},
-		[]string{"operation_type"},
-	)
-	CgroupManagerLatency = prometheus.NewSummaryVec(
-		prometheus.SummaryOpts{
-			Subsystem: KubeletSubsystem,
-			Name:      CgroupManagerOperationsKey,
-			Help:      "Latency in microseconds for cgroup manager operations. Broken down by method.",
 		},
 		[]string{"operation_type"},
 	)
@@ -191,7 +182,6 @@ func Register(containerCache kubecontainer.RuntimeCache) {
 		prometheus.MustRegister(PodStatusLatency)
 		prometheus.MustRegister(DockerOperationsLatency)
 		prometheus.MustRegister(ContainerManagerLatency)
-		prometheus.MustRegister(CgroupManagerLatency)
 		prometheus.MustRegister(SyncPodsLatency)
 		prometheus.MustRegister(PodWorkerStartLatency)
 		prometheus.MustRegister(ContainersPerPodCount)

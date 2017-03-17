@@ -20,7 +20,6 @@ import (
 	"time"
 
 	pb "github.com/coreos/etcd/etcdserver/etcdserverpb"
-	"github.com/coreos/etcd/etcdserver/membership"
 	"github.com/coreos/etcd/lease"
 	"github.com/coreos/etcd/lease/leasehttp"
 	"github.com/coreos/etcd/mvcc"
@@ -55,7 +54,7 @@ type Lessor interface {
 
 	// LeaseRenew renews the lease with given ID. The renewed TTL is returned. Or an error
 	// is returned.
-	LeaseRenew(ctx context.Context, id lease.LeaseID) (int64, error)
+	LeaseRenew(id lease.LeaseID) (int64, error)
 }
 
 type Authenticator interface {
@@ -219,7 +218,7 @@ func (s *EtcdServer) LeaseRevoke(ctx context.Context, r *pb.LeaseRevokeRequest) 
 	return result.resp.(*pb.LeaseRevokeResponse), nil
 }
 
-func (s *EtcdServer) LeaseRenew(ctx context.Context, id lease.LeaseID) (int64, error) {
+func (s *EtcdServer) LeaseRenew(id lease.LeaseID) (int64, error) {
 	ttl, err := s.lessor.Renew(id)
 	if err == nil {
 		return ttl, nil
@@ -229,44 +228,29 @@ func (s *EtcdServer) LeaseRenew(ctx context.Context, id lease.LeaseID) (int64, e
 	}
 
 	// renewals don't go through raft; forward to leader manually
-	cctx, cancel := context.WithTimeout(ctx, s.Cfg.ReqTimeout())
-	defer cancel()
-
-	// renewals don't go through raft; forward to leader manually
-	for cctx.Err() == nil && err != nil {
-		leader, lerr := s.waitLeader(cctx)
-		if lerr != nil {
-			return -1, lerr
-		}
-		for _, url := range leader.PeerURLs {
-			lurl := url + "/leases"
-			ttl, err = leasehttp.RenewHTTP(cctx, id, lurl, s.peerRt)
-			if err == nil || err == lease.ErrLeaseNotFound {
-				return ttl, err
-			}
-		}
-	}
-	return -1, ErrTimeout
-}
-
-func (s *EtcdServer) waitLeader(ctx context.Context) (*membership.Member, error) {
 	leader := s.cluster.Member(s.Leader())
-	for leader == nil {
+	for i := 0; i < 5 && leader == nil; i++ {
 		// wait an election
 		dur := time.Duration(s.Cfg.ElectionTicks) * time.Duration(s.Cfg.TickMs) * time.Millisecond
 		select {
 		case <-time.After(dur):
 			leader = s.cluster.Member(s.Leader())
 		case <-s.done:
-			return nil, ErrStopped
-		case <-ctx.Done():
-			return nil, ErrNoLeader
+			return -1, ErrStopped
 		}
 	}
 	if leader == nil || len(leader.PeerURLs) == 0 {
-		return nil, ErrNoLeader
+		return -1, ErrNoLeader
 	}
-	return leader, nil
+
+	for _, url := range leader.PeerURLs {
+		lurl := url + "/leases"
+		ttl, err = leasehttp.RenewHTTP(id, lurl, s.peerRt, s.Cfg.peerDialTimeout())
+		if err == nil {
+			break
+		}
+	}
+	return ttl, err
 }
 
 func (s *EtcdServer) Alarm(ctx context.Context, r *pb.AlarmRequest) (*pb.AlarmResponse, error) {

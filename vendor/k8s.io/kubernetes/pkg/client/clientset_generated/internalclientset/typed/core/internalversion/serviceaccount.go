@@ -22,7 +22,6 @@ import (
 	watch "k8s.io/apimachinery/pkg/watch"
 	rest "k8s.io/client-go/rest"
 	api "k8s.io/kubernetes/pkg/api"
-	scheme "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/scheme"
 )
 
 // ServiceAccountsGetter has a method to return a ServiceAccountInterface.
@@ -99,7 +98,7 @@ func (c *serviceAccounts) DeleteCollection(options *v1.DeleteOptions, listOption
 	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("serviceaccounts").
-		VersionedParams(&listOptions, scheme.ParameterCodec).
+		VersionedParams(&listOptions, api.ParameterCodec).
 		Body(options).
 		Do().
 		Error()
@@ -112,7 +111,7 @@ func (c *serviceAccounts) Get(name string, options v1.GetOptions) (result *api.S
 		Namespace(c.ns).
 		Resource("serviceaccounts").
 		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
+		VersionedParams(&options, api.ParameterCodec).
 		Do().
 		Into(result)
 	return
@@ -124,7 +123,7 @@ func (c *serviceAccounts) List(opts v1.ListOptions) (result *api.ServiceAccountL
 	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("serviceaccounts").
-		VersionedParams(&opts, scheme.ParameterCodec).
+		VersionedParams(&opts, api.ParameterCodec).
 		Do().
 		Into(result)
 	return
@@ -132,11 +131,11 @@ func (c *serviceAccounts) List(opts v1.ListOptions) (result *api.ServiceAccountL
 
 // Watch returns a watch.Interface that watches the requested serviceAccounts.
 func (c *serviceAccounts) Watch(opts v1.ListOptions) (watch.Interface, error) {
-	opts.Watch = true
 	return c.client.Get().
+		Prefix("watch").
 		Namespace(c.ns).
 		Resource("serviceaccounts").
-		VersionedParams(&opts, scheme.ParameterCodec).
+		VersionedParams(&opts, api.ParameterCodec).
 		Watch()
 }
 

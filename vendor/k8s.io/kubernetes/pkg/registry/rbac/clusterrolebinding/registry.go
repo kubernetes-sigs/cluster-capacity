@@ -79,7 +79,7 @@ func (s *storage) GetClusterRoleBinding(ctx genericapirequest.Context, name stri
 }
 
 func (s *storage) DeleteClusterRoleBinding(ctx genericapirequest.Context, name string) error {
-	_, _, err := s.Delete(ctx, name, nil)
+	_, err := s.Delete(ctx, name, nil)
 	return err
 }
 

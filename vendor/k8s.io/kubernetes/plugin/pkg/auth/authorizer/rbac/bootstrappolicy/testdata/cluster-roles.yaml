@@ -81,9 +81,6 @@ items:
   - apiGroups:
     - apps
     resources:
-    - deployments
-    - deployments/rollback
-    - deployments/scale
     - statefulsets
     verbs:
     - create
@@ -127,7 +124,6 @@ items:
     resources:
     - daemonsets
     - deployments
-    - deployments/rollback
     - deployments/scale
     - ingresses
     - replicasets
@@ -263,9 +259,6 @@ items:
   - apiGroups:
     - apps
     resources:
-    - deployments
-    - deployments/rollback
-    - deployments/scale
     - statefulsets
     verbs:
     - create
@@ -309,7 +302,6 @@ items:
     resources:
     - daemonsets
     - deployments
-    - deployments/rollback
     - deployments/scale
     - ingresses
     - replicasets
@@ -377,7 +369,6 @@ items:
     - /api/*
     - /apis
     - /apis/*
-    - /healthz
     - /swaggerapi
     - /swaggerapi/*
     - /version
@@ -498,15 +489,7 @@ items:
     resources:
     - daemonsets
     - deployments
-    - podsecuritypolicies
     - replicasets
-    verbs:
-    - list
-    - watch
-  - apiGroups:
-    - apps
-    resources:
-    - deployments
     verbs:
     - list
     - watch
@@ -550,24 +533,6 @@ items:
     - storage.k8s.io
     resources:
     - storageclasses
-    verbs:
-    - list
-    - watch
-- apiVersion: rbac.authorization.k8s.io/v1beta1
-  kind: ClusterRole
-  metadata:
-    annotations:
-      rbac.authorization.kubernetes.io/autoupdate: "true"
-    creationTimestamp: null
-    labels:
-      kubernetes.io/bootstrapping: rbac-defaults
-    name: system:kube-dns
-  rules:
-  - apiGroups:
-    - ""
-    resources:
-    - endpoints
-    - services
     verbs:
     - list
     - watch
@@ -641,14 +606,6 @@ items:
     - extensions
     resources:
     - replicasets
-    verbs:
-    - get
-    - list
-    - watch
-  - apiGroups:
-    - apps
-    resources:
-    - statefulsets
     verbs:
     - get
     - list
@@ -960,8 +917,6 @@ items:
   - apiGroups:
     - apps
     resources:
-    - deployments
-    - deployments/scale
     - statefulsets
     verbs:
     - get

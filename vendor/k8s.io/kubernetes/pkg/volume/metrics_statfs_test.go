@@ -14,22 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package volume_test
+package volume
 
 import (
 	"os"
 	"testing"
 
 	utiltesting "k8s.io/client-go/util/testing"
-	. "k8s.io/kubernetes/pkg/volume"
-	volumetest "k8s.io/kubernetes/pkg/volume/testing"
 )
 
 func TestGetMetricsStatFS(t *testing.T) {
 	metrics := NewMetricsStatFS("")
 	actual, err := metrics.GetMetrics()
 	expected := &Metrics{}
-	if !volumetest.MetricsEqualIgnoreTimestamp(actual, expected) {
+	if *actual != *expected {
 		t.Errorf("Expected empty Metrics from uninitialized MetricsStatFS, actual %v", *actual)
 	}
 	if err == nil {
@@ -38,7 +36,7 @@ func TestGetMetricsStatFS(t *testing.T) {
 
 	metrics = NewMetricsStatFS("/not/a/real/directory")
 	actual, err = metrics.GetMetrics()
-	if !volumetest.MetricsEqualIgnoreTimestamp(actual, expected) {
+	if *actual != *expected {
 		t.Errorf("Expected empty Metrics from incorrectly initialized MetricsStatFS, actual %v", *actual)
 	}
 	if err == nil {

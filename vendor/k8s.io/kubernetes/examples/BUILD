@@ -69,6 +69,7 @@ filegroup(
     name = "all-srcs",
     srcs = [
         ":package-srcs",
+        "//examples/apiserver:all-srcs",
         "//examples/explorer:all-srcs",
         "//examples/guestbook-go:all-srcs",
         "//examples/https-nginx:all-srcs",

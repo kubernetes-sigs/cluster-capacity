@@ -72,14 +72,6 @@ func (plugin *cephfsPlugin) RequiresRemount() bool {
 	return false
 }
 
-func (plugin *cephfsPlugin) SupportsMountOption() bool {
-	return true
-}
-
-func (plugin *cephfsPlugin) SupportsBulkVolumeVerification() bool {
-	return false
-}
-
 func (plugin *cephfsPlugin) GetAccessModes() []v1.PersistentVolumeAccessMode {
 	return []v1.PersistentVolumeAccessMode{
 		v1.ReadWriteOnce,
@@ -137,18 +129,16 @@ func (plugin *cephfsPlugin) newMounterInternal(spec *volume.Spec, podUID types.U
 
 	return &cephfsMounter{
 		cephfs: &cephfs{
-			podUID:       podUID,
-			volName:      spec.Name(),
-			mon:          cephvs.Monitors,
-			path:         path,
-			secret:       secret,
-			id:           id,
-			secret_file:  secret_file,
-			readonly:     cephvs.ReadOnly,
-			mounter:      mounter,
-			plugin:       plugin,
-			mountOptions: volume.MountOptionFromSpec(spec),
-		},
+			podUID:      podUID,
+			volName:     spec.Name(),
+			mon:         cephvs.Monitors,
+			path:        path,
+			secret:      secret,
+			id:          id,
+			secret_file: secret_file,
+			readonly:    cephvs.ReadOnly,
+			mounter:     mounter,
+			plugin:      plugin},
 	}, nil
 }
 
@@ -192,7 +182,6 @@ type cephfs struct {
 	mounter     mount.Interface
 	plugin      *cephfsPlugin
 	volume.MetricsNil
-	mountOptions []string
 }
 
 type cephfsMounter struct {
@@ -293,8 +282,7 @@ func (cephfsVolume *cephfs) execMount(mountpoint string) error {
 	}
 	src += hosts[i] + ":" + cephfsVolume.path
 
-	mountOptions := volume.JoinMountOptions(cephfsVolume.mountOptions, opt)
-	if err := cephfsVolume.mounter.Mount(src, mountpoint, "ceph", mountOptions); err != nil {
+	if err := cephfsVolume.mounter.Mount(src, mountpoint, "ceph", opt); err != nil {
 		return fmt.Errorf("CephFS: mount failed: %v", err)
 	}
 

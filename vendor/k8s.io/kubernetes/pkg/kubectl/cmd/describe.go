@@ -33,8 +33,6 @@ import (
 	"k8s.io/kubernetes/pkg/kubectl/cmd/templates"
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
 	"k8s.io/kubernetes/pkg/kubectl/resource"
-	"k8s.io/kubernetes/pkg/printers"
-	printersinternal "k8s.io/kubernetes/pkg/printers/internalversion"
 	"k8s.io/kubernetes/pkg/util/i18n"
 )
 
@@ -74,11 +72,9 @@ var (
 
 func NewCmdDescribe(f cmdutil.Factory, out, cmdErr io.Writer) *cobra.Command {
 	options := &resource.FilenameOptions{}
-	describerSettings := &printers.DescriberSettings{}
+	describerSettings := &kubectl.DescriberSettings{}
 
-	// TODO: this should come from the factory, and may need to be loaded from the server, and so is probably
-	//   going to have to be removed
-	validArgs := printersinternal.DescribableResources()
+	validArgs := kubectl.DescribableResources()
 	argAliases := kubectl.ResourceAliases(validArgs)
 
 	cmd := &cobra.Command{
@@ -102,7 +98,7 @@ func NewCmdDescribe(f cmdutil.Factory, out, cmdErr io.Writer) *cobra.Command {
 	return cmd
 }
 
-func RunDescribe(f cmdutil.Factory, out, cmdErr io.Writer, cmd *cobra.Command, args []string, options *resource.FilenameOptions, describerSettings *printers.DescriberSettings) error {
+func RunDescribe(f cmdutil.Factory, out, cmdErr io.Writer, cmd *cobra.Command, args []string, options *resource.FilenameOptions, describerSettings *kubectl.DescriberSettings) error {
 	selector := cmdutil.GetFlagString(cmd, "selector")
 	allNamespaces := cmdutil.GetFlagBool(cmd, "all-namespaces")
 	cmdNamespace, enforceNamespace, err := f.DefaultNamespace()
@@ -176,7 +172,7 @@ func RunDescribe(f cmdutil.Factory, out, cmdErr io.Writer, cmd *cobra.Command, a
 	return utilerrors.NewAggregate(allErrs)
 }
 
-func DescribeMatchingResources(mapper meta.RESTMapper, typer runtime.ObjectTyper, f cmdutil.Factory, namespace, rsrc, prefix string, describerSettings *printers.DescriberSettings, out io.Writer, originalError error) error {
+func DescribeMatchingResources(mapper meta.RESTMapper, typer runtime.ObjectTyper, f cmdutil.Factory, namespace, rsrc, prefix string, describerSettings *kubectl.DescriberSettings, out io.Writer, originalError error) error {
 	mapper, typer, err := f.UnstructuredObject()
 	if err != nil {
 		return err

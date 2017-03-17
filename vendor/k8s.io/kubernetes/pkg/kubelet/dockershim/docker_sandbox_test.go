@@ -17,9 +17,7 @@ limitations under the License.
 package dockershim
 
 import (
-	"errors"
 	"fmt"
-	"net"
 	"os"
 	"testing"
 	"time"
@@ -28,7 +26,6 @@ import (
 
 	runtimeapi "k8s.io/kubernetes/pkg/kubelet/api/v1alpha1/runtime"
 	kubecontainer "k8s.io/kubernetes/pkg/kubelet/container"
-	"k8s.io/kubernetes/pkg/kubelet/dockertools"
 	"k8s.io/kubernetes/pkg/kubelet/network"
 	"k8s.io/kubernetes/pkg/kubelet/types"
 )
@@ -54,7 +51,7 @@ func makeSandboxConfigWithLabelsAndAnnotations(name, namespace, uid string, atte
 // TestListSandboxes creates several sandboxes and then list them to check
 // whether the correct metadatas, states, and labels are returned.
 func TestListSandboxes(t *testing.T) {
-	ds, _, fakeClock := newTestDockerService()
+	ds, _, _ := newTestDockerService()
 	name, namespace := "foo", "bar"
 	configs := []*runtimeapi.PodSandboxConfig{}
 	for i := 0; i < 3; i++ {
@@ -68,7 +65,7 @@ func TestListSandboxes(t *testing.T) {
 
 	expected := []*runtimeapi.PodSandbox{}
 	state := runtimeapi.PodSandboxState_SANDBOX_READY
-	var createdAt int64 = fakeClock.Now().UnixNano()
+	var createdAt int64 = 0
 	for i := range configs {
 		id, err := ds.RunPodSandbox(configs[i])
 		assert.NoError(t, err)
@@ -160,7 +157,7 @@ func TestNetworkPluginInvocation(t *testing.T) {
 		map[string]string{"label": name},
 		map[string]string{"annotation": ns},
 	)
-	cID := kubecontainer.ContainerID{Type: runtimeName, ID: dockertools.GetFakeContainerID(fmt.Sprintf("/%v", makeSandboxName(c)))}
+	cID := kubecontainer.ContainerID{Type: runtimeName, ID: fmt.Sprintf("/%v", makeSandboxName(c))}
 
 	mockPlugin.EXPECT().Name().Return("mockNetworkPlugin").AnyTimes()
 	setup := mockPlugin.EXPECT().SetUpPod(ns, name, cID)
@@ -198,54 +195,10 @@ func TestHostNetworkPluginInvocation(t *testing.T) {
 			},
 		},
 	}
-	cID := kubecontainer.ContainerID{Type: runtimeName, ID: dockertools.GetFakeContainerID(fmt.Sprintf("/%v", makeSandboxName(c)))}
+	cID := kubecontainer.ContainerID{Type: runtimeName, ID: fmt.Sprintf("/%v", makeSandboxName(c))}
 
 	// No calls to network plugin are expected
 	_, err := ds.RunPodSandbox(c)
 	assert.NoError(t, err)
 	assert.NoError(t, ds.StopPodSandbox(cID.ID))
-}
-
-// TestSetUpPodFailure checks that the sandbox should be not ready when it
-// hits a SetUpPod failure.
-func TestSetUpPodFailure(t *testing.T) {
-	ds, _, _ := newTestDockerService()
-	mockPlugin := newTestNetworkPlugin(t)
-	ds.network = network.NewPluginManager(mockPlugin)
-	defer mockPlugin.Finish()
-
-	name := "foo0"
-	ns := "bar0"
-	c := makeSandboxConfigWithLabelsAndAnnotations(
-		name, ns, "0", 0,
-		map[string]string{"label": name},
-		map[string]string{"annotation": ns},
-	)
-	cID := kubecontainer.ContainerID{Type: runtimeName, ID: dockertools.GetFakeContainerID(fmt.Sprintf("/%v", makeSandboxName(c)))}
-	mockPlugin.EXPECT().Name().Return("mockNetworkPlugin").AnyTimes()
-	mockPlugin.EXPECT().SetUpPod(ns, name, cID).Return(errors.New("setup pod error")).AnyTimes()
-	// Assume network plugin doesn't return error, dockershim should still be able to return not ready correctly.
-	mockPlugin.EXPECT().GetPodNetworkStatus(ns, name, cID).Return(&network.PodNetworkStatus{IP: net.IP("127.0.0.01")}, nil).AnyTimes()
-
-	t.Logf("RunPodSandbox should return error")
-	_, err := ds.RunPodSandbox(c)
-	assert.Error(t, err)
-
-	t.Logf("PodSandboxStatus should be not ready")
-	status, err := ds.PodSandboxStatus(cID.ID)
-	assert.NoError(t, err)
-	assert.Equal(t, runtimeapi.PodSandboxState_SANDBOX_NOTREADY, status.State)
-
-	t.Logf("ListPodSandbox should also show not ready")
-	sandboxes, err := ds.ListPodSandbox(nil)
-	assert.NoError(t, err)
-	var sandbox *runtimeapi.PodSandbox
-	for _, s := range sandboxes {
-		if s.Id == cID.ID {
-			sandbox = s
-			break
-		}
-	}
-	assert.NotNil(t, sandbox)
-	assert.Equal(t, runtimeapi.PodSandboxState_SANDBOX_NOTREADY, sandbox.State)
 }

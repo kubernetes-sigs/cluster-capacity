@@ -79,6 +79,6 @@ func (s *storage) GetCSR(ctx genericapirequest.Context, name string, options *me
 }
 
 func (s *storage) DeleteCSR(ctx genericapirequest.Context, name string) error {
-	_, _, err := s.Delete(ctx, name, nil)
+	_, err := s.Delete(ctx, name, nil)
 	return err
 }

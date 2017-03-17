@@ -23,12 +23,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/kubernetes/pkg/apis/rbac"
-	internalversionrbac "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/typed/rbac/internalversion"
 	"k8s.io/kubernetes/pkg/kubectl/cmd/templates"
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
 )
@@ -45,7 +42,7 @@ var (
 		kubectl create role pod-reader --verb=get --verg=list --verb=watch --resource=pods --resource-name=readablepod`)
 
 	// Valid resource verb list for validation.
-	validResourceVerbs = []string{"*", "get", "delete", "list", "create", "update", "patch", "watch", "proxy", "redirect", "deletecollection", "use"}
+	validResourceVerbs = []string{"*", "get", "delete", "list", "create", "update", "patch", "watch", "proxy", "redirect", "deletecollection"}
 )
 
 type CreateRoleOptions struct {
@@ -53,30 +50,20 @@ type CreateRoleOptions struct {
 	Verbs         []string
 	Resources     []schema.GroupVersionResource
 	ResourceNames []string
-
-	DryRun       bool
-	OutputFormat string
-	Namespace    string
-	Client       internalversionrbac.RbacInterface
-	Mapper       meta.RESTMapper
-	Out          io.Writer
-	PrintObject  func(obj runtime.Object) error
 }
 
 // Role is a command to ease creating Roles.
 func NewCmdCreateRole(f cmdutil.Factory, cmdOut io.Writer) *cobra.Command {
-	c := &CreateRoleOptions{
-		Out: cmdOut,
-	}
+	c := &CreateRoleOptions{}
 	cmd := &cobra.Command{
 		Use:     "role NAME --verb=verb --resource=resource.group [--resource-name=resourcename] [--dry-run]",
 		Short:   roleLong,
 		Long:    roleLong,
 		Example: roleExample,
 		Run: func(cmd *cobra.Command, args []string) {
-			cmdutil.CheckErr(c.Complete(f, cmd, args))
-			cmdutil.CheckErr(c.Validate())
-			cmdutil.CheckErr(c.RunCreateRole())
+			cmdutil.CheckErr(c.Complete(cmd, args))
+			cmdutil.CheckErr(c.Validate(f))
+			cmdutil.CheckErr(c.RunCreateRole(f, cmdOut, cmd, args))
 		},
 	}
 	cmdutil.AddApplyAnnotationFlags(cmd)
@@ -90,7 +77,7 @@ func NewCmdCreateRole(f cmdutil.Factory, cmdOut io.Writer) *cobra.Command {
 	return cmd
 }
 
-func (c *CreateRoleOptions) Complete(f cmdutil.Factory, cmd *cobra.Command, args []string) error {
+func (c *CreateRoleOptions) Complete(cmd *cobra.Command, args []string) error {
 	name, err := NameFromCommandArgs(cmd, args)
 	if err != nil {
 		return err
@@ -133,31 +120,10 @@ func (c *CreateRoleOptions) Complete(f cmdutil.Factory, cmd *cobra.Command, args
 	}
 	c.ResourceNames = resourceNames
 
-	// Complete other options for Run.
-	c.Mapper, _ = f.Object()
-
-	c.DryRun = cmdutil.GetDryRunFlag(cmd)
-	c.OutputFormat = cmdutil.GetFlagString(cmd, "output")
-
-	c.Namespace, _, err = f.DefaultNamespace()
-	if err != nil {
-		return err
-	}
-
-	c.PrintObject = func(obj runtime.Object) error {
-		return f.PrintObject(cmd, c.Mapper, obj, c.Out)
-	}
-
-	clientSet, err := f.ClientSet()
-	if err != nil {
-		return err
-	}
-	c.Client = clientSet.Rbac()
-
 	return nil
 }
 
-func (c *CreateRoleOptions) Validate() error {
+func (c *CreateRoleOptions) Validate(f cmdutil.Factory) error {
 	if c.Name == "" {
 		return fmt.Errorf("name must be specified")
 	}
@@ -174,12 +140,14 @@ func (c *CreateRoleOptions) Validate() error {
 	}
 
 	// validate resources.
+	mapper, _ := f.Object()
+
 	if len(c.Resources) == 0 {
 		return fmt.Errorf("at least one resource must be specified")
 	}
 
 	for _, r := range c.Resources {
-		_, err := c.Mapper.ResourceFor(r)
+		_, err := mapper.ResourceFor(r)
 		if err != nil {
 			return err
 		}
@@ -193,41 +161,10 @@ func (c *CreateRoleOptions) Validate() error {
 	return nil
 }
 
-func (c *CreateRoleOptions) RunCreateRole() error {
-	role := &rbac.Role{}
-	role.Name = c.Name
-	rules, err := generateResourcePolicyRules(c.Mapper, c.Verbs, c.Resources, c.ResourceNames)
-	if err != nil {
-		return err
-	}
-	role.Rules = rules
+func (c *CreateRoleOptions) RunCreateRole(f cmdutil.Factory, cmdOut io.Writer, cmd *cobra.Command, args []string) error {
+	mapper, _ := f.Object()
+	dryRun, outputFormat := cmdutil.GetDryRunFlag(cmd), cmdutil.GetFlagString(cmd, "output")
 
-	// Create role.
-	if !c.DryRun {
-		_, err = c.Client.Roles(c.Namespace).Create(role)
-		if err != nil {
-			return err
-		}
-	}
-
-	if useShortOutput := c.OutputFormat == "name"; useShortOutput || len(c.OutputFormat) == 0 {
-		cmdutil.PrintSuccess(c.Mapper, useShortOutput, c.Out, "roles", c.Name, c.DryRun, "created")
-		return nil
-	}
-
-	return c.PrintObject(role)
-}
-
-func arrayContains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
-}
-
-func generateResourcePolicyRules(mapper meta.RESTMapper, verbs []string, resources []schema.GroupVersionResource, resourceNames []string) ([]rbac.PolicyRule, error) {
 	// groupResourceMapping is a apigroup-resource map. The key of this map is api group, while the value
 	// is a string array of resources under this api group.
 	// E.g.  groupResourceMapping = {"extensions": ["replicasets", "deployments"], "batch":["jobs"]}
@@ -237,26 +174,61 @@ func generateResourcePolicyRules(mapper meta.RESTMapper, verbs []string, resourc
 	// 1. Constructs groupResourceMapping based on input resources.
 	// 2. Prevents pointing to non-existent resources.
 	// 3. Transfers resource short name to long name. E.g. rs.extensions is transferred to replicasets.extensions
-	for _, r := range resources {
+	for _, r := range c.Resources {
 		resource, err := mapper.ResourceFor(r)
 		if err != nil {
-			return []rbac.PolicyRule{}, err
+			return err
 		}
 		if !arrayContains(groupResourceMapping[resource.Group], resource.Resource) {
 			groupResourceMapping[resource.Group] = append(groupResourceMapping[resource.Group], resource.Resource)
 		}
 	}
 
+	role := &rbac.Role{}
+
 	// Create separate rule for each of the api group.
 	rules := []rbac.PolicyRule{}
 	for _, g := range sets.StringKeySet(groupResourceMapping).List() {
 		rule := rbac.PolicyRule{}
-		rule.Verbs = verbs
+		rule.Verbs = c.Verbs
 		rule.Resources = groupResourceMapping[g]
 		rule.APIGroups = []string{g}
-		rule.ResourceNames = resourceNames
+		rule.ResourceNames = c.ResourceNames
 		rules = append(rules, rule)
 	}
+	role.Name = c.Name
+	role.Rules = rules
 
-	return rules, nil
+	// Create role.
+	namespace, _, err := f.DefaultNamespace()
+	if err != nil {
+		return err
+	}
+
+	if !dryRun {
+		client, err := f.ClientSet()
+		if err != nil {
+			return err
+		}
+		_, err = client.Rbac().Roles(namespace).Create(role)
+		if err != nil {
+			return err
+		}
+	}
+
+	if useShortOutput := outputFormat == "name"; useShortOutput || len(outputFormat) == 0 {
+		cmdutil.PrintSuccess(mapper, useShortOutput, cmdOut, "roles", c.Name, dryRun, "created")
+		return nil
+	}
+
+	return f.PrintObject(cmd, mapper, role, cmdOut)
+}
+
+func arrayContains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
 }

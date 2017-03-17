@@ -73,14 +73,14 @@ func (ls *LeaseServer) LeaseKeepAlive(stream pb.Lease_LeaseKeepAliveServer) erro
 		resp := &pb.LeaseKeepAliveResponse{ID: req.ID, Header: &pb.ResponseHeader{}}
 		ls.hdr.fill(resp.Header)
 
-		ttl, err := ls.le.LeaseRenew(stream.Context(), lease.LeaseID(req.ID))
+		ttl, err := ls.le.LeaseRenew(lease.LeaseID(req.ID))
 		if err == lease.ErrLeaseNotFound {
 			err = nil
 			ttl = 0
 		}
 
 		if err != nil {
-			return togRPCError(err)
+			return err
 		}
 
 		resp.TTL = ttl

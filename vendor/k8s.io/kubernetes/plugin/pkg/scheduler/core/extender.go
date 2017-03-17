@@ -29,7 +29,6 @@ import (
 	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/plugin/pkg/scheduler/algorithm"
 	schedulerapi "k8s.io/kubernetes/plugin/pkg/scheduler/api"
-	"k8s.io/kubernetes/plugin/pkg/scheduler/schedulercache"
 )
 
 const (
@@ -38,12 +37,12 @@ const (
 
 // HTTPExtender implements the algorithm.SchedulerExtender interface.
 type HTTPExtender struct {
-	extenderURL      string
-	filterVerb       string
-	prioritizeVerb   string
-	weight           int
-	client           *http.Client
-	nodeCacheCapable bool
+	extenderURL    string
+	filterVerb     string
+	prioritizeVerb string
+	weight         int
+	apiVersion     string
+	client         *http.Client
 }
 
 func makeTransport(config *schedulerapi.ExtenderConfig) (http.RoundTripper, error) {
@@ -69,7 +68,7 @@ func makeTransport(config *schedulerapi.ExtenderConfig) (http.RoundTripper, erro
 	return utilnet.SetTransportDefaults(&http.Transport{}), nil
 }
 
-func NewHTTPExtender(config *schedulerapi.ExtenderConfig) (algorithm.SchedulerExtender, error) {
+func NewHTTPExtender(config *schedulerapi.ExtenderConfig, apiVersion string) (algorithm.SchedulerExtender, error) {
 	if config.HTTPTimeout.Nanoseconds() == 0 {
 		config.HTTPTimeout = time.Duration(DefaultExtenderTimeout)
 	}
@@ -83,69 +82,45 @@ func NewHTTPExtender(config *schedulerapi.ExtenderConfig) (algorithm.SchedulerEx
 		Timeout:   config.HTTPTimeout,
 	}
 	return &HTTPExtender{
-		extenderURL:      config.URLPrefix,
-		filterVerb:       config.FilterVerb,
-		prioritizeVerb:   config.PrioritizeVerb,
-		weight:           config.Weight,
-		client:           client,
-		nodeCacheCapable: config.NodeCacheCapable,
+		extenderURL:    config.URLPrefix,
+		apiVersion:     apiVersion,
+		filterVerb:     config.FilterVerb,
+		prioritizeVerb: config.PrioritizeVerb,
+		weight:         config.Weight,
+		client:         client,
 	}, nil
 }
 
 // Filter based on extender implemented predicate functions. The filtered list is
 // expected to be a subset of the supplied list. failedNodesMap optionally contains
 // the list of failed nodes and failure reasons.
-func (h *HTTPExtender) Filter(pod *v1.Pod, nodes []*v1.Node, nodeNameToInfo map[string]*schedulercache.NodeInfo) ([]*v1.Node, schedulerapi.FailedNodesMap, error) {
-	var (
-		result     schedulerapi.ExtenderFilterResult
-		nodeList   *v1.NodeList
-		nodeNames  *[]string
-		nodeResult []*v1.Node
-		args       *schedulerapi.ExtenderArgs
-	)
+func (h *HTTPExtender) Filter(pod *v1.Pod, nodes []*v1.Node) ([]*v1.Node, schedulerapi.FailedNodesMap, error) {
+	var result schedulerapi.ExtenderFilterResult
 
 	if h.filterVerb == "" {
 		return nodes, schedulerapi.FailedNodesMap{}, nil
 	}
 
-	if h.nodeCacheCapable {
-		nodeNameSlice := make([]string, 0, len(nodes))
-		for _, node := range nodes {
-			nodeNameSlice = append(nodeNameSlice, node.Name)
-		}
-		nodeNames = &nodeNameSlice
-	} else {
-		nodeList = &v1.NodeList{}
-		for _, node := range nodes {
-			nodeList.Items = append(nodeList.Items, *node)
-		}
+	nodeItems := make([]v1.Node, 0, len(nodes))
+	for _, node := range nodes {
+		nodeItems = append(nodeItems, *node)
+	}
+	args := schedulerapi.ExtenderArgs{
+		Pod:   *pod,
+		Nodes: v1.NodeList{Items: nodeItems},
 	}
 
-	args = &schedulerapi.ExtenderArgs{
-		Pod:       *pod,
-		Nodes:     nodeList,
-		NodeNames: nodeNames,
-	}
-
-	if err := h.send(h.filterVerb, args, &result); err != nil {
+	if err := h.send(h.filterVerb, &args, &result); err != nil {
 		return nil, nil, err
 	}
 	if result.Error != "" {
 		return nil, nil, fmt.Errorf(result.Error)
 	}
 
-	if h.nodeCacheCapable && result.NodeNames != nil {
-		nodeResult = make([]*v1.Node, 0, len(*result.NodeNames))
-		for i := range *result.NodeNames {
-			nodeResult = append(nodeResult, nodeNameToInfo[(*result.NodeNames)[i]].Node())
-		}
-	} else if result.Nodes != nil {
-		nodeResult = make([]*v1.Node, 0, len(result.Nodes.Items))
-		for i := range result.Nodes.Items {
-			nodeResult = append(nodeResult, &result.Nodes.Items[i])
-		}
+	nodeResult := make([]*v1.Node, 0, len(result.Nodes.Items))
+	for i := range result.Nodes.Items {
+		nodeResult = append(nodeResult, &result.Nodes.Items[i])
 	}
-
 	return nodeResult, result.FailedNodes, nil
 }
 
@@ -153,12 +128,7 @@ func (h *HTTPExtender) Filter(pod *v1.Pod, nodes []*v1.Node, nodeNameToInfo map[
 // up for each such priority function. The returned score is added to the score computed
 // by Kubernetes scheduler. The total score is used to do the host selection.
 func (h *HTTPExtender) Prioritize(pod *v1.Pod, nodes []*v1.Node) (*schedulerapi.HostPriorityList, int, error) {
-	var (
-		result    schedulerapi.HostPriorityList
-		nodeList  *v1.NodeList
-		nodeNames *[]string
-		args      *schedulerapi.ExtenderArgs
-	)
+	var result schedulerapi.HostPriorityList
 
 	if h.prioritizeVerb == "" {
 		result := schedulerapi.HostPriorityList{}
@@ -168,26 +138,16 @@ func (h *HTTPExtender) Prioritize(pod *v1.Pod, nodes []*v1.Node) (*schedulerapi.
 		return &result, 0, nil
 	}
 
-	if h.nodeCacheCapable {
-		nodeNameSlice := make([]string, 0, len(nodes))
-		for _, node := range nodes {
-			nodeNameSlice = append(nodeNameSlice, node.Name)
-		}
-		nodeNames = &nodeNameSlice
-	} else {
-		nodeList = &v1.NodeList{}
-		for _, node := range nodes {
-			nodeList.Items = append(nodeList.Items, *node)
-		}
+	nodeItems := make([]v1.Node, 0, len(nodes))
+	for _, node := range nodes {
+		nodeItems = append(nodeItems, *node)
+	}
+	args := schedulerapi.ExtenderArgs{
+		Pod:   *pod,
+		Nodes: v1.NodeList{Items: nodeItems},
 	}
 
-	args = &schedulerapi.ExtenderArgs{
-		Pod:       *pod,
-		Nodes:     nodeList,
-		NodeNames: nodeNames,
-	}
-
-	if err := h.send(h.prioritizeVerb, args, &result); err != nil {
+	if err := h.send(h.prioritizeVerb, &args, &result); err != nil {
 		return nil, 0, err
 	}
 	return &result, h.weight, nil
@@ -200,7 +160,7 @@ func (h *HTTPExtender) send(action string, args interface{}, result interface{})
 		return err
 	}
 
-	url := h.extenderURL + "/" + action
+	url := h.extenderURL + "/" + h.apiVersion + "/" + action
 
 	req, err := http.NewRequest("POST", url, bytes.NewReader(out))
 	if err != nil {

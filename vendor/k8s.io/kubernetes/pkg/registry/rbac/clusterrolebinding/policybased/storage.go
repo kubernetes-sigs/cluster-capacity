@@ -19,7 +19,6 @@ package policybased
 
 import (
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -49,11 +48,11 @@ func (s *Storage) Create(ctx genericapirequest.Context, obj runtime.Object) (run
 	}
 
 	clusterRoleBinding := obj.(*rbac.ClusterRoleBinding)
-	if rbacregistry.BindingAuthorized(ctx, clusterRoleBinding.RoleRef, metav1.NamespaceNone, s.authorizer) {
+	if rbacregistry.BindingAuthorized(ctx, clusterRoleBinding.RoleRef, clusterRoleBinding.Namespace, s.authorizer) {
 		return s.StandardStorage.Create(ctx, obj)
 	}
 
-	rules, err := s.ruleResolver.GetRoleReferenceRules(clusterRoleBinding.RoleRef, metav1.NamespaceNone)
+	rules, err := s.ruleResolver.GetRoleReferenceRules(clusterRoleBinding.RoleRef, clusterRoleBinding.Namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -72,12 +71,12 @@ func (s *Storage) Update(ctx genericapirequest.Context, name string, obj rest.Up
 		clusterRoleBinding := obj.(*rbac.ClusterRoleBinding)
 
 		// if we're explicitly authorized to bind this clusterrole, return
-		if rbacregistry.BindingAuthorized(ctx, clusterRoleBinding.RoleRef, metav1.NamespaceNone, s.authorizer) {
+		if rbacregistry.BindingAuthorized(ctx, clusterRoleBinding.RoleRef, clusterRoleBinding.Namespace, s.authorizer) {
 			return obj, nil
 		}
 
 		// Otherwise, see if we already have all the permissions contained in the referenced clusterrole
-		rules, err := s.ruleResolver.GetRoleReferenceRules(clusterRoleBinding.RoleRef, metav1.NamespaceNone)
+		rules, err := s.ruleResolver.GetRoleReferenceRules(clusterRoleBinding.RoleRef, clusterRoleBinding.Namespace)
 		if err != nil {
 			return nil, err
 		}

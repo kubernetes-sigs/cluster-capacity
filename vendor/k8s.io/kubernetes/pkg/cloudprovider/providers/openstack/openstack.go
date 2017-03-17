@@ -17,7 +17,6 @@ limitations under the License.
 package openstack
 
 import (
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -38,8 +37,6 @@ import (
 
 	"github.com/golang/glog"
 	"k8s.io/apimachinery/pkg/types"
-	netutil "k8s.io/apimachinery/pkg/util/net"
-	certutil "k8s.io/client-go/util/cert"
 	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/cloudprovider"
 )
@@ -119,7 +116,6 @@ type Config struct {
 		DomainId   string `gcfg:"domain-id"`
 		DomainName string `gcfg:"domain-name"`
 		Region     string
-		CAFile     string `gcfg:"ca-file"`
 	}
 	LoadBalancer LoadBalancerOpts
 	BlockStorage BlockStorageOpts
@@ -217,16 +213,6 @@ func newOpenStack(cfg Config) (*OpenStack, error) {
 	provider, err := openstack.NewClient(cfg.Global.AuthUrl)
 	if err != nil {
 		return nil, err
-	}
-	if cfg.Global.CAFile != "" {
-		roots, err := certutil.NewPool(cfg.Global.CAFile)
-		if err != nil {
-			return nil, err
-		}
-		config := &tls.Config{}
-		config.RootCAs = roots
-		provider.HTTPClient.Transport = netutil.SetOldTransportDefaults(&http.Transport{TLSClientConfig: config})
-
 	}
 	if cfg.Global.TrustId != "" {
 		opts := cfg.toAuth3Options()

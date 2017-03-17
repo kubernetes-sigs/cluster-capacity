@@ -17,10 +17,11 @@ limitations under the License.
 package v1alpha1
 
 import (
+	fmt "fmt"
+	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
+	api "k8s.io/client-go/pkg/api"
 	rest "k8s.io/client-go/rest"
-	v1alpha1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1alpha1"
-	"k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/scheme"
 )
 
 type ApiregistrationV1alpha1Interface interface {
@@ -66,14 +67,22 @@ func New(c rest.Interface) *ApiregistrationV1alpha1Client {
 }
 
 func setConfigDefaults(config *rest.Config) error {
-	gv := v1alpha1.SchemeGroupVersion
-	config.GroupVersion = &gv
+	gv, err := schema.ParseGroupVersion("apiregistration.k8s.io/v1alpha1")
+	if err != nil {
+		return err
+	}
+	// if apiregistration.k8s.io/v1alpha1 is not enabled, return an error
+	if !api.Registry.IsEnabledVersion(gv) {
+		return fmt.Errorf("apiregistration.k8s.io/v1alpha1 is not enabled")
+	}
 	config.APIPath = "/apis"
-	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
-
 	if config.UserAgent == "" {
 		config.UserAgent = rest.DefaultKubernetesUserAgent()
 	}
+	copyGroupVersion := gv
+	config.GroupVersion = &copyGroupVersion
+
+	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: api.Codecs}
 
 	return nil
 }

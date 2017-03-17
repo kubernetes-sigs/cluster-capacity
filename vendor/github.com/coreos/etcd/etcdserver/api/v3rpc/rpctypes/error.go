@@ -49,13 +49,9 @@ var (
 	ErrGRPCRoleNotGranted       = grpc.Errorf(codes.FailedPrecondition, "etcdserver: role is not granted to the user")
 	ErrGRPCPermissionNotGranted = grpc.Errorf(codes.FailedPrecondition, "etcdserver: permission is not granted to the role")
 
-	ErrGRPCNoLeader                   = grpc.Errorf(codes.Unavailable, "etcdserver: no leader")
-	ErrGRPCNotCapable                 = grpc.Errorf(codes.Unavailable, "etcdserver: not capable")
-	ErrGRPCStopped                    = grpc.Errorf(codes.Unavailable, "etcdserver: server stopped")
-	ErrGRPCTimeout                    = grpc.Errorf(codes.Unavailable, "etcdserver: request timed out")
-	ErrGRPCTimeoutDueToLeaderFail     = grpc.Errorf(codes.Unavailable, "etcdserver: request timed out, possibly due to previous leader failure")
-	ErrGRPCTimeoutDueToConnectionLost = grpc.Errorf(codes.Unavailable, "etcdserver: request timed out, possibly due to connection lost")
-	ErrGRPCUnhealthy                  = grpc.Errorf(codes.Unavailable, "etcdserver: unhealthy cluster")
+	ErrGRPCNoLeader   = grpc.Errorf(codes.Unavailable, "etcdserver: no leader")
+	ErrGRPCNotCapable = grpc.Errorf(codes.Unavailable, "etcdserver: not capable")
+	ErrGRPCStopped    = grpc.Errorf(codes.Unavailable, "etcdserver: server stopped")
 
 	errStringToError = map[string]error{
 		grpc.ErrorDesc(ErrGRPCEmptyKey):     ErrGRPCEmptyKey,
@@ -86,13 +82,9 @@ var (
 		grpc.ErrorDesc(ErrGRPCRoleNotGranted):       ErrGRPCRoleNotGranted,
 		grpc.ErrorDesc(ErrGRPCPermissionNotGranted): ErrGRPCPermissionNotGranted,
 
-		grpc.ErrorDesc(ErrGRPCNoLeader):                   ErrGRPCNoLeader,
-		grpc.ErrorDesc(ErrGRPCNotCapable):                 ErrGRPCNotCapable,
-		grpc.ErrorDesc(ErrGRPCStopped):                    ErrGRPCStopped,
-		grpc.ErrorDesc(ErrGRPCTimeout):                    ErrGRPCTimeout,
-		grpc.ErrorDesc(ErrGRPCTimeoutDueToLeaderFail):     ErrGRPCTimeoutDueToLeaderFail,
-		grpc.ErrorDesc(ErrGRPCTimeoutDueToConnectionLost): ErrGRPCTimeoutDueToConnectionLost,
-		grpc.ErrorDesc(ErrGRPCUnhealthy):                  ErrGRPCUnhealthy,
+		grpc.ErrorDesc(ErrGRPCNoLeader):   ErrGRPCNoLeader,
+		grpc.ErrorDesc(ErrGRPCNotCapable): ErrGRPCNotCapable,
+		grpc.ErrorDesc(ErrGRPCStopped):    ErrGRPCStopped,
 	}
 
 	// client-side error
@@ -124,13 +116,9 @@ var (
 	ErrRoleNotGranted       = Error(ErrGRPCRoleNotGranted)
 	ErrPermissionNotGranted = Error(ErrGRPCPermissionNotGranted)
 
-	ErrNoLeader                   = Error(ErrGRPCNoLeader)
-	ErrNotCapable                 = Error(ErrGRPCNotCapable)
-	ErrStopped                    = Error(ErrGRPCStopped)
-	ErrTimeout                    = Error(ErrGRPCTimeout)
-	ErrTimeoutDueToLeaderFail     = Error(ErrGRPCTimeoutDueToLeaderFail)
-	ErrTimeoutDueToConnectionLost = Error(ErrGRPCTimeoutDueToConnectionLost)
-	ErrUnhealthy                  = Error(ErrGRPCUnhealthy)
+	ErrNoLeader   = Error(ErrGRPCNoLeader)
+	ErrNotCapable = Error(ErrGRPCNotCapable)
+	ErrStopped    = Error(ErrGRPCStopped)
 )
 
 // EtcdError defines gRPC server errors.

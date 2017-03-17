@@ -415,8 +415,8 @@ var _ = framework.KubeDescribe("kubelet", func() {
 			})
 
 			AfterEach(func() {
-				framework.DeletePodWithWait(f, c, pod)
-				framework.DeletePodWithWait(f, c, nfsServerPod)
+				deletePodWithWait(f, c, pod)
+				deletePodWithWait(f, c, nfsServerPod)
 			})
 
 			// execute It blocks from above table of tests
@@ -427,11 +427,11 @@ var _ = framework.KubeDescribe("kubelet", func() {
 					pod = createPodUsingNfs(f, c, ns, nfsIP, t.podCmd)
 
 					By("Delete the NFS server pod")
-					framework.DeletePodWithWait(f, c, nfsServerPod)
+					deletePodWithWait(f, c, nfsServerPod)
 					nfsServerPod = nil
 
 					By("Delete the pod mounted to the NFS volume")
-					framework.DeletePodWithWait(f, c, pod)
+					deletePodWithWait(f, c, pod)
 					// pod object is now stale, but is intentionally not nil
 
 					By("Check if host running deleted pod has been cleaned up -- expect not")

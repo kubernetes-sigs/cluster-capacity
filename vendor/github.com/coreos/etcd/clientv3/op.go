@@ -215,15 +215,14 @@ func WithPrefix() OpOption {
 	}
 }
 
-// WithRange specifies the range of 'Get', 'Delete', 'Watch' requests.
+// WithRange specifies the range of 'Get' or 'Delete' requests.
 // For example, 'Get' requests with 'WithRange(end)' returns
 // the keys in the range [key, end).
-// endKey must be lexicographically greater than start key.
 func WithRange(endKey string) OpOption {
 	return func(op *Op) { op.end = []byte(endKey) }
 }
 
-// WithFromKey specifies the range of 'Get', 'Delete', 'Watch' requests
+// WithFromKey specifies the range of 'Get' or 'Delete' requests
 // to be equal or greater than the key in the argument.
 func WithFromKey() OpOption { return WithRange("\x00") }
 

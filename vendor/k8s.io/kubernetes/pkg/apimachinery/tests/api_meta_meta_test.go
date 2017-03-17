@@ -335,7 +335,7 @@ type MyAPIObject2 struct {
 	metav1.ObjectMeta
 }
 
-func getObjectMetaAndOwnerReferences() (myAPIObject2 MyAPIObject2, metaOwnerReferences []metav1.OwnerReference) {
+func getObjectMetaAndOwnerRefereneces() (myAPIObject2 MyAPIObject2, metaOwnerReferences []metav1.OwnerReference) {
 	fuzz.New().NilChance(.5).NumElements(1, 5).Fuzz(&myAPIObject2)
 	references := myAPIObject2.ObjectMeta.OwnerReferences
 	// This is necessary for the test to pass because the getter will return a
@@ -343,12 +343,11 @@ func getObjectMetaAndOwnerReferences() (myAPIObject2 MyAPIObject2, metaOwnerRefe
 	metaOwnerReferences = make([]metav1.OwnerReference, 0)
 	for i := 0; i < len(references); i++ {
 		metaOwnerReferences = append(metaOwnerReferences, metav1.OwnerReference{
-			Kind:               references[i].Kind,
-			Name:               references[i].Name,
-			UID:                references[i].UID,
-			APIVersion:         references[i].APIVersion,
-			Controller:         references[i].Controller,
-			BlockOwnerDeletion: references[i].BlockOwnerDeletion,
+			Kind:       references[i].Kind,
+			Name:       references[i].Name,
+			UID:        references[i].UID,
+			APIVersion: references[i].APIVersion,
+			Controller: references[i].Controller,
 		})
 	}
 	if len(references) == 0 {
@@ -360,7 +359,7 @@ func getObjectMetaAndOwnerReferences() (myAPIObject2 MyAPIObject2, metaOwnerRefe
 }
 
 func testGetOwnerReferences(t *testing.T) {
-	obj, expected := getObjectMetaAndOwnerReferences()
+	obj, expected := getObjectMetaAndOwnerRefereneces()
 	accessor, err := meta.Accessor(&obj)
 	if err != nil {
 		t.Error(err)
@@ -372,7 +371,7 @@ func testGetOwnerReferences(t *testing.T) {
 }
 
 func testSetOwnerReferences(t *testing.T) {
-	expected, references := getObjectMetaAndOwnerReferences()
+	expected, references := getObjectMetaAndOwnerRefereneces()
 	obj := MyAPIObject2{}
 	accessor, err := meta.Accessor(&obj)
 	if err != nil {

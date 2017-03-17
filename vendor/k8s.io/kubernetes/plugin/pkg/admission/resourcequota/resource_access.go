@@ -20,14 +20,17 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/golang/glog"
 	lru "github.com/hashicorp/golang-lru"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/storage/etcd"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/kubernetes/pkg/api"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
-	corelisters "k8s.io/kubernetes/pkg/client/listers/core/internalversion"
 )
 
 // QuotaAccessor abstracts the get/set logic from the rest of the Evaluator.  This could be a test stub, a straight passthrough,
@@ -44,8 +47,9 @@ type QuotaAccessor interface {
 type quotaAccessor struct {
 	client clientset.Interface
 
-	// lister can list/get quota objects from a shared informer's cache
-	lister corelisters.ResourceQuotaLister
+	// indexer that holds quota objects by namespace
+	indexer   cache.Indexer
+	reflector *cache.Reflector
 
 	// liveLookups holds the last few live lookups we've done to help ammortize cost on repeated lookup failures.
 	// This let's us handle the case of latent caches, by looking up actual results for a namespace on cache miss/no results.
@@ -59,7 +63,7 @@ type quotaAccessor struct {
 }
 
 // newQuotaAccessor creates an object that conforms to the QuotaAccessor interface to be used to retrieve quota objects.
-func newQuotaAccessor() (*quotaAccessor, error) {
+func newQuotaAccessor(client clientset.Interface) (*quotaAccessor, error) {
 	liveLookupCache, err := lru.New(100)
 	if err != nil {
 		return nil, err
@@ -68,13 +72,34 @@ func newQuotaAccessor() (*quotaAccessor, error) {
 	if err != nil {
 		return nil, err
 	}
+	lw := &cache.ListWatch{
+		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+			return client.Core().ResourceQuotas(metav1.NamespaceAll).List(options)
+		},
+		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+			return client.Core().ResourceQuotas(metav1.NamespaceAll).Watch(options)
+		},
+	}
+	indexer, reflector := cache.NewNamespaceKeyedIndexerAndReflector(lw, &api.ResourceQuota{}, 0)
 
-	// client and lister will be set when SetInternalKubeClientSet and SetInternalKubeInformerFactory are invoked
 	return &quotaAccessor{
+		client:          client,
+		indexer:         indexer,
+		reflector:       reflector,
 		liveLookupCache: liveLookupCache,
 		liveTTL:         time.Duration(30 * time.Second),
 		updatedQuotas:   updatedCache,
 	}, nil
+}
+
+// Run begins watching and syncing.
+func (e *quotaAccessor) Run(stopCh <-chan struct{}) {
+	defer utilruntime.HandleCrash()
+
+	e.reflector.RunUntil(stopCh)
+
+	<-stopCh
+	glog.Infof("Shutting down quota accessor")
 }
 
 func (e *quotaAccessor) UpdateQuotaStatus(newQuota *api.ResourceQuota) error {
@@ -111,9 +136,9 @@ func (e *quotaAccessor) checkCache(quota *api.ResourceQuota) *api.ResourceQuota 
 func (e *quotaAccessor) GetQuotas(namespace string) ([]api.ResourceQuota, error) {
 	// determine if there are any quotas in this namespace
 	// if there are no quotas, we don't need to do anything
-	items, err := e.lister.ResourceQuotas(namespace).List(labels.Everything())
+	items, err := e.indexer.Index("namespace", &api.ResourceQuota{ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: ""}})
 	if err != nil {
-		return nil, fmt.Errorf("error resolving quota: %v", err)
+		return nil, fmt.Errorf("error resolving quota.")
 	}
 
 	// if there are no items held in our indexer, check our live-lookup LRU, if that misses, do the live lookup to prime it.
@@ -144,7 +169,7 @@ func (e *quotaAccessor) GetQuotas(namespace string) ([]api.ResourceQuota, error)
 
 	resourceQuotas := []api.ResourceQuota{}
 	for i := range items {
-		quota := items[i]
+		quota := items[i].(*api.ResourceQuota)
 		quota = e.checkCache(quota)
 		// always make a copy.  We're going to muck around with this and we should never mutate the originals
 		resourceQuotas = append(resourceQuotas, *quota)

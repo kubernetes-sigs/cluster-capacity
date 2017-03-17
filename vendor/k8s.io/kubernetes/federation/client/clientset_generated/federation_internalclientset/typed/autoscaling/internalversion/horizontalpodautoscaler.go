@@ -21,7 +21,7 @@ import (
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	rest "k8s.io/client-go/rest"
-	scheme "k8s.io/kubernetes/federation/client/clientset_generated/federation_internalclientset/scheme"
+	api "k8s.io/kubernetes/pkg/api"
 	autoscaling "k8s.io/kubernetes/pkg/apis/autoscaling"
 )
 
@@ -116,7 +116,7 @@ func (c *horizontalPodAutoscalers) DeleteCollection(options *v1.DeleteOptions, l
 	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("horizontalpodautoscalers").
-		VersionedParams(&listOptions, scheme.ParameterCodec).
+		VersionedParams(&listOptions, api.ParameterCodec).
 		Body(options).
 		Do().
 		Error()
@@ -129,7 +129,7 @@ func (c *horizontalPodAutoscalers) Get(name string, options v1.GetOptions) (resu
 		Namespace(c.ns).
 		Resource("horizontalpodautoscalers").
 		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
+		VersionedParams(&options, api.ParameterCodec).
 		Do().
 		Into(result)
 	return
@@ -141,7 +141,7 @@ func (c *horizontalPodAutoscalers) List(opts v1.ListOptions) (result *autoscalin
 	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("horizontalpodautoscalers").
-		VersionedParams(&opts, scheme.ParameterCodec).
+		VersionedParams(&opts, api.ParameterCodec).
 		Do().
 		Into(result)
 	return
@@ -149,11 +149,11 @@ func (c *horizontalPodAutoscalers) List(opts v1.ListOptions) (result *autoscalin
 
 // Watch returns a watch.Interface that watches the requested horizontalPodAutoscalers.
 func (c *horizontalPodAutoscalers) Watch(opts v1.ListOptions) (watch.Interface, error) {
-	opts.Watch = true
 	return c.client.Get().
+		Prefix("watch").
 		Namespace(c.ns).
 		Resource("horizontalpodautoscalers").
-		VersionedParams(&opts, scheme.ParameterCodec).
+		VersionedParams(&opts, api.ParameterCodec).
 		Watch()
 }
 

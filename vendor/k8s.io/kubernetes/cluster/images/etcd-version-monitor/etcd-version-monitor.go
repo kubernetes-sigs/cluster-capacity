@@ -218,7 +218,7 @@ func main() {
 	// Register the metrics we defined above with prometheus.
 	prometheus.MustRegister(etcdVersion)
 	prometheus.MustRegister(etcdGRPCRequestsTotal)
-	prometheus.Unregister(prometheus.NewGoCollector())
+	prometheus.Unregister(prometheus.NewGoCollector()) // Unregister go metrics.
 
 	// Spawn threads for periodically scraping etcd version metrics.
 	stopCh := make(chan struct{})
@@ -228,6 +228,6 @@ func main() {
 
 	// Serve our metrics on listenAddress/metricsPath.
 	glog.Infof("Listening on: %v", listenAddress)
-	http.Handle(metricsPath, prometheus.UninstrumentedHandler())
+	http.Handle(metricsPath, prometheus.Handler())
 	glog.Errorf("Stopped listening/serving metrics: %v", http.ListenAndServe(listenAddress, nil))
 }

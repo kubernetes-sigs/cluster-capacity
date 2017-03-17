@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
 	genericapifilters "k8s.io/apiserver/pkg/endpoints/filters"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
@@ -105,7 +106,7 @@ func (c *Config) SkipComplete() completedConfig {
 }
 
 // New returns a new instance of APIAggregator from the given config.
-func (c completedConfig) New(stopCh <-chan struct{}) (*APIAggregator, error) {
+func (c completedConfig) New() (*APIAggregator, error) {
 	informerFactory := informers.NewSharedInformerFactory(
 		internalclientset.NewForConfigOrDie(c.Config.GenericConfig.LoopbackClientConfig),
 		5*time.Minute, // this is effectively used as a refresh interval right now.  Might want to do something nicer later on.
@@ -153,12 +154,12 @@ func (c completedConfig) New(stopCh <-chan struct{}) (*APIAggregator, error) {
 	apiserviceRegistrationController := NewAPIServiceRegistrationController(informerFactory.Apiregistration().InternalVersion().APIServices(), s)
 
 	s.GenericAPIServer.AddPostStartHook("start-informers", func(context genericapiserver.PostStartHookContext) error {
-		informerFactory.Start(stopCh)
-		kubeInformers.Start(stopCh)
+		informerFactory.Start(wait.NeverStop)
+		kubeInformers.Start(wait.NeverStop)
 		return nil
 	})
 	s.GenericAPIServer.AddPostStartHook("apiservice-registration-controller", func(context genericapiserver.PostStartHookContext) error {
-		apiserviceRegistrationController.Run(stopCh)
+		apiserviceRegistrationController.Run(wait.NeverStop)
 		return nil
 	})
 

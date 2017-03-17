@@ -22,11 +22,12 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/kubernetes/pkg/api"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 	"k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/fake"
-	informers "k8s.io/kubernetes/pkg/client/informers/informers_generated/internalversion"
+	"k8s.io/kubernetes/pkg/controller/informers"
 	kubeadmission "k8s.io/kubernetes/pkg/kubeapiserver/admission"
 )
 
@@ -44,9 +45,7 @@ func TestPodAdmission(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected error initializing handler: %v", err)
 	}
-	stopCh := make(chan struct{})
-	defer close(stopCh)
-	informerFactory.Start(stopCh)
+	informerFactory.Start(wait.NeverStop)
 
 	pod := &api.Pod{
 		ObjectMeta: metav1.ObjectMeta{Name: "testPod", Namespace: "testNamespace"},
@@ -145,7 +144,7 @@ func TestPodAdmission(t *testing.T) {
 	for _, test := range tests {
 		if !test.ignoreTestNamespaceNodeSelector {
 			namespace.ObjectMeta.Annotations = map[string]string{"scheduler.alpha.kubernetes.io/node-selector": test.namespaceNodeSelector}
-			informerFactory.Core().InternalVersion().Namespaces().Informer().GetStore().Update(namespace)
+			handler.namespaceInformer.GetStore().Update(namespace)
 		}
 		handler.clusterNodeSelectors = make(map[string]string)
 		handler.clusterNodeSelectors["clusterDefaultNodeSelector"] = test.defaultNodeSelector
@@ -181,9 +180,9 @@ func TestHandles(t *testing.T) {
 
 // newHandlerForTest returns the admission controller configured for testing.
 func newHandlerForTest(c clientset.Interface) (*podNodeSelector, informers.SharedInformerFactory, error) {
-	f := informers.NewSharedInformerFactory(c, 5*time.Minute)
+	f := informers.NewSharedInformerFactory(nil, c, 5*time.Minute)
 	handler := NewPodNodeSelector(nil)
-	pluginInitializer := kubeadmission.NewPluginInitializer(c, f, nil, nil)
+	pluginInitializer := kubeadmission.NewPluginInitializer(c, f, nil)
 	pluginInitializer.Initialize(handler)
 	err := admission.Validate(handler)
 	return handler, f, err

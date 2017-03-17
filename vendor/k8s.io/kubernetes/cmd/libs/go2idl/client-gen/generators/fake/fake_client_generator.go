@@ -25,17 +25,16 @@ import (
 	"k8s.io/gengo/generator"
 	"k8s.io/gengo/types"
 	clientgenargs "k8s.io/kubernetes/cmd/libs/go2idl/client-gen/args"
-	scheme "k8s.io/kubernetes/cmd/libs/go2idl/client-gen/generators/scheme"
 	clientgentypes "k8s.io/kubernetes/cmd/libs/go2idl/client-gen/types"
 )
 
-func PackageForGroup(gv clientgentypes.GroupVersion, typeList []*types.Type, clientsetPackage string, inputPackage string, boilerplate []byte, generatedBy string) generator.Package {
-	outputPackage := strings.ToLower(filepath.Join(clientsetPackage, "typed", gv.Group.NonEmpty(), gv.Version.NonEmpty(), "fake"))
+func PackageForGroup(gv clientgentypes.GroupVersion, typeList []*types.Type, packageBasePath string, srcTreePath string, inputPath string, boilerplate []byte, generatedBy string) generator.Package {
+	outputPackagePath := strings.ToLower(filepath.Join(packageBasePath, gv.Group.NonEmpty(), gv.Version.NonEmpty(), "fake"))
 	// TODO: should make this a function, called by here and in client-generator.go
-	realClientPackage := filepath.Join(clientsetPackage, "typed", gv.Group.NonEmpty(), gv.Version.NonEmpty())
+	realClientPath := filepath.Join(packageBasePath, gv.Group.NonEmpty(), gv.Version.NonEmpty())
 	return &generator.DefaultPackage{
 		PackageName: "fake",
-		PackagePath: outputPackage,
+		PackagePath: outputPackagePath,
 		HeaderText:  boilerplate,
 		PackageDocumentation: []byte(
 			generatedBy +
@@ -55,10 +54,10 @@ func PackageForGroup(gv clientgentypes.GroupVersion, typeList []*types.Type, cli
 					DefaultGen: generator.DefaultGen{
 						OptionalName: "fake_" + strings.ToLower(c.Namers["private"].Name(t)),
 					},
-					outputPackage: outputPackage,
-					inputPackage:  inputPackage,
+					outputPackage: outputPackagePath,
 					group:         gv.Group.NonEmpty(),
 					version:       gv.Version.String(),
+					inputPackage:  inputPath,
 					typeToMatch:   t,
 					imports:       generator.NewImportTracker(),
 				})
@@ -68,12 +67,12 @@ func PackageForGroup(gv clientgentypes.GroupVersion, typeList []*types.Type, cli
 				DefaultGen: generator.DefaultGen{
 					OptionalName: "fake_" + gv.Group.NonEmpty() + "_client",
 				},
-				outputPackage:     outputPackage,
-				realClientPackage: realClientPackage,
-				group:             gv.Group.NonEmpty(),
-				version:           gv.Version.String(),
-				types:             typeList,
-				imports:           generator.NewImportTracker(),
+				outputPackage:  outputPackagePath,
+				realClientPath: realClientPath,
+				group:          gv.Group.NonEmpty(),
+				version:        gv.Version.String(),
+				types:          typeList,
+				imports:        generator.NewImportTracker(),
 			})
 			return generators
 		},
@@ -91,12 +90,12 @@ func extractBoolTagOrDie(key string, lines []string) bool {
 	return val
 }
 
-func PackageForClientset(customArgs clientgenargs.Args, fakeClientsetPackage string, boilerplate []byte, generatedBy string) generator.Package {
+func PackageForClientset(customArgs clientgenargs.Args, typedClientBasePath string, boilerplate []byte, generatedBy string) generator.Package {
 	return &generator.DefaultPackage{
 		// TODO: we'll generate fake clientset for different release in the future.
 		// Package name and path are hard coded for now.
 		PackageName: "fake",
-		PackagePath: filepath.Join(fakeClientsetPackage, "fake"),
+		PackagePath: filepath.Join(customArgs.ClientsetOutputPath, customArgs.ClientsetName, "fake"),
 		HeaderText:  boilerplate,
 		PackageDocumentation: []byte(
 			generatedBy +
@@ -113,22 +112,11 @@ func PackageForClientset(customArgs clientgenargs.Args, fakeClientsetPackage str
 					DefaultGen: generator.DefaultGen{
 						OptionalName: "clientset_generated",
 					},
-					groups:               customArgs.Groups,
-					fakeClientsetPackage: fakeClientsetPackage,
-					outputPackage:        "fake",
-					imports:              generator.NewImportTracker(),
-					realClientsetPackage: filepath.Join(customArgs.ClientsetOutputPath, customArgs.ClientsetName),
-				},
-				&scheme.GenScheme{
-					DefaultGen: generator.DefaultGen{
-						OptionalName: "register",
-					},
-					InputPackages:  customArgs.GroupVersionToInputPath,
-					OutputPackage:  fakeClientsetPackage,
-					Groups:         customArgs.Groups,
-					ImportTracker:  generator.NewImportTracker(),
-					PrivateScheme:  true,
-					CreateRegistry: true, // needed to know about root resources and for RESTMapper
+					groups:          customArgs.Groups,
+					typedClientPath: typedClientBasePath,
+					outputPackage:   "fake",
+					imports:         generator.NewImportTracker(),
+					clientsetPath:   filepath.Join(customArgs.ClientsetOutputPath, customArgs.ClientsetName),
 				},
 			}
 			return generators

@@ -22,7 +22,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	genericvalidation "k8s.io/apimachinery/pkg/api/validation"
-	"k8s.io/apimachinery/pkg/api/validation/path"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -61,7 +60,7 @@ type RESTUpdateStrategy interface {
 }
 
 // TODO: add other common fields that require global validation.
-func validateCommonFields(obj, old runtime.Object, strategy RESTUpdateStrategy) (field.ErrorList, error) {
+func validateCommonFields(obj, old runtime.Object) (field.ErrorList, error) {
 	allErrs := field.ErrorList{}
 	objectMeta, err := metav1.ObjectMetaFor(obj)
 	if err != nil {
@@ -71,7 +70,6 @@ func validateCommonFields(obj, old runtime.Object, strategy RESTUpdateStrategy) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get old object metadata: %v", err)
 	}
-	allErrs = append(allErrs, genericvalidation.ValidateObjectMeta(objectMeta, strategy.NamespaceScoped(), path.ValidatePathSegmentName, field.NewPath("metadata"))...)
 	allErrs = append(allErrs, genericvalidation.ValidateObjectMetaUpdate(objectMeta, oldObjectMeta, field.NewPath("metadata"))...)
 
 	return allErrs, nil
@@ -105,7 +103,7 @@ func BeforeUpdate(strategy RESTUpdateStrategy, ctx genericapirequest.Context, ob
 	objectMeta.ClusterName = ""
 
 	// Ensure some common fields, like UID, are validated for all resources.
-	errs, err := validateCommonFields(obj, old, strategy)
+	errs, err := validateCommonFields(obj, old)
 	if err != nil {
 		return errors.NewInternalError(err)
 	}

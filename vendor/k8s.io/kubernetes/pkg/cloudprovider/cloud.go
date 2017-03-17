@@ -152,10 +152,7 @@ type Routes interface {
 	DeleteRoute(clusterName string, route *Route) error
 }
 
-var (
-	InstanceNotFound = errors.New("instance not found")
-	DiskNotFound     = errors.New("disk is not found")
-)
+var InstanceNotFound = errors.New("instance not found")
 
 // Zone represents the location of a particular machine.
 type Zone struct {

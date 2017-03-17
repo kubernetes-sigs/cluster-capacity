@@ -17,10 +17,11 @@ limitations under the License.
 package v1
 
 import (
+	fmt "fmt"
+	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	rest "k8s.io/client-go/rest"
-	"k8s.io/kubernetes/federation/client/clientset_generated/federation_clientset/scheme"
-	v1 "k8s.io/kubernetes/pkg/apis/batch/v1"
+	api "k8s.io/kubernetes/pkg/api"
 )
 
 type BatchV1Interface interface {
@@ -66,14 +67,22 @@ func New(c rest.Interface) *BatchV1Client {
 }
 
 func setConfigDefaults(config *rest.Config) error {
-	gv := v1.SchemeGroupVersion
-	config.GroupVersion = &gv
+	gv, err := schema.ParseGroupVersion("batch/v1")
+	if err != nil {
+		return err
+	}
+	// if batch/v1 is not enabled, return an error
+	if !api.Registry.IsEnabledVersion(gv) {
+		return fmt.Errorf("batch/v1 is not enabled")
+	}
 	config.APIPath = "/apis"
-	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
-
 	if config.UserAgent == "" {
 		config.UserAgent = rest.DefaultKubernetesUserAgent()
 	}
+	copyGroupVersion := gv
+	config.GroupVersion = &copyGroupVersion
+
+	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: api.Codecs}
 
 	return nil
 }

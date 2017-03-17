@@ -17,6 +17,7 @@ limitations under the License.
 package priorities
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 
@@ -27,20 +28,24 @@ import (
 )
 
 func nodeWithTaints(nodeName string, taints []v1.Taint) *v1.Node {
+	taintsData, _ := json.Marshal(taints)
 	return &v1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: nodeName,
-		},
-		Spec: v1.NodeSpec{
-			Taints: taints,
+			Annotations: map[string]string{
+				v1.TaintsAnnotationKey: string(taintsData),
+			},
 		},
 	}
 }
 
 func podWithTolerations(tolerations []v1.Toleration) *v1.Pod {
+	tolerationData, _ := json.Marshal(tolerations)
 	return &v1.Pod{
-		Spec: v1.PodSpec{
-			Tolerations: tolerations,
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				v1.TolerationsAnnotationKey: string(tolerationData),
+			},
 		},
 	}
 }

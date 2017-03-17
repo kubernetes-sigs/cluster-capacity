@@ -37,12 +37,12 @@ const (
 	cgroupsConfigPrefix = "CGROUPS_"
 )
 
-func (c *CgroupsValidator) Validate(spec SysSpec) (error, error) {
+func (c *CgroupsValidator) Validate(spec SysSpec) error {
 	subsystems, err := c.getCgroupSubsystems()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get cgroup subsystems: %v", err)
+		return fmt.Errorf("failed to get cgroup subsystems: %v", err)
 	}
-	return nil, c.validateCgroupSubsystems(spec.Cgroups, subsystems)
+	return c.validateCgroupSubsystems(spec.Cgroups, subsystems)
 }
 
 func (c *CgroupsValidator) validateCgroupSubsystems(cgroupSpec, subsystems []string) error {

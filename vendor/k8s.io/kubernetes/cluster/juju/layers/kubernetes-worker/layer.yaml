@@ -1,10 +1,9 @@
 repo: https://github.com/kubernetes/kubernetes.git
 includes:
   - 'layer:basic'
-  - 'layer:debug'
   - 'layer:docker'
-  - 'layer:nagios'
   - 'layer:tls-client'
+  - 'layer:debug'
   - 'interface:http'
   - 'interface:kubernetes-cni'
   - 'interface:kube-dns'

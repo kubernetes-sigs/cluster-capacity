@@ -77,6 +77,6 @@ func (s *storage) UpdateServiceAccount(ctx genericapirequest.Context, serviceAcc
 }
 
 func (s *storage) DeleteServiceAccount(ctx genericapirequest.Context, name string) error {
-	_, _, err := s.Delete(ctx, name, nil)
+	_, err := s.Delete(ctx, name, nil)
 	return err
 }

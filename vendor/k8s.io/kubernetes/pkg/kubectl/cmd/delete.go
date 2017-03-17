@@ -32,7 +32,6 @@ import (
 	"k8s.io/kubernetes/pkg/kubectl/cmd/templates"
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
 	"k8s.io/kubernetes/pkg/kubectl/resource"
-	"k8s.io/kubernetes/pkg/printers"
 	"k8s.io/kubernetes/pkg/util/i18n"
 )
 
@@ -118,7 +117,7 @@ func NewCmdDelete(f cmdutil.Factory, out, errOut io.Writer) *cobra.Command {
 
 	// retrieve a list of handled resources from printer as valid args
 	validArgs, argAliases := []string{}, []string{}
-	p, err := f.Printer(nil, printers.PrintOptions{
+	p, err := f.Printer(nil, kubectl.PrintOptions{
 		ColumnLabels: []string{},
 	})
 	cmdutil.CheckErr(err)
@@ -253,8 +252,7 @@ func ReapResult(r *resource.Result, f cmdutil.Factory, out io.Writer, isDefaultD
 		if err != nil {
 			// If there is no reaper for this resources and the user didn't explicitly ask for stop.
 			if kubectl.IsNoSuchReaperError(err) && isDefaultDelete {
-				// No client side reaper found. Let the server do cascading deletion.
-				return cascadingDeleteResource(info, out, shortOutput, mapper)
+				return deleteResource(info, out, shortOutput, mapper)
 			}
 			return cmdutil.AddSourceToErr("reaping", info.Source, err)
 		}
@@ -294,7 +292,7 @@ func DeleteResult(r *resource.Result, out io.Writer, ignoreNotFound bool, shortO
 			return err
 		}
 		found++
-		return deleteResource(info, out, shortOutput, mapper, nil)
+		return deleteResource(info, out, shortOutput, mapper)
 	})
 	if err != nil {
 		return err
@@ -305,14 +303,8 @@ func DeleteResult(r *resource.Result, out io.Writer, ignoreNotFound bool, shortO
 	return nil
 }
 
-func cascadingDeleteResource(info *resource.Info, out io.Writer, shortOutput bool, mapper meta.RESTMapper) error {
-	falseVar := false
-	deleteOptions := &metav1.DeleteOptions{OrphanDependents: &falseVar}
-	return deleteResource(info, out, shortOutput, mapper, deleteOptions)
-}
-
-func deleteResource(info *resource.Info, out io.Writer, shortOutput bool, mapper meta.RESTMapper, deleteOptions *metav1.DeleteOptions) error {
-	if err := resource.NewHelper(info.Client, info.Mapping).DeleteWithOptions(info.Namespace, info.Name, deleteOptions); err != nil {
+func deleteResource(info *resource.Info, out io.Writer, shortOutput bool, mapper meta.RESTMapper) error {
+	if err := resource.NewHelper(info.Client, info.Mapping).Delete(info.Namespace, info.Name); err != nil {
 		return cmdutil.AddSourceToErr("deleting", info.Source, err)
 	}
 	cmdutil.PrintSuccess(mapper, shortOutput, out, info.Mapping.Resource, info.Name, false, "deleted")

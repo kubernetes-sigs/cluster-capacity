@@ -22,7 +22,6 @@ import (
 	watch "k8s.io/apimachinery/pkg/watch"
 	rest "k8s.io/client-go/rest"
 	api "k8s.io/kubernetes/pkg/api"
-	scheme "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/scheme"
 )
 
 // ResourceQuotasGetter has a method to return a ResourceQuotaInterface.
@@ -116,7 +115,7 @@ func (c *resourceQuotas) DeleteCollection(options *v1.DeleteOptions, listOptions
 	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("resourcequotas").
-		VersionedParams(&listOptions, scheme.ParameterCodec).
+		VersionedParams(&listOptions, api.ParameterCodec).
 		Body(options).
 		Do().
 		Error()
@@ -129,7 +128,7 @@ func (c *resourceQuotas) Get(name string, options v1.GetOptions) (result *api.Re
 		Namespace(c.ns).
 		Resource("resourcequotas").
 		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
+		VersionedParams(&options, api.ParameterCodec).
 		Do().
 		Into(result)
 	return
@@ -141,7 +140,7 @@ func (c *resourceQuotas) List(opts v1.ListOptions) (result *api.ResourceQuotaLis
 	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("resourcequotas").
-		VersionedParams(&opts, scheme.ParameterCodec).
+		VersionedParams(&opts, api.ParameterCodec).
 		Do().
 		Into(result)
 	return
@@ -149,11 +148,11 @@ func (c *resourceQuotas) List(opts v1.ListOptions) (result *api.ResourceQuotaLis
 
 // Watch returns a watch.Interface that watches the requested resourceQuotas.
 func (c *resourceQuotas) Watch(opts v1.ListOptions) (watch.Interface, error) {
-	opts.Watch = true
 	return c.client.Get().
+		Prefix("watch").
 		Namespace(c.ns).
 		Resource("resourcequotas").
-		VersionedParams(&opts, scheme.ParameterCodec).
+		VersionedParams(&opts, api.ParameterCodec).
 		Watch()
 }
 

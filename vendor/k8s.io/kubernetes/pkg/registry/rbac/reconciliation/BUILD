@@ -11,8 +11,8 @@ load(
 go_test(
     name = "go_default_test",
     srcs = [
-        "reconcile_role_test.go",
-        "reconcile_rolebindings_test.go",
+        "reconcile_clusterrole_test.go",
+        "reconcile_clusterrolebindings_test.go",
     ],
     library = ":go_default_library",
     tags = ["automanaged"],
@@ -26,12 +26,8 @@ go_test(
 go_library(
     name = "go_default_library",
     srcs = [
-        "clusterrole_interfaces.go",
-        "clusterrolebinding_interfaces.go",
-        "reconcile_role.go",
-        "reconcile_rolebindings.go",
-        "role_interfaces.go",
-        "rolebinding_interfaces.go",
+        "reconcile_clusterrole.go",
+        "reconcile_clusterrolebindings.go",
     ],
     tags = ["automanaged"],
     deps = [
@@ -41,7 +37,6 @@ go_library(
         "//pkg/registry/rbac/validation:go_default_library",
         "//vendor:k8s.io/apimachinery/pkg/api/errors",
         "//vendor:k8s.io/apimachinery/pkg/apis/meta/v1",
-        "//vendor:k8s.io/apimachinery/pkg/types",
     ],
 )
 

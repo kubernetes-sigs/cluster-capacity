@@ -18,7 +18,6 @@ go_library(
         "//pkg/features:go_default_library",
         "//pkg/proxy:go_default_library",
         "//pkg/proxy/healthcheck:go_default_library",
-        "//pkg/proxy/util:go_default_library",
         "//pkg/util/exec:go_default_library",
         "//pkg/util/iptables:go_default_library",
         "//pkg/util/sysctl:go_default_library",

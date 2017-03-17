@@ -352,16 +352,8 @@ func TestRBAC(t *testing.T) {
 					},
 					{
 						ObjectMeta: metav1.ObjectMeta{Name: "create-rolebindings", Namespace: "job-namespace"},
-						Subjects: []rbacapi.Subject{
-							{Kind: "User", Name: "job-writer-namespace"},
-							{Kind: "User", Name: "any-rolebinding-writer-namespace"},
-						},
-						RoleRef: rbacapi.RoleRef{Kind: "ClusterRole", Name: "create-rolebindings"},
-					},
-					{
-						ObjectMeta: metav1.ObjectMeta{Name: "bind-any-clusterrole", Namespace: "job-namespace"},
-						Subjects:   []rbacapi.Subject{{Kind: "User", Name: "any-rolebinding-writer-namespace"}},
-						RoleRef:    rbacapi.RoleRef{Kind: "ClusterRole", Name: "bind-any-clusterrole"},
+						Subjects:   []rbacapi.Subject{{Kind: "User", Name: "job-writer-namespace"}},
+						RoleRef:    rbacapi.RoleRef{Kind: "ClusterRole", Name: "create-rolebindings"},
 					},
 				},
 			},
@@ -392,8 +384,6 @@ func TestRBAC(t *testing.T) {
 
 				// cannot bind role anywhere
 				{"user-with-no-permissions", "POST", "rbac.authorization.k8s.io", "rolebindings", "job-namespace", "", writeJobsRoleBinding, http.StatusForbidden},
-				// can only bind role in namespace where they have explicit bind permission
-				{"any-rolebinding-writer-namespace", "POST", "rbac.authorization.k8s.io", "rolebindings", "forbidden-namespace", "", writeJobsRoleBinding, http.StatusForbidden},
 				// can only bind role in namespace where they have covering permissions
 				{"job-writer-namespace", "POST", "rbac.authorization.k8s.io", "rolebindings", "forbidden-namespace", "", writeJobsRoleBinding, http.StatusForbidden},
 				{"job-writer-namespace", "POST", "rbac.authorization.k8s.io", "rolebindings", "job-namespace", "", writeJobsRoleBinding, http.StatusCreated},
@@ -405,8 +395,6 @@ func TestRBAC(t *testing.T) {
 				{"nonescalating-rolebinding-writer", "POST", "rbac.authorization.k8s.io", "rolebindings", "job-namespace", "", writeJobsRoleBinding, http.StatusForbidden},
 				// can bind role because they have explicit bind permission
 				{"any-rolebinding-writer", "POST", "rbac.authorization.k8s.io", "rolebindings", "job-namespace", "", writeJobsRoleBinding, http.StatusCreated},
-				{superUser, "DELETE", "rbac.authorization.k8s.io", "rolebindings", "job-namespace", "pi", "", http.StatusOK},
-				{"any-rolebinding-writer-namespace", "POST", "rbac.authorization.k8s.io", "rolebindings", "job-namespace", "", writeJobsRoleBinding, http.StatusCreated},
 				{superUser, "DELETE", "rbac.authorization.k8s.io", "rolebindings", "job-namespace", "pi", "", http.StatusOK},
 			},
 		},
@@ -444,6 +432,12 @@ func TestRBAC(t *testing.T) {
 					// For update operations, insert previous resource version
 					if resVersion := previousResourceVersion[getPreviousResourceVersionKey(path, "")]; resVersion != 0 {
 						sub += fmt.Sprintf(",\"resourceVersion\": \"%v\"", resVersion)
+					}
+				}
+				// For any creation requests, add the namespace to the object meta.
+				if r.verb == "POST" || r.verb == "PUT" {
+					if r.namespace != "" {
+						sub += fmt.Sprintf(",\"namespace\": %q", r.namespace)
 					}
 				}
 				body = strings.NewReader(fmt.Sprintf(r.body, sub))

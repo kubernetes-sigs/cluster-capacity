@@ -170,7 +170,6 @@ type VolumeOptions struct {
 	Tags       map[string]string
 	Name       string
 	DiskFormat string
-	Datastore  string
 }
 
 // Generates Valid Options for Diskformat
@@ -273,9 +272,6 @@ func newVSphere(cfg VSphereConfig) (*VSphere, error) {
 	if cfg.Global.RoundTripperCount == 0 {
 		cfg.Global.RoundTripperCount = RoundTripperDefaultCount
 	}
-	if cfg.Global.VCenterPort != "" {
-		glog.Warningf("port is a deprecated field in vsphere.conf and will be removed in future release.")
-	}
 
 	c, err := newClient(context.TODO(), &cfg)
 	if err != nil {
@@ -313,7 +309,7 @@ func logout(vs *VSphere) {
 
 func newClient(ctx context.Context, cfg *VSphereConfig) (*govmomi.Client, error) {
 	// Parse URL from string
-	u, err := url.Parse(fmt.Sprintf("https://%s/sdk", cfg.Global.VCenterIP))
+	u, err := url.Parse(fmt.Sprintf("https://%s:%s/sdk", cfg.Global.VCenterIP, cfg.Global.VCenterPort))
 	if err != nil {
 		return nil, err
 	}
@@ -642,30 +638,36 @@ func (vs *VSphere) ScrubDNS(nameservers, searches []string) (nsOut, srchOut []st
 }
 
 // Returns vSphere objects virtual machine, virtual device list, datastore and datacenter.
-func getVirtualMachineDevices(ctx context.Context, cfg *VSphereConfig, c *govmomi.Client, name string) (*object.VirtualMachine, object.VirtualDeviceList, *object.Datacenter, error) {
+func getVirtualMachineDevices(ctx context.Context, cfg *VSphereConfig, c *govmomi.Client, name string) (*object.VirtualMachine, object.VirtualDeviceList, *object.Datastore, *object.Datacenter, error) {
 	// Create a new finder
 	f := find.NewFinder(c.Client, true)
 
 	// Fetch and set data center
 	dc, err := f.Datacenter(ctx, cfg.Global.Datacenter)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	f.SetDatacenter(dc)
+
+	// Find datastores
+	ds, err := f.Datastore(ctx, cfg.Global.Datastore)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
 
 	vmRegex := cfg.Global.WorkingDir + name
 
 	vm, err := f.VirtualMachine(ctx, vmRegex)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	// Get devices from VM
 	vmDevices, err := vm.Device(ctx)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
-	return vm, vmDevices, dc, nil
+	return vm, vmDevices, ds, dc, nil
 }
 
 // Removes SCSI controller which is latest attached to VM.
@@ -708,7 +710,7 @@ func (vs *VSphere) AttachDisk(vmDiskPath string, nodeName k8stypes.NodeName) (di
 	}
 
 	// Get VM device list
-	vm, vmDevices, dc, err := getVirtualMachineDevices(ctx, vs.cfg, vs.client, vSphereInstance)
+	vm, vmDevices, ds, dc, err := getVirtualMachineDevices(ctx, vs.cfg, vs.client, vSphereInstance)
 	if err != nil {
 		return "", "", err
 	}
@@ -772,23 +774,6 @@ func (vs *VSphere) AttachDisk(vmDiskPath string, nodeName k8stypes.NodeName) (di
 			return "", "", fmt.Errorf("cannot find SCSI controller in VM")
 		}
 		newSCSICreated = true
-	}
-
-	// Create a new finder
-	f := find.NewFinder(vs.client.Client, true)
-
-	// Set data center
-	f.SetDatacenter(dc)
-	datastorePathObj := new(object.DatastorePath)
-	isSuccess := datastorePathObj.FromString(vmDiskPath)
-	if !isSuccess {
-		glog.Errorf("Failed to parse vmDiskPath: %+q", vmDiskPath)
-		return "", "", errors.New("Failed to parse vmDiskPath")
-	}
-	ds, err := f.Datastore(ctx, datastorePathObj.Datastore)
-	if err != nil {
-		glog.Errorf("Failed while searching for datastore %+q. err %s", datastorePathObj.Datastore, err)
-		return "", "", err
 	}
 
 	disk := vmDevices.CreateDisk(scsiController, ds.Reference(), vmDiskPath)
@@ -955,7 +940,7 @@ func (vs *VSphere) DiskIsAttached(volPath string, nodeName k8stypes.NodeName) (b
 	}
 
 	// Get VM device list
-	_, vmDevices, dc, err := getVirtualMachineDevices(ctx, vs.cfg, vs.client, vSphereInstance)
+	_, vmDevices, _, dc, err := getVirtualMachineDevices(ctx, vs.cfg, vs.client, vSphereInstance)
 	if err != nil {
 		glog.Errorf("Failed to get VM devices for VM %#q. err: %s", vSphereInstance, err)
 		return false, err
@@ -1007,7 +992,7 @@ func (vs *VSphere) DisksAreAttached(volPaths []string, nodeName k8stypes.NodeNam
 	}
 
 	// Get VM device list
-	_, vmDevices, dc, err := getVirtualMachineDevices(ctx, vs.cfg, vs.client, vSphereInstance)
+	_, vmDevices, _, dc, err := getVirtualMachineDevices(ctx, vs.cfg, vs.client, vSphereInstance)
 	if err != nil {
 		glog.Errorf("Failed to get VM devices for VM %#q. err: %s", vSphereInstance, err)
 		return attached, err
@@ -1169,8 +1154,7 @@ func (vs *VSphere) DetachDisk(volPath string, nodeName k8stypes.NodeName) error 
 		vSphereInstance = nodeNameToVMName(nodeName)
 	}
 
-	vm, vmDevices, dc, err := getVirtualMachineDevices(ctx, vs.cfg, vs.client, vSphereInstance)
-
+	vm, vmDevices, _, dc, err := getVirtualMachineDevices(ctx, vs.cfg, vs.client, vSphereInstance)
 	if err != nil {
 		return err
 	}
@@ -1200,14 +1184,6 @@ func (vs *VSphere) DetachDisk(volPath string, nodeName k8stypes.NodeName) error 
 func (vs *VSphere) CreateVolume(volumeOptions *VolumeOptions) (volumePath string, err error) {
 
 	var diskFormat string
-	var datastore string
-
-	// Default datastore is the datastore in the vSphere config file that is used initialize vSphere cloud provider.
-	if volumeOptions.Datastore == "" {
-		datastore = vs.cfg.Global.Datastore
-	} else {
-		datastore = volumeOptions.Datastore
-	}
 
 	// Default diskformat as 'thin'
 	if volumeOptions.DiskFormat == "" {
@@ -1239,9 +1215,9 @@ func (vs *VSphere) CreateVolume(volumeOptions *VolumeOptions) (volumePath string
 	dc, err := f.Datacenter(ctx, vs.cfg.Global.Datacenter)
 	f.SetDatacenter(dc)
 
-	ds, err := f.Datastore(ctx, datastore)
+	ds, err := f.Datastore(ctx, vs.cfg.Global.Datastore)
 	if err != nil {
-		glog.Errorf("Failed while searching for datastore %+q. err %s", datastore, err)
+		glog.Errorf("Failed while searching for datastore %+q. err %s", vs.cfg.Global.Datastore, err)
 		return "", err
 	}
 

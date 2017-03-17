@@ -100,7 +100,6 @@ func NewNodeControllerFromClient(
 		nodeCIDRMaskSize,
 		allocateNodeCIDRs,
 		false,
-		false,
 	)
 	if err != nil {
 		return nil, err
@@ -574,15 +573,11 @@ func TestMonitorNodeStatusEvictPods(t *testing.T) {
 		}
 		zones := testutil.GetZones(item.fakeNodeHandler)
 		for _, zone := range zones {
-			if _, ok := nodeController.zonePodEvictor[zone]; ok {
-				nodeController.zonePodEvictor[zone].Try(func(value TimedValue) (bool, time.Duration) {
-					nodeUid, _ := value.UID.(string)
-					deletePods(item.fakeNodeHandler, nodeController.recorder, value.Value, nodeUid, nodeController.daemonSetInformer.Lister())
-					return true, 0
-				})
-			} else {
-				t.Fatalf("Zone %v was unitialized!", zone)
-			}
+			nodeController.zonePodEvictor[zone].Try(func(value TimedValue) (bool, time.Duration) {
+				nodeUid, _ := value.UID.(string)
+				deletePods(item.fakeNodeHandler, nodeController.recorder, value.Value, nodeUid, nodeController.daemonSetInformer.Lister())
+				return true, 0
+			})
 		}
 
 		podEvicted := false
@@ -1249,7 +1244,7 @@ func TestMonitorNodeStatusEvictPodsWithDisruption(t *testing.T) {
 			t.Errorf("%v: unexpected error: %v", item.description, err)
 		}
 		// Give some time for rate-limiter to reload
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
 
 		for zone, state := range item.expectedFollowingStates {
 			if state != nodeController.zoneStates[zone] {
@@ -1258,8 +1253,6 @@ func TestMonitorNodeStatusEvictPodsWithDisruption(t *testing.T) {
 		}
 		zones := testutil.GetZones(fakeNodeHandler)
 		for _, zone := range zones {
-			// Time for rate-limiter reloading per node.
-			time.Sleep(50 * time.Millisecond)
 			nodeController.zonePodEvictor[zone].Try(func(value TimedValue) (bool, time.Duration) {
 				uid, _ := value.UID.(string)
 				deletePods(fakeNodeHandler, nodeController.recorder, value.Value, uid, nodeController.daemonSetStore)

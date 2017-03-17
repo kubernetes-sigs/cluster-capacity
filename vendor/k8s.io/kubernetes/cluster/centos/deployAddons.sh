@@ -33,8 +33,6 @@ function deploy_dns {
       
   if [ ! "$KUBEDNS" ]; then
     # use kubectl to create kube-dns deployment and service
-    ${KUBECTL} --namespace=kube-system create -f kubedns-sa.yaml
-    ${KUBECTL} --namespace=kube-system create -f kubedns-cm.yaml
     ${KUBECTL} --namespace=kube-system create -f kubedns-controller.yaml
     ${KUBECTL} --namespace=kube-system create -f kubedns-svc.yaml
 

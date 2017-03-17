@@ -36,18 +36,13 @@ fi
 # Federation utils
 
 # Sets the kubeconfig context value for the current cluster.
-# Args:
-#   $1: zone (required)
 #
 # Vars set:
 #   CLUSTER_CONTEXT
 function kubeconfig-federation-context() {
-  if [[ -z "${1:-}" ]]; then
-    echo "zone parameter is required"
-    exit 1
-  fi
-  CLUSTER_CONTEXT="federation-e2e-${KUBERNETES_PROVIDER}-${1}"
+  CLUSTER_CONTEXT="federation-e2e-${KUBERNETES_PROVIDER}-$zone"
 }
+
 
 # Should NOT be called within the global scope, unless setting the desired global zone vars
 # This function is currently NOT USED in the global scope

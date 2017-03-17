@@ -1,14 +1,4 @@
 aliases:
-  sig-scheduling-maintainers:
-    - davidopp
-    - timothysc
-    - wojtek-t
-  sig-scheduling:
-    - davidopp
-    - timothysc
-    - wojtek-t
-    - k82cn 
-    - jayunit100
   sig-cli-maintainers:
     - adohe
     - brendandburns
@@ -58,11 +48,3 @@ aliases:
     - vishh
     - yifan-gu
     - yujuhong
-  sig-network-reviewers:
-    - thockin
-    - freehan
-    - bowei
-    - mrhohn
-    - dcbw
-    - danwinship
-    - caseydavenport

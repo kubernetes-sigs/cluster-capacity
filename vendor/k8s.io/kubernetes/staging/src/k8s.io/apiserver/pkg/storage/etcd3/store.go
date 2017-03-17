@@ -102,11 +102,8 @@ func newStore(c *clientv3.Client, quorumRead bool, codec runtime.Codec, prefix s
 		codec:       codec,
 		versioner:   versioner,
 		transformer: transformer,
-		// for compatibility with etcd2 impl.
-		// no-op for default prefix of '/registry'.
-		// keeps compatibility with etcd2 impl for custom prefixes that don't start with '/'
-		pathPrefix: path.Join("/", prefix),
-		watcher:    newWatcher(c, codec, versioner, transformer),
+		pathPrefix:  prefix,
+		watcher:     newWatcher(c, codec, versioner, transformer),
 	}
 	if !quorumRead {
 		// In case of non-quorum reads, we can set WithSerializable()

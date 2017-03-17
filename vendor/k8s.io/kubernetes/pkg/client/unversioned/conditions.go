@@ -78,15 +78,15 @@ func ReplicaSetHasDesiredReplicas(rsClient extensionsclient.ReplicaSetsGetter, r
 	}
 }
 
-// StatefulSetHasDesiredReplicas returns a conditon that checks the number of statefulset replicas
-func StatefulSetHasDesiredReplicas(ssClient appsclient.StatefulSetsGetter, ss *apps.StatefulSet) wait.ConditionFunc {
-	// TODO: Differentiate between 0 statefulset pods and a really quick scale down using generation.
+// StatefulSetHasDesiredPets returns a conditon that checks the number of petset replicas
+func StatefulSetHasDesiredPets(psClient appsclient.StatefulSetsGetter, petset *apps.StatefulSet) wait.ConditionFunc {
+	// TODO: Differentiate between 0 pets and a really quick scale down using generation.
 	return func() (bool, error) {
-		ss, err := ssClient.StatefulSets(ss.Namespace).Get(ss.Name, metav1.GetOptions{})
+		ps, err := psClient.StatefulSets(petset.Namespace).Get(petset.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
-		return ss.Status.Replicas == ss.Spec.Replicas, nil
+		return ps.Status.Replicas == ps.Spec.Replicas, nil
 	}
 }
 

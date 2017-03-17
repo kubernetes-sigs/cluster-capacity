@@ -171,7 +171,6 @@ items:
     - create
     - delete
     - list
-    - patch
     - watch
   - apiGroups:
     - ""
@@ -198,7 +197,6 @@ items:
     name: system:controller:deployment-controller
   rules:
   - apiGroups:
-    - apps
     - extensions
     resources:
     - deployments
@@ -208,7 +206,6 @@ items:
     - update
     - watch
   - apiGroups:
-    - apps
     - extensions
     resources:
     - deployments/status
@@ -254,7 +251,6 @@ items:
     name: system:controller:disruption-controller
   rules:
   - apiGroups:
-    - apps
     - extensions
     resources:
     - deployments
@@ -419,7 +415,6 @@ items:
     - get
     - update
   - apiGroups:
-    - apps
     - extensions
     resources:
     - deployments/scale
@@ -554,7 +549,6 @@ items:
     - delete
     - get
     - list
-    - patch
     - update
   - apiGroups:
     - ""
@@ -946,7 +940,6 @@ items:
     - create
     - delete
     - get
-    - patch
     - update
   - apiGroups:
     - ""

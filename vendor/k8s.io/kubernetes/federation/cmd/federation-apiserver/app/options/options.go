@@ -53,7 +53,7 @@ func NewServerRunOptions() *ServerRunOptions {
 	s := ServerRunOptions{
 		GenericServerRunOptions: genericoptions.NewServerRunOptions(),
 		Etcd:                 genericoptions.NewEtcdOptions(storagebackend.NewDefaultConfig(kubeoptions.DefaultEtcdPathPrefix, api.Scheme, nil)),
-		SecureServing:        kubeoptions.NewSecureServingOptions(),
+		SecureServing:        genericoptions.NewSecureServingOptions(),
 		InsecureServing:      genericoptions.NewInsecureServingOptions(),
 		Audit:                genericoptions.NewAuditLogOptions(),
 		Features:             genericoptions.NewFeatureOptions(),

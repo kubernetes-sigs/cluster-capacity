@@ -18,18 +18,34 @@ limitations under the License.
 
 package flock
 
-import "syscall"
+import (
+	"os"
+	"sync"
+
+	"golang.org/x/sys/unix"
+)
+
+var (
+	// lock guards lockfile. Assignment is not atomic.
+	lock sync.Mutex
+	// os.File has a runtime.Finalizer so the fd will be closed if the struct
+	// is garbage collected. Let's hold onto a reference so that doesn't happen.
+	lockfile *os.File
+)
 
 // Acquire acquires a lock on a file for the duration of the process. This method
 // is reentrant.
 func Acquire(path string) error {
-	fd, err := syscall.Open(path, syscall.O_CREAT|syscall.O_RDWR, 0600)
-	if err != nil {
+	lock.Lock()
+	defer lock.Unlock()
+	var err error
+	if lockfile, err = os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0600); err != nil {
 		return err
 	}
-
-	// We don't need to close the fd since we should hold
-	// it until the process exits.
-
-	return syscall.Flock(fd, syscall.LOCK_EX)
+	defer lockfile.Close()
+	opts := unix.Flock_t{Type: unix.F_WRLCK}
+	if err := unix.FcntlFlock(lockfile.Fd(), unix.F_SETLKW, &opts); err != nil {
+		return err
+	}
+	return nil
 }

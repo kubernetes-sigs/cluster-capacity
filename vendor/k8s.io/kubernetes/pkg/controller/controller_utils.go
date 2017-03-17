@@ -400,9 +400,8 @@ func (r RealRSControl) PatchReplicaSet(namespace, name string, data []byte) erro
 type PodControlInterface interface {
 	// CreatePods creates new pods according to the spec.
 	CreatePods(namespace string, template *v1.PodTemplateSpec, object runtime.Object) error
-	// CreatePodsOnNode creates a new pod according to the spec on the specified node,
-	// and sets the ControllerRef.
-	CreatePodsOnNode(nodeName, namespace string, template *v1.PodTemplateSpec, object runtime.Object, controllerRef *metav1.OwnerReference) error
+	// CreatePodsOnNode creates a new pod according to the spec on the specified node.
+	CreatePodsOnNode(nodeName, namespace string, template *v1.PodTemplateSpec, object runtime.Object) error
 	// CreatePodsWithControllerRef creates new pods according to the spec, and sets object as the pod's controller.
 	CreatePodsWithControllerRef(namespace string, template *v1.PodTemplateSpec, object runtime.Object, controllerRef *metav1.OwnerReference) error
 	// DeletePod deletes the pod identified by podID.
@@ -467,7 +466,11 @@ func getPodsPrefix(controllerName string) string {
 	return prefix
 }
 
-func validateControllerRef(controllerRef *metav1.OwnerReference) error {
+func (r RealPodControl) CreatePods(namespace string, template *v1.PodTemplateSpec, object runtime.Object) error {
+	return r.createPods("", namespace, template, object, nil)
+}
+
+func (r RealPodControl) CreatePodsWithControllerRef(namespace string, template *v1.PodTemplateSpec, controllerObject runtime.Object, controllerRef *metav1.OwnerReference) error {
 	if controllerRef == nil {
 		return fmt.Errorf("controllerRef is nil")
 	}
@@ -478,30 +481,13 @@ func validateControllerRef(controllerRef *metav1.OwnerReference) error {
 		return fmt.Errorf("controllerRef has empty Kind")
 	}
 	if controllerRef.Controller == nil || *controllerRef.Controller != true {
-		return fmt.Errorf("controllerRef.Controller is not set to true")
-	}
-	if controllerRef.BlockOwnerDeletion == nil || *controllerRef.BlockOwnerDeletion != true {
-		return fmt.Errorf("controllerRef.BlockOwnerDeletion is not set")
-	}
-	return nil
-}
-
-func (r RealPodControl) CreatePods(namespace string, template *v1.PodTemplateSpec, object runtime.Object) error {
-	return r.createPods("", namespace, template, object, nil)
-}
-
-func (r RealPodControl) CreatePodsWithControllerRef(namespace string, template *v1.PodTemplateSpec, controllerObject runtime.Object, controllerRef *metav1.OwnerReference) error {
-	if err := validateControllerRef(controllerRef); err != nil {
-		return err
+		return fmt.Errorf("controllerRef.Controller is not set")
 	}
 	return r.createPods("", namespace, template, controllerObject, controllerRef)
 }
 
-func (r RealPodControl) CreatePodsOnNode(nodeName, namespace string, template *v1.PodTemplateSpec, object runtime.Object, controllerRef *metav1.OwnerReference) error {
-	if err := validateControllerRef(controllerRef); err != nil {
-		return err
-	}
-	return r.createPods(nodeName, namespace, template, object, controllerRef)
+func (r RealPodControl) CreatePodsOnNode(nodeName, namespace string, template *v1.PodTemplateSpec, object runtime.Object) error {
+	return r.createPods(nodeName, namespace, template, object, nil)
 }
 
 func (r RealPodControl) PatchPod(namespace, name string, data []byte) error {
@@ -624,11 +610,10 @@ func (f *FakePodControl) CreatePodsWithControllerRef(namespace string, spec *v1.
 	return nil
 }
 
-func (f *FakePodControl) CreatePodsOnNode(nodeName, namespace string, template *v1.PodTemplateSpec, object runtime.Object, controllerRef *metav1.OwnerReference) error {
+func (f *FakePodControl) CreatePodsOnNode(nodeName, namespace string, template *v1.PodTemplateSpec, object runtime.Object) error {
 	f.Lock()
 	defer f.Unlock()
 	f.Templates = append(f.Templates, *template)
-	f.ControllerRefs = append(f.ControllerRefs, *controllerRef)
 	if f.Err != nil {
 		return f.Err
 	}
@@ -888,22 +873,7 @@ func AddOrUpdateTaintOnNode(c clientset.Interface, nodeName string, taint *v1.Ta
 
 // RemoveTaintOffNode is for cleaning up taints temporarily added to node,
 // won't fail if target taint doesn't exist or has been removed.
-// If passed a node it'll check if there's anything to be done, if taint is not present it won't issue
-// any API calls.
-func RemoveTaintOffNode(c clientset.Interface, nodeName string, taint *v1.Taint, node *v1.Node) error {
-	// Short circuit for limiting amout of API calls.
-	if node != nil {
-		match := false
-		for i := range node.Spec.Taints {
-			if node.Spec.Taints[i].MatchTaint(taint) {
-				match = true
-				break
-			}
-		}
-		if !match {
-			return nil
-		}
-	}
+func RemoveTaintOffNode(c clientset.Interface, nodeName string, taint *v1.Taint) error {
 	firstTry := true
 	return clientretry.RetryOnConflict(UpdateTaintBackoff, func() error {
 		var err error
@@ -937,7 +907,7 @@ func PatchNodeTaints(c clientset.Interface, nodeName string, oldNode *v1.Node, n
 		return fmt.Errorf("failed to marshal old node %#v for node %q: %v", oldNode, nodeName, err)
 	}
 
-	newTaints := newNode.Spec.Taints
+	newAnnotations := newNode.Annotations
 	objCopy, err := api.Scheme.DeepCopy(oldNode)
 	if err != nil {
 		return fmt.Errorf("failed to copy node object %#v: %v", oldNode, err)
@@ -946,7 +916,7 @@ func PatchNodeTaints(c clientset.Interface, nodeName string, oldNode *v1.Node, n
 	if !ok {
 		return fmt.Errorf("failed to cast copy onto node object %#v: %v", newNode, err)
 	}
-	newNode.Spec.Taints = newTaints
+	newNode.Annotations = newAnnotations
 	newData, err := json.Marshal(newNode)
 	if err != nil {
 		return fmt.Errorf("failed to marshal new node %#v for node %q: %v", newNode, nodeName, err)

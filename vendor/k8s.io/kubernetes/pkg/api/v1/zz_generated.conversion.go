@@ -275,8 +275,6 @@ func RegisterConversions(scheme *runtime.Scheme) error {
 		Convert_api_PodTemplateList_To_v1_PodTemplateList,
 		Convert_v1_PodTemplateSpec_To_api_PodTemplateSpec,
 		Convert_api_PodTemplateSpec_To_v1_PodTemplateSpec,
-		Convert_v1_PortworxVolumeSource_To_api_PortworxVolumeSource,
-		Convert_api_PortworxVolumeSource_To_v1_PortworxVolumeSource,
 		Convert_v1_Preconditions_To_api_Preconditions,
 		Convert_api_Preconditions_To_v1_Preconditions,
 		Convert_v1_PreferAvoidPodsEntry_To_api_PreferAvoidPodsEntry,
@@ -317,8 +315,6 @@ func RegisterConversions(scheme *runtime.Scheme) error {
 		Convert_api_ResourceRequirements_To_v1_ResourceRequirements,
 		Convert_v1_SELinuxOptions_To_api_SELinuxOptions,
 		Convert_api_SELinuxOptions_To_v1_SELinuxOptions,
-		Convert_v1_ScaleIOVolumeSource_To_api_ScaleIOVolumeSource,
-		Convert_api_ScaleIOVolumeSource_To_v1_ScaleIOVolumeSource,
 		Convert_v1_Secret_To_api_Secret,
 		Convert_api_Secret_To_v1_Secret,
 		Convert_v1_SecretEnvSource_To_api_SecretEnvSource,
@@ -1066,7 +1062,6 @@ func autoConvert_v1_DeleteOptions_To_api_DeleteOptions(in *DeleteOptions, out *a
 	out.GracePeriodSeconds = (*int64)(unsafe.Pointer(in.GracePeriodSeconds))
 	out.Preconditions = (*api.Preconditions)(unsafe.Pointer(in.Preconditions))
 	out.OrphanDependents = (*bool)(unsafe.Pointer(in.OrphanDependents))
-	out.PropagationPolicy = (*api.DeletionPropagation)(unsafe.Pointer(in.PropagationPolicy))
 	return nil
 }
 
@@ -1078,7 +1073,6 @@ func autoConvert_api_DeleteOptions_To_v1_DeleteOptions(in *api.DeleteOptions, ou
 	out.GracePeriodSeconds = (*int64)(unsafe.Pointer(in.GracePeriodSeconds))
 	out.Preconditions = (*Preconditions)(unsafe.Pointer(in.Preconditions))
 	out.OrphanDependents = (*bool)(unsafe.Pointer(in.OrphanDependents))
-	out.PropagationPolicy = (*DeletionPropagation)(unsafe.Pointer(in.PropagationPolicy))
 	return nil
 }
 
@@ -2305,7 +2299,6 @@ func autoConvert_v1_NodeSpec_To_api_NodeSpec(in *NodeSpec, out *api.NodeSpec, s 
 	out.ExternalID = in.ExternalID
 	out.ProviderID = in.ProviderID
 	out.Unschedulable = in.Unschedulable
-	out.Taints = *(*[]api.Taint)(unsafe.Pointer(&in.Taints))
 	return nil
 }
 
@@ -2318,7 +2311,6 @@ func autoConvert_api_NodeSpec_To_v1_NodeSpec(in *api.NodeSpec, out *NodeSpec, s 
 	out.ExternalID = in.ExternalID
 	out.ProviderID = in.ProviderID
 	out.Unschedulable = in.Unschedulable
-	out.Taints = *(*[]Taint)(unsafe.Pointer(&in.Taints))
 	return nil
 }
 
@@ -2589,7 +2581,6 @@ func autoConvert_v1_PersistentVolumeClaimSpec_To_api_PersistentVolumeClaimSpec(i
 		return err
 	}
 	out.VolumeName = in.VolumeName
-	out.StorageClassName = (*string)(unsafe.Pointer(in.StorageClassName))
 	return nil
 }
 
@@ -2604,7 +2595,6 @@ func autoConvert_api_PersistentVolumeClaimSpec_To_v1_PersistentVolumeClaimSpec(i
 		return err
 	}
 	out.VolumeName = in.VolumeName
-	out.StorageClassName = (*string)(unsafe.Pointer(in.StorageClassName))
 	return nil
 }
 
@@ -2712,8 +2702,6 @@ func autoConvert_v1_PersistentVolumeSource_To_api_PersistentVolumeSource(in *Per
 	out.Quobyte = (*api.QuobyteVolumeSource)(unsafe.Pointer(in.Quobyte))
 	out.AzureDisk = (*api.AzureDiskVolumeSource)(unsafe.Pointer(in.AzureDisk))
 	out.PhotonPersistentDisk = (*api.PhotonPersistentDiskVolumeSource)(unsafe.Pointer(in.PhotonPersistentDisk))
-	out.PortworxVolume = (*api.PortworxVolumeSource)(unsafe.Pointer(in.PortworxVolume))
-	out.ScaleIO = (*api.ScaleIOVolumeSource)(unsafe.Pointer(in.ScaleIO))
 	return nil
 }
 
@@ -2739,8 +2727,6 @@ func autoConvert_api_PersistentVolumeSource_To_v1_PersistentVolumeSource(in *api
 	out.VsphereVolume = (*VsphereVirtualDiskVolumeSource)(unsafe.Pointer(in.VsphereVolume))
 	out.AzureDisk = (*AzureDiskVolumeSource)(unsafe.Pointer(in.AzureDisk))
 	out.PhotonPersistentDisk = (*PhotonPersistentDiskVolumeSource)(unsafe.Pointer(in.PhotonPersistentDisk))
-	out.PortworxVolume = (*PortworxVolumeSource)(unsafe.Pointer(in.PortworxVolume))
-	out.ScaleIO = (*ScaleIOVolumeSource)(unsafe.Pointer(in.ScaleIO))
 	return nil
 }
 
@@ -2756,7 +2742,6 @@ func autoConvert_v1_PersistentVolumeSpec_To_api_PersistentVolumeSpec(in *Persist
 	out.AccessModes = *(*[]api.PersistentVolumeAccessMode)(unsafe.Pointer(&in.AccessModes))
 	out.ClaimRef = (*api.ObjectReference)(unsafe.Pointer(in.ClaimRef))
 	out.PersistentVolumeReclaimPolicy = api.PersistentVolumeReclaimPolicy(in.PersistentVolumeReclaimPolicy)
-	out.StorageClassName = in.StorageClassName
 	return nil
 }
 
@@ -2772,7 +2757,6 @@ func autoConvert_api_PersistentVolumeSpec_To_v1_PersistentVolumeSpec(in *api.Per
 	out.AccessModes = *(*[]PersistentVolumeAccessMode)(unsafe.Pointer(&in.AccessModes))
 	out.ClaimRef = (*ObjectReference)(unsafe.Pointer(in.ClaimRef))
 	out.PersistentVolumeReclaimPolicy = PersistentVolumeReclaimPolicy(in.PersistentVolumeReclaimPolicy)
-	out.StorageClassName = in.StorageClassName
 	return nil
 }
 
@@ -3175,7 +3159,6 @@ func autoConvert_v1_PodSpec_To_api_PodSpec(in *PodSpec, out *api.PodSpec, s conv
 	out.Subdomain = in.Subdomain
 	out.Affinity = (*api.Affinity)(unsafe.Pointer(in.Affinity))
 	out.SchedulerName = in.SchedulerName
-	out.Tolerations = *(*[]api.Toleration)(unsafe.Pointer(&in.Tolerations))
 	return nil
 }
 
@@ -3215,7 +3198,6 @@ func autoConvert_api_PodSpec_To_v1_PodSpec(in *api.PodSpec, out *PodSpec, s conv
 	out.Subdomain = in.Subdomain
 	out.Affinity = (*Affinity)(unsafe.Pointer(in.Affinity))
 	out.SchedulerName = in.SchedulerName
-	out.Tolerations = *(*[]Toleration)(unsafe.Pointer(&in.Tolerations))
 	return nil
 }
 
@@ -3349,28 +3331,6 @@ func autoConvert_api_PodTemplateSpec_To_v1_PodTemplateSpec(in *api.PodTemplateSp
 		return err
 	}
 	return nil
-}
-
-func autoConvert_v1_PortworxVolumeSource_To_api_PortworxVolumeSource(in *PortworxVolumeSource, out *api.PortworxVolumeSource, s conversion.Scope) error {
-	out.VolumeID = in.VolumeID
-	out.FSType = in.FSType
-	out.ReadOnly = in.ReadOnly
-	return nil
-}
-
-func Convert_v1_PortworxVolumeSource_To_api_PortworxVolumeSource(in *PortworxVolumeSource, out *api.PortworxVolumeSource, s conversion.Scope) error {
-	return autoConvert_v1_PortworxVolumeSource_To_api_PortworxVolumeSource(in, out, s)
-}
-
-func autoConvert_api_PortworxVolumeSource_To_v1_PortworxVolumeSource(in *api.PortworxVolumeSource, out *PortworxVolumeSource, s conversion.Scope) error {
-	out.VolumeID = in.VolumeID
-	out.FSType = in.FSType
-	out.ReadOnly = in.ReadOnly
-	return nil
-}
-
-func Convert_api_PortworxVolumeSource_To_v1_PortworxVolumeSource(in *api.PortworxVolumeSource, out *PortworxVolumeSource, s conversion.Scope) error {
-	return autoConvert_api_PortworxVolumeSource_To_v1_PortworxVolumeSource(in, out, s)
 }
 
 func autoConvert_v1_Preconditions_To_api_Preconditions(in *Preconditions, out *api.Preconditions, s conversion.Scope) error {
@@ -3889,42 +3849,6 @@ func autoConvert_api_SELinuxOptions_To_v1_SELinuxOptions(in *api.SELinuxOptions,
 
 func Convert_api_SELinuxOptions_To_v1_SELinuxOptions(in *api.SELinuxOptions, out *SELinuxOptions, s conversion.Scope) error {
 	return autoConvert_api_SELinuxOptions_To_v1_SELinuxOptions(in, out, s)
-}
-
-func autoConvert_v1_ScaleIOVolumeSource_To_api_ScaleIOVolumeSource(in *ScaleIOVolumeSource, out *api.ScaleIOVolumeSource, s conversion.Scope) error {
-	out.Gateway = in.Gateway
-	out.System = in.System
-	out.SecretRef = (*api.LocalObjectReference)(unsafe.Pointer(in.SecretRef))
-	out.SSLEnabled = in.SSLEnabled
-	out.ProtectionDomain = in.ProtectionDomain
-	out.StoragePool = in.StoragePool
-	out.StorageMode = in.StorageMode
-	out.VolumeName = in.VolumeName
-	out.FSType = in.FSType
-	out.ReadOnly = in.ReadOnly
-	return nil
-}
-
-func Convert_v1_ScaleIOVolumeSource_To_api_ScaleIOVolumeSource(in *ScaleIOVolumeSource, out *api.ScaleIOVolumeSource, s conversion.Scope) error {
-	return autoConvert_v1_ScaleIOVolumeSource_To_api_ScaleIOVolumeSource(in, out, s)
-}
-
-func autoConvert_api_ScaleIOVolumeSource_To_v1_ScaleIOVolumeSource(in *api.ScaleIOVolumeSource, out *ScaleIOVolumeSource, s conversion.Scope) error {
-	out.Gateway = in.Gateway
-	out.System = in.System
-	out.SecretRef = (*LocalObjectReference)(unsafe.Pointer(in.SecretRef))
-	out.SSLEnabled = in.SSLEnabled
-	out.ProtectionDomain = in.ProtectionDomain
-	out.StoragePool = in.StoragePool
-	out.StorageMode = in.StorageMode
-	out.VolumeName = in.VolumeName
-	out.FSType = in.FSType
-	out.ReadOnly = in.ReadOnly
-	return nil
-}
-
-func Convert_api_ScaleIOVolumeSource_To_v1_ScaleIOVolumeSource(in *api.ScaleIOVolumeSource, out *ScaleIOVolumeSource, s conversion.Scope) error {
-	return autoConvert_api_ScaleIOVolumeSource_To_v1_ScaleIOVolumeSource(in, out, s)
 }
 
 func autoConvert_v1_Secret_To_api_Secret(in *Secret, out *api.Secret, s conversion.Scope) error {
@@ -4526,8 +4450,6 @@ func autoConvert_v1_VolumeSource_To_api_VolumeSource(in *VolumeSource, out *api.
 	out.AzureDisk = (*api.AzureDiskVolumeSource)(unsafe.Pointer(in.AzureDisk))
 	out.PhotonPersistentDisk = (*api.PhotonPersistentDiskVolumeSource)(unsafe.Pointer(in.PhotonPersistentDisk))
 	out.Projected = (*api.ProjectedVolumeSource)(unsafe.Pointer(in.Projected))
-	out.PortworxVolume = (*api.PortworxVolumeSource)(unsafe.Pointer(in.PortworxVolume))
-	out.ScaleIO = (*api.ScaleIOVolumeSource)(unsafe.Pointer(in.ScaleIO))
 	return nil
 }
 
@@ -4560,8 +4482,6 @@ func autoConvert_api_VolumeSource_To_v1_VolumeSource(in *api.VolumeSource, out *
 	out.AzureDisk = (*AzureDiskVolumeSource)(unsafe.Pointer(in.AzureDisk))
 	out.PhotonPersistentDisk = (*PhotonPersistentDiskVolumeSource)(unsafe.Pointer(in.PhotonPersistentDisk))
 	out.Projected = (*ProjectedVolumeSource)(unsafe.Pointer(in.Projected))
-	out.PortworxVolume = (*PortworxVolumeSource)(unsafe.Pointer(in.PortworxVolume))
-	out.ScaleIO = (*ScaleIOVolumeSource)(unsafe.Pointer(in.ScaleIO))
 	return nil
 }
 

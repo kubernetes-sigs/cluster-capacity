@@ -18,7 +18,7 @@ package internalversion
 
 import (
 	rest "k8s.io/client-go/rest"
-	"k8s.io/kubernetes/cmd/libs/go2idl/client-gen/testoutput/clientset_generated/test_internalclientset/scheme"
+	api "k8s.io/kubernetes/pkg/api"
 )
 
 type TestgroupInterface interface {
@@ -64,20 +64,20 @@ func New(c rest.Interface) *TestgroupClient {
 }
 
 func setConfigDefaults(config *rest.Config) error {
-	g, err := scheme.Registry.Group("testgroup.k8s.io")
+	// if testgroup group is not registered, return an error
+	g, err := api.Registry.Group("testgroup.k8s.io")
 	if err != nil {
 		return err
 	}
-
 	config.APIPath = "/apis"
 	if config.UserAgent == "" {
 		config.UserAgent = rest.DefaultKubernetesUserAgent()
 	}
 	if config.GroupVersion == nil || config.GroupVersion.Group != g.GroupVersion.Group {
-		gv := g.GroupVersion
-		config.GroupVersion = &gv
+		copyGroupVersion := g.GroupVersion
+		config.GroupVersion = &copyGroupVersion
 	}
-	config.NegotiatedSerializer = scheme.Codecs
+	config.NegotiatedSerializer = api.Codecs
 
 	if config.QPS == 0 {
 		config.QPS = 5
@@ -85,7 +85,6 @@ func setConfigDefaults(config *rest.Config) error {
 	if config.Burst == 0 {
 		config.Burst = 10
 	}
-
 	return nil
 }
 

@@ -53,7 +53,7 @@ type denyExec struct {
 	privileged bool
 }
 
-var _ = kubeapiserveradmission.WantsInternalKubeClientSet(&denyExec{})
+var _ = kubeapiserveradmission.WantsInternalClientSet(&denyExec{})
 
 // NewDenyEscalatingExec creates a new admission controller that denies an exec operation on a pod
 // using host based configurations.
@@ -128,7 +128,7 @@ func isPrivileged(pod *api.Pod) bool {
 	return false
 }
 
-func (d *denyExec) SetInternalKubeClientSet(client internalclientset.Interface) {
+func (d *denyExec) SetInternalClientSet(client internalclientset.Interface) {
 	d.client = client
 }
 

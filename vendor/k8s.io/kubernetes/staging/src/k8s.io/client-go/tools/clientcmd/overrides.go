@@ -85,23 +85,16 @@ type FlagInfo struct {
 	Description string
 }
 
-// AddSecretAnnotation add secret flag to Annotation.
-func (f FlagInfo) AddSecretAnnotation(flags *pflag.FlagSet) FlagInfo {
-	flags.SetAnnotation(f.LongName, "classified", []string{"true"})
-	return f
-}
-
 // BindStringFlag binds the flag based on the provided info.  If LongName == "", nothing is registered
-func (f FlagInfo) BindStringFlag(flags *pflag.FlagSet, target *string) FlagInfo {
+func (f FlagInfo) BindStringFlag(flags *pflag.FlagSet, target *string) {
 	// you can't register a flag without a long name
 	if len(f.LongName) > 0 {
 		flags.StringVarP(target, f.LongName, f.ShortName, f.Default, f.Description)
 	}
-	return f
 }
 
 // BindBoolFlag binds the flag based on the provided info.  If LongName == "", nothing is registered
-func (f FlagInfo) BindBoolFlag(flags *pflag.FlagSet, target *bool) FlagInfo {
+func (f FlagInfo) BindBoolFlag(flags *pflag.FlagSet, target *bool) {
 	// you can't register a flag without a long name
 	if len(f.LongName) > 0 {
 		// try to parse Default as a bool.  If it fails, assume false
@@ -112,7 +105,6 @@ func (f FlagInfo) BindBoolFlag(flags *pflag.FlagSet, target *bool) FlagInfo {
 
 		flags.BoolVarP(target, f.LongName, f.ShortName, boolVal, f.Description)
 	}
-	return f
 }
 
 const (
@@ -188,12 +180,12 @@ func BindOverrideFlags(overrides *ConfigOverrides, flags *pflag.FlagSet, flagNam
 
 // BindAuthInfoFlags is a convenience method to bind the specified flags to their associated variables
 func BindAuthInfoFlags(authInfo *clientcmdapi.AuthInfo, flags *pflag.FlagSet, flagNames AuthOverrideFlags) {
-	flagNames.ClientCertificate.BindStringFlag(flags, &authInfo.ClientCertificate).AddSecretAnnotation(flags)
-	flagNames.ClientKey.BindStringFlag(flags, &authInfo.ClientKey).AddSecretAnnotation(flags)
-	flagNames.Token.BindStringFlag(flags, &authInfo.Token).AddSecretAnnotation(flags)
-	flagNames.Impersonate.BindStringFlag(flags, &authInfo.Impersonate).AddSecretAnnotation(flags)
-	flagNames.Username.BindStringFlag(flags, &authInfo.Username).AddSecretAnnotation(flags)
-	flagNames.Password.BindStringFlag(flags, &authInfo.Password).AddSecretAnnotation(flags)
+	flagNames.ClientCertificate.BindStringFlag(flags, &authInfo.ClientCertificate)
+	flagNames.ClientKey.BindStringFlag(flags, &authInfo.ClientKey)
+	flagNames.Token.BindStringFlag(flags, &authInfo.Token)
+	flagNames.Impersonate.BindStringFlag(flags, &authInfo.Impersonate)
+	flagNames.Username.BindStringFlag(flags, &authInfo.Username)
+	flagNames.Password.BindStringFlag(flags, &authInfo.Password)
 }
 
 // BindClusterFlags is a convenience method to bind the specified flags to their associated variables

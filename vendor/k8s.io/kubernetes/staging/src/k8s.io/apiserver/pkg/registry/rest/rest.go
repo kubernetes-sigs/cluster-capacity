@@ -136,9 +136,7 @@ type GracefulDeleter interface {
 	// returned error value err when the specified resource is not found.
 	// Delete *may* return the object that was deleted, or a status object indicating additional
 	// information about deletion.
-	// It also returns a boolean which is set to true if the resource was instantly
-	// deleted or false if it will be deleted asynchronously.
-	Delete(ctx genericapirequest.Context, name string, options *metav1.DeleteOptions) (runtime.Object, bool, error)
+	Delete(ctx genericapirequest.Context, name string, options *metav1.DeleteOptions) (runtime.Object, error)
 }
 
 // GracefulDeleteAdapter adapts the Deleter interface to GracefulDeleter
@@ -147,9 +145,8 @@ type GracefulDeleteAdapter struct {
 }
 
 // Delete implements RESTGracefulDeleter in terms of Deleter
-func (w GracefulDeleteAdapter) Delete(ctx genericapirequest.Context, name string, options *metav1.DeleteOptions) (runtime.Object, bool, error) {
-	obj, err := w.Deleter.Delete(ctx, name)
-	return obj, true, err
+func (w GracefulDeleteAdapter) Delete(ctx genericapirequest.Context, name string, options *metav1.DeleteOptions) (runtime.Object, error) {
+	return w.Deleter.Delete(ctx, name)
 }
 
 // CollectionDeleter is an object that can delete a collection

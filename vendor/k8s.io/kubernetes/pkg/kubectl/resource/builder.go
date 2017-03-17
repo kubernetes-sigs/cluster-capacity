@@ -567,31 +567,25 @@ func (b *Builder) visitorResult() *Result {
 }
 
 func (b *Builder) visitBySelector() *Result {
-	result := &Result{
-		targetsSingleItems: false,
-	}
-
 	if len(b.names) != 0 {
-		return result.withError(fmt.Errorf("name cannot be provided when a selector is specified"))
+		return &Result{err: fmt.Errorf("name cannot be provided when a selector is specified")}
 	}
 	if len(b.resourceTuples) != 0 {
-		return result.withError(fmt.Errorf("selectors and the all flag cannot be used when passing resource/name arguments"))
+		return &Result{err: fmt.Errorf("selectors and the all flag cannot be used when passing resource/name arguments")}
 	}
 	if len(b.resources) == 0 {
-		return result.withError(fmt.Errorf("at least one resource must be specified to use a selector"))
+		return &Result{err: fmt.Errorf("at least one resource must be specified to use a selector")}
 	}
 	mappings, err := b.resourceMappings()
 	if err != nil {
-		result.err = err
-		return result
+		return &Result{err: err}
 	}
 
 	visitors := []Visitor{}
 	for _, mapping := range mappings {
 		client, err := b.mapper.ClientForMapping(mapping)
 		if err != nil {
-			result.err = err
-			return result
+			return &Result{err: err}
 		}
 		selectorNamespace := b.namespace
 		if mapping.Scope.Name() != meta.RESTScopeNameNamespace {
@@ -600,12 +594,9 @@ func (b *Builder) visitBySelector() *Result {
 		visitors = append(visitors, NewSelector(client, mapping, selectorNamespace, b.selector, b.export))
 	}
 	if b.continueOnError {
-		result.visitor = EagerVisitorList(visitors)
-	} else {
-		result.visitor = VisitorList(visitors)
+		return &Result{visitor: EagerVisitorList(visitors), sources: visitors}
 	}
-	result.sources = visitors
-	return result
+	return &Result{visitor: VisitorList(visitors), sources: visitors}
 }
 
 func (b *Builder) visitByResource() *Result {
@@ -616,20 +607,14 @@ func (b *Builder) visitByResource() *Result {
 		isSingleItemImplied = len(b.resourceTuples) == 1
 	}
 
-	result := &Result{
-		singleItemImplied:  isSingleItemImplied,
-		targetsSingleItems: true,
-	}
-
 	if len(b.resources) != 0 {
-		return result.withError(fmt.Errorf("you may not specify individual resources and bulk resources in the same call"))
+		return &Result{singleItemImplied: isSingleItemImplied, err: fmt.Errorf("you may not specify individual resources and bulk resources in the same call")}
 	}
 
 	// retrieve one client for each resource
 	mappings, err := b.resourceTupleMappings()
 	if err != nil {
-		result.err = err
-		return result
+		return &Result{singleItemImplied: isSingleItemImplied, err: err}
 	}
 	clients := make(map[string]RESTClient)
 	for _, mapping := range mappings {
@@ -639,8 +624,7 @@ func (b *Builder) visitByResource() *Result {
 		}
 		client, err := b.mapper.ClientForMapping(mapping)
 		if err != nil {
-			result.err = err
-			return result
+			return &Result{err: err}
 		}
 		clients[s] = client
 	}
@@ -649,12 +633,12 @@ func (b *Builder) visitByResource() *Result {
 	for _, tuple := range b.resourceTuples {
 		mapping, ok := mappings[tuple.Resource]
 		if !ok {
-			return result.withError(fmt.Errorf("resource %q is not recognized: %v", tuple.Resource, mappings))
+			return &Result{singleItemImplied: isSingleItemImplied, err: fmt.Errorf("resource %q is not recognized: %v", tuple.Resource, mappings)}
 		}
 		s := fmt.Sprintf("%s/%s", mapping.GroupVersionKind.GroupVersion().String(), mapping.Resource)
 		client, ok := clients[s]
 		if !ok {
-			return result.withError(fmt.Errorf("could not find a client for resource %q", tuple.Resource))
+			return &Result{singleItemImplied: isSingleItemImplied, err: fmt.Errorf("could not find a client for resource %q", tuple.Resource)}
 		}
 
 		selectorNamespace := b.namespace
@@ -666,7 +650,7 @@ func (b *Builder) visitByResource() *Result {
 				if b.allNamespace {
 					errMsg = "a resource cannot be retrieved by name across all namespaces"
 				}
-				return result.withError(fmt.Errorf(errMsg))
+				return &Result{singleItemImplied: isSingleItemImplied, err: fmt.Errorf(errMsg)}
 			}
 		}
 
@@ -680,38 +664,31 @@ func (b *Builder) visitByResource() *Result {
 	} else {
 		visitors = VisitorList(items)
 	}
-	result.visitor = visitors
-	result.sources = items
-	return result
+	return &Result{singleItemImplied: isSingleItemImplied, visitor: visitors, sources: items}
 }
 
 func (b *Builder) visitByName() *Result {
-	result := &Result{
-		singleItemImplied:  len(b.names) == 1,
-		targetsSingleItems: true,
-	}
+	isSingleItemImplied := len(b.names) == 1
 
 	if len(b.paths) != 0 {
-		return result.withError(fmt.Errorf("when paths, URLs, or stdin is provided as input, you may not specify a resource by arguments as well"))
+		return &Result{singleItemImplied: isSingleItemImplied, err: fmt.Errorf("when paths, URLs, or stdin is provided as input, you may not specify a resource by arguments as well")}
 	}
 	if len(b.resources) == 0 {
-		return result.withError(fmt.Errorf("you must provide a resource and a resource name together"))
+		return &Result{singleItemImplied: isSingleItemImplied, err: fmt.Errorf("you must provide a resource and a resource name together")}
 	}
 	if len(b.resources) > 1 {
-		return result.withError(fmt.Errorf("you must specify only one resource"))
+		return &Result{singleItemImplied: isSingleItemImplied, err: fmt.Errorf("you must specify only one resource")}
 	}
 
 	mappings, err := b.resourceMappings()
 	if err != nil {
-		result.err = err
-		return result
+		return &Result{singleItemImplied: isSingleItemImplied, err: err}
 	}
 	mapping := mappings[0]
 
 	client, err := b.mapper.ClientForMapping(mapping)
 	if err != nil {
-		result.err = err
-		return result
+		return &Result{err: err}
 	}
 
 	selectorNamespace := b.namespace
@@ -723,7 +700,7 @@ func (b *Builder) visitByName() *Result {
 			if b.allNamespace {
 				errMsg = "a resource cannot be retrieved by name across all namespaces"
 			}
-			return result.withError(fmt.Errorf(errMsg))
+			return &Result{singleItemImplied: isSingleItemImplied, err: fmt.Errorf(errMsg)}
 		}
 	}
 
@@ -732,25 +709,19 @@ func (b *Builder) visitByName() *Result {
 		info := NewInfo(client, mapping, selectorNamespace, name, b.export)
 		visitors = append(visitors, info)
 	}
-	result.visitor = VisitorList(visitors)
-	result.sources = visitors
-	return result
+	return &Result{singleItemImplied: isSingleItemImplied, visitor: VisitorList(visitors), sources: visitors}
 }
 
 func (b *Builder) visitByPaths() *Result {
-	result := &Result{
-		singleItemImplied:  !b.dir && !b.stream && len(b.paths) == 1,
-		targetsSingleItems: true,
-	}
-
+	singleItemImplied := !b.dir && !b.stream && len(b.paths) == 1
 	if len(b.resources) != 0 {
-		return result.withError(fmt.Errorf("when paths, URLs, or stdin is provided as input, you may not specify resource arguments as well"))
+		return &Result{singleItemImplied: singleItemImplied, err: fmt.Errorf("when paths, URLs, or stdin is provided as input, you may not specify resource arguments as well")}
 	}
 	if len(b.names) != 0 {
-		return result.withError(fmt.Errorf("name cannot be provided when a path is specified"))
+		return &Result{err: fmt.Errorf("name cannot be provided when a path is specified")}
 	}
 	if len(b.resourceTuples) != 0 {
-		return result.withError(fmt.Errorf("resource/name arguments cannot be provided when a path is specified"))
+		return &Result{err: fmt.Errorf("resource/name arguments cannot be provided when a path is specified")}
 	}
 
 	var visitors Visitor
@@ -775,9 +746,7 @@ func (b *Builder) visitByPaths() *Result {
 	if b.selector != nil {
 		visitors = NewFilteredVisitor(visitors, FilterBySelector(b.selector))
 	}
-	result.visitor = visitors
-	result.sources = b.paths
-	return result
+	return &Result{singleItemImplied: singleItemImplied, visitor: visitors, sources: b.paths}
 }
 
 // Do returns a Result object with a Visitor for the resources identified by the Builder.

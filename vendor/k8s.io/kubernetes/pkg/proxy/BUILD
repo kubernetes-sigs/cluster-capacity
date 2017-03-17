@@ -35,7 +35,6 @@ filegroup(
         "//pkg/proxy/healthcheck:all-srcs",
         "//pkg/proxy/iptables:all-srcs",
         "//pkg/proxy/userspace:all-srcs",
-        "//pkg/proxy/util:all-srcs",
         "//pkg/proxy/winuserspace:all-srcs",
     ],
     tags = ["automanaged"],

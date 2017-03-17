@@ -128,7 +128,6 @@ func autoConvert_v1beta1_CertificateSigningRequestSpec_To_certificates_Certifica
 	out.Username = in.Username
 	out.UID = in.UID
 	out.Groups = *(*[]string)(unsafe.Pointer(&in.Groups))
-	out.Extra = *(*map[string]certificates.ExtraValue)(unsafe.Pointer(&in.Extra))
 	return nil
 }
 
@@ -142,7 +141,6 @@ func autoConvert_certificates_CertificateSigningRequestSpec_To_v1beta1_Certifica
 	out.Username = in.Username
 	out.UID = in.UID
 	out.Groups = *(*[]string)(unsafe.Pointer(&in.Groups))
-	out.Extra = *(*map[string]ExtraValue)(unsafe.Pointer(&in.Extra))
 	return nil
 }
 

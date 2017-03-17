@@ -106,7 +106,6 @@ func GetKubeletLatencyMetrics(ms metrics.KubeletMetrics) KubeletLatencyMetrics {
 		kubeletmetrics.PodStartLatencyKey,
 		kubeletmetrics.PodStatusLatencyKey,
 		kubeletmetrics.ContainerManagerOperationsKey,
-		kubeletmetrics.CgroupManagerOperationsKey,
 		kubeletmetrics.DockerOperationsLatencyKey,
 		kubeletmetrics.PodWorkerStartLatencyKey,
 		kubeletmetrics.PLEGRelistLatencyKey,

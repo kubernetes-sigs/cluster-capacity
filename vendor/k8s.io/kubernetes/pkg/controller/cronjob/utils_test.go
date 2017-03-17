@@ -24,8 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/kubernetes/pkg/api/v1"
-	batchv1 "k8s.io/kubernetes/pkg/apis/batch/v1"
-	batchv2alpha1 "k8s.io/kubernetes/pkg/apis/batch/v2alpha1"
+	batch "k8s.io/kubernetes/pkg/apis/batch/v2alpha1"
 )
 
 func TestGetJobFromTemplate(t *testing.T) {
@@ -35,22 +34,22 @@ func TestGetJobFromTemplate(t *testing.T) {
 	var one int64 = 1
 	var no bool = false
 
-	sj := batchv2alpha1.CronJob{
+	sj := batch.CronJob{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "mycronjob",
 			Namespace: "snazzycats",
 			UID:       types.UID("1a2b3c"),
 			SelfLink:  "/apis/batch/v1/namespaces/snazzycats/jobs/mycronjob",
 		},
-		Spec: batchv2alpha1.CronJobSpec{
+		Spec: batch.CronJobSpec{
 			Schedule:          "* * * * ?",
-			ConcurrencyPolicy: batchv2alpha1.AllowConcurrent,
-			JobTemplate: batchv2alpha1.JobTemplateSpec{
+			ConcurrencyPolicy: batch.AllowConcurrent,
+			JobTemplate: batch.JobTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:      map[string]string{"a": "b"},
 					Annotations: map[string]string{"x": "y"},
 				},
-				Spec: batchv1.JobSpec{
+				Spec: batch.JobSpec{
 					ActiveDeadlineSeconds: &one,
 					ManualSelector:        &no,
 					Template: v1.PodTemplateSpec{
@@ -70,7 +69,7 @@ func TestGetJobFromTemplate(t *testing.T) {
 		},
 	}
 
-	var job *batchv1.Job
+	var job *batch.Job
 	job, err := getJobFromTemplate(&sj, time.Time{})
 	if err != nil {
 		t.Errorf("Did not expect error: %s", err)
@@ -99,12 +98,12 @@ func TestGetJobFromTemplate(t *testing.T) {
 }
 
 func TestGetParentUIDFromJob(t *testing.T) {
-	j := &batchv1.Job{
+	j := &batch.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foobar",
 			Namespace: metav1.NamespaceDefault,
 		},
-		Spec: batchv1.JobSpec{
+		Spec: batch.JobSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{"foo": "bar"},
 			},
@@ -121,9 +120,9 @@ func TestGetParentUIDFromJob(t *testing.T) {
 				},
 			},
 		},
-		Status: batchv1.JobStatus{
-			Conditions: []batchv1.JobCondition{{
-				Type:   batchv1.JobComplete,
+		Status: batch.JobStatus{
+			Conditions: []batch.JobCondition{{
+				Type:   batch.JobComplete,
 				Status: v1.ConditionTrue,
 			}},
 		},
@@ -163,8 +162,8 @@ func TestGroupJobsByParent(t *testing.T) {
 
 	{
 		// Case 1: There are no jobs and scheduledJobs
-		sjs := []batchv2alpha1.CronJob{}
-		js := []batchv1.Job{}
+		sjs := []batch.CronJob{}
+		js := []batch.Job{}
 		jobsBySj := groupJobsByParent(sjs, js)
 		if len(jobsBySj) != 0 {
 			t.Errorf("Wrong number of items in map")
@@ -173,10 +172,10 @@ func TestGroupJobsByParent(t *testing.T) {
 
 	{
 		// Case 2: there is one controller with no job.
-		sjs := []batchv2alpha1.CronJob{
+		sjs := []batch.CronJob{
 			{ObjectMeta: metav1.ObjectMeta{Name: "e", Namespace: "x", UID: uid1}},
 		}
-		js := []batchv1.Job{}
+		js := []batch.Job{}
 		jobsBySj := groupJobsByParent(sjs, js)
 		if len(jobsBySj) != 0 {
 			t.Errorf("Wrong number of items in map")
@@ -185,10 +184,10 @@ func TestGroupJobsByParent(t *testing.T) {
 
 	{
 		// Case 3: there is one controller with one job it created.
-		sjs := []batchv2alpha1.CronJob{
+		sjs := []batch.CronJob{
 			{ObjectMeta: metav1.ObjectMeta{Name: "e", Namespace: "x", UID: uid1}},
 		}
-		js := []batchv1.Job{
+		js := []batch.Job{
 			{ObjectMeta: metav1.ObjectMeta{Name: "a", Namespace: "x", Annotations: createdBy1}},
 		}
 		jobsBySj := groupJobsByParent(sjs, js)
@@ -208,7 +207,7 @@ func TestGroupJobsByParent(t *testing.T) {
 	{
 		// Case 4: Two namespaces, one has two jobs from one controller, other has 3 jobs from two controllers.
 		// There are also two jobs with no created-by annotation.
-		js := []batchv1.Job{
+		js := []batch.Job{
 			{ObjectMeta: metav1.ObjectMeta{Name: "a", Namespace: "x", Annotations: createdBy1}},
 			{ObjectMeta: metav1.ObjectMeta{Name: "b", Namespace: "x", Annotations: createdBy2}},
 			{ObjectMeta: metav1.ObjectMeta{Name: "c", Namespace: "x", Annotations: createdBy1}},
@@ -217,7 +216,7 @@ func TestGroupJobsByParent(t *testing.T) {
 			{ObjectMeta: metav1.ObjectMeta{Name: "b", Namespace: "y", Annotations: createdBy3}},
 			{ObjectMeta: metav1.ObjectMeta{Name: "d", Namespace: "y", Annotations: noCreatedBy}},
 		}
-		sjs := []batchv2alpha1.CronJob{
+		sjs := []batch.CronJob{
 			{ObjectMeta: metav1.ObjectMeta{Name: "e", Namespace: "x", UID: uid1}},
 			{ObjectMeta: metav1.ObjectMeta{Name: "f", Namespace: "x", UID: uid2}},
 			{ObjectMeta: metav1.ObjectMeta{Name: "g", Namespace: "y", UID: uid3}},
@@ -267,16 +266,16 @@ func TestGetRecentUnmetScheduleTimes(t *testing.T) {
 		t.Errorf("test setup error: %v", err)
 	}
 
-	sj := batchv2alpha1.CronJob{
+	sj := batch.CronJob{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "mycronjob",
 			Namespace: metav1.NamespaceDefault,
 			UID:       types.UID("1a2b3c"),
 		},
-		Spec: batchv2alpha1.CronJobSpec{
+		Spec: batch.CronJobSpec{
 			Schedule:          schedule,
-			ConcurrencyPolicy: batchv2alpha1.AllowConcurrent,
-			JobTemplate:       batchv2alpha1.JobTemplateSpec{},
+			ConcurrencyPolicy: batch.AllowConcurrent,
+			JobTemplate:       batch.JobTemplateSpec{},
 		},
 	}
 	{

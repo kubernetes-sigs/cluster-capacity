@@ -18,6 +18,7 @@ package cmd
 
 import (
 	"bytes"
+	"encoding/json"
 	"io/ioutil"
 	"net/http"
 	"reflect"
@@ -34,31 +35,46 @@ import (
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
 )
 
-func generateNodeAndTaintedNode(oldTaints []v1.Taint, newTaints []v1.Taint) (*v1.Node, *v1.Node) {
-	var taintedNode *v1.Node
+func generateNodeAndTaintedNode(oldTaints []v1.Taint, newTaints []v1.Taint) (*api.Node, *api.Node) {
+	var taintedNode *api.Node
 
+	oldTaintsData, _ := json.Marshal(oldTaints)
 	// Create a node.
-	node := &v1.Node{
+	node := &api.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              "node-name",
 			CreationTimestamp: metav1.Time{Time: time.Now()},
+			Annotations: map[string]string{
+				v1.TaintsAnnotationKey: string(oldTaintsData),
+			},
 		},
-		Spec: v1.NodeSpec{
+		Spec: api.NodeSpec{
 			ExternalID: "node-name",
-			Taints:     oldTaints,
 		},
-		Status: v1.NodeStatus{},
+		Status: api.NodeStatus{},
 	}
 	clone, _ := api.Scheme.DeepCopy(node)
 
+	newTaintsData, _ := json.Marshal(newTaints)
 	// A copy of the same node, but tainted.
-	taintedNode = clone.(*v1.Node)
-	taintedNode.Spec.Taints = newTaints
+	taintedNode = clone.(*api.Node)
+	taintedNode.Annotations = map[string]string{
+		v1.TaintsAnnotationKey: string(newTaintsData),
+	}
 
 	return node, taintedNode
 }
 
-func equalTaints(taintsA, taintsB []v1.Taint) bool {
+func AnnotationsHaveEqualTaints(annotationA map[string]string, annotationB map[string]string) bool {
+	taintsA, err := v1.GetTaintsFromNodeAnnotations(annotationA)
+	if err != nil {
+		return false
+	}
+	taintsB, err := v1.GetTaintsFromNodeAnnotations(annotationB)
+	if err != nil {
+		return false
+	}
+
 	if len(taintsA) != len(taintsB) {
 		return false
 	}
@@ -238,7 +254,7 @@ func TestTaint(t *testing.T) {
 	for _, test := range tests {
 		oldNode, expectNewNode := generateNodeAndTaintedNode(test.oldTaints, test.newTaints)
 
-		new_node := &v1.Node{}
+		new_node := &api.Node{}
 		tainted := false
 		f, tf, codec, ns := cmdtesting.NewAPIFactory()
 
@@ -272,8 +288,8 @@ func TestTaint(t *testing.T) {
 					if err := runtime.DecodeInto(codec, appliedPatch, new_node); err != nil {
 						t.Fatalf("%s: unexpected error: %v", test.description, err)
 					}
-					if !equalTaints(expectNewNode.Spec.Taints, new_node.Spec.Taints) {
-						t.Fatalf("%s: expected:\n%v\nsaw:\n%v\n", test.description, expectNewNode.Spec.Taints, new_node.Spec.Taints)
+					if !AnnotationsHaveEqualTaints(expectNewNode.Annotations, new_node.Annotations) {
+						t.Fatalf("%s: expected:\n%v\nsaw:\n%v\n", test.description, expectNewNode.Annotations, new_node.Annotations)
 					}
 					return &http.Response{StatusCode: 200, Header: defaultHeader(), Body: objBody(codec, new_node)}, nil
 				case m.isFor("PUT", "/nodes/node-name"):
@@ -286,8 +302,8 @@ func TestTaint(t *testing.T) {
 					if err := runtime.DecodeInto(codec, data, new_node); err != nil {
 						t.Fatalf("%s: unexpected error: %v", test.description, err)
 					}
-					if !equalTaints(expectNewNode.Spec.Taints, new_node.Spec.Taints) {
-						t.Fatalf("%s: expected:\n%v\nsaw:\n%v\n", test.description, expectNewNode.Spec.Taints, new_node.Spec.Taints)
+					if !AnnotationsHaveEqualTaints(expectNewNode.Annotations, new_node.Annotations) {
+						t.Fatalf("%s: expected:\n%v\nsaw:\n%v\n", test.description, expectNewNode.Annotations, new_node.Annotations)
 					}
 					return &http.Response{StatusCode: 200, Header: defaultHeader(), Body: objBody(codec, new_node)}, nil
 				default:

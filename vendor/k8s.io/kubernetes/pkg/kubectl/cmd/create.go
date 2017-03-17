@@ -94,8 +94,7 @@ func NewCmdCreate(f cmdutil.Factory, out, errOut io.Writer) *cobra.Command {
 	cmd.AddCommand(NewCmdCreateConfigMap(f, out))
 	cmd.AddCommand(NewCmdCreateServiceAccount(f, out))
 	cmd.AddCommand(NewCmdCreateService(f, out, errOut))
-	cmd.AddCommand(NewCmdCreateDeployment(f, out, errOut))
-	cmd.AddCommand(NewCmdCreateClusterRole(f, out))
+	cmd.AddCommand(NewCmdCreateDeployment(f, out))
 	cmd.AddCommand(NewCmdCreateClusterRoleBinding(f, out))
 	cmd.AddCommand(NewCmdCreateRole(f, out))
 	cmd.AddCommand(NewCmdCreateRoleBinding(f, out))
@@ -154,7 +153,7 @@ func RunCreate(f cmdutil.Factory, cmd *cobra.Command, out, errOut io.Writer, opt
 		}
 
 		if cmdutil.ShouldRecord(cmd, info) {
-			if err := cmdutil.RecordChangeCause(info.Object, f.Command(cmd, false)); err != nil {
+			if err := cmdutil.RecordChangeCause(info.Object, f.Command()); err != nil {
 				return cmdutil.AddSourceToErr("creating", info.Source, err)
 			}
 		}

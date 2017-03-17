@@ -26,14 +26,9 @@ import (
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/apis/storage"
 	storageutil "k8s.io/kubernetes/pkg/apis/storage/util"
-	informers "k8s.io/kubernetes/pkg/client/informers/informers_generated/internalversion"
-	"k8s.io/kubernetes/pkg/controller"
 )
 
 func TestAdmission(t *testing.T) {
-	empty := ""
-	foo := "foo"
-
 	defaultClass1 := &storage.StorageClass{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "StorageClass",
@@ -102,9 +97,9 @@ func TestAdmission(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "claimWithClass",
 			Namespace: "ns",
-		},
-		Spec: api.PersistentVolumeClaimSpec{
-			StorageClassName: &foo,
+			Annotations: map[string]string{
+				storageutil.StorageClassAnnotation: "foo",
+			},
 		},
 	}
 	claimWithEmptyClass := &api.PersistentVolumeClaim{
@@ -114,9 +109,9 @@ func TestAdmission(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "claimWithEmptyClass",
 			Namespace: "ns",
-		},
-		Spec: api.PersistentVolumeClaimSpec{
-			StorageClassName: &empty,
+			Annotations: map[string]string{
+				storageutil.StorageClassAnnotation: "",
+			},
 		},
 	}
 	claimWithNoClass := &api.PersistentVolumeClaim{
@@ -198,10 +193,9 @@ func TestAdmission(t *testing.T) {
 		claim := clone.(*api.PersistentVolumeClaim)
 
 		ctrl := newPlugin()
-		informerFactory := informers.NewSharedInformerFactory(nil, controller.NoResyncPeriodFunc())
-		ctrl.SetInternalKubeInformerFactory(informerFactory)
+		ctrl.SetInternalClientSet(nil)
 		for _, c := range test.classes {
-			informerFactory.Storage().InternalVersion().StorageClasses().Informer().GetStore().Add(c)
+			ctrl.store.Add(c)
 		}
 		attrs := admission.NewAttributesRecord(
 			claim, // new object
@@ -224,8 +218,10 @@ func TestAdmission(t *testing.T) {
 		}
 
 		class := ""
-		if claim.Spec.StorageClassName != nil {
-			class = *claim.Spec.StorageClassName
+		if claim.Annotations != nil {
+			if value, ok := claim.Annotations[storageutil.StorageClassAnnotation]; ok {
+				class = value
+			}
 		}
 		if test.expectedClassName != "" && test.expectedClassName != class {
 			t.Errorf("Test %q: expected class name %q, got %q", test.name, test.expectedClassName, class)

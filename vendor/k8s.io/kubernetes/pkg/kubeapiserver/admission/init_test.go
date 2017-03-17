@@ -51,33 +51,10 @@ var _ WantsAuthorizer = &WantAuthorizerAdmission{}
 // TestWantsAuthorizer ensures that the authorizer is injected when the WantsAuthorizer
 // interface is implemented.
 func TestWantsAuthorizer(t *testing.T) {
-	initializer := NewPluginInitializer(nil, nil, &TestAuthorizer{}, nil)
+	initializer := NewPluginInitializer(nil, nil, &TestAuthorizer{})
 	wantAuthorizerAdmission := &WantAuthorizerAdmission{}
 	initializer.Initialize(wantAuthorizerAdmission)
 	if wantAuthorizerAdmission.auth == nil {
 		t.Errorf("expected authorizer to be initialized but found nil")
-	}
-}
-
-type WantsCloudConfigAdmissionPlugin struct {
-	cloudConfig []byte
-}
-
-func (self *WantsCloudConfigAdmissionPlugin) SetCloudConfig(cloudConfig []byte) {
-	self.cloudConfig = cloudConfig
-}
-
-func (self *WantsCloudConfigAdmissionPlugin) Admit(a admission.Attributes) error { return nil }
-func (self *WantsCloudConfigAdmissionPlugin) Handles(o admission.Operation) bool { return false }
-func (self *WantsCloudConfigAdmissionPlugin) Validate() error                    { return nil }
-
-func TestCloudConfigAdmissionPlugin(t *testing.T) {
-	cloudConfig := []byte("cloud-configuration")
-	initializer := NewPluginInitializer(nil, nil, &TestAuthorizer{}, cloudConfig)
-	wantsCloudConfigAdmission := &WantsCloudConfigAdmissionPlugin{}
-	initializer.Initialize(wantsCloudConfigAdmission)
-
-	if wantsCloudConfigAdmission.cloudConfig == nil {
-		t.Errorf("Expected cloud config to be initialized but found nil")
 	}
 }

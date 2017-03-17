@@ -79,14 +79,6 @@ func (plugin *azureFilePlugin) RequiresRemount() bool {
 	return false
 }
 
-func (plugin *azureFilePlugin) SupportsMountOption() bool {
-	return true
-}
-
-func (plugin *azureFilePlugin) SupportsBulkVolumeVerification() bool {
-	return false
-}
-
 func (plugin *azureFilePlugin) GetAccessModes() []v1.PersistentVolumeAccessMode {
 	return []v1.PersistentVolumeAccessMode{
 		v1.ReadWriteOnce,
@@ -113,11 +105,10 @@ func (plugin *azureFilePlugin) newMounterInternal(spec *volume.Spec, pod *v1.Pod
 			plugin:          plugin,
 			MetricsProvider: volume.NewMetricsStatFS(getPath(pod.UID, spec.Name(), plugin.host)),
 		},
-		util:         util,
-		secretName:   source.SecretName,
-		shareName:    source.ShareName,
-		readOnly:     readOnly,
-		mountOptions: volume.MountOptionFromSpec(spec),
+		util:       util,
+		secretName: source.SecretName,
+		shareName:  source.ShareName,
+		readOnly:   readOnly,
 	}, nil
 }
 
@@ -163,11 +154,10 @@ func (azureFileVolume *azureFile) GetPath() string {
 
 type azureFileMounter struct {
 	*azureFile
-	util         azureUtil
-	secretName   string
-	shareName    string
-	readOnly     bool
-	mountOptions []string
+	util       azureUtil
+	secretName string
+	shareName  string
+	readOnly   bool
 }
 
 var _ volume.Mounter = &azureFileMounter{}
@@ -212,8 +202,7 @@ func (b *azureFileMounter) SetUpAt(dir string, fsGroup *int64) error {
 	if b.readOnly {
 		options = append(options, "ro")
 	}
-	mountOptions := volume.JoinMountOptions(b.mountOptions, options)
-	err = b.mounter.Mount(source, dir, "cifs", mountOptions)
+	err = b.mounter.Mount(source, dir, "cifs", options)
 	if err != nil {
 		notMnt, mntErr := b.mounter.IsLikelyNotMountPoint(dir)
 		if mntErr != nil {

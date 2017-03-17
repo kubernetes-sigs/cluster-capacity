@@ -36,7 +36,7 @@ func ToGroupVersion(gv string) (GroupVersion, error) {
 
 	switch strings.Count(gv, "/") {
 	case 0:
-		return GroupVersion{Group(gv), ""}, nil
+		return GroupVersion{"", Version(gv)}, nil
 	case 1:
 		i := strings.Index(gv, "/")
 		return GroupVersion{Group(gv[:i]), Version(gv[i+1:])}, nil
@@ -94,23 +94,12 @@ func ToGroupVersionPackages(groups []GroupVersions) []GroupVersionPackage {
 				Group:            Group(namer.IC(group.Group.NonEmpty())),
 				Version:          Version(namer.IC(version.String())),
 				GroupVersion:     namer.IC(group.Group.NonEmpty()) + namer.IC(version.String()),
-				PackageName:      strings.ToLower(group.Group.NonEmpty() + version.NonEmpty()),
+				PackageName:      strings.ToLower(version.NonEmpty() + group.Group.NonEmpty()),
 				IsDefaultVersion: version == defaultVersion && version != "",
 			})
 		}
 	}
 	return groupVersionPackages
-}
-
-func ToGroupInstallPackages(groups []GroupVersions) []GroupInstallPackage {
-	var groupInstallPackages []GroupInstallPackage
-	for _, group := range groups {
-		groupInstallPackages = append(groupInstallPackages, GroupInstallPackage{
-			Group:              Group(namer.IC(group.Group.NonEmpty())),
-			InstallPackageName: strings.ToLower(group.Group.NonEmpty()),
-		})
-	}
-	return groupInstallPackages
 }
 
 // NormalizeGroupVersion calls normalizes the GroupVersion.

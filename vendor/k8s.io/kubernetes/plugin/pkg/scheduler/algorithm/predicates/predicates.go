@@ -25,13 +25,12 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/kubernetes/pkg/api/v1"
-	corelisters "k8s.io/kubernetes/pkg/client/listers/core/v1"
+	"k8s.io/kubernetes/pkg/client/legacylisters"
 	"k8s.io/kubernetes/pkg/kubelet/qos"
 	"k8s.io/kubernetes/plugin/pkg/scheduler/algorithm"
 	priorityutil "k8s.io/kubernetes/plugin/pkg/scheduler/algorithm/priorities/util"
@@ -59,22 +58,13 @@ type PersistentVolumeInfo interface {
 	GetPersistentVolumeInfo(pvID string) (*v1.PersistentVolume, error)
 }
 
-// CachedPersistentVolumeInfo implements PersistentVolumeInfo
-type CachedPersistentVolumeInfo struct {
-	corelisters.PersistentVolumeLister
-}
-
-func (c *CachedPersistentVolumeInfo) GetPersistentVolumeInfo(pvID string) (*v1.PersistentVolume, error) {
-	return c.Get(pvID)
-}
-
 type PersistentVolumeClaimInfo interface {
 	GetPersistentVolumeClaimInfo(namespace string, name string) (*v1.PersistentVolumeClaim, error)
 }
 
 // CachedPersistentVolumeClaimInfo implements PersistentVolumeClaimInfo
 type CachedPersistentVolumeClaimInfo struct {
-	corelisters.PersistentVolumeClaimLister
+	*listers.StoreToPersistentVolumeClaimLister
 }
 
 // GetPersistentVolumeClaimInfo fetches the claim in specified namespace with specified name
@@ -83,22 +73,22 @@ func (c *CachedPersistentVolumeClaimInfo) GetPersistentVolumeClaimInfo(namespace
 }
 
 type CachedNodeInfo struct {
-	corelisters.NodeLister
+	*listers.StoreToNodeLister
 }
 
 // GetNodeInfo returns cached data for the node 'id'.
 func (c *CachedNodeInfo) GetNodeInfo(id string) (*v1.Node, error) {
-	node, err := c.Get(id)
-
-	if apierrors.IsNotFound(err) {
-		return nil, fmt.Errorf("node '%v' not found", id)
-	}
+	node, exists, err := c.Get(&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: id}})
 
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving node '%v' from cache: %v", id, err)
 	}
 
-	return node, nil
+	if !exists {
+		return nil, fmt.Errorf("node '%v' not found", id)
+	}
+
+	return node.(*v1.Node), nil
 }
 
 //  Note that predicateMetadata and matchingPodAntiAffinityTerm need to be declared in the same file
@@ -468,30 +458,6 @@ func (c *VolumeZoneChecker) predicate(pod *v1.Pod, meta interface{}, nodeInfo *s
 	return true, nil, nil
 }
 
-// Returns a *schedulercache.Resource that covers the largest width in each
-// resource dimension. Because init-containers run sequentially, we collect the
-// max in each dimension iteratively. In contrast, we sum the resource vectors
-// for regular containers since they run simultaneously.
-//
-// Example:
-//
-// Pod:
-//   InitContainers
-//     IC1:
-//       CPU: 2
-//       Memory: 1G
-//     IC2:
-//       CPU: 2
-//       Memory: 3G
-//   Containers
-//     C1:
-//       CPU: 2
-//       Memory: 1G
-//     C2:
-//       CPU: 1
-//       Memory: 1G
-//
-// Result: CPU: 3, Memory: 3G
 func GetResourceRequest(pod *v1.Pod) *schedulercache.Resource {
 	result := schedulercache.Resource{}
 	for _, container := range pod.Spec.Containers {
@@ -529,8 +495,10 @@ func GetResourceRequest(pod *v1.Pod) *schedulercache.Resource {
 			default:
 				if v1.IsOpaqueIntResourceName(rName) {
 					value := rQuantity.Value()
+					// Ensure the opaque resource map is initialized in the result.
+					result.AddOpaque(rName, int64(0))
 					if value > result.OpaqueIntResources[rName] {
-						result.SetOpaque(rName, value)
+						result.OpaqueIntResources[rName] = value
 					}
 				}
 			}
@@ -878,28 +846,6 @@ func haveSame(a1, a2 []string) bool {
 
 func GeneralPredicates(pod *v1.Pod, meta interface{}, nodeInfo *schedulercache.NodeInfo) (bool, []algorithm.PredicateFailureReason, error) {
 	var predicateFails []algorithm.PredicateFailureReason
-	fit, reasons, err := noncriticalPredicates(pod, meta, nodeInfo)
-	if err != nil {
-		return false, predicateFails, err
-	}
-	if !fit {
-		predicateFails = append(predicateFails, reasons...)
-	}
-
-	fit, reasons, err = EssentialPredicates(pod, meta, nodeInfo)
-	if err != nil {
-		return false, predicateFails, err
-	}
-	if !fit {
-		predicateFails = append(predicateFails, reasons...)
-	}
-
-	return len(predicateFails) == 0, predicateFails, nil
-}
-
-// noncriticalPredicates are the predicates that only non-critical pods need
-func noncriticalPredicates(pod *v1.Pod, meta interface{}, nodeInfo *schedulercache.NodeInfo) (bool, []algorithm.PredicateFailureReason, error) {
-	var predicateFails []algorithm.PredicateFailureReason
 	fit, reasons, err := PodFitsResources(pod, meta, nodeInfo)
 	if err != nil {
 		return false, predicateFails, err
@@ -908,13 +854,7 @@ func noncriticalPredicates(pod *v1.Pod, meta interface{}, nodeInfo *schedulercac
 		predicateFails = append(predicateFails, reasons...)
 	}
 
-	return len(predicateFails) == 0, predicateFails, nil
-}
-
-// EssentialPredicates are the predicates that all pods, including critical pods, need
-func EssentialPredicates(pod *v1.Pod, meta interface{}, nodeInfo *schedulercache.NodeInfo) (bool, []algorithm.PredicateFailureReason, error) {
-	var predicateFails []algorithm.PredicateFailureReason
-	fit, reasons, err := PodFitsHost(pod, meta, nodeInfo)
+	fit, reasons, err = PodFitsHost(pod, meta, nodeInfo)
 	if err != nil {
 		return false, predicateFails, err
 	}
@@ -922,8 +862,6 @@ func EssentialPredicates(pod *v1.Pod, meta interface{}, nodeInfo *schedulercache
 		predicateFails = append(predicateFails, reasons...)
 	}
 
-	// TODO: PodFitsHostPorts is essential for now, but kubelet should ideally
-	//       preempt pods to free up host ports too
 	fit, reasons, err = PodFitsHostPorts(pod, meta, nodeInfo)
 	if err != nil {
 		return false, predicateFails, err
@@ -939,6 +877,7 @@ func EssentialPredicates(pod *v1.Pod, meta interface{}, nodeInfo *schedulercache
 	if !fit {
 		predicateFails = append(predicateFails, reasons...)
 	}
+
 	return len(predicateFails) == 0, predicateFails, nil
 }
 
@@ -1221,7 +1160,12 @@ func PodToleratesNodeTaints(pod *v1.Pod, meta interface{}, nodeInfo *schedulerca
 		return false, nil, err
 	}
 
-	if v1.TolerationsTolerateTaintsWithFilter(pod.Spec.Tolerations, taints, func(t *v1.Taint) bool {
+	tolerations, err := v1.GetTolerationsFromPodAnnotations(pod.Annotations)
+	if err != nil {
+		return false, nil, err
+	}
+
+	if v1.TolerationsTolerateTaintsWithFilter(tolerations, taints, func(t *v1.Taint) bool {
 		// PodToleratesNodeTaints is only interested in NoSchedule and NoExecute taints.
 		return t.Effect == v1.TaintEffectNoSchedule || t.Effect == v1.TaintEffectNoExecute
 	}) {

@@ -47,7 +47,7 @@ computer.
 
 ## Cassandra Docker
 
-The pods use the [```gcr.io/google-samples/cassandra:v12```](image/Dockerfile)
+The pods use the [```gcr.io/google-samples/cassandra:v11```](image/Dockerfile)
 image from Google's [container registry](https://cloud.google.com/container-registry/docs/).
 The docker is based on `debian:jessie` and includes OpenJDK 8. This image
 includes a standard Cassandra installation from the Apache Debian repo.  Through the use of environment variables you are able to change values that are inserted into the `cassandra.yaml`.
@@ -167,17 +167,14 @@ If an error is returned the service create failed.
 
 ## Step 2: Use a StatefulSet to create Cassandra Ring
 
-StatefulSets (previously PetSets) are a feature that was upgraded to a <i>Beta</i> component in
-Kubernetes 1.5.  Deploying stateful distributed applications, like Cassandra, within a clustered
+StatefulSets (previously PetSets) are a new feature that was added as an <i>Alpha</i> component in
+Kubernetes 1.3.  Deploying stateful distributed applications, like Cassandra, within a clustered
 environment can be challenging.  We implemented StatefulSet to greatly simplify this
 process.  Multiple StatefulSet features are used within this example, but is out of
-scope of this documentation.  [Please refer to the Stateful Set documentation.](https://kubernetes.io/docs/concepts/abstractions/controllers/statefulsets/)
+scope of this documentation.  [Please refer to the PetSet documentation.](http://kubernetes.io/docs/user-guide/petset/)
 
 The StatefulSet manifest that is included below, creates a Cassandra ring that consists
 of three pods.
-
-This example includes using a GCE Storage Class, please update appropriately depending
-on the cloud you are working with. 
 
 <!-- BEGIN MUNGE: EXAMPLE cassandra-statefulset.yaml -->
 
@@ -196,7 +193,7 @@ spec:
     spec:
       containers:
       - name: cassandra
-        image: gcr.io/google-samples/cassandra:v12
+        image: gcr.io/google-samples/cassandra:v11
         imagePullPolicy: Always
         ports:
         - containerPort: 7000
@@ -218,10 +215,6 @@ spec:
           capabilities:
             add:
               - IPC_LOCK
-        lifecycle:
-          preStop:
-            exec:
-              command: ["/bin/sh", "-c", "PID=$(pidof java) && kill $PID && while ps -p $PID > /dev/null; do sleep 1; done"]
         env:
           - name: MAX_HEAP_SIZE
             value: 512M
@@ -262,20 +255,12 @@ spec:
   - metadata:
       name: cassandra-data
       annotations:
-        volume.beta.kubernetes.io/storage-class: fast
+        volume.alpha.kubernetes.io/storage-class: anything
     spec:
       accessModes: [ "ReadWriteOnce" ]
       resources:
         requests:
           storage: 1Gi
----
-kind: StorageClass
-apiVersion: storage.k8s.io/v1beta1
-metadata:
-  name: fast
-provisioner: kubernetes.io/gce-pd
-parameters:
-  type: pd-ssd
 ```
 
 [Download example](cassandra-statefulset.yaml?raw=true)
@@ -481,7 +466,7 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
-          image: gcr.io/google-samples/cassandra:v12
+          image: gcr.io/google-samples/cassandra:v11
           name: cassandra
           ports:
             - containerPort: 7000
@@ -530,7 +515,7 @@ You can list the new controller:
 
 $ kubectl get rc -o wide
 NAME        DESIRED   CURRENT   AGE       CONTAINER(S)   IMAGE(S)                             SELECTOR
-cassandra   2         2         11s       cassandra      gcr.io/google-samples/cassandra:v12   app=cassandra
+cassandra   2         2         11s       cassandra      gcr.io/google-samples/cassandra:v11   app=cassandra
 
 ```
 
@@ -707,7 +692,7 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
-          image: gcr.io/google-samples/cassandra:v12
+          image: gcr.io/google-samples/cassandra:v11
           name: cassandra
           ports:
             - containerPort: 7000
@@ -826,7 +811,7 @@ $ kubectl delete daemonset cassandra
 
 A custom [`SeedProvider`](https://svn.apache.org/repos/asf/cassandra/trunk/src/java/org/apache/cassandra/locator/SeedProvider.java)
 is included for running Cassandra on top of Kubernetes.  Only when you deploy Cassandra
-via a replication control or a daemonset, you will need to use the custom seed provider.
+via a replication control or a deamonset, you will need to use the custom seed provider.
 In Cassandra, a `SeedProvider` bootstraps the gossip protocol that Cassandra uses to find other
 Cassandra nodes. Seed addresses are hosts deemed as contact points. Cassandra
 instances use the seed list to find each other and learn the topology of the

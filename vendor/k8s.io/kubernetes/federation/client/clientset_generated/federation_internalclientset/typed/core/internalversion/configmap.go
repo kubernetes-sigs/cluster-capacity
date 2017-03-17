@@ -21,7 +21,6 @@ import (
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	rest "k8s.io/client-go/rest"
-	scheme "k8s.io/kubernetes/federation/client/clientset_generated/federation_internalclientset/scheme"
 	api "k8s.io/kubernetes/pkg/api"
 )
 
@@ -99,7 +98,7 @@ func (c *configMaps) DeleteCollection(options *v1.DeleteOptions, listOptions v1.
 	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("configmaps").
-		VersionedParams(&listOptions, scheme.ParameterCodec).
+		VersionedParams(&listOptions, api.ParameterCodec).
 		Body(options).
 		Do().
 		Error()
@@ -112,7 +111,7 @@ func (c *configMaps) Get(name string, options v1.GetOptions) (result *api.Config
 		Namespace(c.ns).
 		Resource("configmaps").
 		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
+		VersionedParams(&options, api.ParameterCodec).
 		Do().
 		Into(result)
 	return
@@ -124,7 +123,7 @@ func (c *configMaps) List(opts v1.ListOptions) (result *api.ConfigMapList, err e
 	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("configmaps").
-		VersionedParams(&opts, scheme.ParameterCodec).
+		VersionedParams(&opts, api.ParameterCodec).
 		Do().
 		Into(result)
 	return
@@ -132,11 +131,11 @@ func (c *configMaps) List(opts v1.ListOptions) (result *api.ConfigMapList, err e
 
 // Watch returns a watch.Interface that watches the requested configMaps.
 func (c *configMaps) Watch(opts v1.ListOptions) (watch.Interface, error) {
-	opts.Watch = true
 	return c.client.Get().
+		Prefix("watch").
 		Namespace(c.ns).
 		Resource("configmaps").
-		VersionedParams(&opts, scheme.ParameterCodec).
+		VersionedParams(&opts, api.ParameterCodec).
 		Watch()
 }
 

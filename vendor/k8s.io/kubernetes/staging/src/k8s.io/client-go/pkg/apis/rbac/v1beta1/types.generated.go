@@ -540,7 +540,7 @@ func (x *Subject) CodecEncodeSelf(e *codec1978.Encoder) {
 			var yyq2 [4]bool
 			_, _, _ = yysep2, yyq2, yy2arr2
 			const yyr2 bool = false
-			yyq2[1] = x.APIGroup != ""
+			yyq2[1] = x.APIVersion != ""
 			yyq2[3] = x.Namespace != ""
 			var yynn2 int
 			if yyr2 || yy2arr2 {
@@ -581,7 +581,7 @@ func (x *Subject) CodecEncodeSelf(e *codec1978.Encoder) {
 					_ = yym7
 					if false {
 					} else {
-						r.EncodeString(codecSelferC_UTF81234, string(x.APIGroup))
+						r.EncodeString(codecSelferC_UTF81234, string(x.APIVersion))
 					}
 				} else {
 					r.EncodeString(codecSelferC_UTF81234, "")
@@ -589,13 +589,13 @@ func (x *Subject) CodecEncodeSelf(e *codec1978.Encoder) {
 			} else {
 				if yyq2[1] {
 					z.EncSendContainerState(codecSelfer_containerMapKey1234)
-					r.EncodeString(codecSelferC_UTF81234, string("apiGroup"))
+					r.EncodeString(codecSelferC_UTF81234, string("apiVersion"))
 					z.EncSendContainerState(codecSelfer_containerMapValue1234)
 					yym8 := z.EncBinary()
 					_ = yym8
 					if false {
 					} else {
-						r.EncodeString(codecSelferC_UTF81234, string(x.APIGroup))
+						r.EncodeString(codecSelferC_UTF81234, string(x.APIVersion))
 					}
 				}
 			}
@@ -716,11 +716,11 @@ func (x *Subject) codecDecodeSelfFromMap(l int, d *codec1978.Decoder) {
 					*((*string)(yyv4)) = r.DecodeString()
 				}
 			}
-		case "apiGroup":
+		case "apiVersion":
 			if r.TryDecodeAsNil() {
-				x.APIGroup = ""
+				x.APIVersion = ""
 			} else {
-				yyv6 := &x.APIGroup
+				yyv6 := &x.APIVersion
 				yym7 := z.DecBinary()
 				_ = yym7
 				if false {
@@ -800,9 +800,9 @@ func (x *Subject) codecDecodeSelfFromArray(l int, d *codec1978.Decoder) {
 	}
 	z.DecSendContainerState(codecSelfer_containerArrayElem1234)
 	if r.TryDecodeAsNil() {
-		x.APIGroup = ""
+		x.APIVersion = ""
 	} else {
-		yyv15 := &x.APIGroup
+		yyv15 := &x.APIVersion
 		yym16 := z.DecBinary()
 		_ = yym16
 		if false {

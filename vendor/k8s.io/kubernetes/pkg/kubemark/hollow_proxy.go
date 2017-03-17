@@ -73,7 +73,7 @@ func NewHollowProxyOrDie(
 	}
 	proxyconfig.NewSourceAPI(
 		client.Core().RESTClient(),
-		15*time.Minute,
+		30*time.Second,
 		serviceConfig.Channel("api"),
 		endpointsConfig.Channel("api"),
 	)

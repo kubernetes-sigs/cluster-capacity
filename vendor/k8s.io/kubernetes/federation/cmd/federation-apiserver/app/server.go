@@ -21,7 +21,6 @@ package app
 
 import (
 	"fmt"
-	"io/ioutil"
 	"strings"
 	"time"
 
@@ -34,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/admission"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/filters"
@@ -41,7 +41,7 @@ import (
 	"k8s.io/kubernetes/federation/cmd/federation-apiserver/app/options"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
-	informers "k8s.io/kubernetes/pkg/client/informers/informers_generated/internalversion"
+	"k8s.io/kubernetes/pkg/controller/informers"
 	"k8s.io/kubernetes/pkg/generated/openapi"
 	"k8s.io/kubernetes/pkg/kubeapiserver"
 	kubeapiserveradmission "k8s.io/kubernetes/pkg/kubeapiserver/admission"
@@ -66,20 +66,8 @@ cluster's shared state through which all other components interact.`,
 	return cmd
 }
 
-// Run runs the specified APIServer.  It only returns if stopCh is closed
-// or one of the ports cannot be listened on initially.
-func Run(s *options.ServerRunOptions, stopCh <-chan struct{}) error {
-	err := NonBlockingRun(s, stopCh)
-	if err != nil {
-		return err
-	}
-	<-stopCh
-	return nil
-}
-
-// NonBlockingRun runs the specified APIServer and configures it to
-// stop with the given channel.
-func NonBlockingRun(s *options.ServerRunOptions, stopCh <-chan struct{}) error {
+// Run runs the specified APIServer.  This should never exit.
+func Run(s *options.ServerRunOptions) error {
 	// set defaults
 	if err := s.GenericServerRunOptions.DefaultAdvertiseAddress(s.SecureServing, s.InsecureServing); err != nil {
 		return err
@@ -171,7 +159,7 @@ func NonBlockingRun(s *options.ServerRunOptions, stopCh <-chan struct{}) error {
 	if err != nil {
 		return fmt.Errorf("failed to create clientset: %v", err)
 	}
-	sharedInformers := informers.NewSharedInformerFactory(client, 10*time.Minute)
+	sharedInformers := informers.NewSharedInformerFactory(nil, client, 10*time.Minute)
 
 	authorizationConfig := s.Authorization.ToAuthorizationConfig(sharedInformers)
 	apiAuthorizer, err := authorizationConfig.New()
@@ -180,15 +168,7 @@ func NonBlockingRun(s *options.ServerRunOptions, stopCh <-chan struct{}) error {
 	}
 
 	admissionControlPluginNames := strings.Split(s.GenericServerRunOptions.AdmissionControl, ",")
-	var cloudConfig []byte
-
-	if s.CloudProvider.CloudConfigFile != "" {
-		cloudConfig, err = ioutil.ReadFile(s.CloudProvider.CloudConfigFile)
-		if err != nil {
-			glog.Fatalf("Error reading from cloud configuration file %s: %#v", s.CloudProvider.CloudConfigFile, err)
-		}
-	}
-	pluginInitializer := kubeapiserveradmission.NewPluginInitializer(client, sharedInformers, apiAuthorizer, cloudConfig)
+	pluginInitializer := kubeapiserveradmission.NewPluginInitializer(client, sharedInformers, apiAuthorizer)
 	admissionConfigProvider, err := admission.ReadAdmissionConfiguration(admissionControlPluginNames, s.GenericServerRunOptions.AdmissionControlConfigFile)
 	if err != nil {
 		return fmt.Errorf("failed to read plugin config: %v", err)
@@ -229,16 +209,12 @@ func NonBlockingRun(s *options.ServerRunOptions, stopCh <-chan struct{}) error {
 	installFederationAPIs(m, genericConfig.RESTOptionsGetter)
 	installCoreAPIs(s, m, genericConfig.RESTOptionsGetter)
 	installExtensionsAPIs(m, genericConfig.RESTOptionsGetter)
-	// Disable half-baked APIs for 1.6.
-	// TODO: Uncomment this once 1.6 is released.
-	//	installBatchAPIs(m, genericConfig.RESTOptionsGetter)
-	//	installAutoscalingAPIs(m, genericConfig.RESTOptionsGetter)
+	installBatchAPIs(m, genericConfig.RESTOptionsGetter)
+	installAutoscalingAPIs(m, genericConfig.RESTOptionsGetter)
 
-	err = m.PrepareRun().NonBlockingRun(stopCh)
-	if err == nil {
-		sharedInformers.Start(stopCh)
-	}
-	return err
+	sharedInformers.Start(wait.NeverStop)
+	m.PrepareRun().Run(wait.NeverStop)
+	return nil
 }
 
 // PostProcessSpec adds removed definitions for backward compatibility

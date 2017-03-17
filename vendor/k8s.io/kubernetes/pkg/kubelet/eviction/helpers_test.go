@@ -28,8 +28,6 @@ import (
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/v1"
 	statsapi "k8s.io/kubernetes/pkg/kubelet/api/v1alpha1/stats"
-	"k8s.io/kubernetes/pkg/kubelet/cm"
-	evictionapi "k8s.io/kubernetes/pkg/kubelet/eviction/api"
 	"k8s.io/kubernetes/pkg/quota"
 )
 
@@ -41,344 +39,317 @@ func quantityMustParse(value string) *resource.Quantity {
 func TestParseThresholdConfig(t *testing.T) {
 	gracePeriod, _ := time.ParseDuration("30s")
 	testCases := map[string]struct {
-		allocatableConfig       []string
 		evictionHard            string
 		evictionSoft            string
 		evictionSoftGracePeriod string
 		evictionMinReclaim      string
 		expectErr               bool
-		expectThresholds        []evictionapi.Threshold
+		expectThresholds        []Threshold
 	}{
 		"no values": {
-			allocatableConfig:       []string{},
 			evictionHard:            "",
 			evictionSoft:            "",
 			evictionSoftGracePeriod: "",
 			evictionMinReclaim:      "",
 			expectErr:               false,
-			expectThresholds:        []evictionapi.Threshold{},
+			expectThresholds:        []Threshold{},
 		},
 		"all flag values": {
-			allocatableConfig:       []string{cm.NodeAllocatableEnforcementKey},
 			evictionHard:            "memory.available<150Mi",
 			evictionSoft:            "memory.available<300Mi",
 			evictionSoftGracePeriod: "memory.available=30s",
 			evictionMinReclaim:      "memory.available=0",
 			expectErr:               false,
-			expectThresholds: []evictionapi.Threshold{
+			expectThresholds: []Threshold{
 				{
-					Signal:   evictionapi.SignalAllocatableMemoryAvailable,
-					Operator: evictionapi.OpLessThan,
-					Value: evictionapi.ThresholdValue{
-						Quantity: quantityMustParse("0"),
-					},
-					MinReclaim: &evictionapi.ThresholdValue{
-						Quantity: quantityMustParse("0"),
-					},
-				},
-				{
-					Signal:   evictionapi.SignalMemoryAvailable,
-					Operator: evictionapi.OpLessThan,
-					Value: evictionapi.ThresholdValue{
+					Signal:   SignalMemoryAvailable,
+					Operator: OpLessThan,
+					Value: ThresholdValue{
 						Quantity: quantityMustParse("150Mi"),
 					},
-					MinReclaim: &evictionapi.ThresholdValue{
+					MinReclaim: &ThresholdValue{
 						Quantity: quantityMustParse("0"),
 					},
 				},
 				{
-					Signal:   evictionapi.SignalMemoryAvailable,
-					Operator: evictionapi.OpLessThan,
-					Value: evictionapi.ThresholdValue{
+					Signal:   SignalMemoryAvailable,
+					Operator: OpLessThan,
+					Value: ThresholdValue{
 						Quantity: quantityMustParse("300Mi"),
 					},
 					GracePeriod: gracePeriod,
-					MinReclaim: &evictionapi.ThresholdValue{
+					MinReclaim: &ThresholdValue{
 						Quantity: quantityMustParse("0"),
 					},
 				},
 			},
 		},
 		"all flag values in percentages": {
-			allocatableConfig:       []string{},
 			evictionHard:            "memory.available<10%",
 			evictionSoft:            "memory.available<30%",
 			evictionSoftGracePeriod: "memory.available=30s",
 			evictionMinReclaim:      "memory.available=5%",
 			expectErr:               false,
-			expectThresholds: []evictionapi.Threshold{
+			expectThresholds: []Threshold{
 				{
-					Signal:   evictionapi.SignalMemoryAvailable,
-					Operator: evictionapi.OpLessThan,
-					Value: evictionapi.ThresholdValue{
+					Signal:   SignalMemoryAvailable,
+					Operator: OpLessThan,
+					Value: ThresholdValue{
 						Percentage: 0.1,
 					},
-					MinReclaim: &evictionapi.ThresholdValue{
+					MinReclaim: &ThresholdValue{
 						Percentage: 0.05,
 					},
 				},
 				{
-					Signal:   evictionapi.SignalMemoryAvailable,
-					Operator: evictionapi.OpLessThan,
-					Value: evictionapi.ThresholdValue{
+					Signal:   SignalMemoryAvailable,
+					Operator: OpLessThan,
+					Value: ThresholdValue{
 						Percentage: 0.3,
 					},
 					GracePeriod: gracePeriod,
-					MinReclaim: &evictionapi.ThresholdValue{
+					MinReclaim: &ThresholdValue{
 						Percentage: 0.05,
 					},
 				},
 			},
 		},
 		"disk flag values": {
-			allocatableConfig:       []string{},
 			evictionHard:            "imagefs.available<150Mi,nodefs.available<100Mi",
 			evictionSoft:            "imagefs.available<300Mi,nodefs.available<200Mi",
 			evictionSoftGracePeriod: "imagefs.available=30s,nodefs.available=30s",
 			evictionMinReclaim:      "imagefs.available=2Gi,nodefs.available=1Gi",
 			expectErr:               false,
-			expectThresholds: []evictionapi.Threshold{
+			expectThresholds: []Threshold{
 				{
-					Signal:   evictionapi.SignalImageFsAvailable,
-					Operator: evictionapi.OpLessThan,
-					Value: evictionapi.ThresholdValue{
+					Signal:   SignalImageFsAvailable,
+					Operator: OpLessThan,
+					Value: ThresholdValue{
 						Quantity: quantityMustParse("150Mi"),
 					},
-					MinReclaim: &evictionapi.ThresholdValue{
+					MinReclaim: &ThresholdValue{
 						Quantity: quantityMustParse("2Gi"),
 					},
 				},
 				{
-					Signal:   evictionapi.SignalNodeFsAvailable,
-					Operator: evictionapi.OpLessThan,
-					Value: evictionapi.ThresholdValue{
+					Signal:   SignalNodeFsAvailable,
+					Operator: OpLessThan,
+					Value: ThresholdValue{
 						Quantity: quantityMustParse("100Mi"),
 					},
-					MinReclaim: &evictionapi.ThresholdValue{
+					MinReclaim: &ThresholdValue{
 						Quantity: quantityMustParse("1Gi"),
 					},
 				},
 				{
-					Signal:   evictionapi.SignalImageFsAvailable,
-					Operator: evictionapi.OpLessThan,
-					Value: evictionapi.ThresholdValue{
+					Signal:   SignalImageFsAvailable,
+					Operator: OpLessThan,
+					Value: ThresholdValue{
 						Quantity: quantityMustParse("300Mi"),
 					},
 					GracePeriod: gracePeriod,
-					MinReclaim: &evictionapi.ThresholdValue{
+					MinReclaim: &ThresholdValue{
 						Quantity: quantityMustParse("2Gi"),
 					},
 				},
 				{
-					Signal:   evictionapi.SignalNodeFsAvailable,
-					Operator: evictionapi.OpLessThan,
-					Value: evictionapi.ThresholdValue{
+					Signal:   SignalNodeFsAvailable,
+					Operator: OpLessThan,
+					Value: ThresholdValue{
 						Quantity: quantityMustParse("200Mi"),
 					},
 					GracePeriod: gracePeriod,
-					MinReclaim: &evictionapi.ThresholdValue{
+					MinReclaim: &ThresholdValue{
 						Quantity: quantityMustParse("1Gi"),
 					},
 				},
 			},
 		},
 		"disk flag values in percentages": {
-			allocatableConfig:       []string{},
 			evictionHard:            "imagefs.available<15%,nodefs.available<10.5%",
 			evictionSoft:            "imagefs.available<30%,nodefs.available<20.5%",
 			evictionSoftGracePeriod: "imagefs.available=30s,nodefs.available=30s",
 			evictionMinReclaim:      "imagefs.available=10%,nodefs.available=5%",
 			expectErr:               false,
-			expectThresholds: []evictionapi.Threshold{
+			expectThresholds: []Threshold{
 				{
-					Signal:   evictionapi.SignalImageFsAvailable,
-					Operator: evictionapi.OpLessThan,
-					Value: evictionapi.ThresholdValue{
+					Signal:   SignalImageFsAvailable,
+					Operator: OpLessThan,
+					Value: ThresholdValue{
 						Percentage: 0.15,
 					},
-					MinReclaim: &evictionapi.ThresholdValue{
+					MinReclaim: &ThresholdValue{
 						Percentage: 0.1,
 					},
 				},
 				{
-					Signal:   evictionapi.SignalNodeFsAvailable,
-					Operator: evictionapi.OpLessThan,
-					Value: evictionapi.ThresholdValue{
+					Signal:   SignalNodeFsAvailable,
+					Operator: OpLessThan,
+					Value: ThresholdValue{
 						Percentage: 0.105,
 					},
-					MinReclaim: &evictionapi.ThresholdValue{
+					MinReclaim: &ThresholdValue{
 						Percentage: 0.05,
 					},
 				},
 				{
-					Signal:   evictionapi.SignalImageFsAvailable,
-					Operator: evictionapi.OpLessThan,
-					Value: evictionapi.ThresholdValue{
+					Signal:   SignalImageFsAvailable,
+					Operator: OpLessThan,
+					Value: ThresholdValue{
 						Percentage: 0.3,
 					},
 					GracePeriod: gracePeriod,
-					MinReclaim: &evictionapi.ThresholdValue{
+					MinReclaim: &ThresholdValue{
 						Percentage: 0.1,
 					},
 				},
 				{
-					Signal:   evictionapi.SignalNodeFsAvailable,
-					Operator: evictionapi.OpLessThan,
-					Value: evictionapi.ThresholdValue{
+					Signal:   SignalNodeFsAvailable,
+					Operator: OpLessThan,
+					Value: ThresholdValue{
 						Percentage: 0.205,
 					},
 					GracePeriod: gracePeriod,
-					MinReclaim: &evictionapi.ThresholdValue{
+					MinReclaim: &ThresholdValue{
 						Percentage: 0.05,
 					},
 				},
 			},
 		},
 		"inode flag values": {
-			allocatableConfig:       []string{},
 			evictionHard:            "imagefs.inodesFree<150Mi,nodefs.inodesFree<100Mi",
 			evictionSoft:            "imagefs.inodesFree<300Mi,nodefs.inodesFree<200Mi",
 			evictionSoftGracePeriod: "imagefs.inodesFree=30s,nodefs.inodesFree=30s",
 			evictionMinReclaim:      "imagefs.inodesFree=2Gi,nodefs.inodesFree=1Gi",
 			expectErr:               false,
-			expectThresholds: []evictionapi.Threshold{
+			expectThresholds: []Threshold{
 				{
-					Signal:   evictionapi.SignalImageFsInodesFree,
-					Operator: evictionapi.OpLessThan,
-					Value: evictionapi.ThresholdValue{
+					Signal:   SignalImageFsInodesFree,
+					Operator: OpLessThan,
+					Value: ThresholdValue{
 						Quantity: quantityMustParse("150Mi"),
 					},
-					MinReclaim: &evictionapi.ThresholdValue{
+					MinReclaim: &ThresholdValue{
 						Quantity: quantityMustParse("2Gi"),
 					},
 				},
 				{
-					Signal:   evictionapi.SignalNodeFsInodesFree,
-					Operator: evictionapi.OpLessThan,
-					Value: evictionapi.ThresholdValue{
+					Signal:   SignalNodeFsInodesFree,
+					Operator: OpLessThan,
+					Value: ThresholdValue{
 						Quantity: quantityMustParse("100Mi"),
 					},
-					MinReclaim: &evictionapi.ThresholdValue{
+					MinReclaim: &ThresholdValue{
 						Quantity: quantityMustParse("1Gi"),
 					},
 				},
 				{
-					Signal:   evictionapi.SignalImageFsInodesFree,
-					Operator: evictionapi.OpLessThan,
-					Value: evictionapi.ThresholdValue{
+					Signal:   SignalImageFsInodesFree,
+					Operator: OpLessThan,
+					Value: ThresholdValue{
 						Quantity: quantityMustParse("300Mi"),
 					},
 					GracePeriod: gracePeriod,
-					MinReclaim: &evictionapi.ThresholdValue{
+					MinReclaim: &ThresholdValue{
 						Quantity: quantityMustParse("2Gi"),
 					},
 				},
 				{
-					Signal:   evictionapi.SignalNodeFsInodesFree,
-					Operator: evictionapi.OpLessThan,
-					Value: evictionapi.ThresholdValue{
+					Signal:   SignalNodeFsInodesFree,
+					Operator: OpLessThan,
+					Value: ThresholdValue{
 						Quantity: quantityMustParse("200Mi"),
 					},
 					GracePeriod: gracePeriod,
-					MinReclaim: &evictionapi.ThresholdValue{
+					MinReclaim: &ThresholdValue{
 						Quantity: quantityMustParse("1Gi"),
 					},
 				},
 			},
 		},
 		"invalid-signal": {
-			allocatableConfig:       []string{},
 			evictionHard:            "mem.available<150Mi",
 			evictionSoft:            "",
 			evictionSoftGracePeriod: "",
 			evictionMinReclaim:      "",
 			expectErr:               true,
-			expectThresholds:        []evictionapi.Threshold{},
+			expectThresholds:        []Threshold{},
 		},
 		"hard-signal-negative": {
-			allocatableConfig:       []string{},
 			evictionHard:            "memory.available<-150Mi",
 			evictionSoft:            "",
 			evictionSoftGracePeriod: "",
 			evictionMinReclaim:      "",
 			expectErr:               true,
-			expectThresholds:        []evictionapi.Threshold{},
+			expectThresholds:        []Threshold{},
 		},
 		"hard-signal-negative-percentage": {
-			allocatableConfig:       []string{},
 			evictionHard:            "memory.available<-15%",
 			evictionSoft:            "",
 			evictionSoftGracePeriod: "",
 			evictionMinReclaim:      "",
 			expectErr:               true,
-			expectThresholds:        []evictionapi.Threshold{},
+			expectThresholds:        []Threshold{},
 		},
 		"soft-signal-negative": {
-			allocatableConfig:       []string{},
 			evictionHard:            "",
 			evictionSoft:            "memory.available<-150Mi",
 			evictionSoftGracePeriod: "",
 			evictionMinReclaim:      "",
 			expectErr:               true,
-			expectThresholds:        []evictionapi.Threshold{},
+			expectThresholds:        []Threshold{},
 		},
 		"duplicate-signal": {
-			allocatableConfig:       []string{},
 			evictionHard:            "memory.available<150Mi,memory.available<100Mi",
 			evictionSoft:            "",
 			evictionSoftGracePeriod: "",
 			evictionMinReclaim:      "",
 			expectErr:               true,
-			expectThresholds:        []evictionapi.Threshold{},
+			expectThresholds:        []Threshold{},
 		},
 		"valid-and-invalid-signal": {
-			allocatableConfig:       []string{},
 			evictionHard:            "memory.available<150Mi,invalid.foo<150Mi",
 			evictionSoft:            "",
 			evictionSoftGracePeriod: "",
 			evictionMinReclaim:      "",
 			expectErr:               true,
-			expectThresholds:        []evictionapi.Threshold{},
+			expectThresholds:        []Threshold{},
 		},
 		"soft-no-grace-period": {
-			allocatableConfig:       []string{},
 			evictionHard:            "",
 			evictionSoft:            "memory.available<150Mi",
 			evictionSoftGracePeriod: "",
 			evictionMinReclaim:      "",
 			expectErr:               true,
-			expectThresholds:        []evictionapi.Threshold{},
+			expectThresholds:        []Threshold{},
 		},
 		"soft-neg-grace-period": {
-			allocatableConfig:       []string{},
 			evictionHard:            "",
 			evictionSoft:            "memory.available<150Mi",
 			evictionSoftGracePeriod: "memory.available=-30s",
 			evictionMinReclaim:      "",
 			expectErr:               true,
-			expectThresholds:        []evictionapi.Threshold{},
+			expectThresholds:        []Threshold{},
 		},
 		"neg-reclaim": {
-			allocatableConfig:       []string{},
 			evictionHard:            "",
 			evictionSoft:            "",
 			evictionSoftGracePeriod: "",
 			evictionMinReclaim:      "memory.available=-300Mi",
 			expectErr:               true,
-			expectThresholds:        []evictionapi.Threshold{},
+			expectThresholds:        []Threshold{},
 		},
 		"duplicate-reclaim": {
-			allocatableConfig:       []string{},
 			evictionHard:            "",
 			evictionSoft:            "",
 			evictionSoftGracePeriod: "",
 			evictionMinReclaim:      "memory.available=-300Mi,memory.available=-100Mi",
 			expectErr:               true,
-			expectThresholds:        []evictionapi.Threshold{},
+			expectThresholds:        []Threshold{},
 		},
 	}
 	for testName, testCase := range testCases {
-		thresholds, err := ParseThresholdConfig(testCase.allocatableConfig, testCase.evictionHard, testCase.evictionSoft, testCase.evictionSoftGracePeriod, testCase.evictionMinReclaim)
+		thresholds, err := ParseThresholdConfig(testCase.evictionHard, testCase.evictionSoft, testCase.evictionSoftGracePeriod, testCase.evictionMinReclaim)
 		if testCase.expectErr != (err != nil) {
 			t.Errorf("Err not as expected, test: %v, error expected: %v, actual: %v", testName, testCase.expectErr, err)
 		}
@@ -388,7 +359,7 @@ func TestParseThresholdConfig(t *testing.T) {
 	}
 }
 
-func thresholdsEqual(expected []evictionapi.Threshold, actual []evictionapi.Threshold) bool {
+func thresholdsEqual(expected []Threshold, actual []Threshold) bool {
 	if len(expected) != len(actual) {
 		return false
 	}
@@ -417,7 +388,7 @@ func thresholdsEqual(expected []evictionapi.Threshold, actual []evictionapi.Thre
 	return true
 }
 
-func thresholdEqual(a evictionapi.Threshold, b evictionapi.Threshold) bool {
+func thresholdEqual(a Threshold, b Threshold) bool {
 	return a.GracePeriod == b.GracePeriod &&
 		a.Operator == b.Operator &&
 		a.Signal == b.Signal &&
@@ -727,7 +698,6 @@ func TestMakeSignalObservations(t *testing.T) {
 	}
 	nodeAvailableBytes := uint64(1024 * 1024 * 1024)
 	nodeWorkingSetBytes := uint64(1024 * 1024 * 1024)
-	allocatableMemoryCapacity := uint64(5 * 1024 * 1024 * 1024)
 	imageFsAvailableBytes := uint64(1024 * 1024)
 	imageFsCapacityBytes := uint64(1024 * 1024 * 2)
 	nodeFsAvailableBytes := uint64(1024)
@@ -767,32 +737,16 @@ func TestMakeSignalObservations(t *testing.T) {
 		podMaker("pod1", "ns2", "uuid2", 1),
 		podMaker("pod3", "ns3", "uuid3", 1),
 	}
-	containerWorkingSetBytes := int64(1024 * 1024 * 1024)
+	containerWorkingSetBytes := int64(1024 * 1024)
 	for _, pod := range pods {
 		fakeStats.Pods = append(fakeStats.Pods, newPodStats(pod, containerWorkingSetBytes))
 	}
-	res := quantityMustParse("5Gi")
-	nodeProvider := newMockNodeProvider(v1.ResourceList{v1.ResourceMemory: *res})
-	// Allocatable thresholds are always 100%.  Verify that Threshold == Capacity.
-	if res.CmpInt64(int64(allocatableMemoryCapacity)) != 0 {
-		t.Errorf("Expected Threshold %v to be equal to value %v", res.Value(), allocatableMemoryCapacity)
-	}
-	actualObservations, statsFunc, err := makeSignalObservations(provider, nodeProvider)
+	actualObservations, statsFunc, err := makeSignalObservations(provider)
 
 	if err != nil {
 		t.Errorf("Unexpected err: %v", err)
 	}
-	allocatableMemQuantity, found := actualObservations[evictionapi.SignalAllocatableMemoryAvailable]
-	if !found {
-		t.Errorf("Expected allocatable memory observation, but didnt find one")
-	}
-	if allocatableMemQuantity.available.Value() != 2*containerWorkingSetBytes {
-		t.Errorf("Expected %v, actual: %v", containerWorkingSetBytes, allocatableMemQuantity.available.Value())
-	}
-	if expectedBytes := int64(allocatableMemoryCapacity); allocatableMemQuantity.capacity.Value() != expectedBytes {
-		t.Errorf("Expected %v, actual: %v", expectedBytes, allocatableMemQuantity.capacity.Value())
-	}
-	memQuantity, found := actualObservations[evictionapi.SignalMemoryAvailable]
+	memQuantity, found := actualObservations[SignalMemoryAvailable]
 	if !found {
 		t.Errorf("Expected available memory observation: %v", err)
 	}
@@ -802,7 +756,7 @@ func TestMakeSignalObservations(t *testing.T) {
 	if expectedBytes := int64(nodeWorkingSetBytes + nodeAvailableBytes); memQuantity.capacity.Value() != expectedBytes {
 		t.Errorf("Expected %v, actual: %v", expectedBytes, memQuantity.capacity.Value())
 	}
-	nodeFsQuantity, found := actualObservations[evictionapi.SignalNodeFsAvailable]
+	nodeFsQuantity, found := actualObservations[SignalNodeFsAvailable]
 	if !found {
 		t.Errorf("Expected available nodefs observation: %v", err)
 	}
@@ -812,7 +766,7 @@ func TestMakeSignalObservations(t *testing.T) {
 	if expectedBytes := int64(nodeFsCapacityBytes); nodeFsQuantity.capacity.Value() != expectedBytes {
 		t.Errorf("Expected %v, actual: %v", expectedBytes, nodeFsQuantity.capacity.Value())
 	}
-	nodeFsInodesQuantity, found := actualObservations[evictionapi.SignalNodeFsInodesFree]
+	nodeFsInodesQuantity, found := actualObservations[SignalNodeFsInodesFree]
 	if !found {
 		t.Errorf("Expected inodes free nodefs observation: %v", err)
 	}
@@ -822,7 +776,7 @@ func TestMakeSignalObservations(t *testing.T) {
 	if expected := int64(nodeFsInodes); nodeFsInodesQuantity.capacity.Value() != expected {
 		t.Errorf("Expected %v, actual: %v", expected, nodeFsInodesQuantity.capacity.Value())
 	}
-	imageFsQuantity, found := actualObservations[evictionapi.SignalImageFsAvailable]
+	imageFsQuantity, found := actualObservations[SignalImageFsAvailable]
 	if !found {
 		t.Errorf("Expected available imagefs observation: %v", err)
 	}
@@ -832,7 +786,7 @@ func TestMakeSignalObservations(t *testing.T) {
 	if expectedBytes := int64(imageFsCapacityBytes); imageFsQuantity.capacity.Value() != expectedBytes {
 		t.Errorf("Expected %v, actual: %v", expectedBytes, imageFsQuantity.capacity.Value())
 	}
-	imageFsInodesQuantity, found := actualObservations[evictionapi.SignalImageFsInodesFree]
+	imageFsInodesQuantity, found := actualObservations[SignalImageFsInodesFree]
 	if !found {
 		t.Errorf("Expected inodes free imagefs observation: %v", err)
 	}
@@ -857,67 +811,67 @@ func TestMakeSignalObservations(t *testing.T) {
 }
 
 func TestThresholdsMet(t *testing.T) {
-	hardThreshold := evictionapi.Threshold{
-		Signal:   evictionapi.SignalMemoryAvailable,
-		Operator: evictionapi.OpLessThan,
-		Value: evictionapi.ThresholdValue{
+	hardThreshold := Threshold{
+		Signal:   SignalMemoryAvailable,
+		Operator: OpLessThan,
+		Value: ThresholdValue{
 			Quantity: quantityMustParse("1Gi"),
 		},
-		MinReclaim: &evictionapi.ThresholdValue{
+		MinReclaim: &ThresholdValue{
 			Quantity: quantityMustParse("500Mi"),
 		},
 	}
 	testCases := map[string]struct {
 		enforceMinReclaim bool
-		thresholds        []evictionapi.Threshold
+		thresholds        []Threshold
 		observations      signalObservations
-		result            []evictionapi.Threshold
+		result            []Threshold
 	}{
 		"empty": {
 			enforceMinReclaim: false,
-			thresholds:        []evictionapi.Threshold{},
+			thresholds:        []Threshold{},
 			observations:      signalObservations{},
-			result:            []evictionapi.Threshold{},
+			result:            []Threshold{},
 		},
 		"threshold-met-memory": {
 			enforceMinReclaim: false,
-			thresholds:        []evictionapi.Threshold{hardThreshold},
+			thresholds:        []Threshold{hardThreshold},
 			observations: signalObservations{
-				evictionapi.SignalMemoryAvailable: signalObservation{
+				SignalMemoryAvailable: signalObservation{
 					available: quantityMustParse("500Mi"),
 				},
 			},
-			result: []evictionapi.Threshold{hardThreshold},
+			result: []Threshold{hardThreshold},
 		},
 		"threshold-not-met": {
 			enforceMinReclaim: false,
-			thresholds:        []evictionapi.Threshold{hardThreshold},
+			thresholds:        []Threshold{hardThreshold},
 			observations: signalObservations{
-				evictionapi.SignalMemoryAvailable: signalObservation{
+				SignalMemoryAvailable: signalObservation{
 					available: quantityMustParse("2Gi"),
 				},
 			},
-			result: []evictionapi.Threshold{},
+			result: []Threshold{},
 		},
 		"threshold-met-with-min-reclaim": {
 			enforceMinReclaim: true,
-			thresholds:        []evictionapi.Threshold{hardThreshold},
+			thresholds:        []Threshold{hardThreshold},
 			observations: signalObservations{
-				evictionapi.SignalMemoryAvailable: signalObservation{
+				SignalMemoryAvailable: signalObservation{
 					available: quantityMustParse("1.05Gi"),
 				},
 			},
-			result: []evictionapi.Threshold{hardThreshold},
+			result: []Threshold{hardThreshold},
 		},
 		"threshold-not-met-with-min-reclaim": {
 			enforceMinReclaim: true,
-			thresholds:        []evictionapi.Threshold{hardThreshold},
+			thresholds:        []Threshold{hardThreshold},
 			observations: signalObservations{
-				evictionapi.SignalMemoryAvailable: signalObservation{
+				SignalMemoryAvailable: signalObservation{
 					available: quantityMustParse("2Gi"),
 				},
 			},
-			result: []evictionapi.Threshold{},
+			result: []Threshold{},
 		},
 	}
 	for testName, testCase := range testCases {
@@ -929,8 +883,8 @@ func TestThresholdsMet(t *testing.T) {
 }
 
 func TestThresholdsUpdatedStats(t *testing.T) {
-	updatedThreshold := evictionapi.Threshold{
-		Signal: evictionapi.SignalMemoryAvailable,
+	updatedThreshold := Threshold{
+		Signal: SignalMemoryAvailable,
 	}
 	locationUTC, err := time.LoadLocation("UTC")
 	if err != nil {
@@ -938,76 +892,76 @@ func TestThresholdsUpdatedStats(t *testing.T) {
 		return
 	}
 	testCases := map[string]struct {
-		thresholds   []evictionapi.Threshold
+		thresholds   []Threshold
 		observations signalObservations
 		last         signalObservations
-		result       []evictionapi.Threshold
+		result       []Threshold
 	}{
 		"empty": {
-			thresholds:   []evictionapi.Threshold{},
+			thresholds:   []Threshold{},
 			observations: signalObservations{},
 			last:         signalObservations{},
-			result:       []evictionapi.Threshold{},
+			result:       []Threshold{},
 		},
 		"no-time": {
-			thresholds: []evictionapi.Threshold{updatedThreshold},
+			thresholds: []Threshold{updatedThreshold},
 			observations: signalObservations{
-				evictionapi.SignalMemoryAvailable: signalObservation{},
+				SignalMemoryAvailable: signalObservation{},
 			},
 			last:   signalObservations{},
-			result: []evictionapi.Threshold{updatedThreshold},
+			result: []Threshold{updatedThreshold},
 		},
 		"no-last-observation": {
-			thresholds: []evictionapi.Threshold{updatedThreshold},
+			thresholds: []Threshold{updatedThreshold},
 			observations: signalObservations{
-				evictionapi.SignalMemoryAvailable: signalObservation{
+				SignalMemoryAvailable: signalObservation{
 					time: metav1.Date(2016, 1, 1, 0, 0, 0, 0, locationUTC),
 				},
 			},
 			last:   signalObservations{},
-			result: []evictionapi.Threshold{updatedThreshold},
+			result: []Threshold{updatedThreshold},
 		},
 		"time-machine": {
-			thresholds: []evictionapi.Threshold{updatedThreshold},
+			thresholds: []Threshold{updatedThreshold},
 			observations: signalObservations{
-				evictionapi.SignalMemoryAvailable: signalObservation{
+				SignalMemoryAvailable: signalObservation{
 					time: metav1.Date(2016, 1, 1, 0, 0, 0, 0, locationUTC),
 				},
 			},
 			last: signalObservations{
-				evictionapi.SignalMemoryAvailable: signalObservation{
+				SignalMemoryAvailable: signalObservation{
 					time: metav1.Date(2016, 1, 1, 0, 1, 0, 0, locationUTC),
 				},
 			},
-			result: []evictionapi.Threshold{},
+			result: []Threshold{},
 		},
 		"same-observation": {
-			thresholds: []evictionapi.Threshold{updatedThreshold},
+			thresholds: []Threshold{updatedThreshold},
 			observations: signalObservations{
-				evictionapi.SignalMemoryAvailable: signalObservation{
+				SignalMemoryAvailable: signalObservation{
 					time: metav1.Date(2016, 1, 1, 0, 0, 0, 0, locationUTC),
 				},
 			},
 			last: signalObservations{
-				evictionapi.SignalMemoryAvailable: signalObservation{
+				SignalMemoryAvailable: signalObservation{
 					time: metav1.Date(2016, 1, 1, 0, 0, 0, 0, locationUTC),
 				},
 			},
-			result: []evictionapi.Threshold{},
+			result: []Threshold{},
 		},
 		"new-observation": {
-			thresholds: []evictionapi.Threshold{updatedThreshold},
+			thresholds: []Threshold{updatedThreshold},
 			observations: signalObservations{
-				evictionapi.SignalMemoryAvailable: signalObservation{
+				SignalMemoryAvailable: signalObservation{
 					time: metav1.Date(2016, 1, 1, 0, 1, 0, 0, locationUTC),
 				},
 			},
 			last: signalObservations{
-				evictionapi.SignalMemoryAvailable: signalObservation{
+				SignalMemoryAvailable: signalObservation{
 					time: metav1.Date(2016, 1, 1, 0, 0, 0, 0, locationUTC),
 				},
 			},
-			result: []evictionapi.Threshold{updatedThreshold},
+			result: []Threshold{updatedThreshold},
 		},
 	}
 	for testName, testCase := range testCases {
@@ -1019,21 +973,21 @@ func TestThresholdsUpdatedStats(t *testing.T) {
 }
 
 func TestPercentageThresholdsMet(t *testing.T) {
-	specificThresholds := []evictionapi.Threshold{
+	specificThresholds := []Threshold{
 		{
-			Signal:   evictionapi.SignalMemoryAvailable,
-			Operator: evictionapi.OpLessThan,
-			Value: evictionapi.ThresholdValue{
+			Signal:   SignalMemoryAvailable,
+			Operator: OpLessThan,
+			Value: ThresholdValue{
 				Percentage: 0.2,
 			},
-			MinReclaim: &evictionapi.ThresholdValue{
+			MinReclaim: &ThresholdValue{
 				Percentage: 0.05,
 			},
 		},
 		{
-			Signal:   evictionapi.SignalNodeFsAvailable,
-			Operator: evictionapi.OpLessThan,
-			Value: evictionapi.ThresholdValue{
+			Signal:   SignalNodeFsAvailable,
+			Operator: OpLessThan,
+			Value: ThresholdValue{
 				Percentage: 0.3,
 			},
 		},
@@ -1041,19 +995,19 @@ func TestPercentageThresholdsMet(t *testing.T) {
 
 	testCases := map[string]struct {
 		enforceMinRelaim bool
-		thresholds       []evictionapi.Threshold
+		thresholds       []Threshold
 		observations     signalObservations
-		result           []evictionapi.Threshold
+		result           []Threshold
 	}{
 		"BothMet": {
 			enforceMinRelaim: false,
 			thresholds:       specificThresholds,
 			observations: signalObservations{
-				evictionapi.SignalMemoryAvailable: signalObservation{
+				SignalMemoryAvailable: signalObservation{
 					available: quantityMustParse("100Mi"),
 					capacity:  quantityMustParse("1000Mi"),
 				},
-				evictionapi.SignalNodeFsAvailable: signalObservation{
+				SignalNodeFsAvailable: signalObservation{
 					available: quantityMustParse("100Gi"),
 					capacity:  quantityMustParse("1000Gi"),
 				},
@@ -1064,68 +1018,68 @@ func TestPercentageThresholdsMet(t *testing.T) {
 			enforceMinRelaim: false,
 			thresholds:       specificThresholds,
 			observations: signalObservations{
-				evictionapi.SignalMemoryAvailable: signalObservation{
+				SignalMemoryAvailable: signalObservation{
 					available: quantityMustParse("300Mi"),
 					capacity:  quantityMustParse("1000Mi"),
 				},
-				evictionapi.SignalNodeFsAvailable: signalObservation{
+				SignalNodeFsAvailable: signalObservation{
 					available: quantityMustParse("400Gi"),
 					capacity:  quantityMustParse("1000Gi"),
 				},
 			},
-			result: []evictionapi.Threshold{},
+			result: []Threshold{},
 		},
 		"DiskMet": {
 			enforceMinRelaim: false,
 			thresholds:       specificThresholds,
 			observations: signalObservations{
-				evictionapi.SignalMemoryAvailable: signalObservation{
+				SignalMemoryAvailable: signalObservation{
 					available: quantityMustParse("300Mi"),
 					capacity:  quantityMustParse("1000Mi"),
 				},
-				evictionapi.SignalNodeFsAvailable: signalObservation{
+				SignalNodeFsAvailable: signalObservation{
 					available: quantityMustParse("100Gi"),
 					capacity:  quantityMustParse("1000Gi"),
 				},
 			},
-			result: []evictionapi.Threshold{specificThresholds[1]},
+			result: []Threshold{specificThresholds[1]},
 		},
 		"MemoryMet": {
 			enforceMinRelaim: false,
 			thresholds:       specificThresholds,
 			observations: signalObservations{
-				evictionapi.SignalMemoryAvailable: signalObservation{
+				SignalMemoryAvailable: signalObservation{
 					available: quantityMustParse("100Mi"),
 					capacity:  quantityMustParse("1000Mi"),
 				},
-				evictionapi.SignalNodeFsAvailable: signalObservation{
+				SignalNodeFsAvailable: signalObservation{
 					available: quantityMustParse("400Gi"),
 					capacity:  quantityMustParse("1000Gi"),
 				},
 			},
-			result: []evictionapi.Threshold{specificThresholds[0]},
+			result: []Threshold{specificThresholds[0]},
 		},
 		"MemoryMetWithMinReclaim": {
 			enforceMinRelaim: true,
 			thresholds:       specificThresholds,
 			observations: signalObservations{
-				evictionapi.SignalMemoryAvailable: signalObservation{
+				SignalMemoryAvailable: signalObservation{
 					available: quantityMustParse("225Mi"),
 					capacity:  quantityMustParse("1000Mi"),
 				},
 			},
-			result: []evictionapi.Threshold{specificThresholds[0]},
+			result: []Threshold{specificThresholds[0]},
 		},
 		"MemoryNotMetWithMinReclaim": {
 			enforceMinRelaim: true,
 			thresholds:       specificThresholds,
 			observations: signalObservations{
-				evictionapi.SignalMemoryAvailable: signalObservation{
+				SignalMemoryAvailable: signalObservation{
 					available: quantityMustParse("300Mi"),
 					capacity:  quantityMustParse("1000Mi"),
 				},
 			},
-			result: []evictionapi.Threshold{},
+			result: []Threshold{},
 		},
 	}
 	for testName, testCase := range testCases {
@@ -1137,29 +1091,29 @@ func TestPercentageThresholdsMet(t *testing.T) {
 }
 
 func TestThresholdsFirstObservedAt(t *testing.T) {
-	hardThreshold := evictionapi.Threshold{
-		Signal:   evictionapi.SignalMemoryAvailable,
-		Operator: evictionapi.OpLessThan,
-		Value: evictionapi.ThresholdValue{
+	hardThreshold := Threshold{
+		Signal:   SignalMemoryAvailable,
+		Operator: OpLessThan,
+		Value: ThresholdValue{
 			Quantity: quantityMustParse("1Gi"),
 		},
 	}
 	now := metav1.Now()
 	oldTime := metav1.NewTime(now.Time.Add(-1 * time.Minute))
 	testCases := map[string]struct {
-		thresholds     []evictionapi.Threshold
+		thresholds     []Threshold
 		lastObservedAt thresholdsObservedAt
 		now            time.Time
 		result         thresholdsObservedAt
 	}{
 		"empty": {
-			thresholds:     []evictionapi.Threshold{},
+			thresholds:     []Threshold{},
 			lastObservedAt: thresholdsObservedAt{},
 			now:            now.Time,
 			result:         thresholdsObservedAt{},
 		},
 		"no-previous-observation": {
-			thresholds:     []evictionapi.Threshold{hardThreshold},
+			thresholds:     []Threshold{hardThreshold},
 			lastObservedAt: thresholdsObservedAt{},
 			now:            now.Time,
 			result: thresholdsObservedAt{
@@ -1167,7 +1121,7 @@ func TestThresholdsFirstObservedAt(t *testing.T) {
 			},
 		},
 		"previous-observation": {
-			thresholds: []evictionapi.Threshold{hardThreshold},
+			thresholds: []Threshold{hardThreshold},
 			lastObservedAt: thresholdsObservedAt{
 				hardThreshold: oldTime.Time,
 			},
@@ -1187,17 +1141,17 @@ func TestThresholdsFirstObservedAt(t *testing.T) {
 
 func TestThresholdsMetGracePeriod(t *testing.T) {
 	now := metav1.Now()
-	hardThreshold := evictionapi.Threshold{
-		Signal:   evictionapi.SignalMemoryAvailable,
-		Operator: evictionapi.OpLessThan,
-		Value: evictionapi.ThresholdValue{
+	hardThreshold := Threshold{
+		Signal:   SignalMemoryAvailable,
+		Operator: OpLessThan,
+		Value: ThresholdValue{
 			Quantity: quantityMustParse("1Gi"),
 		},
 	}
-	softThreshold := evictionapi.Threshold{
-		Signal:   evictionapi.SignalMemoryAvailable,
-		Operator: evictionapi.OpLessThan,
-		Value: evictionapi.ThresholdValue{
+	softThreshold := Threshold{
+		Signal:   SignalMemoryAvailable,
+		Operator: OpLessThan,
+		Value: ThresholdValue{
 			Quantity: quantityMustParse("2Gi"),
 		},
 		GracePeriod: 1 * time.Minute,
@@ -1206,33 +1160,33 @@ func TestThresholdsMetGracePeriod(t *testing.T) {
 	testCases := map[string]struct {
 		observedAt thresholdsObservedAt
 		now        time.Time
-		result     []evictionapi.Threshold
+		result     []Threshold
 	}{
 		"empty": {
 			observedAt: thresholdsObservedAt{},
 			now:        now.Time,
-			result:     []evictionapi.Threshold{},
+			result:     []Threshold{},
 		},
 		"hard-threshold-met": {
 			observedAt: thresholdsObservedAt{
 				hardThreshold: now.Time,
 			},
 			now:    now.Time,
-			result: []evictionapi.Threshold{hardThreshold},
+			result: []Threshold{hardThreshold},
 		},
 		"soft-threshold-not-met": {
 			observedAt: thresholdsObservedAt{
 				softThreshold: now.Time,
 			},
 			now:    now.Time,
-			result: []evictionapi.Threshold{},
+			result: []Threshold{},
 		},
 		"soft-threshold-met": {
 			observedAt: thresholdsObservedAt{
 				softThreshold: oldTime.Time,
 			},
 			now:    now.Time,
-			result: []evictionapi.Threshold{softThreshold},
+			result: []Threshold{softThreshold},
 		},
 	}
 	for testName, testCase := range testCases {
@@ -1245,16 +1199,16 @@ func TestThresholdsMetGracePeriod(t *testing.T) {
 
 func TestNodeConditions(t *testing.T) {
 	testCases := map[string]struct {
-		inputs []evictionapi.Threshold
+		inputs []Threshold
 		result []v1.NodeConditionType
 	}{
 		"empty-list": {
-			inputs: []evictionapi.Threshold{},
+			inputs: []Threshold{},
 			result: []v1.NodeConditionType{},
 		},
 		"memory.available": {
-			inputs: []evictionapi.Threshold{
-				{Signal: evictionapi.SignalMemoryAvailable},
+			inputs: []Threshold{
+				{Signal: SignalMemoryAvailable},
 			},
 			result: []v1.NodeConditionType{v1.NodeMemoryPressure},
 		},
@@ -1373,24 +1327,24 @@ func TestHasNodeConditions(t *testing.T) {
 
 func TestGetStarvedResources(t *testing.T) {
 	testCases := map[string]struct {
-		inputs []evictionapi.Threshold
+		inputs []Threshold
 		result []v1.ResourceName
 	}{
 		"memory.available": {
-			inputs: []evictionapi.Threshold{
-				{Signal: evictionapi.SignalMemoryAvailable},
+			inputs: []Threshold{
+				{Signal: SignalMemoryAvailable},
 			},
 			result: []v1.ResourceName{v1.ResourceMemory},
 		},
 		"imagefs.available": {
-			inputs: []evictionapi.Threshold{
-				{Signal: evictionapi.SignalImageFsAvailable},
+			inputs: []Threshold{
+				{Signal: SignalImageFsAvailable},
 			},
 			result: []v1.ResourceName{resourceImageFs},
 		},
 		"nodefs.available": {
-			inputs: []evictionapi.Threshold{
-				{Signal: evictionapi.SignalNodeFsAvailable},
+			inputs: []Threshold{
+				{Signal: SignalNodeFsAvailable},
 			},
 			result: []v1.ResourceName{resourceNodeFs},
 		},
@@ -1443,50 +1397,50 @@ func testParsePercentage(t *testing.T) {
 
 func testCompareThresholdValue(t *testing.T) {
 	testCases := []struct {
-		a, b  evictionapi.ThresholdValue
+		a, b  ThresholdValue
 		equal bool
 	}{
 		{
-			a: evictionapi.ThresholdValue{
+			a: ThresholdValue{
 				Quantity: resource.NewQuantity(123, resource.BinarySI),
 			},
-			b: evictionapi.ThresholdValue{
+			b: ThresholdValue{
 				Quantity: resource.NewQuantity(123, resource.BinarySI),
 			},
 			equal: true,
 		},
 		{
-			a: evictionapi.ThresholdValue{
+			a: ThresholdValue{
 				Quantity: resource.NewQuantity(123, resource.BinarySI),
 			},
-			b: evictionapi.ThresholdValue{
+			b: ThresholdValue{
 				Quantity: resource.NewQuantity(456, resource.BinarySI),
 			},
 			equal: false,
 		},
 		{
-			a: evictionapi.ThresholdValue{
+			a: ThresholdValue{
 				Quantity: resource.NewQuantity(123, resource.BinarySI),
 			},
-			b: evictionapi.ThresholdValue{
+			b: ThresholdValue{
 				Percentage: 0.1,
 			},
 			equal: false,
 		},
 		{
-			a: evictionapi.ThresholdValue{
+			a: ThresholdValue{
 				Percentage: 0.1,
 			},
-			b: evictionapi.ThresholdValue{
+			b: ThresholdValue{
 				Percentage: 0.1,
 			},
 			equal: true,
 		},
 		{
-			a: evictionapi.ThresholdValue{
+			a: ThresholdValue{
 				Percentage: 0.2,
 			},
-			b: evictionapi.ThresholdValue{
+			b: ThresholdValue{
 				Percentage: 0.1,
 			},
 			equal: false,
@@ -1647,7 +1601,7 @@ func (s1 nodeConditionList) Equal(s2 nodeConditionList) bool {
 }
 
 // thresholdList is a simple alias to support equality checking independent of order
-type thresholdList []evictionapi.Threshold
+type thresholdList []Threshold
 
 // Equal adds the ability to check equality between two lists of node conditions.
 func (s1 thresholdList) Equal(s2 thresholdList) bool {

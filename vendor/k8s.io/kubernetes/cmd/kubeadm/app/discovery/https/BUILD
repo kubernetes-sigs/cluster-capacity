@@ -11,11 +11,7 @@ go_library(
     name = "go_default_library",
     srcs = ["https.go"],
     tags = ["automanaged"],
-    deps = [
-        "//cmd/kubeadm/app/discovery/file:go_default_library",
-        "//vendor:k8s.io/client-go/tools/clientcmd",
-        "//vendor:k8s.io/client-go/tools/clientcmd/api",
-    ],
+    deps = ["//cmd/kubeadm/app/apis/kubeadm:go_default_library"],
 )
 
 filegroup(

@@ -32,12 +32,12 @@ func (o *OSValidator) Name() string {
 	return "os"
 }
 
-func (o *OSValidator) Validate(spec SysSpec) (error, error) {
+func (o *OSValidator) Validate(spec SysSpec) error {
 	os, err := exec.Command("uname").CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get os name: %v", err)
+		return fmt.Errorf("failed to get os name: %v", err)
 	}
-	return nil, o.validateOS(strings.TrimSpace(string(os)), spec.OS)
+	return o.validateOS(strings.TrimSpace(string(os)), spec.OS)
 }
 
 func (o *OSValidator) validateOS(os, specOS string) error {

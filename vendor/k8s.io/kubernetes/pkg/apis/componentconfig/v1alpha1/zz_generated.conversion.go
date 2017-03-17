@@ -293,7 +293,6 @@ func autoConvert_v1alpha1_KubeletConfiguration_To_componentconfig_KubeletConfigu
 	if err := v1.Convert_Pointer_bool_To_bool(&in.EnableDebuggingHandlers, &out.EnableDebuggingHandlers, s); err != nil {
 		return err
 	}
-	out.EnableContentionProfiling = in.EnableContentionProfiling
 	out.MinimumGCAge = in.MinimumGCAge
 	out.MaxPerPodContainerCount = in.MaxPerPodContainerCount
 	if err := v1.Convert_Pointer_int32_To_int32(&in.MaxContainerCount, &out.MaxContainerCount, s); err != nil {
@@ -354,6 +353,7 @@ func autoConvert_v1alpha1_KubeletConfiguration_To_componentconfig_KubeletConfigu
 	out.HairpinMode = in.HairpinMode
 	out.BabysitDaemons = in.BabysitDaemons
 	out.MaxPods = in.MaxPods
+	out.NvidiaGPUs = in.NvidiaGPUs
 	out.DockerExecHandlerName = in.DockerExecHandlerName
 	out.PodCIDR = in.PodCIDR
 	out.ResolverConfig = in.ResolverConfig
@@ -396,7 +396,8 @@ func autoConvert_v1alpha1_KubeletConfiguration_To_componentconfig_KubeletConfigu
 	if err := v1.Convert_Pointer_bool_To_bool(&in.EnableControllerAttachDetach, &out.EnableControllerAttachDetach, s); err != nil {
 		return err
 	}
-	out.ExperimentalQOSReserved = *(*componentconfig.ConfigurationMap)(unsafe.Pointer(&in.ExperimentalQOSReserved))
+	out.SystemReserved = *(*componentconfig.ConfigurationMap)(unsafe.Pointer(&in.SystemReserved))
+	out.KubeReserved = *(*componentconfig.ConfigurationMap)(unsafe.Pointer(&in.KubeReserved))
 	out.ProtectKernelDefaults = in.ProtectKernelDefaults
 	if err := v1.Convert_Pointer_bool_To_bool(&in.MakeIPTablesUtilChains, &out.MakeIPTablesUtilChains, s); err != nil {
 		return err
@@ -415,12 +416,6 @@ func autoConvert_v1alpha1_KubeletConfiguration_To_componentconfig_KubeletConfigu
 	out.ExperimentalFailSwapOn = in.ExperimentalFailSwapOn
 	out.ExperimentalCheckNodeCapabilitiesBeforeMount = in.ExperimentalCheckNodeCapabilitiesBeforeMount
 	out.KeepTerminatedPodVolumes = in.KeepTerminatedPodVolumes
-	out.SystemReserved = *(*componentconfig.ConfigurationMap)(unsafe.Pointer(&in.SystemReserved))
-	out.KubeReserved = *(*componentconfig.ConfigurationMap)(unsafe.Pointer(&in.KubeReserved))
-	out.SystemReservedCgroup = in.SystemReservedCgroup
-	out.KubeReservedCgroup = in.KubeReservedCgroup
-	out.EnforceNodeAllocatable = *(*[]string)(unsafe.Pointer(&in.EnforceNodeAllocatable))
-	out.ExperimentalNodeAllocatableIgnoreEvictionThreshold = in.ExperimentalNodeAllocatableIgnoreEvictionThreshold
 	return nil
 }
 
@@ -472,7 +467,6 @@ func autoConvert_componentconfig_KubeletConfiguration_To_v1alpha1_KubeletConfigu
 	if err := v1.Convert_bool_To_Pointer_bool(&in.EnableDebuggingHandlers, &out.EnableDebuggingHandlers, s); err != nil {
 		return err
 	}
-	out.EnableContentionProfiling = in.EnableContentionProfiling
 	out.MinimumGCAge = in.MinimumGCAge
 	out.MaxPerPodContainerCount = in.MaxPerPodContainerCount
 	if err := v1.Convert_int32_To_Pointer_int32(&in.MaxContainerCount, &out.MaxContainerCount, s); err != nil {
@@ -533,6 +527,7 @@ func autoConvert_componentconfig_KubeletConfiguration_To_v1alpha1_KubeletConfigu
 	out.HairpinMode = in.HairpinMode
 	out.BabysitDaemons = in.BabysitDaemons
 	out.MaxPods = in.MaxPods
+	out.NvidiaGPUs = in.NvidiaGPUs
 	out.DockerExecHandlerName = in.DockerExecHandlerName
 	out.PodCIDR = in.PodCIDR
 	out.ResolverConfig = in.ResolverConfig
@@ -575,7 +570,8 @@ func autoConvert_componentconfig_KubeletConfiguration_To_v1alpha1_KubeletConfigu
 	if err := v1.Convert_bool_To_Pointer_bool(&in.EnableControllerAttachDetach, &out.EnableControllerAttachDetach, s); err != nil {
 		return err
 	}
-	out.ExperimentalQOSReserved = *(*map[string]string)(unsafe.Pointer(&in.ExperimentalQOSReserved))
+	out.SystemReserved = *(*map[string]string)(unsafe.Pointer(&in.SystemReserved))
+	out.KubeReserved = *(*map[string]string)(unsafe.Pointer(&in.KubeReserved))
 	out.ProtectKernelDefaults = in.ProtectKernelDefaults
 	if err := v1.Convert_bool_To_Pointer_bool(&in.MakeIPTablesUtilChains, &out.MakeIPTablesUtilChains, s); err != nil {
 		return err
@@ -594,12 +590,6 @@ func autoConvert_componentconfig_KubeletConfiguration_To_v1alpha1_KubeletConfigu
 	out.ExperimentalFailSwapOn = in.ExperimentalFailSwapOn
 	out.ExperimentalCheckNodeCapabilitiesBeforeMount = in.ExperimentalCheckNodeCapabilitiesBeforeMount
 	out.KeepTerminatedPodVolumes = in.KeepTerminatedPodVolumes
-	out.SystemReserved = *(*map[string]string)(unsafe.Pointer(&in.SystemReserved))
-	out.KubeReserved = *(*map[string]string)(unsafe.Pointer(&in.KubeReserved))
-	out.SystemReservedCgroup = in.SystemReservedCgroup
-	out.KubeReservedCgroup = in.KubeReservedCgroup
-	out.EnforceNodeAllocatable = *(*[]string)(unsafe.Pointer(&in.EnforceNodeAllocatable))
-	out.ExperimentalNodeAllocatableIgnoreEvictionThreshold = in.ExperimentalNodeAllocatableIgnoreEvictionThreshold
 	return nil
 }
 

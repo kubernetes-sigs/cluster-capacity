@@ -296,12 +296,6 @@ type VolumeSource struct {
 	PhotonPersistentDisk *PhotonPersistentDiskVolumeSource
 	// Items for all in one resources secrets, configmaps, and downward API
 	Projected *ProjectedVolumeSource
-	// PortworxVolume represents a portworx volume attached and mounted on kubelets host machine
-	// +optional
-	PortworxVolume *PortworxVolumeSource
-	// ScaleIO represents a ScaleIO persistent volume attached and mounted on Kubernetes nodes.
-	// +optional
-	ScaleIO *ScaleIOVolumeSource
 }
 
 // Similar to VolumeSource but meant for the administrator who creates PVs.
@@ -364,12 +358,6 @@ type PersistentVolumeSource struct {
 	AzureDisk *AzureDiskVolumeSource
 	// PhotonPersistentDisk represents a Photon Controller persistent disk attached and mounted on kubelets host machine
 	PhotonPersistentDisk *PhotonPersistentDiskVolumeSource
-	// PortworxVolume represents a portworx volume attached and mounted on kubelets host machine
-	// +optional
-	PortworxVolume *PortworxVolumeSource
-	// ScaleIO represents a ScaleIO persistent volume attached and mounted on Kubernetes nodes.
-	// +optional
-	ScaleIO *ScaleIOVolumeSource
 }
 
 type PersistentVolumeClaimVolumeSource struct {
@@ -380,12 +368,6 @@ type PersistentVolumeClaimVolumeSource struct {
 	// +optional
 	ReadOnly bool
 }
-
-const (
-	// BetaStorageClassAnnotation represents the beta/previous StorageClass annotation.
-	// It's currently still used and will be held for backwards compatibility
-	BetaStorageClassAnnotation = "volume.beta.kubernetes.io/storage-class"
-)
 
 // +genclient=true
 // +nonNamespaced=true
@@ -422,10 +404,6 @@ type PersistentVolumeSpec struct {
 	// Optional: what happens to a persistent volume when released from its claim.
 	// +optional
 	PersistentVolumeReclaimPolicy PersistentVolumeReclaimPolicy
-	// Name of StorageClass to which this persistent volume belongs. Empty value
-	// means that this volume does not belong to any StorageClass.
-	// +optional
-	StorageClassName string
 }
 
 // PersistentVolumeReclaimPolicy describes a policy for end-of-life maintenance of persistent volumes
@@ -503,10 +481,6 @@ type PersistentVolumeClaimSpec struct {
 	// claim. When set to non-empty value Selector is not evaluated
 	// +optional
 	VolumeName string
-	// Name of the StorageClass required by the claim.
-	// More info: http://kubernetes.io/docs/user-guide/persistent-volumes#class-1
-	// +optional
-	StorageClassName *string
 }
 
 type PersistentVolumeClaimStatus struct {
@@ -1019,21 +993,6 @@ type PhotonPersistentDiskVolumeSource struct {
 	FSType string
 }
 
-// PortworxVolumeSource represents a Portworx volume resource.
-type PortworxVolumeSource struct {
-	// VolumeID uniquely identifies a Portworx volume
-	VolumeID string
-	// FSType represents the filesystem type to mount
-	// Must be a filesystem type supported by the host operating system.
-	// Ex. "ext4", "xfs". Implicitly inferred to be "ext4" if unspecified.
-	// +optional
-	FSType string
-	// Defaults to false (read/write). ReadOnly here will force
-	// the ReadOnly setting in VolumeMounts.
-	// +optional
-	ReadOnly bool
-}
-
 type AzureDataDiskCachingMode string
 
 const (
@@ -1060,41 +1019,6 @@ type AzureDiskVolumeSource struct {
 	// the ReadOnly setting in VolumeMounts.
 	// +optional
 	ReadOnly *bool
-}
-
-// ScaleIOVolumeSource represents a persistent ScaleIO volume
-type ScaleIOVolumeSource struct {
-	// The host address of the ScaleIO API Gateway.
-	Gateway string
-	// The name of the storage system as configured in ScaleIO.
-	System string
-	// SecretRef references to the secret for ScaleIO user and other
-	// sensitive information. If this is not provided, Login operation will fail.
-	SecretRef *LocalObjectReference
-	// Flag to enable/disable SSL communication with Gateway, default false
-	// +optional
-	SSLEnabled bool
-	// The name of the Protection Domain for the configured storage (defaults to "default").
-	// +optional
-	ProtectionDomain string
-	// The Storage Pool associated with the protection domain (defaults to "default").
-	// +optional
-	StoragePool string
-	// Indicates whether the storage for a volume should be thick or thin (defaults to "thin").
-	// +optional
-	StorageMode string
-	// The name of a volume already created in the ScaleIO system
-	// that is associated with this volume source.
-	VolumeName string
-	// Filesystem type to mount.
-	// Must be a filesystem type supported by the host operating system.
-	// Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.
-	// +optional
-	FSType string
-	// Defaults to false (read/write). ReadOnly here will force
-	// the ReadOnly setting in VolumeMounts.
-	// +optional
-	ReadOnly bool
 }
 
 // Adapts a ConfigMap into a volume.
@@ -1503,8 +1427,8 @@ type Container struct {
 	// +optional
 	Ports []ContainerPort
 	// List of sources to populate environment variables in the container.
-	// The keys defined within a source must be a C_IDENTIFIER. All invalid keys
-	// will be reported as an event when the container is starting. When a key exists in multiple
+	// The keys defined within a source must be a C_IDENTIFIER. An invalid key
+	// will prevent the container from starting. When a key exists in multiple
 	// sources, the value associated with the last source will take precedence.
 	// Values defined by an Env with a duplicate key will take precedence.
 	// Cannot be updated.
@@ -1726,14 +1650,9 @@ type PodList struct {
 type DNSPolicy string
 
 const (
-	// DNSClusterFirstWithHostNet indicates that the pod should use cluster DNS
-	// first, if it is available, then fall back on the default
-	// (as determined by kubelet) DNS settings.
-	DNSClusterFirstWithHostNet DNSPolicy = "ClusterFirstWithHostNet"
-
 	// DNSClusterFirst indicates that the pod should use cluster DNS
-	// first unless hostNetwork is true, if it is available, then
-	// fall back on the default (as determined by kubelet) DNS settings.
+	// first, if it is available, then fall back on the default (as
+	// determined by kubelet) DNS settings.
 	DNSClusterFirst DNSPolicy = "ClusterFirst"
 
 	// DNSDefault indicates that the pod should use the default (as
@@ -2082,9 +2001,6 @@ type PodSpec struct {
 	// If not specified, the pod will be dispatched by default scheduler.
 	// +optional
 	SchedulerName string
-	// If specified, the pod's tolerations.
-	// +optional
-	Tolerations []Toleration
 }
 
 // Sysctl defines a kernel parameter to be set
@@ -2707,10 +2623,6 @@ type NodeSpec struct {
 	// Unschedulable controls node schedulability of new pods. By default node is schedulable.
 	// +optional
 	Unschedulable bool
-
-	// If specified, the node's taints.
-	// +optional
-	Taints []Taint
 }
 
 // DaemonEndpoint contains information about a single Daemon endpoint.
@@ -3052,20 +2964,6 @@ type Preconditions struct {
 	UID *types.UID
 }
 
-// DeletionPropagation decides whether and how garbage collection will be performed.
-type DeletionPropagation string
-
-const (
-	// Orphans the dependents.
-	DeletePropagationOrphan DeletionPropagation = "Orphan"
-	// Deletes the object from the key-value store, the garbage collector will delete the dependents in the background.
-	DeletePropagationBackground DeletionPropagation = "Background"
-	// The object exists in the key-value store until the garbage collector deletes all the dependents whose ownerReference.blockOwnerDeletion=true from the key-value store.
-	// API sever will put the "DeletingDependents" finalizer on the object, and sets its deletionTimestamp.
-	// This policy is cascading, i.e., the dependents will be deleted with Foreground.
-	DeletePropagationForeground DeletionPropagation = "Foreground"
-)
-
 // DeleteOptions may be provided when deleting an API object
 // DEPRECATED: This type has been moved to meta/v1 and will be removed soon.
 type DeleteOptions struct {
@@ -3082,18 +2980,10 @@ type DeleteOptions struct {
 	// +optional
 	Preconditions *Preconditions
 
-	// Deprecated: please use the PropagationPolicy, this field will be deprecated in 1.7.
 	// Should the dependent objects be orphaned. If true/false, the "orphan"
 	// finalizer will be added to/removed from the object's finalizers list.
-	// Either this field or PropagationPolicy may be set, but not both.
 	// +optional
 	OrphanDependents *bool
-
-	// Whether and how garbage collection will be performed.
-	// Defaults to Default.
-	// Either this field or OrphanDependents may be set, but not both.
-	// +optional
-	PropagationPolicy *DeletionPropagation
 }
 
 // ListOptions is the query options to a standard REST list call, and has future support for

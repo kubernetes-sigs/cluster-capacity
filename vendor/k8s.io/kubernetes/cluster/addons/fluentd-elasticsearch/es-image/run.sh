@@ -25,4 +25,4 @@ export MINIMUM_MASTER_NODES=${MINIMUM_MASTER_NODES:-2}
 
 chown -R elasticsearch:elasticsearch /data
 
-exec gosu elasticsearch /elasticsearch/bin/elasticsearch
+/bin/su -c /elasticsearch/bin/elasticsearch elasticsearch

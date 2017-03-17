@@ -23,7 +23,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"k8s.io/apiserver/pkg/util/flag"
-	"k8s.io/kubernetes/cmd/kubeadm/app/cmd/phases"
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
 )
 
@@ -35,11 +34,11 @@ func NewKubeadmCommand(f cmdutil.Factory, in io.Reader, out, err io.Writer) *cob
 			kubeadm: easily bootstrap a secure Kubernetes cluster.
 
 			    ┌──────────────────────────────────────────────────────────┐
-			    │ KUBEADM IS BETA, DO NOT USE IT FOR PRODUCTION CLUSTERS!  │
+			    │ KUBEADM IS ALPHA, DO NOT USE IT FOR PRODUCTION CLUSTERS! │
 			    │                                                          │
 			    │ But, please try it out! Give us feedback at:             │
 			    │ https://github.com/kubernetes/kubeadm/issues             │
-			    │ and at-mention @kubernetes/sig-cluster-lifecycle-misc    │
+			    │ and at-mention @kubernetes/sig-cluster-lifecycle         │
 			    └──────────────────────────────────────────────────────────┘
 
 			Example usage:
@@ -78,19 +77,17 @@ func NewKubeadmCommand(f cmdutil.Factory, in io.Reader, out, err io.Writer) *cob
 	cmds.ResetFlags()
 	cmds.SetGlobalNormalizationFunc(flag.WarnWordSepNormalizeFunc)
 
-	cmds.AddCommand(NewCmdCompletion(out, ""))
 	cmds.AddCommand(NewCmdInit(out))
 	cmds.AddCommand(NewCmdJoin(out))
 	cmds.AddCommand(NewCmdReset(out))
 	cmds.AddCommand(NewCmdVersion(out))
-	cmds.AddCommand(NewCmdToken(out, err))
 
-	// Wrap not yet fully supported commands in an alpha subcommand
+	// Wrap not yet usable/supported commands in experimental sub-command:
 	experimentalCmd := &cobra.Command{
-		Use:   "alpha",
+		Use:   "ex",
 		Short: "Experimental sub-commands not yet fully functional.",
 	}
-	experimentalCmd.AddCommand(phases.NewCmdPhase(out))
+	experimentalCmd.AddCommand(NewCmdToken(out, err))
 	cmds.AddCommand(experimentalCmd)
 
 	return cmds

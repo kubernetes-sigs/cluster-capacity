@@ -73,11 +73,11 @@ func NewSecureServingOptions() *SecureServingOptions {
 	return &SecureServingOptions{
 		ServingOptions: ServingOptions{
 			BindAddress: net.ParseIP("0.0.0.0"),
-			BindPort:    443,
+			BindPort:    6443,
 		},
 		ServerCert: GeneratableKeyCert{
 			PairName:      "apiserver",
-			CertDirectory: "apiserver.local.config/certificates",
+			CertDirectory: "/var/run/kubernetes",
 		},
 	}
 }
@@ -144,18 +144,7 @@ func (s *SecureServingOptions) ApplyTo(c *server.Config) error {
 		return err
 	}
 
-	// create self-signed cert+key with the fake server.LoopbackClientServerNameOverride and
-	// let the server return it when the loopback client connects.
-	certPem, keyPem, err := certutil.GenerateSelfSignedCertKey(server.LoopbackClientServerNameOverride, nil, nil)
-	if err != nil {
-		return fmt.Errorf("failed to generate self-signed certificate for loopback connection: %v", err)
-	}
-	tlsCert, err := tls.X509KeyPair(certPem, keyPem)
-	if err != nil {
-		return fmt.Errorf("failed to generate self-signed certificate for loopback connection: %v", err)
-	}
-
-	secureLoopbackClientConfig, err := c.SecureServingInfo.NewLoopbackClientConfig(uuid.NewRandom().String(), certPem)
+	loopbackClientConfig, err := c.SecureServingInfo.NewSelfClientConfig(uuid.NewRandom().String())
 	switch {
 	// if we failed and there's no fallback loopback client config, we need to fail
 	case err != nil && c.LoopbackClientConfig == nil:
@@ -165,8 +154,7 @@ func (s *SecureServingOptions) ApplyTo(c *server.Config) error {
 	case err != nil && c.LoopbackClientConfig != nil:
 
 	default:
-		c.LoopbackClientConfig = secureLoopbackClientConfig
-		c.SecureServingInfo.SNICerts[server.LoopbackClientServerNameOverride] = &tlsCert
+		c.LoopbackClientConfig = loopbackClientConfig
 	}
 
 	return nil
@@ -289,7 +277,7 @@ func (s *ServingOptions) ApplyTo(c *server.Config) error {
 
 	var err error
 	privilegedLoopbackToken := uuid.NewRandom().String()
-	if c.LoopbackClientConfig, err = c.InsecureServingInfo.NewLoopbackClientConfig(privilegedLoopbackToken); err != nil {
+	if c.LoopbackClientConfig, err = c.InsecureServingInfo.NewSelfClientConfig(privilegedLoopbackToken); err != nil {
 		return err
 	}
 

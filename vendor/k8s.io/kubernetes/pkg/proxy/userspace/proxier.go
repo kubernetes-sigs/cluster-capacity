@@ -33,9 +33,6 @@ import (
 
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
-	utilproxy "k8s.io/kubernetes/pkg/proxy/util"
-	utilexec "k8s.io/kubernetes/pkg/util/exec"
 	"k8s.io/kubernetes/pkg/util/iptables"
 )
 
@@ -45,20 +42,14 @@ type portal struct {
 	isExternal bool
 }
 
-// ServiceInfo contains information and state for a particular proxied service
-type ServiceInfo struct {
-	// Timeout is the the read/write timeout (used for UDP connections)
-	Timeout time.Duration
-	// ActiveClients is the cache of active UDP clients being proxied by this proxy for this service
-	ActiveClients *ClientCache
-	// ServiceRef is a full object reference to the the service described by this ServiceInfo
-	ServiceRef api.ObjectReference
-
+type serviceInfo struct {
 	isAliveAtomic       int32 // Only access this with atomic ops
 	portal              portal
 	protocol            api.Protocol
 	proxyPort           int
-	socket              ProxySocket
+	socket              proxySocket
+	timeout             time.Duration
+	activeClients       *clientCache
 	nodePort            int
 	loadBalancerStatus  api.LoadBalancerStatus
 	sessionAffinityType api.ServiceAffinity
@@ -67,7 +58,7 @@ type ServiceInfo struct {
 	externalIPs []string
 }
 
-func (info *ServiceInfo) setAlive(b bool) {
+func (info *serviceInfo) setAlive(b bool) {
 	var i int32
 	if b {
 		i = 1
@@ -75,7 +66,7 @@ func (info *ServiceInfo) setAlive(b bool) {
 	atomic.StoreInt32(&info.isAliveAtomic, i)
 }
 
-func (info *ServiceInfo) IsAlive() bool {
+func (info *serviceInfo) isAlive() bool {
 	return atomic.LoadInt32(&info.isAliveAtomic) != 0
 }
 
@@ -89,27 +80,22 @@ func logTimeout(err error) bool {
 	return false
 }
 
-// ProxySocketFunc is a function which constructs a ProxySocket from a protocol, ip, and port
-type ProxySocketFunc func(protocol api.Protocol, ip net.IP, port int) (ProxySocket, error)
-
 // Proxier is a simple proxy for TCP connections between a localhost:lport
 // and services that provide the actual implementations.
 type Proxier struct {
-	loadBalancer    LoadBalancer
-	mu              sync.Mutex // protects serviceMap
-	serviceMap      map[proxy.ServicePortName]*ServiceInfo
-	syncPeriod      time.Duration
-	minSyncPeriod   time.Duration // unused atm, but plumbed through
-	udpIdleTimeout  time.Duration
-	portMapMutex    sync.Mutex
-	portMap         map[portMapKey]*portMapValue
-	numProxyLoops   int32 // use atomic ops to access this; mostly for testing
-	listenIP        net.IP
-	iptables        iptables.Interface
-	hostIP          net.IP
-	proxyPorts      PortAllocator
-	makeProxySocket ProxySocketFunc
-	exec            utilexec.Interface
+	loadBalancer   LoadBalancer
+	mu             sync.Mutex // protects serviceMap
+	serviceMap     map[proxy.ServicePortName]*serviceInfo
+	syncPeriod     time.Duration
+	minSyncPeriod  time.Duration // unused atm, but plumbed through
+	udpIdleTimeout time.Duration
+	portMapMutex   sync.Mutex
+	portMap        map[portMapKey]*portMapValue
+	numProxyLoops  int32 // use atomic ops to access this; mostly for testing
+	listenIP       net.IP
+	iptables       iptables.Interface
+	hostIP         net.IP
+	proxyPorts     PortAllocator
 }
 
 // assert Proxier is a ProxyProvider
@@ -154,15 +140,7 @@ func IsProxyLocked(err error) bool {
 // if iptables fails to update or acquire the initial lock. Once a proxier is
 // created, it will keep iptables up to date in the background and will not
 // terminate if a particular iptables call fails.
-func NewProxier(loadBalancer LoadBalancer, listenIP net.IP, iptables iptables.Interface, exec utilexec.Interface, pr utilnet.PortRange, syncPeriod, minSyncPeriod, udpIdleTimeout time.Duration) (*Proxier, error) {
-	return NewCustomProxier(loadBalancer, listenIP, iptables, exec, pr, syncPeriod, minSyncPeriod, udpIdleTimeout, newProxySocket)
-}
-
-// NewCustomProxier functions similarly to NewProxier, returing a new Proxier
-// for the given LoadBalancer and address.  The new proxier is constructed using
-// the ProxySocket constructor provided, however, instead of constructing the
-// default ProxySockets.
-func NewCustomProxier(loadBalancer LoadBalancer, listenIP net.IP, iptables iptables.Interface, exec utilexec.Interface, pr utilnet.PortRange, syncPeriod, minSyncPeriod, udpIdleTimeout time.Duration, makeProxySocket ProxySocketFunc) (*Proxier, error) {
+func NewProxier(loadBalancer LoadBalancer, listenIP net.IP, iptables iptables.Interface, pr utilnet.PortRange, syncPeriod, minSyncPeriod, udpIdleTimeout time.Duration) (*Proxier, error) {
 	if listenIP.Equal(localhostIPv4) || listenIP.Equal(localhostIPv6) {
 		return nil, ErrProxyOnLocalhost
 	}
@@ -180,10 +158,10 @@ func NewCustomProxier(loadBalancer LoadBalancer, listenIP net.IP, iptables iptab
 	proxyPorts := newPortAllocator(pr)
 
 	glog.V(2).Infof("Setting proxy IP to %v and initializing iptables", hostIP)
-	return createProxier(loadBalancer, listenIP, iptables, exec, hostIP, proxyPorts, syncPeriod, minSyncPeriod, udpIdleTimeout, makeProxySocket)
+	return createProxier(loadBalancer, listenIP, iptables, hostIP, proxyPorts, syncPeriod, minSyncPeriod, udpIdleTimeout)
 }
 
-func createProxier(loadBalancer LoadBalancer, listenIP net.IP, iptables iptables.Interface, exec utilexec.Interface, hostIP net.IP, proxyPorts PortAllocator, syncPeriod, minSyncPeriod, udpIdleTimeout time.Duration, makeProxySocket ProxySocketFunc) (*Proxier, error) {
+func createProxier(loadBalancer LoadBalancer, listenIP net.IP, iptables iptables.Interface, hostIP net.IP, proxyPorts PortAllocator, syncPeriod, minSyncPeriod, udpIdleTimeout time.Duration) (*Proxier, error) {
 	// convenient to pass nil for tests..
 	if proxyPorts == nil {
 		proxyPorts = newPortAllocator(utilnet.PortRange{})
@@ -199,18 +177,16 @@ func createProxier(loadBalancer LoadBalancer, listenIP net.IP, iptables iptables
 	}
 	return &Proxier{
 		loadBalancer: loadBalancer,
-		serviceMap:   make(map[proxy.ServicePortName]*ServiceInfo),
+		serviceMap:   make(map[proxy.ServicePortName]*serviceInfo),
 		portMap:      make(map[portMapKey]*portMapValue),
 		syncPeriod:   syncPeriod,
 		// plumbed through if needed, not used atm.
-		minSyncPeriod:   minSyncPeriod,
-		udpIdleTimeout:  udpIdleTimeout,
-		listenIP:        listenIP,
-		iptables:        iptables,
-		hostIP:          hostIP,
-		proxyPorts:      proxyPorts,
-		makeProxySocket: makeProxySocket,
-		exec:            exec,
+		minSyncPeriod:  minSyncPeriod,
+		udpIdleTimeout: udpIdleTimeout,
+		listenIP:       listenIP,
+		iptables:       iptables,
+		hostIP:         hostIP,
+		proxyPorts:     proxyPorts,
 	}, nil
 }
 
@@ -325,14 +301,14 @@ func (proxier *Proxier) cleanupStaleStickySessions() {
 }
 
 // This assumes proxier.mu is not locked.
-func (proxier *Proxier) stopProxy(service proxy.ServicePortName, info *ServiceInfo) error {
+func (proxier *Proxier) stopProxy(service proxy.ServicePortName, info *serviceInfo) error {
 	proxier.mu.Lock()
 	defer proxier.mu.Unlock()
 	return proxier.stopProxyInternal(service, info)
 }
 
 // This assumes proxier.mu is locked.
-func (proxier *Proxier) stopProxyInternal(service proxy.ServicePortName, info *ServiceInfo) error {
+func (proxier *Proxier) stopProxyInternal(service proxy.ServicePortName, info *serviceInfo) error {
 	delete(proxier.serviceMap, service)
 	info.setAlive(false)
 	err := info.socket.Close()
@@ -341,24 +317,24 @@ func (proxier *Proxier) stopProxyInternal(service proxy.ServicePortName, info *S
 	return err
 }
 
-func (proxier *Proxier) getServiceInfo(service proxy.ServicePortName) (*ServiceInfo, bool) {
+func (proxier *Proxier) getServiceInfo(service proxy.ServicePortName) (*serviceInfo, bool) {
 	proxier.mu.Lock()
 	defer proxier.mu.Unlock()
 	info, ok := proxier.serviceMap[service]
 	return info, ok
 }
 
-func (proxier *Proxier) setServiceInfo(service proxy.ServicePortName, info *ServiceInfo) {
+func (proxier *Proxier) setServiceInfo(service proxy.ServicePortName, info *serviceInfo) {
 	proxier.mu.Lock()
 	defer proxier.mu.Unlock()
 	proxier.serviceMap[service] = info
 }
 
-// addServiceOnPort starts listening for a new service, returning the ServiceInfo.
+// addServiceOnPort starts listening for a new service, returning the serviceInfo.
 // Pass proxyPort=0 to allocate a random port. The timeout only applies to UDP
 // connections, for now.
-func (proxier *Proxier) addServiceOnPort(service proxy.ServicePortName, serviceRef api.ObjectReference, protocol api.Protocol, proxyPort int, timeout time.Duration) (*ServiceInfo, error) {
-	sock, err := proxier.makeProxySocket(protocol, proxier.listenIP, proxyPort)
+func (proxier *Proxier) addServiceOnPort(service proxy.ServicePortName, protocol api.Protocol, proxyPort int, timeout time.Duration) (*serviceInfo, error) {
+	sock, err := newProxySocket(protocol, proxier.listenIP, proxyPort)
 	if err != nil {
 		return nil, err
 	}
@@ -372,15 +348,13 @@ func (proxier *Proxier) addServiceOnPort(service proxy.ServicePortName, serviceR
 		sock.Close()
 		return nil, err
 	}
-	si := &ServiceInfo{
-		Timeout:       timeout,
-		ActiveClients: newClientCache(),
-		ServiceRef:    serviceRef,
-
+	si := &serviceInfo{
 		isAliveAtomic:       1,
 		proxyPort:           portNum,
 		protocol:            protocol,
 		socket:              sock,
+		timeout:             timeout,
+		activeClients:       newClientCache(),
 		sessionAffinityType: api.ServiceAffinityNone, // default
 		stickyMaxAgeMinutes: 180,                     // TODO: parameterize this in the API.
 	}
@@ -390,7 +364,7 @@ func (proxier *Proxier) addServiceOnPort(service proxy.ServicePortName, serviceR
 	go func(service proxy.ServicePortName, proxier *Proxier) {
 		defer runtime.HandleCrash()
 		atomic.AddInt32(&proxier.numProxyLoops, 1)
-		sock.ProxyLoop(service, si, proxier.loadBalancer)
+		sock.ProxyLoop(service, si, proxier)
 		atomic.AddInt32(&proxier.numProxyLoops, -1)
 	}(service, proxier)
 
@@ -410,17 +384,6 @@ func (proxier *Proxier) OnServiceUpdate(services []api.Service) {
 		if !api.IsServiceIPSet(service) {
 			glog.V(3).Infof("Skipping service %s due to clusterIP = %q", types.NamespacedName{Namespace: service.Namespace, Name: service.Name}, service.Spec.ClusterIP)
 			continue
-		}
-
-		// TODO: should this just be api.GetReference?
-		svcGVK := service.GetObjectKind().GroupVersionKind()
-		svcRef := api.ObjectReference{
-			Kind:            svcGVK.Kind,
-			Namespace:       service.Namespace,
-			Name:            service.Name,
-			UID:             service.UID,
-			APIVersion:      svcGVK.GroupVersion().String(),
-			ResourceVersion: service.ResourceVersion,
 		}
 
 		for i := range service.Spec.Ports {
@@ -453,7 +416,7 @@ func (proxier *Proxier) OnServiceUpdate(services []api.Service) {
 			}
 
 			glog.V(1).Infof("Adding new service %q at %s:%d/%s", serviceName, serviceIP, servicePort.Port, servicePort.Protocol)
-			info, err = proxier.addServiceOnPort(serviceName, svcRef, servicePort.Protocol, proxyPort, proxier.udpIdleTimeout)
+			info, err = proxier.addServiceOnPort(serviceName, servicePort.Protocol, proxyPort, proxier.udpIdleTimeout)
 			if err != nil {
 				glog.Errorf("Failed to start proxy for %q: %v", serviceName, err)
 				continue
@@ -474,18 +437,11 @@ func (proxier *Proxier) OnServiceUpdate(services []api.Service) {
 			proxier.loadBalancer.NewService(serviceName, info.sessionAffinityType, info.stickyMaxAgeMinutes)
 		}
 	}
-
-	staleUDPServices := sets.NewString()
 	proxier.mu.Lock()
 	defer proxier.mu.Unlock()
 	for name, info := range proxier.serviceMap {
 		if !activeServices[name] {
 			glog.V(1).Infof("Stopping service %q", name)
-
-			if proxier.serviceMap[name].protocol == api.ProtocolUDP {
-				staleUDPServices.Insert(proxier.serviceMap[name].portal.ip.String())
-			}
-
 			err := proxier.closePortal(name, info)
 			if err != nil {
 				glog.Errorf("Failed to close portal for %q: %v", name, err)
@@ -497,11 +453,9 @@ func (proxier *Proxier) OnServiceUpdate(services []api.Service) {
 			proxier.loadBalancer.DeleteService(name)
 		}
 	}
-
-	utilproxy.DeleteServiceConnections(proxier.exec, staleUDPServices.List())
 }
 
-func sameConfig(info *ServiceInfo, service *api.Service, port *api.ServicePort) bool {
+func sameConfig(info *serviceInfo, service *api.Service, port *api.ServicePort) bool {
 	if info.protocol != port.Protocol || info.portal.port != int(port.Port) || info.nodePort != int(port.NodePort) {
 		return false
 	}
@@ -532,7 +486,7 @@ func ipsEqual(lhs, rhs []string) bool {
 	return true
 }
 
-func (proxier *Proxier) openPortal(service proxy.ServicePortName, info *ServiceInfo) error {
+func (proxier *Proxier) openPortal(service proxy.ServicePortName, info *serviceInfo) error {
 	err := proxier.openOnePortal(info.portal, info.protocol, proxier.listenIP, info.proxyPort, service)
 	if err != nil {
 		return err
@@ -634,7 +588,7 @@ func (proxier *Proxier) claimNodePort(ip net.IP, port int, protocol api.Protocol
 		// it.  Tools like 'ss' and 'netstat' do not show sockets that are
 		// bind()ed but not listen()ed, and at least the default debian netcat
 		// has no way to avoid about 10 seconds of retries.
-		socket, err := proxier.makeProxySocket(protocol, ip, port)
+		socket, err := newProxySocket(protocol, ip, port)
 		if err != nil {
 			return fmt.Errorf("can't open node port for %s: %v", key.String(), err)
 		}
@@ -714,7 +668,7 @@ func (proxier *Proxier) openNodePort(nodePort int, protocol api.Protocol, proxyI
 	return nil
 }
 
-func (proxier *Proxier) closePortal(service proxy.ServicePortName, info *ServiceInfo) error {
+func (proxier *Proxier) closePortal(service proxy.ServicePortName, info *serviceInfo) error {
 	// Collect errors and report them all at the end.
 	el := proxier.closeOnePortal(info.portal, info.protocol, proxier.listenIP, info.proxyPort, service)
 	for _, publicIP := range info.externalIPs {

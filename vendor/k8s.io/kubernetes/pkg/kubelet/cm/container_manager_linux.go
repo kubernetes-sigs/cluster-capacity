@@ -38,7 +38,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/tools/record"
 	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/kubelet/cadvisor"
 	cmutil "k8s.io/kubernetes/pkg/kubelet/cm/util"
@@ -102,22 +101,10 @@ type containerManagerImpl struct {
 	// External containers being managed.
 	systemContainers []*systemContainer
 	qosContainers    QOSContainersInfo
-	// Tasks that are run periodically
-	periodicTasks []func()
+	periodicTasks    []func()
 	// holds all the mounted cgroup subsystems
 	subsystems *CgroupSubsystems
 	nodeInfo   *v1.Node
-	// Interface for cgroup management
-	cgroupManager CgroupManager
-	// Capacity of this node.
-	capacity v1.ResourceList
-	// Absolute cgroupfs path to a cgroup that Kubelet needs to place all pods under.
-	// This path include a top level container for enforcing Node Allocatable.
-	cgroupRoot string
-	// Event recorder interface.
-	recorder record.EventRecorder
-	// Interface for QoS cgroup management
-	qosContainerManager QOSContainerManager
 }
 
 type features struct {
@@ -180,7 +167,7 @@ func validateSystemRequirements(mountUtil mount.Interface) (features, error) {
 // TODO(vmarmol): Add limits to the system containers.
 // Takes the absolute name of the specified containers.
 // Empty container name disables use of the specified container.
-func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.Interface, nodeConfig NodeConfig, failSwapOn bool, recorder record.EventRecorder) (ContainerManager, error) {
+func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.Interface, nodeConfig NodeConfig, failSwapOn bool) (ContainerManager, error) {
 	subsystems, err := GetCgroupSubsystems()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get mounted cgroup subsystems: %v", err)
@@ -217,17 +204,7 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
 			"This will be a fatal error by default starting in K8s v1.6! " +
 			"In the meantime, you can opt-in to making this a fatal error by enabling --experimental-fail-swap-on.")
 	}
-	var capacity = v1.ResourceList{}
-	// It is safe to invoke `MachineInfo` on cAdvisor before logically initializing cAdvisor here because
-	// machine info is computed and cached once as part of cAdvisor object creation.
-	if info, err := cadvisorInterface.MachineInfo(); err == nil {
-		capacity = cadvisor.CapacityFromMachineInfo(info)
-	} else {
-		return nil, err
-	}
 
-	cgroupRoot := nodeConfig.CgroupRoot
-	cgroupManager := NewCgroupManager(subsystems, nodeConfig.CgroupDriver)
 	// Check if Cgroup-root actually exists on the node
 	if nodeConfig.CgroupsPerQOS {
 		// this does default to / when enabled, but this tests against regressions.
@@ -239,31 +216,16 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
 		// of note, we always use the cgroupfs driver when performing this check since
 		// the input is provided in that format.
 		// this is important because we do not want any name conversion to occur.
-		if !cgroupManager.Exists(CgroupName(cgroupRoot)) {
-			return nil, fmt.Errorf("invalid configuration: cgroup-root %q doesn't exist: %v", cgroupRoot, err)
+		cgroupManager := NewCgroupManager(subsystems, "cgroupfs")
+		if !cgroupManager.Exists(CgroupName(nodeConfig.CgroupRoot)) {
+			return nil, fmt.Errorf("invalid configuration: cgroup-root doesn't exist: %v", err)
 		}
-		glog.Infof("container manager verified user specified cgroup-root exists: %v", cgroupRoot)
-		// Include the the top level cgroup for enforcing node allocatable into cgroup-root.
-		// This way, all sub modules can avoid having to understand the concept of node allocatable.
-		cgroupRoot = path.Join(cgroupRoot, defaultNodeAllocatableCgroupName)
 	}
-	glog.Infof("Creating Container Manager object based on Node Config: %+v", nodeConfig)
-
-	qosContainerManager, err := NewQOSContainerManager(subsystems, cgroupRoot, nodeConfig)
-	if err != nil {
-		return nil, err
-	}
-
 	return &containerManagerImpl{
-		cadvisorInterface:   cadvisorInterface,
-		mountUtil:           mountUtil,
-		NodeConfig:          nodeConfig,
-		subsystems:          subsystems,
-		cgroupManager:       cgroupManager,
-		capacity:            capacity,
-		cgroupRoot:          cgroupRoot,
-		recorder:            recorder,
-		qosContainerManager: qosContainerManager,
+		cadvisorInterface: cadvisorInterface,
+		mountUtil:         mountUtil,
+		NodeConfig:        nodeConfig,
+		subsystems:        subsystems,
 	}, nil
 }
 
@@ -273,13 +235,14 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
 func (cm *containerManagerImpl) NewPodContainerManager() PodContainerManager {
 	if cm.NodeConfig.CgroupsPerQOS {
 		return &podContainerManagerImpl{
-			qosContainersInfo: cm.GetQOSContainersInfo(),
+			qosContainersInfo: cm.qosContainers,
+			nodeInfo:          cm.nodeInfo,
 			subsystems:        cm.subsystems,
-			cgroupManager:     cm.cgroupManager,
+			cgroupManager:     NewCgroupManager(cm.subsystems, cm.NodeConfig.CgroupDriver),
 		}
 	}
 	return &podContainerManagerNoop{
-		cgroupRoot: CgroupName(cm.cgroupRoot),
+		cgroupRoot: CgroupName(cm.NodeConfig.CgroupRoot),
 	}
 }
 
@@ -304,6 +267,41 @@ const (
 	KernelTunableError  KernelTunableBehavior = "error"
 	KernelTunableModify KernelTunableBehavior = "modify"
 )
+
+// InitQOS creates the top level qos cgroup containers
+// We create top level QoS containers for only Burstable and Best Effort
+// and not Guaranteed QoS class. All guaranteed pods are nested under the
+// RootContainer by default. InitQOS is called only once during kubelet bootstrapping.
+func InitQOS(cgroupDriver, rootContainer string, subsystems *CgroupSubsystems) (QOSContainersInfo, error) {
+	cm := NewCgroupManager(subsystems, cgroupDriver)
+	// Top level for Qos containers are created only for Burstable
+	// and Best Effort classes
+	qosClasses := [2]v1.PodQOSClass{v1.PodQOSBurstable, v1.PodQOSBestEffort}
+
+	// Create containers for both qos classes
+	for _, qosClass := range qosClasses {
+		// get the container's absolute name
+		absoluteContainerName := CgroupName(path.Join(rootContainer, string(qosClass)))
+		// containerConfig object stores the cgroup specifications
+		containerConfig := &CgroupConfig{
+			Name:               absoluteContainerName,
+			ResourceParameters: &ResourceConfig{},
+		}
+		// check if it exists
+		if !cm.Exists(absoluteContainerName) {
+			if err := cm.Create(containerConfig); err != nil {
+				return QOSContainersInfo{}, fmt.Errorf("failed to create top level %v QOS cgroup : %v", qosClass, err)
+			}
+		}
+	}
+	// Store the top level qos container names
+	qosContainersInfo := QOSContainersInfo{
+		Guaranteed: rootContainer,
+		Burstable:  path.Join(rootContainer, string(v1.PodQOSBurstable)),
+		BestEffort: path.Join(rootContainer, string(v1.PodQOSBestEffort)),
+	}
+	return qosContainersInfo, nil
+}
 
 // setupKernelTunables validates kernel tunable flags are set as expected
 // depending upon the specified option, it will either warn, error, or modify the kernel tunable flags
@@ -344,7 +342,7 @@ func setupKernelTunables(option KernelTunableBehavior) error {
 	return utilerrors.NewAggregate(errList)
 }
 
-func (cm *containerManagerImpl) setupNode(activePods ActivePodsFunc) error {
+func (cm *containerManagerImpl) setupNode() error {
 	f, err := validateSystemRequirements(cm.mountUtil)
 	if err != nil {
 		return err
@@ -362,18 +360,11 @@ func (cm *containerManagerImpl) setupNode(activePods ActivePodsFunc) error {
 
 	// Setup top level qos containers only if CgroupsPerQOS flag is specified as true
 	if cm.NodeConfig.CgroupsPerQOS {
-		if err := cm.createNodeAllocatableCgroups(); err != nil {
-			return err
-		}
-		err = cm.qosContainerManager.Start(cm.getNodeAllocatableAbsolute, activePods)
+		qosContainersInfo, err := InitQOS(cm.NodeConfig.CgroupDriver, cm.NodeConfig.CgroupRoot, cm.subsystems)
 		if err != nil {
 			return fmt.Errorf("failed to initialise top level QOS containers: %v", err)
 		}
-	}
-
-	// Enforce Node Allocatable (if required)
-	if err := cm.enforceNodeAllocatableCgroups(); err != nil {
-		return err
+		cm.qosContainers = qosContainersInfo
 	}
 
 	systemContainers := []*systemContainer{}
@@ -401,7 +392,11 @@ func (cm *containerManagerImpl) setupNode(activePods ActivePodsFunc) error {
 			})
 		} else if cm.RuntimeCgroupsName != "" {
 			cont := newSystemCgroups(cm.RuntimeCgroupsName)
-			memoryLimit := (int64(cm.capacity.Memory().Value() * DockerMemoryLimitThresholdPercent / 100))
+			var capacity = v1.ResourceList{}
+			if info, err := cm.cadvisorInterface.MachineInfo(); err == nil {
+				capacity = cadvisor.CapacityFromMachineInfo(info)
+			}
+			memoryLimit := (int64(capacity.Memory().Value() * DockerMemoryLimitThresholdPercent / 100))
 			if memoryLimit < MinDockerMemoryLimit {
 				glog.Warningf("Memory limit %d for container %s is too small, reset it to %d", memoryLimit, cm.RuntimeCgroupsName, MinDockerMemoryLimit)
 				memoryLimit = MinDockerMemoryLimit
@@ -519,11 +514,7 @@ func (cm *containerManagerImpl) GetMountedSubsystems() *CgroupSubsystems {
 }
 
 func (cm *containerManagerImpl) GetQOSContainersInfo() QOSContainersInfo {
-	return cm.qosContainerManager.GetQOSContainersInfo()
-}
-
-func (cm *containerManagerImpl) UpdateQOSCgroups() error {
-	return cm.qosContainerManager.UpdateCgroups()
+	return cm.qosContainers
 }
 
 func (cm *containerManagerImpl) Status() Status {
@@ -532,16 +523,12 @@ func (cm *containerManagerImpl) Status() Status {
 	return cm.status
 }
 
-func (cm *containerManagerImpl) Start(node *v1.Node, activePods ActivePodsFunc) error {
+func (cm *containerManagerImpl) Start(node *v1.Node) error {
 	// cache the node Info including resource capacity and
 	// allocatable of the node
 	cm.nodeInfo = node
 	// Setup the node
-	if err := cm.setupNode(activePods); err != nil {
-		return err
-	}
-	// Ensure that node allocatable configuration is valid.
-	if err := cm.validateNodeAllocatable(); err != nil {
+	if err := cm.setupNode(); err != nil {
 		return err
 	}
 	// Don't run a background thread if there are no ensureStateFuncs.
@@ -822,8 +809,4 @@ func getDockerVersion(cadvisor cadvisor.Interface) *utilversion.Version {
 		return utilversion.MustParseSemantic("0.0.0")
 	}
 	return dockerVersion
-}
-
-func (m *containerManagerImpl) GetCapacity() v1.ResourceList {
-	return m.capacity
 }

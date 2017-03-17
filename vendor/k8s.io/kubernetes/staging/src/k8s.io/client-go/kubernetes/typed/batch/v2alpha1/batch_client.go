@@ -17,15 +17,17 @@ limitations under the License.
 package v2alpha1
 
 import (
+	fmt "fmt"
+	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/client-go/kubernetes/scheme"
-	v2alpha1 "k8s.io/client-go/pkg/apis/batch/v2alpha1"
+	api "k8s.io/client-go/pkg/api"
 	rest "k8s.io/client-go/rest"
 )
 
 type BatchV2alpha1Interface interface {
 	RESTClient() rest.Interface
 	CronJobsGetter
+	JobsGetter
 }
 
 // BatchV2alpha1Client is used to interact with features provided by the batch group.
@@ -35,6 +37,10 @@ type BatchV2alpha1Client struct {
 
 func (c *BatchV2alpha1Client) CronJobs(namespace string) CronJobInterface {
 	return newCronJobs(c, namespace)
+}
+
+func (c *BatchV2alpha1Client) Jobs(namespace string) JobInterface {
+	return newJobs(c, namespace)
 }
 
 // NewForConfig creates a new BatchV2alpha1Client for the given config.
@@ -66,14 +72,22 @@ func New(c rest.Interface) *BatchV2alpha1Client {
 }
 
 func setConfigDefaults(config *rest.Config) error {
-	gv := v2alpha1.SchemeGroupVersion
-	config.GroupVersion = &gv
+	gv, err := schema.ParseGroupVersion("batch/v2alpha1")
+	if err != nil {
+		return err
+	}
+	// if batch/v2alpha1 is not enabled, return an error
+	if !api.Registry.IsEnabledVersion(gv) {
+		return fmt.Errorf("batch/v2alpha1 is not enabled")
+	}
 	config.APIPath = "/apis"
-	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
-
 	if config.UserAgent == "" {
 		config.UserAgent = rest.DefaultKubernetesUserAgent()
 	}
+	copyGroupVersion := gv
+	config.GroupVersion = &copyGroupVersion
+
+	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: api.Codecs}
 
 	return nil
 }

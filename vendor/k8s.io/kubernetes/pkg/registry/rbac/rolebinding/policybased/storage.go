@@ -47,19 +47,12 @@ func (s *Storage) Create(ctx genericapirequest.Context, obj runtime.Object) (run
 		return s.StandardStorage.Create(ctx, obj)
 	}
 
-	// Get the namespace from the context (populated from the URL).
-	// The namespace in the object can be empty until StandardStorage.Create()->BeforeCreate() populates it from the context.
-	namespace, ok := genericapirequest.NamespaceFrom(ctx)
-	if !ok {
-		return nil, errors.NewBadRequest("namespace is required")
-	}
-
 	roleBinding := obj.(*rbac.RoleBinding)
-	if rbacregistry.BindingAuthorized(ctx, roleBinding.RoleRef, namespace, s.authorizer) {
+	if rbacregistry.BindingAuthorized(ctx, roleBinding.RoleRef, roleBinding.Namespace, s.authorizer) {
 		return s.StandardStorage.Create(ctx, obj)
 	}
 
-	rules, err := s.ruleResolver.GetRoleReferenceRules(roleBinding.RoleRef, namespace)
+	rules, err := s.ruleResolver.GetRoleReferenceRules(roleBinding.RoleRef, roleBinding.Namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -75,22 +68,15 @@ func (s *Storage) Update(ctx genericapirequest.Context, name string, obj rest.Up
 	}
 
 	nonEscalatingInfo := rest.WrapUpdatedObjectInfo(obj, func(ctx genericapirequest.Context, obj runtime.Object, oldObj runtime.Object) (runtime.Object, error) {
-		// Get the namespace from the context (populated from the URL).
-		// The namespace in the object can be empty until StandardStorage.Update()->BeforeUpdate() populates it from the context.
-		namespace, ok := genericapirequest.NamespaceFrom(ctx)
-		if !ok {
-			return nil, errors.NewBadRequest("namespace is required")
-		}
-
 		roleBinding := obj.(*rbac.RoleBinding)
 
 		// if we're explicitly authorized to bind this role, return
-		if rbacregistry.BindingAuthorized(ctx, roleBinding.RoleRef, namespace, s.authorizer) {
+		if rbacregistry.BindingAuthorized(ctx, roleBinding.RoleRef, roleBinding.Namespace, s.authorizer) {
 			return obj, nil
 		}
 
 		// Otherwise, see if we already have all the permissions contained in the referenced role
-		rules, err := s.ruleResolver.GetRoleReferenceRules(roleBinding.RoleRef, namespace)
+		rules, err := s.ruleResolver.GetRoleReferenceRules(roleBinding.RoleRef, roleBinding.Namespace)
 		if err != nil {
 			return nil, err
 		}

@@ -15,16 +15,14 @@
 # limitations under the License.
 
 
-KUBE_ROOT=$(dirname "${BASH_SOURCE}")/../../../../..
+KUBE_ROOT=$(dirname "${BASH_SOURCE}")/../../..
 source "${KUBE_ROOT}/hack/lib/util.sh"
 
 # Register function to be called on EXIT to remove generated binary.
 function cleanup {
-  rm "${KUBE_ROOT}/vendor/k8s.io/sample-apiserver/artifacts/simple-image/kube-sample-apiserver"
+  rm "${KUBE_ROOT}/cmd/kube-sample-apiserver/artifacts/simple-image/kube-sample-apiserver"
 }
 trap cleanup EXIT
 
-pushd "${KUBE_ROOT}/vendor/k8s.io/sample-apiserver"
-cp -v ../../../../_output/local/bin/linux/amd64/sample-apiserver ./artifacts/simple-image/kube-sample-apiserver
-docker build -t kube-sample-apiserver:latest ./artifacts/simple-image
-popd
+cp -v ${KUBE_ROOT}/_output/local/bin/linux/amd64/kube-sample-apiserver "${KUBE_ROOT}/cmd/kube-sample-apiserver/artifacts/simple-image/kube-sample-apiserver"
+docker build -t kube-sample-apiserver:latest ${KUBE_ROOT}/cmd/kube-sample-apiserver/artifacts/simple-image

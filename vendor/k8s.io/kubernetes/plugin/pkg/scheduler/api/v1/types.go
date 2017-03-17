@@ -128,10 +128,6 @@ type ExtenderConfig struct {
 	// HTTPTimeout specifies the timeout duration for a call to the extender. Filter timeout fails the scheduling of the pod. Prioritize
 	// timeout is ignored, k8s/other extenders priorities are used to select the node.
 	HTTPTimeout time.Duration `json:"httpTimeout,omitempty"`
-	// NodeCacheCapable specifies that the extender is capable of caching node information,
-	// so the scheduler should only send minimal information about the eligible nodes
-	// assuming that the extender already cached full details of all nodes in the cluster
-	NodeCacheCapable bool `json:"nodeCacheCapable,omitempty"`
 }
 
 // ExtenderArgs represents the arguments needed by the extender to filter/prioritize
@@ -139,12 +135,8 @@ type ExtenderConfig struct {
 type ExtenderArgs struct {
 	// Pod being scheduled
 	Pod apiv1.Pod `json:"pod"`
-	// List of candidate nodes where the pod can be scheduled; to be populated
-	// only if ExtenderConfig.NodeCacheCapable == false
-	Nodes *apiv1.NodeList `json:"nodes,omitempty"`
-	// List of candidate node names where the pod can be scheduled; to be
-	// populated only if ExtenderConfig.NodeCacheCapable == true
-	NodeNames *[]string `json:"nodenames,omitempty"`
+	// List of candidate nodes where the pod can be scheduled
+	Nodes apiv1.NodeList `json:"nodes"`
 }
 
 // FailedNodesMap represents the filtered out nodes, with node names and failure messages
@@ -152,12 +144,8 @@ type FailedNodesMap map[string]string
 
 // ExtenderFilterResult represents the results of a filter call to an extender
 type ExtenderFilterResult struct {
-	// Filtered set of nodes where the pod can be scheduled; to be populated
-	// only if ExtenderConfig.NodeCacheCapable == false
-	Nodes *apiv1.NodeList `json:"nodes,omitempty"`
-	// Filtered set of nodes where the pod can be scheduled; to be populated
-	// only if ExtenderConfig.NodeCacheCapable == true
-	NodeNames *[]string `json:"nodenames,omitempty"`
+	// Filtered set of nodes where the pod can be scheduled
+	Nodes apiv1.NodeList `json:"nodes,omitempty"`
 	// Filtered out nodes where the pod can't be scheduled and the failure messages
 	FailedNodes FailedNodesMap `json:"failedNodes,omitempty"`
 	// Error message indicating failure

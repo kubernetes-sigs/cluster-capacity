@@ -30,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
@@ -39,7 +38,6 @@ import (
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	"k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 	informers "k8s.io/kubernetes/pkg/client/informers/informers_generated/externalversions"
-	internalinformers "k8s.io/kubernetes/pkg/client/informers/informers_generated/internalversion"
 	"k8s.io/kubernetes/pkg/controller"
 	replicationcontroller "k8s.io/kubernetes/pkg/controller/replication"
 	resourcequotacontroller "k8s.io/kubernetes/pkg/controller/resourcequota"
@@ -73,9 +71,7 @@ func TestQuota(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	admission.(kubeadmission.WantsInternalKubeClientSet).SetInternalKubeClientSet(internalClientset)
-	internalInformers := internalinformers.NewSharedInformerFactory(internalClientset, controller.NoResyncPeriodFunc())
-	admission.(kubeadmission.WantsInternalKubeInformerFactory).SetInternalKubeInformerFactory(internalInformers)
+	admission.(kubeadmission.WantsInternalClientSet).SetInternalClientSet(internalClientset)
 	defer close(admissionCh)
 
 	masterConfig := framework.NewIntegrationTestMasterConfig()
@@ -96,6 +92,8 @@ func TestQuota(t *testing.T) {
 		informers.Core().V1().ReplicationControllers(),
 		clientset,
 		replicationcontroller.BurstReplicas,
+		4096,
+		false,
 	)
 	rm.SetEventRecorder(&record.FakeRecorder{})
 	go rm.Run(3, controllerCh)
@@ -114,7 +112,6 @@ func TestQuota(t *testing.T) {
 		ControllerFactory:         resourcequotacontroller.NewReplenishmentControllerFactory(informers),
 	}
 	go resourcequotacontroller.NewResourceQuotaController(resourceQuotaControllerOptions).Run(2, controllerCh)
-	internalInformers.Start(controllerCh)
 	informers.Start(controllerCh)
 
 	startTime := time.Now()
@@ -258,9 +255,7 @@ func TestQuotaLimitedResourceDenial(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	admission.(kubeadmission.WantsInternalKubeClientSet).SetInternalKubeClientSet(internalClientset)
-	internalInformers := internalinformers.NewSharedInformerFactory(internalClientset, controller.NoResyncPeriodFunc())
-	admission.(kubeadmission.WantsInternalKubeInformerFactory).SetInternalKubeInformerFactory(internalInformers)
+	admission.(kubeadmission.WantsInternalClientSet).SetInternalClientSet(internalClientset)
 	defer close(admissionCh)
 
 	masterConfig := framework.NewIntegrationTestMasterConfig()
@@ -279,6 +274,8 @@ func TestQuotaLimitedResourceDenial(t *testing.T) {
 		informers.Core().V1().ReplicationControllers(),
 		clientset,
 		replicationcontroller.BurstReplicas,
+		4096,
+		false,
 	)
 	rm.SetEventRecorder(&record.FakeRecorder{})
 	go rm.Run(3, controllerCh)
@@ -297,7 +294,6 @@ func TestQuotaLimitedResourceDenial(t *testing.T) {
 		ControllerFactory:         resourcequotacontroller.NewReplenishmentControllerFactory(informers),
 	}
 	go resourcequotacontroller.NewResourceQuotaController(resourceQuotaControllerOptions).Run(2, controllerCh)
-	internalInformers.Start(controllerCh)
 	informers.Start(controllerCh)
 
 	// try to create a pod
@@ -333,15 +329,7 @@ func TestQuotaLimitedResourceDenial(t *testing.T) {
 	}
 	waitForQuota(t, quota, clientset)
 
-	// attempt to create a new pod once the quota is propagated
-	err = wait.PollImmediate(5*time.Second, time.Minute, func() (bool, error) {
-		// retry until we succeed (to allow time for all changes to propagate)
-		if _, err := clientset.Core().Pods(ns.Name).Create(pod); err == nil {
-			return true, nil
-		}
-		return false, nil
-	})
-	if err != nil {
+	if _, err := clientset.Core().Pods(ns.Name).Create(pod); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

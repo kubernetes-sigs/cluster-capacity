@@ -70,10 +70,6 @@ func (e *InsufficientResourceError) GetReason() string {
 	return fmt.Sprintf("Insufficient %v", e.ResourceName)
 }
 
-func (e *InsufficientResourceError) GetInsufficientAmount() int64 {
-	return e.requested - (e.capacity - e.used)
-}
-
 type PredicateFailureError struct {
 	PredicateName string
 }

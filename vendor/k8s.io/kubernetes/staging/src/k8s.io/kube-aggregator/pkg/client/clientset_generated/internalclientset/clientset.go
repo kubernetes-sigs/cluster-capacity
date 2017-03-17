@@ -17,27 +17,28 @@ limitations under the License.
 package internalclientset
 
 import (
-	glog "github.com/golang/glog"
+	"github.com/golang/glog"
 	discovery "k8s.io/client-go/discovery"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	rest "k8s.io/client-go/rest"
-	flowcontrol "k8s.io/client-go/util/flowcontrol"
-	apiregistrationinternalversion "k8s.io/kube-aggregator/pkg/client/clientset_generated/internalclientset/typed/apiregistration/internalversion"
+	"k8s.io/client-go/util/flowcontrol"
+	internalversionapiregistration "k8s.io/kube-aggregator/pkg/client/clientset_generated/internalclientset/typed/apiregistration/internalversion"
 )
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
-	Apiregistration() apiregistrationinternalversion.ApiregistrationInterface
+	Apiregistration() internalversionapiregistration.ApiregistrationInterface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
 // version included in a Clientset.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	*apiregistrationinternalversion.ApiregistrationClient
+	*internalversionapiregistration.ApiregistrationClient
 }
 
 // Apiregistration retrieves the ApiregistrationClient
-func (c *Clientset) Apiregistration() apiregistrationinternalversion.ApiregistrationInterface {
+func (c *Clientset) Apiregistration() internalversionapiregistration.ApiregistrationInterface {
 	if c == nil {
 		return nil
 	}
@@ -60,7 +61,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	}
 	var cs Clientset
 	var err error
-	cs.ApiregistrationClient, err = apiregistrationinternalversion.NewForConfig(&configShallowCopy)
+	cs.ApiregistrationClient, err = internalversionapiregistration.NewForConfig(&configShallowCopy)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +78,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 // panics if there is an error in the config.
 func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
-	cs.ApiregistrationClient = apiregistrationinternalversion.NewForConfigOrDie(c)
+	cs.ApiregistrationClient = internalversionapiregistration.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
 	return &cs
@@ -86,7 +87,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
-	cs.ApiregistrationClient = apiregistrationinternalversion.New(c)
+	cs.ApiregistrationClient = internalversionapiregistration.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

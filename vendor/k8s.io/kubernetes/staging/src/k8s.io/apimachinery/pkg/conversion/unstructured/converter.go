@@ -20,7 +20,6 @@ import (
 	"bytes"
 	encodingjson "encoding/json"
 	"fmt"
-	"math"
 	"os"
 	"reflect"
 	"strconv"
@@ -32,7 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/diff"
 	"k8s.io/apimachinery/pkg/util/json"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 
 	"github.com/golang/glog"
 )
@@ -82,12 +80,9 @@ var (
 )
 
 func parseBool(key string) bool {
-	if len(key) == 0 {
-		return false
-	}
 	value, err := strconv.ParseBool(key)
 	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("Couldn't parse '%s' as bool for unstructured mismatch detection", key))
+		glog.Errorf("Couldn't parse %s as bool", key)
 	}
 	return value
 }
@@ -178,12 +173,8 @@ func fromUnstructured(sv, dv reflect.Value) error {
 					dv.Set(sv.Convert(dt))
 					return nil
 				}
-				if sv.Float() == math.Trunc(sv.Float()) {
-					dv.Set(sv.Convert(dt))
-					return nil
-				}
 			}
-			return fmt.Errorf("cannot convert %s to %s", st.String(), dt.String())
+			return fmt.Errorf("cannot convert %s to %d", st.String(), dt.String())
 		}
 	}
 

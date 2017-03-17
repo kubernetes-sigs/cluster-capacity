@@ -225,7 +225,7 @@ func (m *kubeGenericRuntimeManager) Version() (kubecontainer.Version, error) {
 		return nil, err
 	}
 
-	return newRuntimeVersion(typedVersion.RuntimeVersion)
+	return newRuntimeVersion(typedVersion.Version)
 }
 
 // APIVersion returns the cached API version information of the container
@@ -555,8 +555,9 @@ func (m *kubeGenericRuntimeManager) SyncPod(pod *v1.Pod, _ v1.PodStatus, podStat
 		if podContainerChanges.SandboxID != "" {
 			m.recorder.Eventf(ref, v1.EventTypeNormal, "SandboxChanged", "Pod sandbox changed, it will be killed and re-created.")
 		} else {
-			glog.V(4).Infof("SyncPod received new pod %q, will create a new sandbox for it", format.Pod(pod))
+			m.recorder.Eventf(ref, v1.EventTypeNormal, "SandboxReceived", "Pod sandbox received, it will be created.")
 		}
+
 	}
 
 	// Step 2: Kill the pod if the sandbox has changed.
@@ -619,7 +620,6 @@ func (m *kubeGenericRuntimeManager) SyncPod(pod *v1.Pod, _ v1.PodStatus, podStat
 			glog.Errorf("createPodSandbox for pod %q failed: %v", format.Pod(pod), err)
 			return
 		}
-		glog.V(4).Infof("Created PodSandbox %q for pod %q", podSandboxID, format.Pod(pod))
 
 		podSandboxStatus, err := m.runtimeService.PodSandboxStatus(podSandboxID)
 		if err != nil {

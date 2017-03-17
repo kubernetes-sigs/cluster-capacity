@@ -31,7 +31,6 @@ import (
 	_ "k8s.io/client-go/pkg/apis/extensions/install"
 	_ "k8s.io/client-go/pkg/apis/policy/install"
 	_ "k8s.io/client-go/pkg/apis/rbac/install"
-	_ "k8s.io/client-go/pkg/apis/settings/install"
 	_ "k8s.io/client-go/pkg/apis/storage/install"
 )
 

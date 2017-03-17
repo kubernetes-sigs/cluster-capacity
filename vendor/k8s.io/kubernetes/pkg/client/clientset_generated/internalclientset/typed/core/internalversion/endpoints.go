@@ -22,7 +22,6 @@ import (
 	watch "k8s.io/apimachinery/pkg/watch"
 	rest "k8s.io/client-go/rest"
 	api "k8s.io/kubernetes/pkg/api"
-	scheme "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/scheme"
 )
 
 // EndpointsGetter has a method to return a EndpointsInterface.
@@ -99,7 +98,7 @@ func (c *endpoints) DeleteCollection(options *v1.DeleteOptions, listOptions v1.L
 	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("endpoints").
-		VersionedParams(&listOptions, scheme.ParameterCodec).
+		VersionedParams(&listOptions, api.ParameterCodec).
 		Body(options).
 		Do().
 		Error()
@@ -112,7 +111,7 @@ func (c *endpoints) Get(name string, options v1.GetOptions) (result *api.Endpoin
 		Namespace(c.ns).
 		Resource("endpoints").
 		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
+		VersionedParams(&options, api.ParameterCodec).
 		Do().
 		Into(result)
 	return
@@ -124,7 +123,7 @@ func (c *endpoints) List(opts v1.ListOptions) (result *api.EndpointsList, err er
 	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("endpoints").
-		VersionedParams(&opts, scheme.ParameterCodec).
+		VersionedParams(&opts, api.ParameterCodec).
 		Do().
 		Into(result)
 	return
@@ -132,11 +131,11 @@ func (c *endpoints) List(opts v1.ListOptions) (result *api.EndpointsList, err er
 
 // Watch returns a watch.Interface that watches the requested endpoints.
 func (c *endpoints) Watch(opts v1.ListOptions) (watch.Interface, error) {
-	opts.Watch = true
 	return c.client.Get().
+		Prefix("watch").
 		Namespace(c.ns).
 		Resource("endpoints").
-		VersionedParams(&opts, scheme.ParameterCodec).
+		VersionedParams(&opts, api.ParameterCodec).
 		Watch()
 }
 

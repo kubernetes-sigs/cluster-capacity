@@ -17,17 +17,14 @@ limitations under the License.
 package dockershim
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/blang/semver"
-	dockertypes "github.com/docker/engine-api/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"k8s.io/kubernetes/pkg/api/v1"
 	runtimeapi "k8s.io/kubernetes/pkg/kubelet/api/v1alpha1/runtime"
-	"k8s.io/kubernetes/pkg/kubelet/dockertools"
 	"k8s.io/kubernetes/pkg/security/apparmor"
 )
 
@@ -262,42 +259,5 @@ func TestGetSecurityOptSeparator(t *testing.T) {
 	} {
 		actual := getSecurityOptSeparator(test.version)
 		assert.Equal(t, test.expected, actual, c)
-	}
-}
-
-func TestEnsureSandboxImageExists(t *testing.T) {
-	sandboxImage := "gcr.io/test/image"
-	for desc, test := range map[string]struct {
-		injectImage bool
-		injectErr   error
-		calls       []string
-		err         bool
-	}{
-		"should not pull image when it already exists": {
-			injectImage: true,
-			injectErr:   nil,
-			calls:       []string{"inspect_image"},
-		},
-		"should pull image when it doesn't exist": {
-			injectImage: false,
-			injectErr:   dockertools.ImageNotFoundError{ID: "image_id"},
-			calls:       []string{"inspect_image", "pull"},
-		},
-		"should return error when inspect image fails": {
-			injectImage: false,
-			injectErr:   fmt.Errorf("arbitrary error"),
-			calls:       []string{"inspect_image"},
-			err:         true,
-		},
-	} {
-		t.Logf("TestCase: %q", desc)
-		_, fakeDocker, _ := newTestDockerService()
-		if test.injectImage {
-			fakeDocker.InjectImages([]dockertypes.Image{{ID: sandboxImage}})
-		}
-		fakeDocker.InjectError("inspect_image", test.injectErr)
-		err := ensureSandboxImageExists(fakeDocker, sandboxImage)
-		assert.NoError(t, fakeDocker.AssertCalls(test.calls))
-		assert.Equal(t, test.err, err != nil)
 	}
 }

@@ -21,8 +21,7 @@
         "filterVerb": "filter",
         "prioritizeVerb": "prioritize",
         "weight": 5,
-        "enableHttps": false,
-        "nodeCacheCapable": false
+        "enableHttps": false
 	}
     ]
 }

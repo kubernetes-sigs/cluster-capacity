@@ -47,7 +47,7 @@ func containerProvidesPodIP(containerName string) bool {
 }
 
 func containerIsNetworked(containerName string) bool {
-	return containerName == PodInfraContainerName
+	return false
 }
 
 // Returns nil as both Seccomp and AppArmor security options are not valid on Windows

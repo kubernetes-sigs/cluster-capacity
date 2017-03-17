@@ -244,7 +244,7 @@ func IsServiceIPRequested(service *Service) bool {
 
 var standardFinalizers = sets.NewString(
 	string(FinalizerKubernetes),
-	metav1.FinalizerOrphanDependents,
+	metav1.FinalizerOrphan,
 )
 
 // HasAnnotation returns a bool if passed in annotation exists
@@ -429,6 +429,14 @@ func NodeSelectorRequirementsAsSelector(nsm []NodeSelectorRequirement) (labels.S
 }
 
 const (
+	// TolerationsAnnotationKey represents the key of tolerations data (json serialized)
+	// in the Annotations of a Pod.
+	TolerationsAnnotationKey string = "scheduler.alpha.kubernetes.io/tolerations"
+
+	// TaintsAnnotationKey represents the key of taints data (json serialized)
+	// in the Annotations of a Node.
+	TaintsAnnotationKey string = "scheduler.alpha.kubernetes.io/taints"
+
 	// SeccompPodAnnotationKey represents the key of a seccomp profile applied
 	// to all containers of a pod.
 	SeccompPodAnnotationKey string = "seccomp.security.alpha.kubernetes.io/pod"
@@ -464,44 +472,6 @@ const (
 	// This annotation can be attached to node.
 	ObjectTTLAnnotationKey string = "node.alpha.kubernetes.io/ttl"
 )
-
-// AddOrUpdateTolerationInPod tries to add a toleration to the pod's toleration list.
-// Returns true if something was updated, false otherwise.
-func AddOrUpdateTolerationInPod(pod *Pod, toleration *Toleration) (bool, error) {
-	podTolerations := pod.Spec.Tolerations
-
-	var newTolerations []Toleration
-	updated := false
-	for i := range podTolerations {
-		if toleration.MatchToleration(&podTolerations[i]) {
-			if Semantic.DeepEqual(toleration, podTolerations[i]) {
-				return false, nil
-			}
-			newTolerations = append(newTolerations, *toleration)
-			updated = true
-			continue
-		}
-
-		newTolerations = append(newTolerations, podTolerations[i])
-	}
-
-	if !updated {
-		newTolerations = append(newTolerations, *toleration)
-	}
-
-	pod.Spec.Tolerations = newTolerations
-	return true, nil
-}
-
-// MatchToleration checks if the toleration matches tolerationToMatch. Tolerations are unique by <key,effect,operator,value>,
-// if the two tolerations have same <key,effect,operator,value> combination, regard as they match.
-// TODO: uniqueness check for tolerations in api validations.
-func (t *Toleration) MatchToleration(tolerationToMatch *Toleration) bool {
-	return t.Key == tolerationToMatch.Key &&
-		t.Effect == tolerationToMatch.Effect &&
-		t.Operator == tolerationToMatch.Operator &&
-		t.Value == tolerationToMatch.Value
-}
 
 // TolerationToleratesTaint checks if the toleration tolerates the taint.
 func TolerationToleratesTaint(toleration *Toleration, taint *Taint) bool {
@@ -594,43 +564,4 @@ func PodAnnotationsFromSysctls(sysctls []Sysctl) string {
 		kvs[i] = fmt.Sprintf("%s=%s", sysctls[i].Name, sysctls[i].Value)
 	}
 	return strings.Join(kvs, ",")
-}
-
-// GetPersistentVolumeClass returns StorageClassName.
-func GetPersistentVolumeClass(volume *PersistentVolume) string {
-	// Use beta annotation first
-	if class, found := volume.Annotations[BetaStorageClassAnnotation]; found {
-		return class
-	}
-
-	return volume.Spec.StorageClassName
-}
-
-// GetPersistentVolumeClaimClass returns StorageClassName. If no storage class was
-// requested, it returns "".
-func GetPersistentVolumeClaimClass(claim *PersistentVolumeClaim) string {
-	// Use beta annotation first
-	if class, found := claim.Annotations[BetaStorageClassAnnotation]; found {
-		return class
-	}
-
-	if claim.Spec.StorageClassName != nil {
-		return *claim.Spec.StorageClassName
-	}
-
-	return ""
-}
-
-// PersistentVolumeClaimHasClass returns true if given claim has set StorageClassName field.
-func PersistentVolumeClaimHasClass(claim *PersistentVolumeClaim) bool {
-	// Use beta annotation first
-	if _, found := claim.Annotations[BetaStorageClassAnnotation]; found {
-		return true
-	}
-
-	if claim.Spec.StorageClassName != nil {
-		return true
-	}
-
-	return false
 }

@@ -21,7 +21,6 @@ import (
 	"os"
 	"runtime"
 
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/util/logs"
 	"k8s.io/kube-aggregator/pkg/cmd/server"
 
@@ -41,7 +40,7 @@ func main() {
 		runtime.GOMAXPROCS(runtime.NumCPU())
 	}
 
-	cmd := server.NewCommandStartAggregator(os.Stdout, os.Stderr, wait.NeverStop)
+	cmd := server.NewCommandStartAggregator(os.Stdout, os.Stderr)
 	cmd.Flags().AddGoFlagSet(flag.CommandLine)
 	if err := cmd.Execute(); err != nil {
 		panic(err)

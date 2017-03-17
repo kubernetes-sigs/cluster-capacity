@@ -78,6 +78,6 @@ func (s *storage) UpdateThirdPartyResourceData(ctx genericapirequest.Context, Th
 }
 
 func (s *storage) DeleteThirdPartyResourceData(ctx genericapirequest.Context, name string) error {
-	_, _, err := s.Delete(ctx, name, nil)
+	_, err := s.Delete(ctx, name, nil)
 	return err
 }

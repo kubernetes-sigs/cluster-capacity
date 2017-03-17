@@ -14,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Note: the example only works with the code within the same release/branch.
 package main
 
 import (
@@ -34,6 +33,10 @@ import (
 
 	// Only required to authenticate against GKE clusters
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+)
+
+var (
+	config *rest.Config
 )
 
 func main() {

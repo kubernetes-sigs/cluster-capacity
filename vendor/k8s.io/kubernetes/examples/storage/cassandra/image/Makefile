@@ -13,28 +13,22 @@
 # limitations under the License.
 
 # build the cassandra image.
-VERSION=v12
-PROJECT_ID?=google_samples
-PROJECT=gcr.io/${PROJECT_ID}
-CASSANDRA_VERSION=3.9
 
-all: kubernetes-cassandra.jar build
+VERSION=v11
+PROJECT_ID=google_samples
+PROJECT=gcr.io/${PROJECT_ID}
+
+all: build
 
 kubernetes-cassandra.jar: ../java/* ../java/src/main/java/io/k8s/cassandra/*.java
 	cd ../java && mvn clean && mvn package
 	mv ../java/target/kubernetes-cassandra*.jar files/kubernetes-cassandra.jar
 	cd ../java && mvn clean
 
-container:
-	docker build --pull --build-arg "CASSANDRA_VERSION=${CASSANDRA_VERSION}" -t ${PROJECT}/cassandra:${VERSION} .
-
-container-dev:
-	docker build --pull --build-arg "CASSANDRA_VERSION=${CASSANDRA_VERSION}" --build-arg "DEV_CONTAINER=true" -t ${PROJECT}/cassandra:${VERSION}-dev .
-
-build: container container-dev
+build: kubernetes-cassandra.jar
+	docker build --pull -t ${PROJECT}/cassandra:${VERSION} .
 
 push: build
 	gcloud docker -- push ${PROJECT}/cassandra:${VERSION}
-	gcloud docker -- push ${PROJECT}/cassandra:${VERSION}-dev
 
 .PHONY: all build push

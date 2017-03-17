@@ -18,7 +18,7 @@ package internalversion
 
 import (
 	rest "k8s.io/client-go/rest"
-	"k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/scheme"
+	api "k8s.io/kubernetes/pkg/api"
 )
 
 type ExtensionsInterface interface {
@@ -99,20 +99,20 @@ func New(c rest.Interface) *ExtensionsClient {
 }
 
 func setConfigDefaults(config *rest.Config) error {
-	g, err := scheme.Registry.Group("extensions")
+	// if extensions group is not registered, return an error
+	g, err := api.Registry.Group("extensions")
 	if err != nil {
 		return err
 	}
-
 	config.APIPath = "/apis"
 	if config.UserAgent == "" {
 		config.UserAgent = rest.DefaultKubernetesUserAgent()
 	}
 	if config.GroupVersion == nil || config.GroupVersion.Group != g.GroupVersion.Group {
-		gv := g.GroupVersion
-		config.GroupVersion = &gv
+		copyGroupVersion := g.GroupVersion
+		config.GroupVersion = &copyGroupVersion
 	}
-	config.NegotiatedSerializer = scheme.Codecs
+	config.NegotiatedSerializer = api.Codecs
 
 	if config.QPS == 0 {
 		config.QPS = 5
@@ -120,7 +120,6 @@ func setConfigDefaults(config *rest.Config) error {
 	if config.Burst == 0 {
 		config.Burst = 10
 	}
-
 	return nil
 }
 

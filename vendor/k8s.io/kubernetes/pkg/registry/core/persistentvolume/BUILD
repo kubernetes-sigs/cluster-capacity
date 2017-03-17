@@ -18,7 +18,6 @@ go_library(
     deps = [
         "//pkg/api:go_default_library",
         "//pkg/api/validation:go_default_library",
-        "//pkg/volume/validation:go_default_library",
         "//vendor:k8s.io/apimachinery/pkg/fields",
         "//vendor:k8s.io/apimachinery/pkg/labels",
         "//vendor:k8s.io/apimachinery/pkg/runtime",

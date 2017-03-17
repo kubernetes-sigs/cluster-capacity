@@ -17,32 +17,13 @@ limitations under the License.
 package https
 
 import (
-	"io/ioutil"
-	"net/http"
+	"net/url"
 
-	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/kubernetes/cmd/kubeadm/app/discovery/file"
+	"k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm"
 )
 
-// RetrieveValidatedClusterInfo connects to the API Server and makes sure it can talk
-// securely to the API Server using the provided CA cert and
-// optionally refreshes the cluster-info information from the cluster-info ConfigMap
-func RetrieveValidatedClusterInfo(httpsURL string) (*clientcmdapi.Cluster, error) {
-	response, err := http.Get(httpsURL)
-	if err != nil {
-		return nil, err
+func Parse(u *url.URL, c *kubeadm.Discovery) {
+	c.HTTPS = &kubeadm.HTTPSDiscovery{
+		URL: u.String(),
 	}
-	defer response.Body.Close()
-
-	kubeconfig, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	clusterinfo, err := clientcmd.Load(kubeconfig)
-	if err != nil {
-		return nil, err
-	}
-	return file.ValidateClusterInfo(clusterinfo)
 }

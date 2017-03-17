@@ -22,7 +22,6 @@ import (
 	watch "k8s.io/apimachinery/pkg/watch"
 	rest "k8s.io/client-go/rest"
 	api "k8s.io/kubernetes/pkg/api"
-	scheme "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/scheme"
 )
 
 // ComponentStatusesGetter has a method to return a ComponentStatusInterface.
@@ -93,7 +92,7 @@ func (c *componentStatuses) Delete(name string, options *v1.DeleteOptions) error
 func (c *componentStatuses) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
 	return c.client.Delete().
 		Resource("componentstatuses").
-		VersionedParams(&listOptions, scheme.ParameterCodec).
+		VersionedParams(&listOptions, api.ParameterCodec).
 		Body(options).
 		Do().
 		Error()
@@ -105,7 +104,7 @@ func (c *componentStatuses) Get(name string, options v1.GetOptions) (result *api
 	err = c.client.Get().
 		Resource("componentstatuses").
 		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
+		VersionedParams(&options, api.ParameterCodec).
 		Do().
 		Into(result)
 	return
@@ -116,7 +115,7 @@ func (c *componentStatuses) List(opts v1.ListOptions) (result *api.ComponentStat
 	result = &api.ComponentStatusList{}
 	err = c.client.Get().
 		Resource("componentstatuses").
-		VersionedParams(&opts, scheme.ParameterCodec).
+		VersionedParams(&opts, api.ParameterCodec).
 		Do().
 		Into(result)
 	return
@@ -124,10 +123,10 @@ func (c *componentStatuses) List(opts v1.ListOptions) (result *api.ComponentStat
 
 // Watch returns a watch.Interface that watches the requested componentStatuses.
 func (c *componentStatuses) Watch(opts v1.ListOptions) (watch.Interface, error) {
-	opts.Watch = true
 	return c.client.Get().
+		Prefix("watch").
 		Resource("componentstatuses").
-		VersionedParams(&opts, scheme.ParameterCodec).
+		VersionedParams(&opts, api.ParameterCodec).
 		Watch()
 }
 

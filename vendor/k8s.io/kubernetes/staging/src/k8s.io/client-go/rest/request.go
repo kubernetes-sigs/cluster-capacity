@@ -1035,15 +1035,13 @@ func (r *Request) newUnstructuredResponseError(body []byte, isTextResponse bool,
 	if isTextResponse {
 		message = strings.TrimSpace(string(body))
 	}
-	var groupResource schema.GroupResource
-	if len(r.resource) > 0 {
-		groupResource.Group = r.content.GroupVersion.Group
-		groupResource.Resource = r.resource
-	}
 	return errors.NewGenericServerResponse(
 		statusCode,
 		method,
-		groupResource,
+		schema.GroupResource{
+			Group:    r.content.GroupVersion.Group,
+			Resource: r.resource,
+		},
 		r.resourceName,
 		message,
 		retryAfter,

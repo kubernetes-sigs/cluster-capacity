@@ -126,7 +126,7 @@ func verifyRemainingObjects(t *testing.T, clientSet clientset.Interface, namespa
 	return ret, nil
 }
 
-func rmSetup(t *testing.T) (*httptest.Server, *replicaset.ReplicaSetController, informers.SharedInformerFactory, clientset.Interface) {
+func rmSetup(t *testing.T, enableGarbageCollector bool) (*httptest.Server, *replicaset.ReplicaSetController, informers.SharedInformerFactory, clientset.Interface) {
 	masterConfig := framework.NewIntegrationTestMasterConfig()
 	_, s := framework.RunAMaster(masterConfig)
 
@@ -143,6 +143,8 @@ func rmSetup(t *testing.T) (*httptest.Server, *replicaset.ReplicaSetController, 
 		informers.Core().V1().Pods(),
 		clientset.NewForConfigOrDie(restclient.AddUserAgent(&config, "replicaset-controller")),
 		replicaset.BurstReplicas,
+		4096,
+		enableGarbageCollector,
 	)
 
 	if err != nil {
@@ -168,7 +170,7 @@ func waitToObservePods(t *testing.T, podInformer cache.SharedIndexInformer, podN
 }
 
 func TestAdoption(t *testing.T) {
-	boolPtr := func(b bool) *bool { return &b }
+	var trueVar = true
 	testCases := []struct {
 		name                    string
 		existingOwnerReferences func(rs *v1beta1.ReplicaSet) []metav1.OwnerReference
@@ -180,7 +182,7 @@ func TestAdoption(t *testing.T) {
 				return []metav1.OwnerReference{{UID: rs.UID, Name: rs.Name, APIVersion: "extensions/v1beta1", Kind: "ReplicaSet"}}
 			},
 			func(rs *v1beta1.ReplicaSet) []metav1.OwnerReference {
-				return []metav1.OwnerReference{{UID: rs.UID, Name: rs.Name, APIVersion: "extensions/v1beta1", Kind: "ReplicaSet", Controller: boolPtr(true), BlockOwnerDeletion: boolPtr(true)}}
+				return []metav1.OwnerReference{{UID: rs.UID, Name: rs.Name, APIVersion: "extensions/v1beta1", Kind: "ReplicaSet", Controller: &trueVar}}
 			},
 		},
 		{
@@ -189,36 +191,36 @@ func TestAdoption(t *testing.T) {
 				return []metav1.OwnerReference{}
 			},
 			func(rs *v1beta1.ReplicaSet) []metav1.OwnerReference {
-				return []metav1.OwnerReference{{UID: rs.UID, Name: rs.Name, APIVersion: "extensions/v1beta1", Kind: "ReplicaSet", Controller: boolPtr(true), BlockOwnerDeletion: boolPtr(true)}}
+				return []metav1.OwnerReference{{UID: rs.UID, Name: rs.Name, APIVersion: "extensions/v1beta1", Kind: "ReplicaSet", Controller: &trueVar}}
 			},
 		},
 		{
 			"pod refers rs as a controller",
 			func(rs *v1beta1.ReplicaSet) []metav1.OwnerReference {
-				return []metav1.OwnerReference{{UID: rs.UID, Name: rs.Name, APIVersion: "extensions/v1beta1", Kind: "ReplicaSet", Controller: boolPtr(true)}}
+				return []metav1.OwnerReference{{UID: rs.UID, Name: rs.Name, APIVersion: "extensions/v1beta1", Kind: "ReplicaSet", Controller: &trueVar}}
 			},
 			func(rs *v1beta1.ReplicaSet) []metav1.OwnerReference {
-				return []metav1.OwnerReference{{UID: rs.UID, Name: rs.Name, APIVersion: "extensions/v1beta1", Kind: "ReplicaSet", Controller: boolPtr(true)}}
+				return []metav1.OwnerReference{{UID: rs.UID, Name: rs.Name, APIVersion: "extensions/v1beta1", Kind: "ReplicaSet", Controller: &trueVar}}
 			},
 		},
 		{
 			"pod refers other rs as the controller, refers the rs as an owner",
 			func(rs *v1beta1.ReplicaSet) []metav1.OwnerReference {
 				return []metav1.OwnerReference{
-					{UID: "1", Name: "anotherRS", APIVersion: "extensions/v1beta1", Kind: "ReplicaSet", Controller: boolPtr(true)},
+					{UID: "1", Name: "anotherRS", APIVersion: "extensions/v1beta1", Kind: "ReplicaSet", Controller: &trueVar},
 					{UID: rs.UID, Name: rs.Name, APIVersion: "extensions/v1beta1", Kind: "ReplicaSet"},
 				}
 			},
 			func(rs *v1beta1.ReplicaSet) []metav1.OwnerReference {
 				return []metav1.OwnerReference{
-					{UID: "1", Name: "anotherRS", APIVersion: "extensions/v1beta1", Kind: "ReplicaSet", Controller: boolPtr(true)},
+					{UID: "1", Name: "anotherRS", APIVersion: "extensions/v1beta1", Kind: "ReplicaSet", Controller: &trueVar},
 					{UID: rs.UID, Name: rs.Name, APIVersion: "extensions/v1beta1", Kind: "ReplicaSet"},
 				}
 			},
 		},
 	}
 	for i, tc := range testCases {
-		s, rm, informers, clientSet := rmSetup(t)
+		s, rm, informers, clientSet := rmSetup(t, true)
 		podInformer := informers.Core().V1().Pods().Informer()
 		ns := framework.CreateTestingNamespace(fmt.Sprintf("rs-adoption-%d", i), s, t)
 		defer framework.DeleteTestingNamespace(ns, s, t)
@@ -254,7 +256,7 @@ func TestAdoption(t *testing.T) {
 				return false, nil
 			}
 		}); err != nil {
-			t.Fatalf("test %q failed: %v", tc.name, err)
+			t.Fatal(err)
 		}
 		close(stopCh)
 	}
@@ -296,7 +298,7 @@ func TestUpdateSelectorToAdopt(t *testing.T) {
 	// We have pod1, pod2 and rs. rs.spec.replicas=1. At first rs.Selector
 	// matches pod1 only; change the selector to match pod2 as well. Verify
 	// there is only one pod left.
-	s, rm, informers, clientSet := rmSetup(t)
+	s, rm, informers, clientSet := rmSetup(t, true)
 	ns := framework.CreateTestingNamespace("rs-update-selector-to-adopt", s, t)
 	defer framework.DeleteTestingNamespace(ns, s, t)
 	rs := newRS("rs", ns.Name, 1)
@@ -336,7 +338,7 @@ func TestUpdateSelectorToRemoveControllerRef(t *testing.T) {
 	// matches pod1 and pod2; change the selector to match only pod1. Verify
 	// that rs creates one more pod, so there are 3 pods. Also verify that
 	// pod2's controllerRef is cleared.
-	s, rm, informers, clientSet := rmSetup(t)
+	s, rm, informers, clientSet := rmSetup(t, true)
 	podInformer := informers.Core().V1().Pods().Informer()
 	ns := framework.CreateTestingNamespace("rs-update-selector-to-remove-controllerref", s, t)
 	defer framework.DeleteTestingNamespace(ns, s, t)
@@ -383,7 +385,7 @@ func TestUpdateLabelToRemoveControllerRef(t *testing.T) {
 	// matches pod1 and pod2; change pod2's labels to non-matching. Verify
 	// that rs creates one more pod, so there are 3 pods. Also verify that
 	// pod2's controllerRef is cleared.
-	s, rm, informers, clientSet := rmSetup(t)
+	s, rm, informers, clientSet := rmSetup(t, true)
 	ns := framework.CreateTestingNamespace("rs-update-label-to-remove-controllerref", s, t)
 	defer framework.DeleteTestingNamespace(ns, s, t)
 	rs := newRS("rs", ns.Name, 2)
@@ -425,7 +427,7 @@ func TestUpdateLabelToBeAdopted(t *testing.T) {
 	// matches pod1 only; change pod2's labels to be matching. Verify the RS
 	// controller adopts pod2 and delete one of them, so there is only 1 pod
 	// left.
-	s, rm, informers, clientSet := rmSetup(t)
+	s, rm, informers, clientSet := rmSetup(t, true)
 	ns := framework.CreateTestingNamespace("rs-update-label-to-be-adopted", s, t)
 	defer framework.DeleteTestingNamespace(ns, s, t)
 	rs := newRS("rs", ns.Name, 1)

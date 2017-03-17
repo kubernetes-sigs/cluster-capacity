@@ -39,7 +39,6 @@ func addDefaultingFuncs(scheme *runtime.Scheme) error {
 		SetDefaults_SecretVolumeSource,
 		SetDefaults_ConfigMapVolumeSource,
 		SetDefaults_DownwardAPIVolumeSource,
-		SetDefaults_ProjectedVolumeSource,
 		SetDefaults_Secret,
 		SetDefaults_PersistentVolume,
 		SetDefaults_PersistentVolumeClaim,
@@ -160,18 +159,6 @@ func SetDefaults_Pod(obj *Pod) {
 			}
 		}
 	}
-	for i := range obj.Spec.InitContainers {
-		if obj.Spec.InitContainers[i].Resources.Limits != nil {
-			if obj.Spec.InitContainers[i].Resources.Requests == nil {
-				obj.Spec.InitContainers[i].Resources.Requests = make(ResourceList)
-			}
-			for key, value := range obj.Spec.InitContainers[i].Resources.Limits {
-				if _, exists := obj.Spec.InitContainers[i].Resources.Requests[key]; !exists {
-					obj.Spec.InitContainers[i].Resources.Requests[key] = *(value.Copy())
-				}
-			}
-		}
-	}
 }
 func SetDefaults_PodSpec(obj *PodSpec) {
 	if obj.DNSPolicy == "" {
@@ -182,7 +169,6 @@ func SetDefaults_PodSpec(obj *PodSpec) {
 	}
 	if obj.HostNetwork {
 		defaultHostNetworkPorts(&obj.Containers)
-		defaultHostNetworkPorts(&obj.InitContainers)
 	}
 	if obj.SecurityContext == nil {
 		obj.SecurityContext = &PodSecurityContext{}
@@ -230,12 +216,6 @@ func SetDefaults_DownwardAPIVolumeSource(obj *DownwardAPIVolumeSource) {
 func SetDefaults_Secret(obj *Secret) {
 	if obj.Type == "" {
 		obj.Type = SecretTypeOpaque
-	}
-}
-func SetDefaults_ProjectedVolumeSource(obj *ProjectedVolumeSource) {
-	if obj.DefaultMode == nil {
-		perm := int32(ProjectedVolumeSourceDefaultMode)
-		obj.DefaultMode = &perm
 	}
 }
 func SetDefaults_PersistentVolume(obj *PersistentVolume) {
@@ -370,20 +350,5 @@ func SetDefaults_RBDVolumeSource(obj *RBDVolumeSource) {
 	}
 	if obj.Keyring == "" {
 		obj.Keyring = "/etc/ceph/keyring"
-	}
-}
-
-func SetDefaults_ScaleIOVolumeSource(obj *ScaleIOVolumeSource) {
-	if obj.ProtectionDomain == "" {
-		obj.ProtectionDomain = "default"
-	}
-	if obj.StoragePool == "" {
-		obj.StoragePool = "default"
-	}
-	if obj.StorageMode == "" {
-		obj.StorageMode = "ThinProvisioned"
-	}
-	if obj.FSType == "" {
-		obj.FSType = "xfs"
 	}
 }

@@ -30,7 +30,7 @@ const (
 	KubeSchedulerImage         = "scheduler"
 	KubeProxyImage             = "proxy"
 
-	etcdVersion = "3.0.17"
+	etcdVersion = "3.0.14-kubeadm"
 )
 
 func GetCoreImage(image string, cfg *kubeadmapi.MasterConfiguration, overrideImage string) string {

@@ -55,14 +55,9 @@ func (c *Cloud) ensureLoadBalancer(namespacedName types.NamespacedName, loadBala
 
 		createRequest.SecurityGroups = stringPointerArray(securityGroupIDs)
 
-		tags := c.tagging.buildTags(ResourceLifecycleOwned, map[string]string{
-			TagNameKubernetesService: namespacedName.String(),
-		})
-
-		for k, v := range tags {
-			createRequest.Tags = append(createRequest.Tags, &elb.Tag{
-				Key: aws.String(k), Value: aws.String(v),
-			})
+		createRequest.Tags = []*elb.Tag{
+			{Key: aws.String(TagNameKubernetesCluster), Value: aws.String(c.getClusterName())},
+			{Key: aws.String(TagNameKubernetesService), Value: aws.String(namespacedName.String())},
 		}
 
 		glog.Infof("Creating load balancer for %v with name: %s", namespacedName, loadBalancerName)

@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/apis/storage/util"
 	"k8s.io/kubernetes/pkg/client/clientset_generated/clientset/fake"
 	"k8s.io/kubernetes/pkg/quota"
 )
@@ -34,9 +35,6 @@ func testVolumeClaim(name string, namespace string, spec api.PersistentVolumeCla
 }
 
 func TestPersistentVolumeClaimsConstraintsFunc(t *testing.T) {
-	classGold := "gold"
-	classBronze := "bronze"
-
 	validClaim := testVolumeClaim("foo", "ns", api.PersistentVolumeClaimSpec{
 		Selector: &metav1.LabelSelector{
 			MatchExpressions: []metav1.LabelSelectorRequirement{
@@ -74,8 +72,10 @@ func TestPersistentVolumeClaimsConstraintsFunc(t *testing.T) {
 				api.ResourceName(api.ResourceStorage): resource.MustParse("10Gi"),
 			},
 		},
-		StorageClassName: &classGold,
 	})
+	validClaimGoldStorageClass.Annotations = map[string]string{
+		util.StorageClassAnnotation: "gold",
+	}
 
 	validClaimBronzeStorageClass := testVolumeClaim("foo", "ns", api.PersistentVolumeClaimSpec{
 		Selector: &metav1.LabelSelector{
@@ -95,8 +95,10 @@ func TestPersistentVolumeClaimsConstraintsFunc(t *testing.T) {
 				api.ResourceName(api.ResourceStorage): resource.MustParse("10Gi"),
 			},
 		},
-		StorageClassName: &classBronze,
 	})
+	validClaimBronzeStorageClass.Annotations = map[string]string{
+		util.StorageClassAnnotation: "bronze",
+	}
 
 	missingStorage := testVolumeClaim("foo", "ns", api.PersistentVolumeClaimSpec{
 		Selector: &metav1.LabelSelector{
@@ -132,8 +134,10 @@ func TestPersistentVolumeClaimsConstraintsFunc(t *testing.T) {
 		Resources: api.ResourceRequirements{
 			Requests: api.ResourceList{},
 		},
-		StorageClassName: &classGold,
 	})
+	missingGoldStorage.Annotations = map[string]string{
+		util.StorageClassAnnotation: "gold",
+	}
 
 	testCases := map[string]struct {
 		pvc      *api.PersistentVolumeClaim
@@ -147,7 +151,7 @@ func TestPersistentVolumeClaimsConstraintsFunc(t *testing.T) {
 		},
 		"missing gold storage": {
 			pvc:      missingGoldStorage,
-			required: []api.ResourceName{ResourceByStorageClass(classGold, api.ResourceRequestsStorage)},
+			required: []api.ResourceName{ResourceByStorageClass("gold", api.ResourceRequestsStorage)},
 			err:      `must specify gold.storageclass.storage.k8s.io/requests.storage`,
 		},
 		"valid-claim-quota-storage": {
@@ -167,8 +171,8 @@ func TestPersistentVolumeClaimsConstraintsFunc(t *testing.T) {
 			required: []api.ResourceName{
 				api.ResourceRequestsStorage,
 				api.ResourcePersistentVolumeClaims,
-				ResourceByStorageClass(classGold, api.ResourceRequestsStorage),
-				ResourceByStorageClass(classGold, api.ResourcePersistentVolumeClaims),
+				ResourceByStorageClass("gold", api.ResourceRequestsStorage),
+				ResourceByStorageClass("gold", api.ResourcePersistentVolumeClaims),
 			},
 		},
 		"valid-claim-bronze-with-quota-gold": {
@@ -176,8 +180,8 @@ func TestPersistentVolumeClaimsConstraintsFunc(t *testing.T) {
 			required: []api.ResourceName{
 				api.ResourceRequestsStorage,
 				api.ResourcePersistentVolumeClaims,
-				ResourceByStorageClass(classGold, api.ResourceRequestsStorage),
-				ResourceByStorageClass(classGold, api.ResourcePersistentVolumeClaims),
+				ResourceByStorageClass("gold", api.ResourceRequestsStorage),
+				ResourceByStorageClass("gold", api.ResourcePersistentVolumeClaims),
 			},
 		},
 	}
@@ -196,7 +200,6 @@ func TestPersistentVolumeClaimsConstraintsFunc(t *testing.T) {
 }
 
 func TestPersistentVolumeClaimEvaluatorUsage(t *testing.T) {
-	classGold := "gold"
 	validClaim := testVolumeClaim("foo", "ns", api.PersistentVolumeClaimSpec{
 		Selector: &metav1.LabelSelector{
 			MatchExpressions: []metav1.LabelSelectorRequirement{
@@ -234,8 +237,11 @@ func TestPersistentVolumeClaimEvaluatorUsage(t *testing.T) {
 				api.ResourceName(api.ResourceStorage): resource.MustParse("10Gi"),
 			},
 		},
-		StorageClassName: &classGold,
 	})
+	storageClassName := "gold"
+	validClaimByStorageClass.Annotations = map[string]string{
+		util.StorageClassAnnotation: storageClassName,
+	}
 
 	kubeClient := fake.NewSimpleClientset()
 	evaluator := NewPersistentVolumeClaimEvaluator(kubeClient, nil)
@@ -253,10 +259,10 @@ func TestPersistentVolumeClaimEvaluatorUsage(t *testing.T) {
 		"pvc-usage-by-class": {
 			pvc: validClaimByStorageClass,
 			usage: api.ResourceList{
-				api.ResourceRequestsStorage:                                           resource.MustParse("10Gi"),
-				api.ResourcePersistentVolumeClaims:                                    resource.MustParse("1"),
-				ResourceByStorageClass(classGold, api.ResourceRequestsStorage):        resource.MustParse("10Gi"),
-				ResourceByStorageClass(classGold, api.ResourcePersistentVolumeClaims): resource.MustParse("1"),
+				api.ResourceRequestsStorage:                                                  resource.MustParse("10Gi"),
+				api.ResourcePersistentVolumeClaims:                                           resource.MustParse("1"),
+				ResourceByStorageClass(storageClassName, api.ResourceRequestsStorage):        resource.MustParse("10Gi"),
+				ResourceByStorageClass(storageClassName, api.ResourcePersistentVolumeClaims): resource.MustParse("1"),
 			},
 		},
 	}

@@ -43,6 +43,7 @@ import (
 	"k8s.io/kubernetes/pkg/api/testapi"
 	"k8s.io/kubernetes/pkg/api/v1"
 	storage "k8s.io/kubernetes/pkg/apis/storage/v1beta1"
+	storageutil "k8s.io/kubernetes/pkg/apis/storage/v1beta1/util"
 	"k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	"k8s.io/kubernetes/pkg/client/clientset_generated/clientset/fake"
 	informers "k8s.io/kubernetes/pkg/client/informers/informers_generated/externalversions"
@@ -620,7 +621,7 @@ func newTestController(kubeClient clientset.Interface, informerFactory informers
 }
 
 // newVolume returns a new volume with given attributes
-func newVolume(name, capacity, boundToClaimUID, boundToClaimName string, phase v1.PersistentVolumePhase, reclaimPolicy v1.PersistentVolumeReclaimPolicy, class string, annotations ...string) *v1.PersistentVolume {
+func newVolume(name, capacity, boundToClaimUID, boundToClaimName string, phase v1.PersistentVolumePhase, reclaimPolicy v1.PersistentVolumeReclaimPolicy, annotations ...string) *v1.PersistentVolume {
 	volume := v1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            name,
@@ -635,7 +636,6 @@ func newVolume(name, capacity, boundToClaimUID, boundToClaimName string, phase v
 			},
 			AccessModes:                   []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce, v1.ReadOnlyMany},
 			PersistentVolumeReclaimPolicy: reclaimPolicy,
-			StorageClassName:              class,
 		},
 		Status: v1.PersistentVolumeStatus{
 			Phase: phase,
@@ -658,6 +658,8 @@ func newVolume(name, capacity, boundToClaimUID, boundToClaimName string, phase v
 			switch a {
 			case annDynamicallyProvisioned:
 				volume.Annotations[a] = mockPluginName
+			case storageutil.StorageClassAnnotation:
+				volume.Annotations[a] = "gold"
 			default:
 				volume.Annotations[a] = "yes"
 			}
@@ -705,16 +707,27 @@ func withMessage(message string, volumes []*v1.PersistentVolume) []*v1.Persisten
 	return volumes
 }
 
+// volumeWithClass saves given class into storage.StorageClassAnnotation annotation.
+// Meant to be used to compose claims specified inline in a test.
+func volumeWithClass(className string, volumes []*v1.PersistentVolume) []*v1.PersistentVolume {
+	if volumes[0].Annotations == nil {
+		volumes[0].Annotations = map[string]string{storageutil.StorageClassAnnotation: className}
+	} else {
+		volumes[0].Annotations[storageutil.StorageClassAnnotation] = className
+	}
+	return volumes
+}
+
 // newVolumeArray returns array with a single volume that would be returned by
 // newVolume() with the same parameters.
-func newVolumeArray(name, capacity, boundToClaimUID, boundToClaimName string, phase v1.PersistentVolumePhase, reclaimPolicy v1.PersistentVolumeReclaimPolicy, class string, annotations ...string) []*v1.PersistentVolume {
+func newVolumeArray(name, capacity, boundToClaimUID, boundToClaimName string, phase v1.PersistentVolumePhase, reclaimPolicy v1.PersistentVolumeReclaimPolicy, annotations ...string) []*v1.PersistentVolume {
 	return []*v1.PersistentVolume{
-		newVolume(name, capacity, boundToClaimUID, boundToClaimName, phase, reclaimPolicy, class, annotations...),
+		newVolume(name, capacity, boundToClaimUID, boundToClaimName, phase, reclaimPolicy, annotations...),
 	}
 }
 
 // newClaim returns a new claim with given attributes
-func newClaim(name, claimUID, capacity, boundToVolume string, phase v1.PersistentVolumeClaimPhase, class *string, annotations ...string) *v1.PersistentVolumeClaim {
+func newClaim(name, claimUID, capacity, boundToVolume string, phase v1.PersistentVolumeClaimPhase, annotations ...string) *v1.PersistentVolumeClaim {
 	claim := v1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            name,
@@ -729,8 +742,7 @@ func newClaim(name, claimUID, capacity, boundToVolume string, phase v1.Persisten
 					v1.ResourceName(v1.ResourceStorage): resource.MustParse(capacity),
 				},
 			},
-			VolumeName:       boundToVolume,
-			StorageClassName: class,
+			VolumeName: boundToVolume,
 		},
 		Status: v1.PersistentVolumeClaimStatus{
 			Phase: phase,
@@ -743,6 +755,8 @@ func newClaim(name, claimUID, capacity, boundToVolume string, phase v1.Persisten
 		claim.Annotations = make(map[string]string)
 		for _, a := range annotations {
 			switch a {
+			case storageutil.StorageClassAnnotation:
+				claim.Annotations[a] = "gold"
 			case annStorageProvisioner:
 				claim.Annotations[a] = mockPluginName
 			default:
@@ -764,10 +778,21 @@ func newClaim(name, claimUID, capacity, boundToVolume string, phase v1.Persisten
 
 // newClaimArray returns array with a single claim that would be returned by
 // newClaim() with the same parameters.
-func newClaimArray(name, claimUID, capacity, boundToVolume string, phase v1.PersistentVolumeClaimPhase, class *string, annotations ...string) []*v1.PersistentVolumeClaim {
+func newClaimArray(name, claimUID, capacity, boundToVolume string, phase v1.PersistentVolumeClaimPhase, annotations ...string) []*v1.PersistentVolumeClaim {
 	return []*v1.PersistentVolumeClaim{
-		newClaim(name, claimUID, capacity, boundToVolume, phase, class, annotations...),
+		newClaim(name, claimUID, capacity, boundToVolume, phase, annotations...),
 	}
+}
+
+// claimWithClass saves given class into storage.StorageClassAnnotation annotation.
+// Meant to be used to compose claims specified inline in a test.
+func claimWithClass(className string, claims []*v1.PersistentVolumeClaim) []*v1.PersistentVolumeClaim {
+	if claims[0].Annotations == nil {
+		claims[0].Annotations = map[string]string{storageutil.StorageClassAnnotation: className}
+	} else {
+		claims[0].Annotations[storageutil.StorageClassAnnotation] = className
+	}
+	return claims
 }
 
 // claimWithAnnotation saves given annotation into given claims.
@@ -802,15 +827,6 @@ type operationType string
 
 const operationDelete = "Delete"
 const operationRecycle = "Recycle"
-
-var (
-	classGold            string = "gold"
-	classSilver          string = "silver"
-	classEmpty           string = ""
-	classNonExisting     string = "non-existing"
-	classExternal        string = "external"
-	classUnknownInternal string = "unknown-internal"
-)
 
 // wrapTestWithPluginCalls returns a testCall that:
 // - configures controller with a volume plugin that implements recycler,
@@ -1111,14 +1127,6 @@ func (plugin *mockVolumePlugin) CanSupport(spec *vol.Spec) bool {
 }
 
 func (plugin *mockVolumePlugin) RequiresRemount() bool {
-	return false
-}
-
-func (plugin *mockVolumePlugin) SupportsMountOption() bool {
-	return false
-}
-
-func (plugin *mockVolumePlugin) SupportsBulkVolumeVerification() bool {
 	return false
 }
 

@@ -38,33 +38,27 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const (
-	configmaps       string = "configmaps"
-	clusters         string = "clusters"
-	informerStoreErr string = "configmap should have appeared in the informer store"
-)
-
 func TestConfigMapController(t *testing.T) {
 	cluster1 := NewCluster("cluster1", apiv1.ConditionTrue)
 	cluster2 := NewCluster("cluster2", apiv1.ConditionTrue)
 
 	fakeClient := &fakefedclientset.Clientset{}
-	RegisterFakeList(clusters, &fakeClient.Fake, &federationapi.ClusterList{Items: []federationapi.Cluster{*cluster1}})
-	RegisterFakeList(configmaps, &fakeClient.Fake, &apiv1.ConfigMapList{Items: []apiv1.ConfigMap{}})
-	configmapWatch := RegisterFakeWatch(configmaps, &fakeClient.Fake)
-	configmapUpdateChan := RegisterFakeCopyOnUpdate(configmaps, &fakeClient.Fake, configmapWatch)
-	clusterWatch := RegisterFakeWatch(clusters, &fakeClient.Fake)
+	RegisterFakeList("clusters", &fakeClient.Fake, &federationapi.ClusterList{Items: []federationapi.Cluster{*cluster1}})
+	RegisterFakeList("configmaps", &fakeClient.Fake, &apiv1.ConfigMapList{Items: []apiv1.ConfigMap{}})
+	configmapWatch := RegisterFakeWatch("configmaps", &fakeClient.Fake)
+	configmapUpdateChan := RegisterFakeCopyOnUpdate("configmaps", &fakeClient.Fake, configmapWatch)
+	clusterWatch := RegisterFakeWatch("clusters", &fakeClient.Fake)
 
 	cluster1Client := &fakekubeclientset.Clientset{}
-	cluster1Watch := RegisterFakeWatch(configmaps, &cluster1Client.Fake)
-	RegisterFakeList(configmaps, &cluster1Client.Fake, &apiv1.ConfigMapList{Items: []apiv1.ConfigMap{}})
-	cluster1CreateChan := RegisterFakeCopyOnCreate(configmaps, &cluster1Client.Fake, cluster1Watch)
-	cluster1UpdateChan := RegisterFakeCopyOnUpdate(configmaps, &cluster1Client.Fake, cluster1Watch)
+	cluster1Watch := RegisterFakeWatch("configmaps", &cluster1Client.Fake)
+	RegisterFakeList("configmaps", &cluster1Client.Fake, &apiv1.ConfigMapList{Items: []apiv1.ConfigMap{}})
+	cluster1CreateChan := RegisterFakeCopyOnCreate("configmaps", &cluster1Client.Fake, cluster1Watch)
+	cluster1UpdateChan := RegisterFakeCopyOnUpdate("configmaps", &cluster1Client.Fake, cluster1Watch)
 
 	cluster2Client := &fakekubeclientset.Clientset{}
-	cluster2Watch := RegisterFakeWatch(configmaps, &cluster2Client.Fake)
-	RegisterFakeList(configmaps, &cluster2Client.Fake, &apiv1.ConfigMapList{Items: []apiv1.ConfigMap{}})
-	cluster2CreateChan := RegisterFakeCopyOnCreate(configmaps, &cluster2Client.Fake, cluster2Watch)
+	cluster2Watch := RegisterFakeWatch("configmaps", &cluster2Client.Fake)
+	RegisterFakeList("configmaps", &cluster2Client.Fake, &apiv1.ConfigMapList{Items: []apiv1.ConfigMap{}})
+	cluster2CreateChan := RegisterFakeCopyOnCreate("configmaps", &cluster2Client.Fake, cluster2Watch)
 
 	configmapController := NewConfigMapController(fakeClient)
 	informer := ToFederatedInformerForTestOnly(configmapController.configmapFederatedInformer)
@@ -104,7 +98,7 @@ func TestConfigMapController(t *testing.T) {
 	// There should be 2 updates to add both the finalizers.
 	updatedConfigMap := GetConfigMapFromChan(configmapUpdateChan)
 	assert.True(t, configmapController.hasFinalizerFunc(updatedConfigMap, deletionhelper.FinalizerDeleteFromUnderlyingClusters))
-	assert.True(t, configmapController.hasFinalizerFunc(updatedConfigMap, metav1.FinalizerOrphanDependents))
+	assert.True(t, configmapController.hasFinalizerFunc(updatedConfigMap, metav1.FinalizerOrphan))
 
 	// Verify that the configmap is created in underlying cluster1.
 	createdConfigMap := GetConfigMapFromChan(cluster1CreateChan)
@@ -117,7 +111,7 @@ func TestConfigMapController(t *testing.T) {
 	err := WaitForStoreUpdate(
 		configmapController.configmapFederatedInformer.GetTargetStore(),
 		cluster1.Name, types.NamespacedName{Namespace: configmap1.Namespace, Name: configmap1.Name}.String(), wait.ForeverTestTimeout)
-	assert.Nil(t, err, informerStoreErr)
+	assert.Nil(t, err, "configmap should have appeared in the informer store")
 
 	// Test update federated configmap.
 	configmap1.Annotations = map[string]string{
@@ -135,7 +129,7 @@ func TestConfigMapController(t *testing.T) {
 		configmapController.configmapFederatedInformer.GetTargetStore(),
 		cluster1.Name, types.NamespacedName{Namespace: configmap1.Namespace, Name: configmap1.Name}.String(),
 		configmap1, wait.ForeverTestTimeout)
-	assert.Nil(t, err, informerStoreErr)
+	assert.Nil(t, err, "configmap should have appeared in the informer store")
 
 	// Test update federated configmap.
 	configmap1.Data = map[string]string{
@@ -161,11 +155,8 @@ func TestConfigMapController(t *testing.T) {
 }
 
 func GetConfigMapFromChan(c chan runtime.Object) *apiv1.ConfigMap {
-	if configmap := GetObjectFromChan(c); configmap == nil {
-		return nil
-	} else {
-		return configmap.(*apiv1.ConfigMap)
-	}
+	configmap := GetObjectFromChan(c).(*apiv1.ConfigMap)
+	return configmap
 }
 
 // Wait till the store is updated with latest configmap.

@@ -434,24 +434,6 @@ func coreFuncs(t apitesting.TestingCommon) []interface{} {
 				*obj.ReadOnly = false
 			}
 		},
-		func(sio *api.ScaleIOVolumeSource, c fuzz.Continue) {
-			sio.ProtectionDomain = c.RandString()
-			if sio.ProtectionDomain == "" {
-				sio.ProtectionDomain = "default"
-			}
-			sio.StoragePool = c.RandString()
-			if sio.StoragePool == "" {
-				sio.StoragePool = "default"
-			}
-			sio.StorageMode = c.RandString()
-			if sio.StorageMode == "" {
-				sio.StorageMode = "ThinProvisioned"
-			}
-			sio.FSType = c.RandString()
-			if sio.FSType == "" {
-				sio.FSType = "xfs"
-			}
-		},
 		func(s *api.NamespaceSpec, c fuzz.Continue) {
 			s.Finalizers = []api.FinalizerName{api.FinalizerKubernetes}
 		},
@@ -492,13 +474,6 @@ func coreFuncs(t apitesting.TestingCommon) []interface{} {
 
 func extensionFuncs(t apitesting.TestingCommon) []interface{} {
 	return []interface{}{
-		func(j *extensions.DeploymentSpec, c fuzz.Continue) {
-			c.FuzzNoCustom(j) // fuzz self without calling this function again
-			rhl := int32(c.Rand.Int31())
-			pds := int32(c.Rand.Int31())
-			j.RevisionHistoryLimit = &rhl
-			j.ProgressDeadlineSeconds = &pds
-		},
 		func(j *extensions.DeploymentStrategy, c fuzz.Continue) {
 			c.FuzzNoCustom(j) // fuzz self without calling this function again
 			// Ensure that strategyType is one of valid values.
@@ -543,25 +518,6 @@ func extensionFuncs(t apitesting.TestingCommon) []interface{} {
 				}
 			}
 		},
-		func(j *extensions.DaemonSetUpdateStrategy, c fuzz.Continue) {
-			c.FuzzNoCustom(j) // fuzz self without calling this function again
-			// Ensure that strategyType is one of valid values.
-			strategyTypes := []extensions.DaemonSetUpdateStrategyType{extensions.RollingUpdateDaemonSetStrategyType, extensions.OnDeleteDaemonSetStrategyType}
-			j.Type = strategyTypes[c.Rand.Intn(len(strategyTypes))]
-			if j.Type != extensions.RollingUpdateDaemonSetStrategyType {
-				j.RollingUpdate = nil
-			} else {
-				rollingUpdate := extensions.RollingUpdateDaemonSet{}
-				if c.RandBool() {
-					if c.RandBool() {
-						rollingUpdate.MaxUnavailable = intstr.FromInt(1 + int(c.Rand.Int31()))
-					} else {
-						rollingUpdate.MaxUnavailable = intstr.FromString(fmt.Sprintf("%d%%", 1+c.Rand.Int31()))
-					}
-				}
-				j.RollingUpdate = &rollingUpdate
-			}
-		},
 	}
 }
 
@@ -586,14 +542,6 @@ func batchFuncs(t apitesting.TestingCommon) []interface{} {
 			sds := int64(c.RandUint64())
 			sj.StartingDeadlineSeconds = &sds
 			sj.Schedule = c.RandString()
-			if hasSuccessLimit := c.RandBool(); hasSuccessLimit {
-				successfulJobsHistoryLimit := int32(c.Rand.Int31())
-				sj.SuccessfulJobsHistoryLimit = &successfulJobsHistoryLimit
-			}
-			if hasFailedLimit := c.RandBool(); hasFailedLimit {
-				failedJobsHistoryLimit := int32(c.Rand.Int31())
-				sj.FailedJobsHistoryLimit = &failedJobsHistoryLimit
-			}
 		},
 		func(cp *batch.ConcurrencyPolicy, c fuzz.Continue) {
 			policies := []batch.ConcurrencyPolicy{batch.AllowConcurrent, batch.ForbidConcurrent, batch.ReplaceConcurrent}
@@ -686,10 +634,6 @@ func rbacFuncs(t apitesting.TestingCommon) []interface{} {
 				r.Kind = rbac.UserKind
 				r.APIGroup = rbac.GroupName
 				c.FuzzNoCustom(&r.Name)
-				// user "*" won't round trip because we convert it to the system:authenticated group. try again.
-				for r.Name == "*" {
-					c.FuzzNoCustom(&r.Name)
-				}
 			case 2:
 				r.Kind = rbac.GroupKind
 				r.APIGroup = rbac.GroupName
