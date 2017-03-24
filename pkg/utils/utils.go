@@ -20,10 +20,10 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/testapi"
-	"k8s.io/kubernetes/pkg/api/unversioned"
 	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
 )
 
@@ -42,7 +42,7 @@ func PrintPod(pod *api.Pod, format string) error {
 	if !ok {
 		return fmt.Errorf("serializer for %s not registered", contentType)
 	}
-	gvr := unversioned.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
 	encoder := api.Codecs.EncoderForVersion(info.Serializer, gvr.GroupVersion())
 	stream, err := runtime.Encode(encoder, pod)
 
