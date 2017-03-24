@@ -27,9 +27,9 @@ import (
 
 	"github.com/emicklei/go-restful"
 
+	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/validation"
-	"k8s.io/kubernetes/pkg/util/yaml"
 
 	"github.com/kubernetes-incubator/cluster-capacity/cmd/cluster-capacity/app/options"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework"
