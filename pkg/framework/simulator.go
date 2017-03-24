@@ -26,19 +26,26 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/meta"
 	"k8s.io/kubernetes/pkg/api/unversioned"
+	"k8s.io/kubernetes/pkg/api/v1"
+	externalclientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 	clientsetextensions "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/typed/extensions/internalversion"
-	informers "k8s.io/kubernetes/pkg/client/informers/informers_generated/internalversion"
-	"k8s.io/kubernetes/pkg/fields"
+	//informers "k8s.io/kubernetes/pkg/client/informers/informers_generated/internalversion"
+	"k8s.io/kubernetes/pkg/controller/informers"
+	kubeapiserveradmission "k8s.io/kubernetes/pkg/kubeapiserver/admission"
 	"k8s.io/kubernetes/pkg/kubeapiserver/authorizer"
-	"k8s.io/kubernetes/pkg/util/sets"
-	"k8s.io/kubernetes/pkg/watch"
 	soptions "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app/options"
 	"k8s.io/kubernetes/plugin/pkg/scheduler"
 	schedulerapi "k8s.io/kubernetes/plugin/pkg/scheduler/api"
@@ -129,7 +136,8 @@ type ClusterCapacity struct {
 	strategy strategy.Strategy
 
 	// fake kube client
-	kubeclient *clientset.Clientset
+	kubeclient         *clientset.Clientset
+	externalkubeclient *externalclientset.Clientset
 
 	// fake rest clients
 	coreRestClient       *restclient.RESTClient
@@ -188,7 +196,7 @@ func (c *ClusterCapacity) SyncWithClient(client clientset.Interface) error {
 			listWatcher = cache.NewListWatchFromClient(client.Core().RESTClient(), resource.String(), api.NamespaceAll, fields.ParseSelectorOrDie(""))
 		}
 
-		options := api.ListOptions{ResourceVersion: "0"}
+		options := metav1.ListOptions{ResourceVersion: "0"}
 		list, err := listWatcher.List(options)
 		if err != nil {
 			return fmt.Errorf("Failed to list objects: %v", err)
@@ -226,14 +234,14 @@ func (c *ClusterCapacity) SyncWithStore(resourceStore store.ResourceStore) error
 	return nil
 }
 
-func (c *ClusterCapacity) Bind(binding *api.Binding, schedulerName string) error {
+func (c *ClusterCapacity) Bind(binding *v1.Binding, schedulerName string) error {
 	// pod name: binding.Name
 	// node name: binding.Target.Name
 	// fmt.Printf("\nPod: %v, node: %v, scheduler: %v\n", binding.Name, binding.Target.Name, schedulerName)
 
 	// run the pod through strategy
 	key := &api.Pod{
-		ObjectMeta: api.ObjectMeta{Name: binding.Name, Namespace: binding.Namespace},
+		ObjectMeta: metav1.ObjectMeta{Name: binding.Name, Namespace: binding.Namespace},
 	}
 	pod, exists, err := c.resourceStore.Get(ccapi.Pods, runtime.Object(key))
 	if err != nil {
@@ -295,11 +303,11 @@ func (c *ClusterCapacity) Close() {
 	c.closed = true
 }
 
-func (c *ClusterCapacity) Update(pod *api.Pod, podCondition *api.PodCondition, schedulerName string) error {
+func (c *ClusterCapacity) Update(pod *v1.Pod, podCondition *v1.PodCondition, schedulerName string) error {
 	// once the api.PodCondition
-	podUnschedulableCond := &api.PodCondition{
-		Type:   api.PodScheduled,
-		Status: api.ConditionFalse,
+	podUnschedulableCond := &v1.PodCondition{
+		Type:   v1.PodScheduled,
+		Status: v1.ConditionFalse,
 		Reason: "Unschedulable",
 	}
 
@@ -338,9 +346,9 @@ func (c *ClusterCapacity) nextPod() error {
 	pod.ObjectMeta.Name = fmt.Sprintf("%v-%v", c.simulatedPod.Name, c.simulated)
 
 	if c.admissionController != nil {
-		gv := unversioned.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}.GroupVersion()
-		userInfo, _ := api.UserFrom(api.WithUserAgent(api.NewContext(), "Cluster-Capacity-Agent"))
-		attr := admission.NewAttributesRecord(runtime.Object(&pod), nil, unversioned.FromAPIVersionAndKind("v1", "Pod"), pod.Namespace, pod.Name, gv.WithResource("pods"), "", admission.Create, userInfo)
+		gv := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}.GroupVersion()
+		userInfo, _ := request.UserFrom(request.WithUserAgent(request.NewContext(), "Cluster-Capacity-Agent"))
+		attr := admission.NewAttributesRecord(runtime.Object(&pod), nil, schema.FromAPIVersionAndKind("v1", "Pod"), pod.Namespace, pod.Name, gv.WithResource("pods"), "", admission.Create, userInfo)
 
 		err := c.admissionController.Admit(attr)
 		if err != nil {
@@ -350,7 +358,7 @@ func (c *ClusterCapacity) nextPod() error {
 	}
 
 	// Check the pod's namespace exists
-	_, err := c.kubeclient.Core().Namespaces().Get(pod.ObjectMeta.Namespace)
+	_, err := c.kubeclient.Core().Namespaces().Get(pod.ObjectMeta.Namespace, metav1.GetOptions{})
 	if err != nil {
 		c.status.StopReason = fmt.Sprintf("NamespaceNotFound: %v", err)
 		return fmt.Errorf("Pod's namespace %v not found: %v", c.simulatedPod.ObjectMeta.Namespace, err)
@@ -389,16 +397,16 @@ type localBinderPodConditionUpdater struct {
 	C             *ClusterCapacity
 }
 
-func (b *localBinderPodConditionUpdater) Bind(binding *api.Binding) error {
+func (b *localBinderPodConditionUpdater) Bind(binding *v1.Binding) error {
 	return b.C.Bind(binding, b.SchedulerName)
 }
 
-func (b *localBinderPodConditionUpdater) Update(pod *api.Pod, podCondition *api.PodCondition) error {
+func (b *localBinderPodConditionUpdater) Update(pod *v1.Pod, podCondition *v1.PodCondition) error {
 	return b.C.Update(pod, podCondition, b.SchedulerName)
 }
 
 func (c *ClusterCapacity) createSchedulerConfig(s *soptions.SchedulerServer) (*scheduler.Config, error) {
-	configFactory := factory.NewConfigFactory(c.kubeclient, s.SchedulerName, s.HardPodAffinitySymmetricWeight, s.FailureDomains)
+	configFactory := factory.NewConfigFactory(c.externalkubeclient, s.SchedulerName, s.HardPodAffinitySymmetricWeight)
 	config, err := createConfig(s, configFactory)
 
 	if err != nil {
@@ -428,7 +436,7 @@ func (c *ClusterCapacity) AddScheduler(s *soptions.SchedulerServer) error {
 	return nil
 }
 
-func createConfig(s *soptions.SchedulerServer, configFactory *factory.ConfigFactory) (*scheduler.Config, error) {
+func createConfig(s *soptions.SchedulerServer, configFactory scheduler.Configurator) (*scheduler.Config, error) {
 	if _, err := os.Stat(s.PolicyConfigFile); err == nil {
 		var (
 			policy     schedulerapi.Policy
@@ -460,6 +468,7 @@ func New(s *soptions.SchedulerServer, simulatedPod *api.Pod, maxPods int, resour
 		resourceStore:        resourceStore,
 		strategy:             strategy.NewPredictiveStrategy(resourceStore),
 		kubeclient:           clientset.New(restClient),
+		externalkubeclient:   externalclientset.New(restClient),
 		simulatedPod:         simulatedPod,
 		simulated:            0,
 		maxSimulated:         maxPods,
@@ -519,22 +528,22 @@ func New(s *soptions.SchedulerServer, simulatedPod *api.Pod, maxPods int, resour
 		}
 		admissionControlPluginNames := admissionNamesSets.List()
 
-		sharedInformers := informers.NewSharedInformerFactory(cc.kubeclient, 10*time.Minute)
+		sharedInformers := informers.NewSharedInformerFactory(cc.externalkubeclient, cc.kubeclient, 10*time.Minute)
 		authorizationConfig := authorizer.AuthorizationConfig{
 			InformerFactory: sharedInformers,
 		}
 
 		authorizationConfig.WebhookCacheUnauthorizedTTL, _ = time.ParseDuration("30s")
 		authorizationConfig.WebhookCacheAuthorizedTTL, _ = time.ParseDuration("5m0s")
-		authorizationModeNames := []string{"AlwaysAllow"}
+		authorizationConfig.AuthorizationModes = []string{"AlwaysAllow"}
 
-		apiAuthorizer, err := authorizer.NewAuthorizerFromAuthorizationConfig(authorizationModeNames, authorizationConfig)
+		apiAuthorizer, err := authorizationConfig.New()
 		if err != nil {
 			log.Fatalf("Invalid Authorization Config: %v", err)
 		}
 
-		pluginInitializer := admission.NewPluginInitializer(sharedInformers, apiAuthorizer)
-		admissionController, err := admission.NewFromPlugins(cc.kubeclient, admissionControlPluginNames, "", pluginInitializer, cc.admissionStopCh)
+		pluginInitializer := kubeapiserveradmission.NewPluginInitializer(cc.kubeclient, sharedInformers, apiAuthorizer)
+		admissionController, err := admission.NewFromPlugins(admissionControlPluginNames, nil, pluginInitializer)
 		if err != nil {
 			log.Fatalf("Failed to initialize plugins: %v", err)
 		}
