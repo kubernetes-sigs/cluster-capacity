@@ -92,7 +92,7 @@ func RetrieveNamespacePod(client clientset.Interface, namespace string) (*api.Po
 	}
 
 	namespacePod := api.Pod{
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cluster-capacity-stub-container",
 			Namespace: namespace,
 		},
