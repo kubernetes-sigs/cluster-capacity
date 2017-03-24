@@ -15,20 +15,23 @@ import:
 - package: k8s.io/apiserver
   subpackages:
   - pkg/admission
+  - pkg/endpoints/request
 - package: k8s.io/apimachinery
   subpackages:
   - pkg/runtime
+  - pkg/api/meta
   - pkg/apis/meta/v1
   - pkg/api/resource
   - pkg/labels
   - pkg/watch
   - pkg/runtime/schema
   - pkg/fields
+  - pkg/types
+  - pkg/conversion
 - package: k8s.io/kubernetes
   version: v1.6.0-beta.0
   subpackages:
   - pkg/api
-  - pkg/api/meta
   - pkg/api/testapi
   - pkg/api/testing
   - pkg/api/unversioned
