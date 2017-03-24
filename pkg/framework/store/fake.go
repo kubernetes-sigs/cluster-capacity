@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"reflect"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/apis/extensions"
@@ -74,22 +75,22 @@ func findResource(obj interface{}, objs interface{}) (item interface{}, exists b
 		switch item.(type) {
 		case api.Pod:
 			value := item.(api.Pod)
-			obj_key, key_err = cache.MetaNamespaceKeyFunc(value)
+			obj_key, key_err = cache.MetaNamespaceKeyFunc(metav1.Object(&value))
 		case api.Service:
 			value := item.(api.Service)
-			obj_key, key_err = cache.MetaNamespaceKeyFunc(value)
+			obj_key, key_err = cache.MetaNamespaceKeyFunc(metav1.Object(&value))
 		case api.ReplicationController:
 			value := item.(api.ReplicationController)
-			obj_key, key_err = cache.MetaNamespaceKeyFunc(value)
+			obj_key, key_err = cache.MetaNamespaceKeyFunc(metav1.Object(&value))
 		case api.Node:
 			value := item.(api.Node)
-			obj_key, key_err = cache.MetaNamespaceKeyFunc(value)
+			obj_key, key_err = cache.MetaNamespaceKeyFunc(metav1.Object(&value))
 		case api.PersistentVolume:
 			value := item.(api.PersistentVolume)
-			obj_key, key_err = cache.MetaNamespaceKeyFunc(value)
+			obj_key, key_err = cache.MetaNamespaceKeyFunc(metav1.Object(&value))
 		case api.PersistentVolumeClaim:
 			value := item.(api.PersistentVolumeClaim)
-			obj_key, key_err = cache.MetaNamespaceKeyFunc(value)
+			obj_key, key_err = cache.MetaNamespaceKeyFunc(metav1.Object(&value))
 		}
 		if key_err != nil {
 			return nil, false, key_err
