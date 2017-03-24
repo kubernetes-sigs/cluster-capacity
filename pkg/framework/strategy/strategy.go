@@ -19,8 +19,8 @@ package strategy
 import (
 	"fmt"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/meta"
 	"k8s.io/kubernetes/plugin/pkg/scheduler/schedulercache"
 
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
@@ -54,7 +54,7 @@ func (s *predictiveStrategy) addPod(pod *api.Pod) error {
 
 	// here asuming the pod is already in the resource storage
 	// so the update is needed to emit update event in case a handler is registered
-	err := s.resourceStore.Update("pods", meta.Object(pod))
+	err := s.resourceStore.Update("pods", metav1.Object(pod))
 	if err != nil {
 		return fmt.Errorf("Unable to add new node: %v", err)
 	}
