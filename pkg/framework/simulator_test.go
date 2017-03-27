@@ -21,11 +21,10 @@ import (
 	goruntime "runtime"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/meta"
-	"k8s.io/kubernetes/pkg/api/resource"
 	apitesting "k8s.io/kubernetes/pkg/api/testing"
-	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/apis/componentconfig"
 	"k8s.io/kubernetes/pkg/version"
 	soptions "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app/options"
@@ -36,7 +35,7 @@ import (
 
 func getGeneralNode(nodeName string) *api.Node {
 	return &api.Node{
-		ObjectMeta: api.ObjectMeta{Name: nodeName},
+		ObjectMeta: metav1.ObjectMeta{Name: nodeName},
 		Spec:       api.NodeSpec{},
 		Status: api.NodeStatus{
 			Conditions: []api.NodeCondition{
@@ -45,32 +44,32 @@ func getGeneralNode(nodeName string) *api.Node {
 					Status:             api.ConditionFalse,
 					Reason:             "KubeletHasSufficientDisk",
 					Message:            fmt.Sprintf("kubelet has sufficient disk space available"),
-					LastHeartbeatTime:  unversioned.Time{},
-					LastTransitionTime: unversioned.Time{},
+					LastHeartbeatTime:  metav1.Time{},
+					LastTransitionTime: metav1.Time{},
 				},
 				{
 					Type:               api.NodeMemoryPressure,
 					Status:             api.ConditionFalse,
 					Reason:             "KubeletHasSufficientMemory",
 					Message:            fmt.Sprintf("kubelet has sufficient memory available"),
-					LastHeartbeatTime:  unversioned.Time{},
-					LastTransitionTime: unversioned.Time{},
+					LastHeartbeatTime:  metav1.Time{},
+					LastTransitionTime: metav1.Time{},
 				},
 				{
 					Type:               api.NodeDiskPressure,
 					Status:             api.ConditionFalse,
 					Reason:             "KubeletHasNoDiskPressure",
 					Message:            fmt.Sprintf("kubelet has no disk pressure"),
-					LastHeartbeatTime:  unversioned.Time{},
-					LastTransitionTime: unversioned.Time{},
+					LastHeartbeatTime:  metav1.Time{},
+					LastTransitionTime: metav1.Time{},
 				},
 				{
 					Type:               api.NodeReady,
 					Status:             api.ConditionTrue,
 					Reason:             "KubeletReady",
 					Message:            fmt.Sprintf("kubelet is posting ready status"),
-					LastHeartbeatTime:  unversioned.Time{},
-					LastTransitionTime: unversioned.Time{},
+					LastHeartbeatTime:  metav1.Time{},
+					LastTransitionTime: metav1.Time{},
 				},
 			},
 			NodeInfo: api.NodeSystemInfo{
@@ -126,7 +125,7 @@ func TestPrediction(t *testing.T) {
 		api.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
 	}
 
-	if err := resourceStore.Add("nodes", meta.Object(node1)); err != nil {
+	if err := resourceStore.Add("nodes", metav1.Object(node1)); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
@@ -144,7 +143,7 @@ func TestPrediction(t *testing.T) {
 		api.ResourcePods:      *resource.NewQuantity(3, resource.DecimalSI),
 		api.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
 	}
-	if err := resourceStore.Add("nodes", meta.Object(node2)); err != nil {
+	if err := resourceStore.Add("nodes", metav1.Object(node2)); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 	// create third node with 2 cpus and 4GB, with some resources already consumed
@@ -161,17 +160,17 @@ func TestPrediction(t *testing.T) {
 		api.ResourcePods:      *resource.NewQuantity(3, resource.DecimalSI),
 		api.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
 	}
-	if err := resourceStore.Add("nodes", meta.Object(node3)); err != nil {
+	if err := resourceStore.Add("nodes", metav1.Object(node3)); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
-	namespace := &api.Namespace{ObjectMeta: api.ObjectMeta{Name: "test-node-3"}}
-	if err := resourceStore.Add("namespaces", meta.Object(namespace)); err != nil {
+	namespace := &api.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "test-node-3"}}
+	if err := resourceStore.Add("namespaces", metav1.Object(namespace)); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
 	simulatedPod := &api.Pod{
-		ObjectMeta: api.ObjectMeta{Name: "simulated-pod", Namespace: "test-node-3", ResourceVersion: "10"},
+		ObjectMeta: metav1.ObjectMeta{Name: "simulated-pod", Namespace: "test-node-3", ResourceVersion: "10"},
 		Spec:       apitesting.DeepEqualSafePodSpec(),
 	}
 

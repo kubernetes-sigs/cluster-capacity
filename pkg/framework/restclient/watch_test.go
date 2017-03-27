@@ -22,10 +22,11 @@ import (
 	"testing"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/fields"
-	"k8s.io/kubernetes/pkg/watch"
 
 	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
@@ -42,7 +43,7 @@ func getResourceWatcher(client cache.Getter, resource ccapi.ResourceType) watch.
 	// ask for watcher data
 	timemoutseconds := int64(10)
 
-	options := api.ListOptions{
+	options := metav1.ListOptions{
 		ResourceVersion: "0",
 		// We want to avoid situations of hanging watchers. Stop any wachers that do not
 		// receive any events within the timeout window.

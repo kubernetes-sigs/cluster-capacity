@@ -22,13 +22,14 @@ import (
 	"strings"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/meta"
 	"k8s.io/kubernetes/pkg/api/testapi"
 	"k8s.io/kubernetes/pkg/apis/extensions"
-	"k8s.io/kubernetes/pkg/fields"
 
 	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
@@ -100,7 +101,7 @@ func testReplicaSetsData() []*extensions.ReplicaSet {
 	for i := 0; i < 10; i++ {
 		name := fmt.Sprintf("replicaset%v", i)
 		item := extensions.ReplicaSet{
-			ObjectMeta: api.ObjectMeta{Name: name, Namespace: "test", ResourceVersion: "125"},
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "test", ResourceVersion: "125"},
 			Spec: extensions.ReplicaSetSpec{
 				Replicas: 3,
 			},
@@ -153,16 +154,16 @@ func compareItems(expected, actual interface{}) bool {
 	expectedSlice := reflect.ValueOf(expected)
 	expectedMap := make(map[string]interface{})
 	for i := 0; i < expectedSlice.Len(); i++ {
-		meta := expectedSlice.Index(i).FieldByName("ObjectMeta").Interface().(api.ObjectMeta)
-		key := strings.Join([]string{meta.Namespace, meta.Name, meta.ResourceVersion}, "/")
+		metaLocal := expectedSlice.Index(i).FieldByName("ObjectMeta").Interface().(metav1.ObjectMeta)
+		key := strings.Join([]string{metaLocal.Namespace, metaLocal.Name, metaLocal.ResourceVersion}, "/")
 		expectedMap[key] = expectedSlice.Index(i).Interface()
 	}
 
 	actualMap := make(map[string]interface{})
 	actualSlice := reflect.ValueOf(actual)
 	for i := 0; i < actualSlice.Len(); i++ {
-		meta := actualSlice.Index(i).FieldByName("ObjectMeta").Interface().(api.ObjectMeta)
-		key := strings.Join([]string{meta.Namespace, meta.Name, meta.ResourceVersion}, "/")
+		metaLocal := actualSlice.Index(i).FieldByName("ObjectMeta").Interface().(metav1.ObjectMeta)
+		key := strings.Join([]string{metaLocal.Namespace, metaLocal.Name, metaLocal.ResourceVersion}, "/")
 		actualMap[key] = actualSlice.Index(i).Interface()
 	}
 
@@ -172,7 +173,7 @@ func compareItems(expected, actual interface{}) bool {
 func getResourceList(client cache.Getter, resource ccapi.ResourceType) runtime.Object {
 	// client listerWatcher
 	listerWatcher := cache.NewListWatchFromClient(client, resource.String(), api.NamespaceAll, fields.ParseSelectorOrDie(""))
-	options := api.ListOptions{ResourceVersion: "0"}
+	options := metav1.ListOptions{ResourceVersion: "0"}
 	l, _ := listerWatcher.List(options)
 	return l
 }

@@ -20,8 +20,8 @@ import (
 	"fmt"
 
 	//"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/kubernetes/pkg/api/v1"
-	//"k8s.io/kubernetes/pkg/api"
+	//"k8s.io/kubernetes/pkg/api/v1"
+	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/apis/extensions"
 )
 
@@ -49,29 +49,29 @@ func (r ResourceType) String() string {
 func (r ResourceType) ObjectType() interface{} {
 	switch r {
 	case "pods":
-		return &v1.Pod{}
+		return &api.Pod{}
 	case "persistentvolumes":
-		return &v1.PersistentVolume{}
+		return &api.PersistentVolume{}
 	case "replicationcontrollers":
-		return &v1.ReplicationController{}
+		return &api.ReplicationController{}
 	case "nodes":
-		return &v1.Node{}
+		return &api.Node{}
 	case "services":
-		return &v1.Service{}
+		return &api.Service{}
 	case "persistentvolumeclaims":
-		return &v1.PersistentVolumeClaim{}
+		return &api.PersistentVolumeClaim{}
 	case "replicasets":
 		return &extensions.ReplicaSet{}
 	case "resourcequotas":
-		return &v1.ResourceQuota{}
+		return &api.ResourceQuota{}
 	case "secrets":
-		return &v1.Secret{}
+		return &api.Secret{}
 	case "serviceaccounts":
-		return &v1.ServiceAccount{}
+		return &api.ServiceAccount{}
 	case "limitranges":
-		return &v1.LimitRange{}
+		return &api.LimitRange{}
 	case "namespaces":
-		return &v1.Namespace{}
+		return &api.Namespace{}
 	}
 	return nil
 }
