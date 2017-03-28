@@ -42,8 +42,8 @@ import (
 	externalclientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 	clientsetextensions "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/typed/extensions/internalversion"
-	//informers "k8s.io/kubernetes/pkg/client/informers/informers_generated/internalversion"
-	"k8s.io/kubernetes/pkg/controller/informers"
+	einformers "k8s.io/kubernetes/pkg/client/informers/informers_generated/externalversions"
+	informers "k8s.io/kubernetes/pkg/client/informers/informers_generated/internalversion"
 	kubeapiserveradmission "k8s.io/kubernetes/pkg/kubeapiserver/admission"
 	"k8s.io/kubernetes/pkg/kubeapiserver/authorizer"
 	soptions "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app/options"
@@ -406,7 +406,17 @@ func (b *localBinderPodConditionUpdater) Update(pod *v1.Pod, podCondition *v1.Po
 }
 
 func (c *ClusterCapacity) createSchedulerConfig(s *soptions.SchedulerServer) (*scheduler.Config, error) {
-	configFactory := factory.NewConfigFactory(c.externalkubeclient, s.SchedulerName, s.HardPodAffinitySymmetricWeight)
+	informerFactory := einformers.NewSharedInformerFactory(c.externalkubeclient, 0)
+	configFactory := factory.NewConfigFactory(s.SchedulerName,
+		c.externalkubeclient,
+		informerFactory.Core().V1().Nodes(),
+		informerFactory.Core().V1().PersistentVolumes(),
+		informerFactory.Core().V1().PersistentVolumeClaims(),
+		informerFactory.Core().V1().ReplicationControllers(),
+		informerFactory.Extensions().V1beta1().ReplicaSets(),
+		informerFactory.Apps().V1beta1().StatefulSets(),
+		informerFactory.Core().V1().Services(),
+		s.HardPodAffinitySymmetricWeight)
 	config, err := createConfig(s, configFactory)
 
 	if err != nil {
@@ -528,7 +538,7 @@ func New(s *soptions.SchedulerServer, simulatedPod *api.Pod, maxPods int, resour
 		}
 		admissionControlPluginNames := admissionNamesSets.List()
 
-		sharedInformers := informers.NewSharedInformerFactory(cc.externalkubeclient, cc.kubeclient, 10*time.Minute)
+		sharedInformers := informers.NewSharedInformerFactory(cc.kubeclient, 10*time.Minute)
 		authorizationConfig := authorizer.AuthorizationConfig{
 			InformerFactory: sharedInformers,
 		}
@@ -542,7 +552,7 @@ func New(s *soptions.SchedulerServer, simulatedPod *api.Pod, maxPods int, resour
 			log.Fatalf("Invalid Authorization Config: %v", err)
 		}
 
-		pluginInitializer := kubeapiserveradmission.NewPluginInitializer(cc.kubeclient, sharedInformers, apiAuthorizer)
+		pluginInitializer := kubeapiserveradmission.NewPluginInitializer(cc.kubeclient, sharedInformers, apiAuthorizer, nil)
 		admissionController, err := admission.NewFromPlugins(admissionControlPluginNames, nil, pluginInitializer)
 		if err != nil {
 			log.Fatalf("Failed to initialize plugins: %v", err)
