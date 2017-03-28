@@ -273,6 +273,16 @@ func (cmd *Command) downloadAndVerify(req *snapshotter.Request, path string, val
 		}
 	}
 
+	f, err := os.Stat(tmppath)
+	if err != nil {
+		return err
+	}
+
+	// There was nothing downloaded, don't create an empty backup file.
+	if f.Size() == 0 {
+		return os.Remove(tmppath)
+	}
+
 	// Rename temporary file to final path.
 	if err := os.Rename(tmppath, path); err != nil {
 		return fmt.Errorf("rename: %s", err)
@@ -335,22 +345,21 @@ func (cmd *Command) requestInfo(request *snapshotter.Request) (*snapshotter.Resp
 
 // printUsage prints the usage message to STDERR.
 func (cmd *Command) printUsage() {
-	fmt.Fprintf(cmd.Stdout, `usage: influxd backup [flags] PATH
+	fmt.Fprintf(cmd.Stdout, `Downloads a snapshot of a data node and saves it to disk.
 
-Backup downloads a snapshot of a data node and saves it to disk.
+Usage: influxd backup [flags] PATH
 
-Options:
-  -host <host:port>
-        The host to connect to snapshot. Defaults to 127.0.0.1:8088.
-  -database <name>
-        The database to backup.
-  -retention <name>
-        Optional. The retention policy to backup.
-  -shard <id>
-        Optional. The shard id to backup. If specified, retention is required.
-  -since <2015-12-24T08:12:23>
-        Optional. Do an incremental backup since the passed in RFC3339
-        formatted time.
+    -host <host:port>
+            The host to connect to snapshot. Defaults to 127.0.0.1:8088.
+    -database <name>
+            The database to backup.
+    -retention <name>
+            Optional. The retention policy to backup.
+    -shard <id>
+            Optional. The shard id to backup. If specified, retention is required.
+    -since <2015-12-24T08:12:23>
+            Optional. Do an incremental backup since the passed in RFC3339
+            formatted time.
 
 `)
 }

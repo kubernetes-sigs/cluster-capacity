@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -70,6 +71,68 @@ func TestUDPClient_BadAddr(t *testing.T) {
 		t.Error("Expected resolve error")
 	}
 }
+
+func TestUDPClient_Batches(t *testing.T) {
+	var logger writeLogger
+	var cl udpclient
+
+	cl.conn = &logger
+	cl.payloadSize = 20 // should allow for two points per batch
+
+	// expected point should look like this: "cpu a=1i"
+	fields := map[string]interface{}{"a": 1}
+
+	p, _ := NewPoint("cpu", nil, fields, time.Time{})
+
+	bp, _ := NewBatchPoints(BatchPointsConfig{})
+
+	for i := 0; i < 9; i++ {
+		bp.AddPoint(p)
+	}
+
+	if err := cl.Write(bp); err != nil {
+		t.Fatalf("Unexpected error during Write: %v", err)
+	}
+
+	if len(logger.writes) != 5 {
+		t.Errorf("Mismatched write count: got %v, exp %v", len(logger.writes), 5)
+	}
+}
+
+func TestUDPClient_Split(t *testing.T) {
+	var logger writeLogger
+	var cl udpclient
+
+	cl.conn = &logger
+	cl.payloadSize = 1 // force one field per point
+
+	fields := map[string]interface{}{"a": 1, "b": 2, "c": 3, "d": 4}
+
+	p, _ := NewPoint("cpu", nil, fields, time.Unix(1, 0))
+
+	bp, _ := NewBatchPoints(BatchPointsConfig{})
+
+	bp.AddPoint(p)
+
+	if err := cl.Write(bp); err != nil {
+		t.Fatalf("Unexpected error during Write: %v", err)
+	}
+
+	if len(logger.writes) != len(fields) {
+		t.Errorf("Mismatched write count: got %v, exp %v", len(logger.writes), len(fields))
+	}
+}
+
+type writeLogger struct {
+	writes [][]byte
+}
+
+func (w *writeLogger) Write(b []byte) (int, error) {
+	w.writes = append(w.writes, append([]byte(nil), b...))
+	return len(b), nil
+}
+
+func (w *writeLogger) Close() error { return nil }
 
 func TestClient_Query(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -136,6 +199,54 @@ func TestClient_Ping(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected error.  expected %v, actual %v", nil, err)
 	}
+}
+
+func TestClient_Concurrent_Use(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{}`))
+	}))
+	defer ts.Close()
+
+	config := HTTPConfig{Addr: ts.URL}
+	c, _ := NewHTTPClient(config)
+	defer c.Close()
+
+	var wg sync.WaitGroup
+	wg.Add(3)
+	n := 1000
+
+	go func() {
+		defer wg.Done()
+		bp, err := NewBatchPoints(BatchPointsConfig{})
+		if err != nil {
+			t.Errorf("got error %v", err)
+		}
+
+		for i := 0; i < n; i++ {
+			if err = c.Write(bp); err != nil {
+				t.Fatalf("got error %v", err)
+			}
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		var q Query
+		for i := 0; i < n; i++ {
+			if _, err := c.Query(q); err != nil {
+				t.Fatalf("got error %v", err)
+			}
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		for i := 0; i < n; i++ {
+			c.Ping(time.Second)
+		}
+	}()
+	wg.Wait()
 }
 
 func TestClient_Write(t *testing.T) {

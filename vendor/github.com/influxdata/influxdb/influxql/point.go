@@ -3,15 +3,18 @@ package influxql
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"io"
+	"math"
 	"sort"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/influxdata/influxdb/influxql/internal"
+	internal "github.com/influxdata/influxdb/influxql/internal"
 )
 
-// ZeroTime is the Unix nanosecond timestamp for time.Time{}.
-const ZeroTime = int64(-6795364578871345152)
+// ZeroTime is the Unix nanosecond timestamp for no time.
+// This time is not used by the query engine or the storage engine as a valid time.
+const ZeroTime = int64(math.MinInt64)
 
 // Point represents a value in a series that occurred at a given time.
 type Point interface {
@@ -31,6 +34,31 @@ type Point interface {
 
 // Points represents a list of points.
 type Points []Point
+
+// Clone returns a deep copy of a.
+func (a Points) Clone() []Point {
+	other := make([]Point, len(a))
+	for i, p := range a {
+		if p == nil {
+			other[i] = nil
+			continue
+		}
+
+		switch p := p.(type) {
+		case *FloatPoint:
+			other[i] = p.Clone()
+		case *IntegerPoint:
+			other[i] = p.Clone()
+		case *StringPoint:
+			other[i] = p.Clone()
+		case *BooleanPoint:
+			other[i] = p.Clone()
+		default:
+			panic(fmt.Sprintf("unable to clone point: %T", p))
+		}
+	}
+	return other
+}
 
 // Tags represent a map of keys and values.
 // It memoizes its key so it can be used efficiently during query execution.
@@ -89,7 +117,7 @@ func (t *Tags) Value(k string) string {
 
 // Subset returns a new tags object with a subset of the keys.
 func (t *Tags) Subset(keys []string) Tags {
-	if t.m == nil || len(keys) == 0 {
+	if len(keys) == 0 {
 		return Tags{}
 	}
 
@@ -179,11 +207,12 @@ func decodeTags(id []byte) map[string]string {
 	if len(a) == 0 {
 		return nil
 	}
+	mid := len(a) / 2
 
 	// Decode key/value tags.
 	m := make(map[string]string)
-	for i := 0; i < len(a); i += 2 {
-		m[string(a[i])] = string(a[i+1])
+	for i := 0; i < mid; i++ {
+		m[string(a[i])] = string(a[i+mid])
 	}
 	return m
 }
@@ -254,7 +283,7 @@ func decodeAux(pb []*internal.Aux) []interface{} {
 	return aux
 }
 
-// NewPointDecoder decodes generic points from a reader.
+// PointDecoder decodes generic points from a reader.
 type PointDecoder struct {
 	r     io.Reader
 	stats IteratorStats

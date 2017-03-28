@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"mime"
 	"net/http"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -128,8 +127,10 @@ type GenericAPIServer struct {
 
 	// Map storing information about all groups to be exposed in discovery response.
 	// The map is from name to the group.
+	// The slice preserves group name insertion order.
 	apiGroupsForDiscoveryLock sync.RWMutex
 	apiGroupsForDiscovery     map[string]metav1.APIGroup
+	apiGroupNamesForDiscovery []string
 
 	// Enable swagger and/or OpenAPI if these configs are non-nil.
 	swaggerConfig *swagger.Config
@@ -189,18 +190,43 @@ func (s *GenericAPIServer) PrepareRun() preparedGenericAPIServer {
 
 // Run spawns the http servers (secure and insecure). It only returns if stopCh is closed
 // or one of the ports cannot be listened on initially.
-func (s preparedGenericAPIServer) Run(stopCh <-chan struct{}) {
+func (s preparedGenericAPIServer) Run(stopCh <-chan struct{}) error {
+	err := s.NonBlockingRun(stopCh)
+	if err != nil {
+		return err
+	}
+
+	<-stopCh
+	return nil
+}
+
+// NonBlockingRun spawns the http servers (secure and insecure). An error is
+// returned if either of the ports cannot be listened on.
+func (s preparedGenericAPIServer) NonBlockingRun(stopCh <-chan struct{}) error {
+	// Use an internal stop channel to allow cleanup of the listeners on error.
+	internalStopCh := make(chan struct{})
+
 	if s.SecureServingInfo != nil && s.Handler != nil {
-		if err := s.serveSecurely(stopCh); err != nil {
-			glog.Fatal(err)
+		if err := s.serveSecurely(internalStopCh); err != nil {
+			close(internalStopCh)
+			return err
 		}
 	}
 
 	if s.InsecureServingInfo != nil && s.InsecureHandler != nil {
-		if err := s.serveInsecurely(stopCh); err != nil {
-			glog.Fatal(err)
+		if err := s.serveInsecurely(internalStopCh); err != nil {
+			close(internalStopCh)
+			return err
 		}
 	}
+
+	// Now that both listeners have bound successfully, it is the
+	// responsibility of the caller to close the provided channel to
+	// ensure cleanup.
+	go func() {
+		<-stopCh
+		close(internalStopCh)
+	}()
 
 	s.RunPostStartHooks()
 
@@ -209,7 +235,7 @@ func (s preparedGenericAPIServer) Run(stopCh <-chan struct{}) {
 		glog.Errorf("Unable to send systemd daemon successful start message: %v\n", err)
 	}
 
-	<-stopCh
+	return nil
 }
 
 // EffectiveSecurePort returns the secure port we bound to.
@@ -309,12 +335,27 @@ func (s *GenericAPIServer) AddAPIGroupForDiscovery(apiGroup metav1.APIGroup) {
 	s.apiGroupsForDiscoveryLock.Lock()
 	defer s.apiGroupsForDiscoveryLock.Unlock()
 
+	// Insert the group into the ordered list if it is not already present
+	if _, exists := s.apiGroupsForDiscovery[apiGroup.Name]; !exists {
+		s.apiGroupNamesForDiscovery = append(s.apiGroupNamesForDiscovery, apiGroup.Name)
+	}
+
 	s.apiGroupsForDiscovery[apiGroup.Name] = apiGroup
 }
 
 func (s *GenericAPIServer) RemoveAPIGroupForDiscovery(groupName string) {
 	s.apiGroupsForDiscoveryLock.Lock()
 	defer s.apiGroupsForDiscoveryLock.Unlock()
+
+	// Remove the group from the ordered list
+	// https://github.com/golang/go/wiki/SliceTricks#filtering-without-allocating
+	newOrder := s.apiGroupNamesForDiscovery[:0]
+	for _, orderedGroupName := range s.apiGroupNamesForDiscovery {
+		if orderedGroupName != groupName {
+			newOrder = append(newOrder, orderedGroupName)
+		}
+	}
+	s.apiGroupNamesForDiscovery = newOrder
 
 	delete(s.apiGroupsForDiscovery, groupName)
 }
@@ -335,12 +376,14 @@ func (s *GenericAPIServer) newAPIGroupVersion(apiGroupInfo *APIGroupInfo, groupV
 		GroupVersion:     groupVersion,
 		MetaGroupVersion: apiGroupInfo.MetaGroupVersion,
 
-		ParameterCodec: apiGroupInfo.ParameterCodec,
-		Serializer:     apiGroupInfo.NegotiatedSerializer,
-		Creater:        apiGroupInfo.Scheme,
-		Convertor:      apiGroupInfo.Scheme,
-		Copier:         apiGroupInfo.Scheme,
-		Typer:          apiGroupInfo.Scheme,
+		ParameterCodec:  apiGroupInfo.ParameterCodec,
+		Serializer:      apiGroupInfo.NegotiatedSerializer,
+		Creater:         apiGroupInfo.Scheme,
+		Convertor:       apiGroupInfo.Scheme,
+		UnsafeConvertor: runtime.UnsafeObjectConvertor(apiGroupInfo.Scheme),
+		Copier:          apiGroupInfo.Scheme,
+		Defaulter:       apiGroupInfo.Scheme,
+		Typer:           apiGroupInfo.Scheme,
 		SubresourceGroupVersionKind: apiGroupInfo.SubresourceGroupVersionKind,
 		Linker: apiGroupInfo.GroupMeta.SelfLinker,
 		Mapper: apiGroupInfo.GroupMeta.RESTMapper,
@@ -358,14 +401,10 @@ func (s *GenericAPIServer) DynamicApisDiscovery() *restful.WebService {
 		s.apiGroupsForDiscoveryLock.RLock()
 		defer s.apiGroupsForDiscoveryLock.RUnlock()
 
-		// sort to have a deterministic order
 		sortedGroups := []metav1.APIGroup{}
-		groupNames := make([]string, 0, len(s.apiGroupsForDiscovery))
-		for groupName := range s.apiGroupsForDiscovery {
-			groupNames = append(groupNames, groupName)
-		}
-		sort.Strings(groupNames)
-		for _, groupName := range groupNames {
+
+		// ranging over apiGroupNamesForDiscovery preserves the registration order
+		for _, groupName := range s.apiGroupNamesForDiscovery {
 			sortedGroups = append(sortedGroups, s.apiGroupsForDiscovery[groupName])
 		}
 

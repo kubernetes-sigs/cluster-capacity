@@ -3,8 +3,6 @@ package meta
 import (
 	"errors"
 	"time"
-
-	"github.com/influxdata/influxdb/toml"
 )
 
 const (
@@ -21,16 +19,12 @@ type Config struct {
 
 	RetentionAutoCreate bool `toml:"retention-autocreate"`
 	LoggingEnabled      bool `toml:"logging-enabled"`
-	PprofEnabled        bool `toml:"pprof-enabled"`
-
-	LeaseDuration toml.Duration `toml:"lease-duration"`
 }
 
 // NewConfig builds a new configuration with default values.
 func NewConfig() *Config {
 	return &Config{
 		RetentionAutoCreate: true,
-		LeaseDuration:       toml.Duration(DefaultLeaseDuration),
 		LoggingEnabled:      DefaultLoggingEnabled,
 	}
 }

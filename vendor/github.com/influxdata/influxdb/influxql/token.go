@@ -17,6 +17,7 @@ const (
 	literalBeg
 	// IDENT and the following are InfluxQL literal tokens.
 	IDENT       // main
+	BOUNDPARAM  // $param
 	NUMBER      // 12345.67
 	INTEGER     // 12345
 	DURATIONVAL // 13h
@@ -49,12 +50,13 @@ const (
 	GTE      // >=
 	operatorEnd
 
-	LPAREN    // (
-	RPAREN    // )
-	COMMA     // ,
-	COLON     // :
-	SEMICOLON // ;
-	DOT       // .
+	LPAREN      // (
+	RPAREN      // )
+	COMMA       // ,
+	COLON       // :
+	DOUBLECOLON // ::
+	SEMICOLON   // ;
+	DOT         // .
 
 	keywordBeg
 	// ALL and the following are InfluxQL Keywords
@@ -67,7 +69,6 @@ const (
 	BY
 	CREATE
 	CONTINUOUS
-	DATA
 	DATABASE
 	DATABASES
 	DEFAULT
@@ -80,31 +81,25 @@ const (
 	DURATION
 	END
 	EVERY
-	EXISTS
 	EXPLAIN
 	FIELD
 	FOR
-	FORCE
 	FROM
 	GRANT
 	GRANTS
 	GROUP
 	GROUPS
-	IF
 	IN
 	INF
-	INNER
 	INSERT
 	INTO
 	KEY
 	KEYS
 	KILL
 	LIMIT
-	META
 	MEASUREMENT
 	MEASUREMENTS
 	NAME
-	NOT
 	OFFSET
 	ON
 	ORDER
@@ -121,8 +116,6 @@ const (
 	REVOKE
 	SELECT
 	SERIES
-	SERVER
-	SERVERS
 	SET
 	SHOW
 	SHARD
@@ -175,12 +168,13 @@ var tokens = [...]string{
 	GT:       ">",
 	GTE:      ">=",
 
-	LPAREN:    "(",
-	RPAREN:    ")",
-	COMMA:     ",",
-	COLON:     ":",
-	SEMICOLON: ";",
-	DOT:       ".",
+	LPAREN:      "(",
+	RPAREN:      ")",
+	COMMA:       ",",
+	COLON:       ":",
+	DOUBLECOLON: "::",
+	SEMICOLON:   ";",
+	DOT:         ".",
 
 	ALL:           "ALL",
 	ALTER:         "ALTER",
@@ -191,7 +185,6 @@ var tokens = [...]string{
 	BY:            "BY",
 	CREATE:        "CREATE",
 	CONTINUOUS:    "CONTINUOUS",
-	DATA:          "DATA",
 	DATABASE:      "DATABASE",
 	DATABASES:     "DATABASES",
 	DEFAULT:       "DEFAULT",
@@ -204,20 +197,16 @@ var tokens = [...]string{
 	DURATION:      "DURATION",
 	END:           "END",
 	EVERY:         "EVERY",
-	EXISTS:        "EXISTS",
 	EXPLAIN:       "EXPLAIN",
 	FIELD:         "FIELD",
 	FOR:           "FOR",
-	FORCE:         "FORCE",
 	FROM:          "FROM",
 	GRANT:         "GRANT",
 	GRANTS:        "GRANTS",
 	GROUP:         "GROUP",
 	GROUPS:        "GROUPS",
-	IF:            "IF",
 	IN:            "IN",
 	INF:           "INF",
-	INNER:         "INNER",
 	INSERT:        "INSERT",
 	INTO:          "INTO",
 	KEY:           "KEY",
@@ -226,9 +215,7 @@ var tokens = [...]string{
 	LIMIT:         "LIMIT",
 	MEASUREMENT:   "MEASUREMENT",
 	MEASUREMENTS:  "MEASUREMENTS",
-	META:          "META",
 	NAME:          "NAME",
-	NOT:           "NOT",
 	OFFSET:        "OFFSET",
 	ON:            "ON",
 	ORDER:         "ORDER",
@@ -245,8 +232,6 @@ var tokens = [...]string{
 	REVOKE:        "REVOKE",
 	SELECT:        "SELECT",
 	SERIES:        "SERIES",
-	SERVER:        "SERVER",
-	SERVERS:       "SERVERS",
 	SET:           "SET",
 	SHOW:          "SHOW",
 	SHARD:         "SHARD",

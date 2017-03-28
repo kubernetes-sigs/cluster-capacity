@@ -43,8 +43,17 @@ type IntegerEncoder struct {
 	values []uint64
 }
 
-func NewIntegerEncoder() IntegerEncoder {
-	return IntegerEncoder{rle: true}
+func NewIntegerEncoder(sz int) IntegerEncoder {
+	return IntegerEncoder{
+		rle:    true,
+		values: make([]uint64, 0, sz),
+	}
+}
+
+func (e *IntegerEncoder) Reset() {
+	e.prev = 0
+	e.rle = true
+	e.values = e.values[:0]
 }
 
 func (e *IntegerEncoder) Write(v int64) {
@@ -77,8 +86,9 @@ func (e *IntegerEncoder) Bytes() ([]byte, error) {
 }
 
 func (e *IntegerEncoder) encodeRLE() ([]byte, error) {
-	// Large varints can take up to 10 bytes
-	b := make([]byte, 1+10*3)
+	// Large varints can take up to 10 bytes.  We're storing 3 + 1
+	// type byte.
+	var b [31]byte
 
 	// 4 high bits used for the encoding type
 	b[0] = byte(intCompressedRLE) << 4
@@ -138,7 +148,8 @@ func (e *IntegerEncoder) encodeUncompressed() ([]byte, error) {
 
 // IntegerDecoder decodes a byte slice into int64s.
 type IntegerDecoder struct {
-	values []uint64
+	// 240 is the maximum number of values that can be encoded into a single uint64 using simple8b
+	values [240]uint64
 	bytes  []byte
 	i      int
 	n      int
@@ -154,24 +165,23 @@ type IntegerDecoder struct {
 	err      error
 }
 
-func NewIntegerDecoder(b []byte) IntegerDecoder {
-	d := IntegerDecoder{
-		// 240 is the maximum number of values that can be encoded into a single uint64 using simple8b
-		values: make([]uint64, 240),
-	}
-
-	d.SetBytes(b)
-	return d
-}
-
 func (d *IntegerDecoder) SetBytes(b []byte) {
 	if len(b) > 0 {
 		d.encoding = b[0] >> 4
 		d.bytes = b[1:]
+	} else {
+		d.encoding = 0
+		d.bytes = nil
 	}
-	d.first = true
+
 	d.i = 0
 	d.n = 0
+	d.prev = 0
+	d.first = true
+
+	d.rleFirst = 0
+	d.rleDelta = 0
+	d.err = nil
 }
 
 func (d *IntegerDecoder) Next() bool {
@@ -193,7 +203,7 @@ func (d *IntegerDecoder) Next() bool {
 			d.err = fmt.Errorf("unknown encoding %v", d.encoding)
 		}
 	}
-	return d.i < d.n
+	return d.err == nil && d.i < d.n
 }
 
 func (d *IntegerDecoder) Error() error {
@@ -203,7 +213,7 @@ func (d *IntegerDecoder) Error() error {
 func (d *IntegerDecoder) Read() int64 {
 	switch d.encoding {
 	case intCompressedRLE:
-		return ZigZagDecode(d.rleFirst + uint64(d.i)*d.rleDelta)
+		return ZigZagDecode(d.rleFirst) + int64(d.i)*ZigZagDecode(d.rleDelta)
 	default:
 		v := ZigZagDecode(d.values[d.i])
 		// v is the delta encoded value, we need to add the prior value to get the original
@@ -219,6 +229,11 @@ func (d *IntegerDecoder) decodeRLE() {
 		return
 	}
 
+	if len(d.bytes) < 8 {
+		d.err = fmt.Errorf("IntegerDecoder: not enough data to decode RLE starting value")
+		return
+	}
+
 	var i, n int
 
 	// Next 8 bytes is the starting value
@@ -227,11 +242,18 @@ func (d *IntegerDecoder) decodeRLE() {
 
 	// Next 1-10 bytes is the delta value
 	value, n := binary.Uvarint(d.bytes[i:])
-
+	if n <= 0 {
+		d.err = fmt.Errorf("IntegerDecoder: invalid RLE delta value")
+		return
+	}
 	i += n
 
 	// Last 1-10 bytes is how many times the value repeats
 	count, n := binary.Uvarint(d.bytes[i:])
+	if n <= 0 {
+		d.err = fmt.Errorf("IntegerDecoder: invalid RLE repeat value")
+		return
+	}
 
 	// Store the first value and delta value so we do not need to allocate
 	// a large values slice.  We can compute the value at position d.i on
@@ -250,6 +272,11 @@ func (d *IntegerDecoder) decodePacked() {
 		return
 	}
 
+	if len(d.bytes) < 8 {
+		d.err = fmt.Errorf("IntegerDecoder: not enough data to decode packed value")
+		return
+	}
+
 	v := binary.BigEndian.Uint64(d.bytes[0:8])
 	// The first value is always unencoded
 	if d.first {
@@ -257,7 +284,7 @@ func (d *IntegerDecoder) decodePacked() {
 		d.n = 1
 		d.values[0] = v
 	} else {
-		n, err := simple8b.Decode(d.values, v)
+		n, err := simple8b.Decode(&d.values, v)
 		if err != nil {
 			// Should never happen, only error that could be returned is if the the value to be decoded was not
 			// actually encoded by simple8b encoder.
@@ -272,6 +299,11 @@ func (d *IntegerDecoder) decodePacked() {
 
 func (d *IntegerDecoder) decodeUncompressed() {
 	if len(d.bytes) == 0 {
+		return
+	}
+
+	if len(d.bytes) < 8 {
+		d.err = fmt.Errorf("IntegerDecoder: not enough data to decode uncompressed value")
 		return
 	}
 

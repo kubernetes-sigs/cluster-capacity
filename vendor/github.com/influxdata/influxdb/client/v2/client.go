@@ -7,18 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"net/url"
 	"time"
 
 	"github.com/influxdata/influxdb/models"
-)
-
-// UDPPayloadSize is a reasonable default payload size for UDP packets that
-// could be travelling over the internet.
-const (
-	UDPPayloadSize = 512
 )
 
 // HTTPConfig is the config data needed to create an HTTP Client
@@ -48,17 +41,6 @@ type HTTPConfig struct {
 	TLSConfig *tls.Config
 }
 
-// UDPConfig is the config data needed to create a UDP Client
-type UDPConfig struct {
-	// Addr should be of the form "host:port"
-	// or "[ipv6-host%zone]:port".
-	Addr string
-
-	// PayloadSize is the maximum size of a UDP client message, optional
-	// Tune this based on your network. Defaults to UDPBufferSize.
-	PayloadSize int
-}
-
 // BatchPointsConfig is the config data needed to create an instance of the BatchPoints struct
 type BatchPointsConfig struct {
 	// Precision is the write precision of the points, defaults to "ns"
@@ -76,7 +58,8 @@ type BatchPointsConfig struct {
 
 // Client is a client interface for writing & querying the database
 type Client interface {
-	// Ping checks that status of cluster
+	// Ping checks that status of cluster, and will always return 0 time and no
+	// error for UDP clients
 	Ping(timeout time.Duration) (time.Duration, string, error)
 
 	// Write takes a BatchPoints object and writes all Points to InfluxDB.
@@ -90,7 +73,8 @@ type Client interface {
 	Close() error
 }
 
-// NewHTTPClient creates a client interface from the given config.
+// NewHTTPClient returns a new Client from the provided config.
+// Client is safe for concurrent use by multiple goroutines.
 func NewHTTPClient(conf HTTPConfig) (Client, error) {
 	if conf.UserAgent == "" {
 		conf.UserAgent = "InfluxDBClient"
@@ -114,7 +98,7 @@ func NewHTTPClient(conf HTTPConfig) (Client, error) {
 		tr.TLSClientConfig = conf.TLSConfig
 	}
 	return &client{
-		url:       u,
+		url:       *u,
 		username:  conf.Username,
 		password:  conf.Password,
 		useragent: conf.UserAgent,
@@ -122,6 +106,7 @@ func NewHTTPClient(conf HTTPConfig) (Client, error) {
 			Timeout:   conf.Timeout,
 			Transport: tr,
 		},
+		transport: tr,
 	}, nil
 }
 
@@ -171,56 +156,21 @@ func (c *client) Ping(timeout time.Duration) (time.Duration, string, error) {
 
 // Close releases the client's resources.
 func (c *client) Close() error {
+	c.transport.CloseIdleConnections()
 	return nil
 }
 
-// NewUDPClient returns a client interface for writing to an InfluxDB UDP
-// service from the given config.
-func NewUDPClient(conf UDPConfig) (Client, error) {
-	var udpAddr *net.UDPAddr
-	udpAddr, err := net.ResolveUDPAddr("udp", conf.Addr)
-	if err != nil {
-		return nil, err
-	}
-
-	conn, err := net.DialUDP("udp", nil, udpAddr)
-	if err != nil {
-		return nil, err
-	}
-
-	payloadSize := conf.PayloadSize
-	if payloadSize == 0 {
-		payloadSize = UDPPayloadSize
-	}
-
-	return &udpclient{
-		conn:        conn,
-		payloadSize: payloadSize,
-	}, nil
-}
-
-// Ping will check to see if the server is up with an optional timeout on waiting for leader.
-// Ping returns how long the request took, the version of the server it connected to, and an error if one occurred.
-func (uc *udpclient) Ping(timeout time.Duration) (time.Duration, string, error) {
-	return 0, "", nil
-}
-
-// Close releases the udpclient's resources.
-func (uc *udpclient) Close() error {
-	return uc.conn.Close()
-}
-
+// client is safe for concurrent use as the fields are all read-only
+// once the client is instantiated.
 type client struct {
-	url        *url.URL
+	// N.B - if url.UserInfo is accessed in future modifications to the
+	// methods on client, you will need to syncronise access to url.
+	url        url.URL
 	username   string
 	password   string
 	useragent  string
 	httpClient *http.Client
-}
-
-type udpclient struct {
-	conn        *net.UDPConn
-	payloadSize int
+	transport  *http.Transport
 }
 
 // BatchPoints is an interface into a batched grouping of points to write into
@@ -348,7 +298,7 @@ func NewPoint(
 		T = t[0]
 	}
 
-	pt, err := models.NewPoint(name, tags, fields, T)
+	pt, err := models.NewPoint(name, models.NewTags(tags), fields, T)
 	if err != nil {
 		return nil, err
 	}
@@ -374,7 +324,7 @@ func (p *Point) Name() string {
 
 // Tags returns the tags associated with the point
 func (p *Point) Tags() map[string]string {
-	return p.pt.Tags()
+	return p.pt.Tags().Map()
 }
 
 // Time return the timestamp for the point
@@ -395,31 +345,6 @@ func (p *Point) Fields() map[string]interface{} {
 // NewPointFrom returns a point from the provided models.Point.
 func NewPointFrom(pt models.Point) *Point {
 	return &Point{pt: pt}
-}
-
-func (uc *udpclient) Write(bp BatchPoints) error {
-	var b bytes.Buffer
-	var d time.Duration
-	d, _ = time.ParseDuration("1" + bp.Precision())
-
-	for _, p := range bp.Points() {
-		pointstring := p.pt.RoundedString(d) + "\n"
-
-		// Write and reset the buffer if we reach the max size
-		if b.Len()+len(pointstring) >= uc.payloadSize {
-			if _, err := uc.conn.Write(b.Bytes()); err != nil {
-				return err
-			}
-			b.Reset()
-		}
-
-		if _, err := b.WriteString(pointstring); err != nil {
-			return err
-		}
-	}
-
-	_, err := uc.conn.Write(b.Bytes())
-	return err
 }
 
 func (c *client) Write(bp BatchPoints) error {
@@ -511,14 +436,17 @@ func (r *Response) Error() error {
 	return nil
 }
 
-// Result represents a resultset returned from a single statement.
-type Result struct {
-	Series []models.Row
-	Err    string `json:"error,omitempty"`
+// Message represents a user message.
+type Message struct {
+	Level string
+	Text  string
 }
 
-func (uc *udpclient) Query(q Query) (*Response, error) {
-	return nil, fmt.Errorf("Querying via UDP is not supported")
+// Result represents a resultset returned from a single statement.
+type Result struct {
+	Series   []models.Row
+	Messages []*Message
+	Err      string `json:"error,omitempty"`
 }
 
 // Query sends a command to the server and returns the Response
@@ -526,7 +454,7 @@ func (c *client) Query(q Query) (*Response, error) {
 	u := c.url
 	u.Path = "query"
 
-	req, err := http.NewRequest("GET", u.String(), nil)
+	req, err := http.NewRequest("POST", u.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -561,7 +489,7 @@ func (c *client) Query(q Query) (*Response, error) {
 	}
 	// If we got a valid decode error, send that back
 	if decErr != nil {
-		return nil, decErr
+		return nil, fmt.Errorf("unable to decode json: received status code %d err: %s", resp.StatusCode, decErr)
 	}
 	// If we don't have an error in our json response, and didn't get statusOK
 	// then send back an error

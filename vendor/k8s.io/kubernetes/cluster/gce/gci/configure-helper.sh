@@ -48,6 +48,13 @@ function config-ip-firewall {
     iptables -A FORWARD -w -p UDP -j ACCEPT
     iptables -A FORWARD -w -p ICMP -j ACCEPT
   fi
+
+  iptables -N KUBE-METADATA-SERVER
+  iptables -A FORWARD -p tcp -d 169.254.169.254 --dport 80 -j KUBE-METADATA-SERVER
+
+  if [[ -n "${KUBE_FIREWALL_METADATA_SERVER:-}" ]]; then
+    iptables -A KUBE-METADATA-SERVER -j DROP
+  fi
 }
 
 function create-dirs {
@@ -95,21 +102,6 @@ function ensure-local-ssds() {
 # Installs logrotate configuration files
 function setup-logrotate() {
   mkdir -p /etc/logrotate.d/
-  cat >/etc/logrotate.d/docker-containers <<EOF
-/var/lib/docker/containers/*/*-json.log {
-    rotate 5
-    copytruncate
-    missingok
-    notifempty
-    compress
-    maxsize 10M
-    daily
-    dateext
-    dateformat -%Y%m%d-%s
-    create 0644 root root
-}
-EOF
-
   # Configure log rotation for all logs in /var/log, which is where k8s services
   # are configured to write their log files. Whenever logrotate is ran, this
   # config will:
@@ -204,26 +196,101 @@ function replace_prefixed_line {
   echo "${prefix}${suffix}" >> "${file}"
 }
 
+function create-node-pki {
+  echo "Creating node pki files"
+
+  local -r pki_dir="/etc/srv/kubernetes/pki"
+  mkdir -p "${pki_dir}"
+
+  if [[ -z "${CA_CERT_BUNDLE:-}" ]]; then
+    CA_CERT_BUNDLE="${CA_CERT}"
+  fi
+
+  CA_CERT_BUNDLE_PATH="${pki_dir}/ca-certificates.crt"
+  echo "${CA_CERT_BUNDLE}" | base64 --decode > "${CA_CERT_BUNDLE_PATH}"
+
+  if [[ ! -z "${KUBELET_CERT:-}" && ! -z "${KUBELET_KEY:-}" ]]; then
+    KUBELET_CERT_PATH="${pki_dir}/kubelet.crt"
+    echo "${KUBELET_CERT}" | base64 --decode > "${KUBELET_CERT_PATH}"
+
+    KUBELET_KEY_PATH="${pki_dir}/kubelet.key"
+    echo "${KUBELET_KEY}" | base64 --decode > "${KUBELET_KEY_PATH}"
+  fi
+
+  # TODO(mikedanese): remove this when we don't support downgrading to versions
+  # < 1.6.
+  ln -sf "${CA_CERT_BUNDLE_PATH}" /etc/srv/kubernetes/ca.crt
+}
+
+function create-master-pki {
+  echo "Creating master pki files"
+
+  local -r pki_dir="/etc/srv/kubernetes/pki"
+  mkdir -p "${pki_dir}"
+
+  CA_CERT_PATH="${pki_dir}/ca.crt"
+  echo "${CA_CERT}" | base64 --decode > "${CA_CERT_PATH}"
+
+  # this is not true on GKE
+  if [[ ! -z "${CA_KEY:-}" ]]; then
+    CA_KEY_PATH="${pki_dir}/ca.key"
+    echo "${CA_KEY}" | base64 --decode > "${CA_KEY_PATH}"
+  fi
+
+  if [[ -z "${APISERVER_SERVER_CERT:-}" || -z "${APISERVER_SERVER_KEY:-}" ]]; then
+    APISERVER_SERVER_CERT="${MASTER_CERT}"
+    APISERVER_SERVER_KEY="${MASTER_KEY}"
+  fi
+
+  APISERVER_SERVER_CERT_PATH="${pki_dir}/apiserver.crt"
+  echo "${APISERVER_SERVER_CERT}" | base64 --decode > "${APISERVER_SERVER_CERT_PATH}"
+
+  APISERVER_SERVER_KEY_PATH="${pki_dir}/apiserver.key"
+  echo "${APISERVER_SERVER_KEY}" | base64 --decode > "${APISERVER_SERVER_KEY_PATH}"
+
+  if [[ -z "${APISERVER_CLIENT_CERT:-}" || -z "${APISERVER_CLIENT_KEY:-}" ]]; then
+    APISERVER_CLIENT_CERT="${KUBEAPISERVER_CERT}"
+    APISERVER_CLIENT_KEY="${KUBEAPISERVER_KEY}"
+  fi
+
+  APISERVER_CLIENT_CERT_PATH="${pki_dir}/apiserver-client.crt"
+  echo "${APISERVER_CLIENT_CERT}" | base64 --decode > "${APISERVER_CLIENT_CERT_PATH}"
+
+  APISERVER_CLIENT_KEY_PATH="${pki_dir}/apiserver-client.key"
+  echo "${APISERVER_CLIENT_KEY}" | base64 --decode > "${APISERVER_CLIENT_KEY_PATH}"
+
+  if [[ -z "${SERVICEACCOUNT_CERT:-}" || -z "${SERVICEACCOUNT_KEY:-}" ]]; then
+    SERVICEACCOUNT_CERT="${MASTER_CERT}"
+    SERVICEACCOUNT_KEY="${MASTER_KEY}"
+  fi
+
+  SERVICEACCOUNT_CERT_PATH="${pki_dir}/serviceaccount.crt"
+  echo "${SERVICEACCOUNT_CERT}" | base64 --decode > "${SERVICEACCOUNT_CERT_PATH}"
+
+  SERVICEACCOUNT_KEY_PATH="${pki_dir}/serviceaccount.key"
+  echo "${SERVICEACCOUNT_KEY}" | base64 --decode > "${SERVICEACCOUNT_KEY_PATH}"
+
+  # TODO(mikedanese): remove this when we don't support downgrading to versions
+  # < 1.6.
+  ln -sf "${APISERVER_SERVER_KEY_PATH}" /etc/srv/kubernetes/server.key
+  ln -sf "${APISERVER_SERVER_CERT_PATH}" /etc/srv/kubernetes/server.cert
+}
+
 # After the first boot and on upgrade, these files exist on the master-pd
 # and should never be touched again (except perhaps an additional service
-# account, see NB below.)
+# account, see NB below.) One exception is if METADATA_CLOBBERS_CONFIG is
+# enabled. In that case the basic_auth.csv file will be rewritten to make
+# sure it matches the metadata source of truth. 
 function create-master-auth {
   echo "Creating master auth files"
   local -r auth_dir="/etc/srv/kubernetes"
-  if [[ ! -e "${auth_dir}/ca.crt" && ! -z "${CA_CERT:-}" && ! -z "${MASTER_CERT:-}" && ! -z "${MASTER_KEY:-}" ]]; then
-    echo "${CA_CERT}" | base64 --decode > "${auth_dir}/ca.crt"
-    echo "${MASTER_CERT}" | base64 --decode > "${auth_dir}/server.cert"
-    echo "${MASTER_KEY}" | base64 --decode > "${auth_dir}/server.key"
-  fi
-  if [[ ! -z "${CA_KEY:-}" ]]; then
-    echo "${CA_KEY}" | base64 --decode > "${auth_dir}/ca.key"
-  fi
-  if [ ! -e "${auth_dir}/kubeapiserver.cert" ] && [[ ! -z "${KUBEAPISERVER_CERT:-}" ]] && [[ ! -z "${KUBEAPISERVER_KEY:-}" ]]; then
-    echo "${KUBEAPISERVER_CERT}" | base64 --decode > "${auth_dir}/kubeapiserver.cert"
-    echo "${KUBEAPISERVER_KEY}" | base64 --decode > "${auth_dir}/kubeapiserver.key"
-  fi
   local -r basic_auth_csv="${auth_dir}/basic_auth.csv"
   if [[ -n "${KUBE_PASSWORD:-}" && -n "${KUBE_USER:-}" ]]; then
+    if [[ -e "${basic_auth_csv}" && "${METADATA_CLOBBERS_CONFIG:-false}" == "true" ]]; then
+      sed -i "/,${KUBE_USER},admin,system:masters$/d" "${basic_auth_csv}"
+      # The following is for the legacy form of the password line.
+      sed -i "/,${KUBE_USER},admin$/d" "${basic_auth_csv}"
+    fi
     replace_prefixed_line "${basic_auth_csv}" "${KUBE_PASSWORD},${KUBE_USER}," "admin,system:masters"
   fi
   local -r known_tokens_csv="${auth_dir}/known_tokens.csv"
@@ -237,7 +304,7 @@ function create-master-auth {
     replace_prefixed_line "${known_tokens_csv}" "${KUBE_SCHEDULER_TOKEN},"          "system:kube-scheduler,uid:system:kube-scheduler"
   fi
   if [[ -n "${KUBELET_TOKEN:-}" ]]; then
-    replace_prefixed_line "${known_tokens_csv}" "${KUBELET_TOKEN},"                 "system:node:node-name,uid:kubelet,system:nodes"
+    replace_prefixed_line "${known_tokens_csv}" "${KUBELET_TOKEN},"                 "kubelet,uid:kubelet,system:nodes"
   fi
   if [[ -n "${KUBE_PROXY_TOKEN:-}" ]]; then
     replace_prefixed_line "${known_tokens_csv}" "${KUBE_PROXY_TOKEN},"              "system:kube-proxy,uid:kube_proxy"
@@ -353,21 +420,18 @@ EOF
 
 function create-kubelet-kubeconfig {
   echo "Creating kubelet kubeconfig file"
-  if [[ -z "${KUBELET_CA_CERT:-}" ]]; then
-    KUBELET_CA_CERT="${CA_CERT}"
-  fi
   cat <<EOF >/var/lib/kubelet/kubeconfig
 apiVersion: v1
 kind: Config
 users:
 - name: kubelet
   user:
-    client-certificate-data: ${KUBELET_CERT}
-    client-key-data: ${KUBELET_KEY}
+    client-certificate: ${KUBELET_CERT_PATH}
+    client-key: ${KUBELET_KEY_PATH}
 clusters:
 - name: local
   cluster:
-    certificate-authority-data: ${KUBELET_CA_CERT}
+    certificate-authority: ${CA_CERT_BUNDLE_PATH}
 contexts:
 - context:
     cluster: local
@@ -375,7 +439,6 @@ contexts:
   name: service-account-context
 current-context: service-account-context
 EOF
-  echo "${KUBELET_CA_CERT}" | base64 -d > /var/lib/kubelet/ca.crt
 }
 
 # Uses KUBELET_CA_CERT (falling back to CA_CERT), KUBELET_CERT, and KUBELET_KEY
@@ -403,7 +466,7 @@ users:
 clusters:
 - name: local
   cluster:
-    certificate-authority-data: ${CA_CERT}
+    certificate-authority-data: ${CA_CERT_BUNDLE}
 contexts:
 - context:
     cluster: local
@@ -517,6 +580,11 @@ function assemble-docker-flags {
     docker_opts+=" --registry-mirror=${DOCKER_REGISTRY_MIRROR_URL}"
   fi
 
+  # Configure docker logging
+  docker_opts+=" --log-driver=${DOCKER_LOG_DRIVER:-json-file}"
+  docker_opts+=" --log-opt=max-size=${DOCKER_LOG_MAX_SIZE:-10m}"
+  docker_opts+=" --log-opt=max-file=${DOCKER_LOG_MAX_FILE:-5}"
+
   echo "DOCKER_OPTS=\"${docker_opts} ${EXTRA_DOCKER_OPTS:-}\"" > /etc/default/docker
 
   if [[ "${use_net_plugin}" == "true" ]]; then
@@ -604,7 +672,7 @@ function start-kubelet {
   flags+=" --cluster-dns=${DNS_SERVER_IP}"
   flags+=" --cluster-domain=${DNS_DOMAIN}"
   flags+=" --pod-manifest-path=/etc/kubernetes/manifests"
-  flags+=" --experimental-mounter-path=${KUBE_HOME}/bin/mounter"
+  flags+=" --experimental-mounter-path=${CONTAINERIZED_MOUNTER_HOME}/mounter"
   flags+=" --experimental-check-node-capabilities-before-mount=true"
 
   if [[ -n "${KUBELET_PORT:-}" ]]; then
@@ -616,7 +684,6 @@ function start-kubelet {
     if [[ "${REGISTER_MASTER_KUBELET:-false}" == "true" ]]; then
       flags+=" --api-servers=https://${KUBELET_APISERVER}"
       flags+=" --register-schedulable=false"
-      flags+=" --register-with-taints=node.alpha.kubernetes.io/ismaster=:NoSchedule"
     else
       # Standalone mode (not widely used?)
       flags+=" --pod-cidr=${MASTER_IP_RANGE}"
@@ -629,7 +696,7 @@ function start-kubelet {
        [[ "${HAIRPIN_MODE:-}" == "none" ]]; then
       flags+=" --hairpin-mode=${HAIRPIN_MODE}"
     fi
-    flags+=" --anonymous-auth=false --authorization-mode=Webhook --client-ca-file=/var/lib/kubelet/ca.crt"
+    flags+=" --anonymous-auth=false --authorization-mode=Webhook --client-ca-file=${CA_CERT_BUNDLE_PATH}"
   fi
   # Network plugin
   if [[ -n "${NETWORK_PROVIDER:-}" ]]; then
@@ -880,6 +947,18 @@ function compute-master-manifest-variables {
   fi
 }
 
+# A helper function that bind mounts kubelet dirs for running mount in a chroot
+function prepare-mounter-rootfs {
+  echo "Prepare containerized mounter"
+  mount --bind "${CONTAINERIZED_MOUNTER_HOME}" "${CONTAINERIZED_MOUNTER_HOME}"
+  mount -o remount,exec "${CONTAINERIZED_MOUNTER_HOME}"
+  CONTAINERIZED_MOUNTER_ROOTFS="${CONTAINERIZED_MOUNTER_HOME}/rootfs"
+  mount --rbind /var/lib/kubelet/ "${CONTAINERIZED_MOUNTER_ROOTFS}/var/lib/kubelet"
+  mount --make-rshared "${CONTAINERIZED_MOUNTER_ROOTFS}/var/lib/kubelet"
+  mount --bind -o ro /proc "${CONTAINERIZED_MOUNTER_ROOTFS}/proc"
+  mount --bind -o ro /dev "${CONTAINERIZED_MOUNTER_ROOTFS}/dev"
+}
+
 # A helper function for removing salt configuration and comments from a file.
 # This is mainly for preparing a manifest file.
 #
@@ -910,15 +989,15 @@ function start-kube-apiserver {
   params+=" --address=127.0.0.1"
   params+=" --allow-privileged=true"
   params+=" --cloud-provider=gce"
-  params+=" --client-ca-file=/etc/srv/kubernetes/ca.crt"
+  params+=" --client-ca-file=${CA_CERT_BUNDLE_PATH}"
   params+=" --etcd-servers=http://127.0.0.1:2379"
   params+=" --etcd-servers-overrides=/events#http://127.0.0.1:4002"
   params+=" --secure-port=443"
-  params+=" --tls-cert-file=/etc/srv/kubernetes/server.cert"
-  params+=" --tls-private-key-file=/etc/srv/kubernetes/server.key"
-  if [[ -e /etc/srv/kubernetes/kubeapiserver.cert ]] && [[ -e /etc/srv/kubernetes/kubeapiserver.key ]]; then
-    params+=" --kubelet-client-certificate=/etc/srv/kubernetes/kubeapiserver.cert"
-    params+=" --kubelet-client-key=/etc/srv/kubernetes/kubeapiserver.key"
+  params+=" --tls-cert-file=${APISERVER_SERVER_CERT_PATH}"
+  params+=" --tls-private-key-file=${APISERVER_SERVER_KEY_PATH}"
+  if [[ -e "${APISERVER_CLIENT_CERT_PATH}" ]] && [[ -e "${APISERVER_CLIENT_KEY_PATH}" ]]; then
+    params+=" --kubelet-client-certificate=${APISERVER_CLIENT_CERT_PATH}"
+    params+=" --kubelet-client-key=${APISERVER_CLIENT_KEY_PATH}"
   fi
   params+=" --token-auth-file=/etc/srv/kubernetes/known_tokens.csv"
   if [[ -n "${KUBE_PASSWORD:-}" && -n "${KUBE_USER:-}" ]]; then
@@ -1010,13 +1089,27 @@ function start-kube-apiserver {
 
 
   local authorization_mode="RBAC"
-  # Load existing ABAC policy files written by versions < 1.6 of this script
-  # TODO: only default to this legacy path when in upgrade mode
-  ABAC_AUTHZ_FILE="${ABAC_AUTHZ_FILE:-/etc/srv/kubernetes/abac-authz-policy.jsonl}"
-  if [[ -n "${ABAC_AUTHZ_FILE:-}" && -e "${ABAC_AUTHZ_FILE}" ]]; then
-    params+=" --authorization-policy-file=${ABAC_AUTHZ_FILE}"
+  local -r src_dir="${KUBE_HOME}/kube-manifests/kubernetes/gci-trusty"
+
+  # Enable ABAC mode unless the user explicitly opts out with ENABLE_LEGACY_ABAC=false
+  if [[ "${ENABLE_LEGACY_ABAC:-}" != "false" ]]; then  
+    echo "Warning: Enabling legacy ABAC policy. All service accounts will have superuser API access. Set ENABLE_LEGACY_ABAC=false to disable this."
+    # Create the ABAC file if it doesn't exist yet, or if we have a KUBE_USER set (to ensure the right user is given permissions)
+    if [[ -n "${KUBE_USER:-}" || ! -e /etc/srv/kubernetes/abac-authz-policy.jsonl ]]; then
+      local -r abac_policy_json="${src_dir}/abac-authz-policy.jsonl"
+      remove-salt-config-comments "${abac_policy_json}"
+      if [[ -n "${KUBE_USER:-}" ]]; then
+        sed -i -e "s/{{kube_user}}/${KUBE_USER}/g" "${abac_policy_json}"
+      else
+        sed -i -e "/{{kube_user}}/d" "${abac_policy_json}"
+      fi
+      cp "${abac_policy_json}" /etc/srv/kubernetes/
+    fi
+
+    params+=" --authorization-policy-file=/etc/srv/kubernetes/abac-authz-policy.jsonl"
     authorization_mode+=",ABAC"
   fi
+
   local webhook_config_mount=""
   local webhook_config_volume=""
   if [[ -n "${GCP_AUTHZ_URL:-}" ]]; then
@@ -1025,7 +1118,6 @@ function start-kube-apiserver {
     webhook_config_mount="{\"name\": \"webhookconfigmount\",\"mountPath\": \"/etc/gcp_authz.config\", \"readOnly\": false},"
     webhook_config_volume="{\"name\": \"webhookconfigmount\",\"hostPath\": {\"path\": \"/etc/gcp_authz.config\"}},"
   fi
-  local -r src_dir="${KUBE_HOME}/kube-manifests/kubernetes/gci-trusty"
   params+=" --authorization-mode=${authorization_mode}"
 
   local container_env=""
@@ -1079,8 +1171,8 @@ function start-kube-controller-manager {
   params+=" --use-service-account-credentials"
   params+=" --cloud-provider=gce"
   params+=" --kubeconfig=/etc/srv/kubernetes/kube-controller-manager/kubeconfig"
-  params+=" --root-ca-file=/etc/srv/kubernetes/ca.crt"
-  params+=" --service-account-private-key-file=/etc/srv/kubernetes/server.key"
+  params+=" --root-ca-file=${CA_CERT_BUNDLE_PATH}"
+  params+=" --service-account-private-key-file=${SERVICEACCOUNT_KEY_PATH}"
   if [[ -n "${ENABLE_GARBAGE_COLLECTOR:-}" ]]; then
     params+=" --enable-garbage-collector=${ENABLE_GARBAGE_COLLECTOR}"
   fi
@@ -1091,8 +1183,8 @@ function start-kube-controller-manager {
     params+=" --cluster-cidr=${CLUSTER_IP_RANGE}"
   fi
   if [[ -n "${CA_KEY:-}" ]]; then
-    params+=" --cluster-signing-cert-file=/etc/srv/kubernetes/ca.crt"
-    params+=" --cluster-signing-key-file=/etc/srv/kubernetes/ca.key"
+    params+=" --cluster-signing-cert-file=${CA_CERT_PATH}"
+    params+=" --cluster-signing-key-file=${CA_KEY_PATH}"
   fi
   if [[ -n "${SERVICE_CLUSTER_IP_RANGE:-}" ]]; then
     params+=" --service-cluster-ip-range=${SERVICE_CLUSTER_IP_RANGE}"
@@ -1431,15 +1523,11 @@ function override-kubectl {
     echo "export PATH=${KUBE_HOME}/bin:\$PATH" > /etc/profile.d/kube_env.sh
 }
 
-function pre-warm-mounter {
-    echo "prewarming mounter"
-    ${KUBE_HOME}/bin/mounter &> /dev/null
-}
-
 ########### Main Function ###########
 echo "Start to configure instance for kubernetes"
 
 KUBE_HOME="/home/kubernetes"
+CONTAINERIZED_MOUNTER_HOME="${KUBE_HOME}/containerized_mounter"
 if [[ ! -e "${KUBE_HOME}/kube-env" ]]; then
   echo "The ${KUBE_HOME}/kube-env file does not exist!! Terminate cluster initialization."
   exit 1
@@ -1470,10 +1558,13 @@ ensure-local-ssds
 setup-logrotate
 if [[ "${KUBERNETES_MASTER:-}" == "true" ]]; then
   mount-master-pd
+  create-node-pki
+  create-master-pki
   create-master-auth
   create-master-kubelet-auth
   create-master-etcd-auth
 else
+  create-node-pki
   create-kubelet-kubeconfig
   create-kubeproxy-kubeconfig
   if [[ "${ENABLE_NODE_PROBLEM_DETECTOR:-}" == "standalone" ]]; then
@@ -1483,7 +1574,6 @@ fi
 
 override-kubectl
 # Run the containerized mounter once to pre-cache the container image.
-pre-warm-mounter
 assemble-docker-flags
 load-docker-images
 start-kubelet
@@ -1514,4 +1604,5 @@ else
   fi
 fi
 reset-motd
+prepare-mounter-rootfs
 echo "Done for the configuration for kubernetes"

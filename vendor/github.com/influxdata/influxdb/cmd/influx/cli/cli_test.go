@@ -3,6 +3,7 @@ package cli_test
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -47,6 +48,7 @@ func TestRunCLI(t *testing.T) {
 	c.Host = h
 	c.Port, _ = strconv.Atoi(p)
 	c.IgnoreSignals = true
+	c.ForceTTY = true
 	go func() {
 		close(c.Quit)
 	}()
@@ -68,6 +70,7 @@ func TestRunCLI_ExecuteInsert(t *testing.T) {
 	c.Precision = "ms"
 	c.Execute = "INSERT sensor,floor=1 value=2"
 	c.IgnoreSignals = true
+	c.ForceTTY = true
 	if err := c.Run(); err != nil {
 		t.Fatalf("Run failed with error: %s", err)
 	}
@@ -272,7 +275,6 @@ func TestParseCommand_Use(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error.  expected %v, actual %v", nil, err)
 	}
-	m := cli.CommandLine{Client: c}
 
 	tests := []struct {
 		cmd string
@@ -286,12 +288,66 @@ func TestParseCommand_Use(t *testing.T) {
 	}
 
 	for _, test := range tests {
+		m := cli.CommandLine{Client: c}
 		if err := m.ParseCommand(test.cmd); err != nil {
 			t.Fatalf(`Got error %v for command %q, expected nil.`, err, test.cmd)
 		}
 
 		if m.Database != "db" {
 			t.Fatalf(`Command "use" changed database to %q. Expected db`, m.Database)
+		}
+	}
+}
+
+func TestParseCommand_UseAuth(t *testing.T) {
+	t.Parallel()
+	ts := emptyTestServer()
+	defer ts.Close()
+
+	u, _ := url.Parse(ts.URL)
+	tests := []struct {
+		cmd      string
+		user     string
+		database string
+	}{
+		{
+			cmd:      "use db",
+			user:     "admin",
+			database: "db",
+		},
+		{
+			cmd:      "use blank",
+			user:     "admin",
+			database: "",
+		},
+		{
+			cmd:      "use db",
+			user:     "anonymous",
+			database: "db",
+		},
+		{
+			cmd:      "use blank",
+			user:     "anonymous",
+			database: "blank",
+		},
+	}
+
+	for i, tt := range tests {
+		config := client.Config{URL: *u, Username: tt.user}
+		fmt.Println("using auth:", tt.user)
+		c, err := client.NewClient(config)
+		if err != nil {
+			t.Errorf("%d. unexpected error.  expected %v, actual %v", i, nil, err)
+			continue
+		}
+		m := cli.CommandLine{Client: c, Username: tt.user}
+
+		if err := m.ParseCommand(tt.cmd); err != nil {
+			t.Fatalf(`%d. Got error %v for command %q, expected nil.`, i, err, tt.cmd)
+		}
+
+		if m.Database != tt.database {
+			t.Fatalf(`%d. Command "use" changed database to %q. Expected %q`, i, m.Database, tt.database)
 		}
 	}
 }
@@ -490,6 +546,14 @@ func emptyTestServer() *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Influxdb-Version", SERVER_VERSION)
 
+		// Fake authorization entirely based on the username.
+		authorized := false
+		user, _, _ := r.BasicAuth()
+		switch user {
+		case "", "admin":
+			authorized = true
+		}
+
 		switch r.URL.Path {
 		case "/query":
 			values := r.URL.Query()
@@ -503,7 +567,12 @@ func emptyTestServer() *httptest.Server {
 
 			switch stmt.(type) {
 			case *influxql.ShowDatabasesStatement:
-				io.WriteString(w, `{"results":[{"series":[{"name":"databases","columns":["name"],"values":[["db"]]}]}]}`)
+				if authorized {
+					io.WriteString(w, `{"results":[{"series":[{"name":"databases","columns":["name"],"values":[["db"]]}]}]}`)
+				} else {
+					w.WriteHeader(http.StatusUnauthorized)
+					io.WriteString(w, fmt.Sprintf(`{"error":"error authorizing query: %s not authorized to execute statement 'SHOW DATABASES', requires admin privilege"}`, user))
+				}
 			case *influxql.ShowDiagnosticsStatement:
 				io.WriteString(w, `{"results":[{}]}`)
 			}

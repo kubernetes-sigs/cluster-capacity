@@ -59,7 +59,7 @@ fi
 # variable. Also please update corresponding image for node e2e at:
 # https://github.com/kubernetes/kubernetes/blob/master/test/e2e_node/jenkins/image-config.yaml
 CVM_VERSION=${CVM_VERSION:-container-vm-v20170214}
-GCI_VERSION=${KUBE_GCI_VERSION:-gci-beta-56-9000-80-0}
+GCI_VERSION=${KUBE_GCI_VERSION:-gci-stable-56-9000-84-2}
 MASTER_IMAGE=${KUBE_GCE_MASTER_IMAGE:-}
 MASTER_IMAGE_PROJECT=${KUBE_GCE_MASTER_PROJECT:-google-containers}
 NODE_IMAGE=${KUBE_GCE_NODE_IMAGE:-${CVM_VERSION}}
@@ -106,6 +106,13 @@ ENABLE_L7_LOADBALANCING="${KUBE_ENABLE_L7_LOADBALANCING:-glbc}"
 #   standalone     - Heapster only. Metrics available via Heapster REST API.
 ENABLE_CLUSTER_MONITORING="${KUBE_ENABLE_CLUSTER_MONITORING:-influxdb}"
 
+# Historically fluentd was a manifest pod and then was migrated to DaemonSet.
+# To avoid situation during cluster upgrade when there are two instances
+# of fluentd running on a node, kubelet need to mark node on which
+# fluentd is not running as a manifest pod with appropriate label.
+# TODO(piosz): remove this in 1.8
+NODE_LABELS="${KUBE_NODE_LABELS:-beta.kubernetes.io/fluentd-ds-ready=true}"
+
 # Optional: Enable node logging.
 ENABLE_NODE_LOGGING="${KUBE_ENABLE_NODE_LOGGING:-true}"
 LOGGING_DESTINATION="${KUBE_LOGGING_DESTINATION:-gcp}" # options: elasticsearch, gcp
@@ -148,7 +155,6 @@ ENABLE_CLUSTER_UI="${KUBE_ENABLE_CLUSTER_UI:-true}"
 #   standalone     - Run node problem detector as standalone system daemon.
 if [[ "${NODE_OS_DISTRIBUTION}" == "gci" ]]; then
   # Enable standalone mode by default for gci.
-  # TODO: Consider upgrade test.
   ENABLE_NODE_PROBLEM_DETECTOR="${KUBE_ENABLE_NODE_PROBLEM_DETECTOR:-standalone}"
 else
   ENABLE_NODE_PROBLEM_DETECTOR="${KUBE_ENABLE_NODE_PROBLEM_DETECTOR:-daemonset}"
@@ -167,7 +173,7 @@ ENABLE_RESCHEDULER="${KUBE_ENABLE_RESCHEDULER:-true}"
 
 # Admission Controllers to invoke prior to persisting objects in cluster
 # If we included ResourceQuota, we should keep it at the end of the list to prevent incrementing quota usage prematurely.
-ADMISSION_CONTROL=NamespaceLifecycle,LimitRanger,ServiceAccount,PersistentVolumeLabel,DefaultStorageClass,ResourceQuota
+ADMISSION_CONTROL=NamespaceLifecycle,LimitRanger,ServiceAccount,PersistentVolumeLabel,DefaultStorageClass,DefaultTolerationSeconds,ResourceQuota
 
 # Optional: if set to true kube-up will automatically check for existing resources and clean them up.
 KUBE_UP_AUTOMATIC_CLEANUP=${KUBE_UP_AUTOMATIC_CLEANUP:-false}
@@ -198,6 +204,13 @@ SCHEDULING_ALGORITHM_PROVIDER="${SCHEDULING_ALGORITHM_PROVIDER:-}"
 # Optional: install a default StorageClass
 ENABLE_DEFAULT_STORAGE_CLASS="${ENABLE_DEFAULT_STORAGE_CLASS:-true}"
 
+# Optional: Enable legacy ABAC policy that makes all service accounts superusers.
+ENABLE_LEGACY_ABAC="${ENABLE_LEGACY_ABAC:-true}" # true, false
+
 # TODO(dawn1107): Remove this once the flag is built into CVM image.
 # Kernel panic upon soft lockup issue
 SOFTLOCKUP_PANIC="${SOFTLOCKUP_PANIC:-false}" # true, false
+
+# Indicates if the values (eg. kube password) in metadata should be treated as
+# canonical, and therefore disk copies ought to be recreated/clobbered.
+METADATA_CLOBBERS_CONFIG=${METADATA_CLOBBERS_CONFIG:-false}

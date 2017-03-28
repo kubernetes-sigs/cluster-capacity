@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -36,7 +37,7 @@ type Service struct {
 
 	MetaClient interface {
 		encoding.BinaryMarshaler
-		Database(name string) (*meta.DatabaseInfo, error)
+		Database(name string) *meta.DatabaseInfo
 	}
 
 	TSDBStore *tsdb.Store
@@ -71,9 +72,10 @@ func (s *Service) Close() error {
 	return nil
 }
 
-// SetLogger sets the internal logger to the logger passed in.
-func (s *Service) SetLogger(l *log.Logger) {
-	s.Logger = l
+// SetLogOutput sets the writer to which all logs are written. It must not be
+// called after Open is called.
+func (s *Service) SetLogOutput(w io.Writer) {
+	s.Logger = log.New(w, "[snapshot] ", log.LstdFlags)
 }
 
 // Err returns a channel for fatal out-of-band errors.
@@ -174,10 +176,7 @@ func (s *Service) writeMetaStore(conn net.Conn) error {
 // this server into the connection
 func (s *Service) writeDatabaseInfo(conn net.Conn, database string) error {
 	res := Response{}
-	db, err := s.MetaClient.Database(database)
-	if err != nil {
-		return err
-	}
+	db := s.MetaClient.Database(database)
 	if db == nil {
 		return influxdb.ErrDatabaseNotFound(database)
 	}
@@ -211,10 +210,7 @@ func (s *Service) writeDatabaseInfo(conn net.Conn, database string) error {
 // this server into the connection
 func (s *Service) writeRetentionPolicyInfo(conn net.Conn, database, retentionPolicy string) error {
 	res := Response{}
-	db, err := s.MetaClient.Database(database)
-	if err != nil {
-		return err
-	}
+	db := s.MetaClient.Database(database)
 	if db == nil {
 		return influxdb.ErrDatabaseNotFound(database)
 	}

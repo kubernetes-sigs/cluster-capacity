@@ -2,24 +2,10 @@
 
 ## For the casual user
 
-If you want to write a simple script, don't care about a reproducible client
-library install, don't mind getting head (which may be less stable than a
-particular release) and don't share any dependencies with client-go, then
-simply:
-
-```sh
-$ go get k8s.io/client-go/...
-
-# Test install
-$ go build k8s.io/client-go/examples/...
-```
-
-This will install `k8s.io/client-go` in your `$GOPATH`. `k8s.io/client-go` includes its own
-dependencies in its `k8s.io/client-go/vendor` path. `go get` will not flatten
-those dependencies into your `$GOPATH`, which means they will be distinct from
-any dependencies you may already have there. This will be problematic if you
-happen to already have a copy of, say, glog, and in that case you'll need to
-look down at the next section.
+Currently, there is no super easy way to use client-go.  Hopefully this will
+change soon. Simply running `go get k8s.io/client-go/...` will leave you with a
+library that can't practically be used.  It is important to synchronize your
+dependencies with the ones that are required by the library.
 
 Note: the official go policy is that libraries should not vendor their
 dependencies. This is unworkable for us, since our dependencies change and HEAD
@@ -43,9 +29,9 @@ for each follows.
 ### Dep
 
 [dep](https://github.com/golang/dep) is an up-and-coming dependency management tool,
-which has the goal of being accepted as part of the standard go toolchain. It
-is currently pre-alpha. However, it comes the closest to working easily out of
-the box.
+which has the goal of being accepted as part of the standard go toolchain. Its
+status is currently alpha. However, it comes the closest to working easily out
+of the box.
 
 ```sh
 $ go get github.com/golang/dep
@@ -53,10 +39,15 @@ $ go install github.com/golang/dep/cmd/dep
 
 # Make sure you have a go file in your directory which imports k8s.io/client-go
 # first--I suggest copying one of the examples.
+$ dep init
 $ dep ensure k8s.io/client-go@^2.0.0
 ```
 
-This will set up a /vendor directory in your current directory, add `k8s.io/client-go`
+Then you can try one of the
+[examples](https://github.com/kubernetes/client-go/tree/v2.0.0/examples/) from
+the 2.0.0 release.
+
+This will set up a `vendor` directory in your current directory, add `k8s.io/client-go`
 to it, and flatten all of `k8s.io/client-go`'s dependencies into that vendor directory,
 so that your code and `client-go` will both get the same copy of each
 dependency.

@@ -36,7 +36,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
-	"time"
 
 	"github.com/jwilder/encoding/simple8b"
 )
@@ -52,29 +51,34 @@ const (
 
 // TimeEncoder encodes time.Time to byte slices.
 type TimeEncoder interface {
-	Write(t time.Time)
+	Write(t int64)
 	Bytes() ([]byte, error)
-}
-
-// TimeDecoder decodes byte slices to time.Time values.
-type TimeDecoder interface {
-	Next() bool
-	Read() time.Time
-	Error() error
+	Reset()
 }
 
 type encoder struct {
-	ts []uint64
+	ts    []uint64
+	bytes []byte
+	enc   *simple8b.Encoder
 }
 
 // NewTimeEncoder returns a TimeEncoder
-func NewTimeEncoder() TimeEncoder {
-	return &encoder{}
+func NewTimeEncoder(sz int) TimeEncoder {
+	return &encoder{
+		ts:  make([]uint64, 0, sz),
+		enc: simple8b.NewEncoder(),
+	}
+}
+
+func (e *encoder) Reset() {
+	e.ts = e.ts[:0]
+	e.bytes = e.bytes[:0]
+	e.enc.Reset()
 }
 
 // Write adds a time.Time to the compressed stream.
-func (e *encoder) Write(t time.Time) {
-	e.ts = append(e.ts, uint64(t.UnixNano()))
+func (e *encoder) Write(t int64) {
+	e.ts = append(e.ts, uint64(t))
 }
 
 func (e *encoder) reduce() (max, divisor uint64, rle bool, deltas []uint64) {
@@ -116,7 +120,7 @@ func (e *encoder) reduce() (max, divisor uint64, rle bool, deltas []uint64) {
 // Bytes returns the encoded bytes of all written times.
 func (e *encoder) Bytes() ([]byte, error) {
 	if len(e.ts) == 0 {
-		return []byte{}, nil
+		return e.bytes[:0], nil
 	}
 
 	// Maximum and largest common divisor.  rle is true if dts (the delta timestamps),
@@ -137,12 +141,21 @@ func (e *encoder) Bytes() ([]byte, error) {
 }
 
 func (e *encoder) encodePacked(div uint64, dts []uint64) ([]byte, error) {
-	enc := simple8b.NewEncoder()
 	for _, v := range dts[1:] {
-		enc.Write(uint64(v) / div)
+		e.enc.Write(uint64(v) / div)
 	}
 
-	b := make([]byte, 8+1)
+	// The compressed deltas
+	deltas, err := e.enc.Bytes()
+	if err != nil {
+		return nil, err
+	}
+
+	sz := 8 + 1 + len(deltas)
+	if cap(e.bytes) < sz {
+		e.bytes = make([]byte, sz)
+	}
+	b := e.bytes[:sz]
 
 	// 4 high bits used for the encoding type
 	b[0] = byte(timeCompressedPackedSimple) << 4
@@ -152,17 +165,16 @@ func (e *encoder) encodePacked(div uint64, dts []uint64) ([]byte, error) {
 	// The first delta value
 	binary.BigEndian.PutUint64(b[1:9], uint64(dts[0]))
 
-	// The compressed deltas
-	deltas, err := enc.Bytes()
-	if err != nil {
-		return nil, err
-	}
-
-	return append(b, deltas...), nil
+	copy(b[9:], deltas)
+	return b[:9+len(deltas)], nil
 }
 
 func (e *encoder) encodeRaw() ([]byte, error) {
-	b := make([]byte, 1+len(e.ts)*8)
+	sz := 1 + len(e.ts)*8
+	if cap(e.bytes) < sz {
+		e.bytes = make([]byte, sz)
+	}
+	b := e.bytes[:sz]
 	b[0] = byte(timeUncompressed) << 4
 	for i, v := range e.ts {
 		binary.BigEndian.PutUint64(b[1+i*8:1+i*8+8], uint64(v))
@@ -171,9 +183,12 @@ func (e *encoder) encodeRaw() ([]byte, error) {
 }
 
 func (e *encoder) encodeRLE(first, delta, div uint64, n int) ([]byte, error) {
-	// Large varints can take up to 10 bytes
-	b := make([]byte, 1+10*3)
-
+	// Large varints can take up to 10 bytes, we're encoding 3 + 1 byte type
+	sz := 31
+	if cap(e.bytes) < sz {
+		e.bytes = make([]byte, sz)
+	}
+	b := e.bytes[:sz]
 	// 4 high bits used for the encoding type
 	b[0] = byte(timeCompressedRLE) << 4
 	// 4 low bits are the log10 divisor
@@ -191,43 +206,67 @@ func (e *encoder) encodeRLE(first, delta, div uint64, n int) ([]byte, error) {
 	return b[:i], nil
 }
 
-type decoder struct {
-	v   time.Time
-	ts  []uint64
-	err error
+type TimeDecoder struct {
+	v    int64
+	i, n int
+	ts   []uint64
+	dec  simple8b.Decoder
+	err  error
+
+	// The delta value for a run-length encoded byte slice
+	rleDelta int64
+
+	encoding byte
 }
 
-func NewTimeDecoder(b []byte) TimeDecoder {
-	d := &decoder{}
+func (d *TimeDecoder) Init(b []byte) {
+	d.v = 0
+	d.i = 0
+	d.ts = d.ts[:0]
+	d.err = nil
+	if len(b) > 0 {
+		// Encoding type is stored in the 4 high bits of the first byte
+		d.encoding = b[0] >> 4
+	}
 	d.decode(b)
-	return d
 }
 
-func (d *decoder) Next() bool {
-	if len(d.ts) == 0 {
+func (d *TimeDecoder) Next() bool {
+	if d.err != nil {
 		return false
 	}
-	d.v = time.Unix(0, int64(d.ts[0]))
-	d.ts = d.ts[1:]
+
+	if d.encoding == timeCompressedRLE {
+		if d.i >= d.n {
+			return false
+		}
+		d.i++
+		d.v += d.rleDelta
+		return d.i < d.n
+	}
+
+	if d.i >= len(d.ts) {
+		return false
+	}
+	d.v = int64(d.ts[d.i])
+	d.i++
 	return true
 }
 
-func (d *decoder) Read() time.Time {
+func (d *TimeDecoder) Read() int64 {
 	return d.v
 }
 
-func (d *decoder) Error() error {
+func (d *TimeDecoder) Error() error {
 	return d.err
 }
 
-func (d *decoder) decode(b []byte) {
+func (d *TimeDecoder) decode(b []byte) {
 	if len(b) == 0 {
 		return
 	}
 
-	// Encoding type is stored in the 4 high bits of the first byte
-	encoding := b[0] >> 4
-	switch encoding {
+	switch d.encoding {
 	case timeUncompressed:
 		d.decodeRaw(b[1:])
 	case timeCompressedRLE:
@@ -235,19 +274,25 @@ func (d *decoder) decode(b []byte) {
 	case timeCompressedPackedSimple:
 		d.decodePacked(b)
 	default:
-		d.err = fmt.Errorf("unknown encoding: %v", encoding)
+		d.err = fmt.Errorf("unknown encoding: %v", d.encoding)
 	}
 }
 
-func (d *decoder) decodePacked(b []byte) {
+func (d *TimeDecoder) decodePacked(b []byte) {
+	if len(b) < 9 {
+		d.err = fmt.Errorf("TimeDecoder: not enough data to decode packed timestamps")
+		return
+	}
 	div := uint64(math.Pow10(int(b[0] & 0xF)))
 	first := uint64(binary.BigEndian.Uint64(b[1:9]))
 
-	enc := simple8b.NewDecoder(b[9:])
+	d.dec.SetBytes(b[9:])
 
-	deltas := []uint64{first}
-	for enc.Next() {
-		deltas = append(deltas, enc.Read())
+	d.i = 0
+	deltas := d.ts[:0]
+	deltas = append(deltas, first)
+	for d.dec.Next() {
+		deltas = append(deltas, d.dec.Read())
 	}
 
 	// Compute the prefix sum and scale the deltas back up
@@ -256,10 +301,16 @@ func (d *decoder) decodePacked(b []byte) {
 		deltas[i] = deltas[i-1] + dgap
 	}
 
+	d.i = 0
 	d.ts = deltas
 }
 
-func (d *decoder) decodeRLE(b []byte) {
+func (d *TimeDecoder) decodeRLE(b []byte) {
+	if len(b) < 9 {
+		d.err = fmt.Errorf("TimeDecoder: not enough data for initial RLE timestamp")
+		return
+	}
+
 	var i, n int
 
 	// Lower 4 bits hold the 10 based exponent so we can scale the values back up
@@ -272,30 +323,31 @@ func (d *decoder) decodeRLE(b []byte) {
 
 	// Next 1-10 bytes is our (scaled down by factor of 10) run length values
 	value, n := binary.Uvarint(b[i:])
+	if n <= 0 {
+		d.err = fmt.Errorf("TimeDecoder: invalid run length in decodeRLE")
+		return
+	}
 
 	// Scale the value back up
 	value *= uint64(mod)
 	i += n
 
 	// Last 1-10 bytes is how many times the value repeats
-	count, _ := binary.Uvarint(b[i:])
-
-	// Rebuild construct the original values now
-	deltas := make([]uint64, count)
-	for i := range deltas {
-		deltas[i] = value
+	count, n := binary.Uvarint(b[i:])
+	if n <= 0 {
+		d.err = fmt.Errorf("TimeDecoder: invalid repeat value in decodeRLE")
+		return
 	}
 
-	// Reverse the delta-encoding
-	deltas[0] = first
-	for i := 1; i < len(deltas); i++ {
-		deltas[i] = deltas[i-1] + deltas[i]
-	}
+	d.v = int64(first - value)
+	d.rleDelta = int64(value)
 
-	d.ts = deltas
+	d.i = -1
+	d.n = int(count)
 }
 
-func (d *decoder) decodeRaw(b []byte) {
+func (d *TimeDecoder) decodeRaw(b []byte) {
+	d.i = 0
 	d.ts = make([]uint64, len(b)/8)
 	for i := range d.ts {
 		d.ts[i] = binary.BigEndian.Uint64(b[i*8 : i*8+8])

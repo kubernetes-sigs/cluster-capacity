@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/influxdata/influxdb/cluster"
+	"github.com/influxdata/influxdb/coordinator"
 	"github.com/influxdata/influxdb/influxql"
 	"github.com/influxdata/influxdb/models"
 	"github.com/influxdata/influxdb/services/meta"
@@ -48,16 +48,16 @@ func TestContinuousQueryService_Run(t *testing.T) {
 	expectCallCnt := 3
 	callCnt := 0
 
-	// Set a callback for ExecuteQuery.
-	qe := s.QueryExecutor.(*QueryExecutor)
-	qe.ExecuteQueryFn = func(query *influxql.Query, database string, chunkSize int, closing chan struct{}) <-chan *influxql.Result {
-		callCnt++
-		if callCnt >= expectCallCnt {
-			done <- struct{}{}
-		}
-		dummych := make(chan *influxql.Result, 1)
-		dummych <- &influxql.Result{}
-		return dummych
+	// Set a callback for ExecuteStatement.
+	s.QueryExecutor.StatementExecutor = &StatementExecutor{
+		ExecuteStatementFn: func(stmt influxql.Statement, ctx influxql.ExecutionContext) error {
+			callCnt++
+			if callCnt >= expectCallCnt {
+				done <- struct{}{}
+			}
+			ctx.Results <- &influxql.Result{}
+			return nil
+		},
 	}
 
 	// Use a custom "now" time since the internals of last run care about
@@ -100,10 +100,7 @@ func TestContinuousQueryService_ResampleOptions(t *testing.T) {
 	mc.CreateContinuousQuery("db", "cq", `CREATE CONTINUOUS QUERY cq ON db RESAMPLE EVERY 10s FOR 2m BEGIN SELECT mean(value) INTO cpu_mean FROM cpu GROUP BY time(1m) END`)
 	s.MetaClient = mc
 
-	db, err := s.MetaClient.Database("db")
-	if err != nil {
-		t.Fatal(err)
-	}
+	db := s.MetaClient.Database("db")
 
 	cq, err := NewContinuousQuery(db.Name, &db.ContinuousQueries[0])
 	if err != nil {
@@ -118,19 +115,25 @@ func TestContinuousQueryService_ResampleOptions(t *testing.T) {
 	s.RunInterval = 10 * time.Minute
 
 	done := make(chan struct{})
-	expectCallCnt := 0
-	callCnt := 0
+	var expected struct {
+		min time.Time
+		max time.Time
+	}
 
-	// Set a callback for ExecuteQuery.
-	qe := s.QueryExecutor.(*QueryExecutor)
-	qe.ExecuteQueryFn = func(query *influxql.Query, database string, chunkSize int, closing chan struct{}) <-chan *influxql.Result {
-		callCnt++
-		if callCnt >= expectCallCnt {
+	// Set a callback for ExecuteStatement.
+	s.QueryExecutor.StatementExecutor = &StatementExecutor{
+		ExecuteStatementFn: func(stmt influxql.Statement, ctx influxql.ExecutionContext) error {
+			s := stmt.(*influxql.SelectStatement)
+			min, max, err := influxql.TimeRange(s.Condition)
+			if err != nil {
+				t.Errorf("unexpected error parsing time range: %s", err)
+			} else if !expected.min.Equal(min) || !expected.max.Equal(max) {
+				t.Errorf("mismatched time range: got=(%s, %s) exp=(%s, %s)", min, max, expected.min, expected.max)
+			}
 			done <- struct{}{}
-		}
-		dummych := make(chan *influxql.Result, 1)
-		dummych <- &influxql.Result{}
-		return dummych
+			ctx.Results <- &influxql.Result{}
+			return nil
+		},
 	}
 
 	s.Open()
@@ -138,8 +141,9 @@ func TestContinuousQueryService_ResampleOptions(t *testing.T) {
 
 	// Set the 'now' time to the start of a 10 minute interval. Then trigger a run.
 	// This should trigger two queries (one for the current time interval, one for the previous).
-	now := time.Now().Truncate(10 * time.Minute)
-	expectCallCnt += 2
+	now := time.Now().UTC().Truncate(10 * time.Minute)
+	expected.min = now.Add(-2 * time.Minute)
+	expected.max = now.Add(-1)
 	s.RunCh <- &RunRequest{Now: now}
 
 	if err := wait(done, 100*time.Millisecond); err != nil {
@@ -148,7 +152,8 @@ func TestContinuousQueryService_ResampleOptions(t *testing.T) {
 
 	// Trigger another run 10 seconds later. Another two queries should happen,
 	// but it will be a different two queries.
-	expectCallCnt += 2
+	expected.min = expected.min.Add(time.Minute)
+	expected.max = expected.max.Add(time.Minute)
 	s.RunCh <- &RunRequest{Now: now.Add(10 * time.Second)}
 
 	if err := wait(done, 100*time.Millisecond); err != nil {
@@ -158,8 +163,17 @@ func TestContinuousQueryService_ResampleOptions(t *testing.T) {
 	// Reset the time period and send the initial request at 5 seconds after the
 	// 10 minute mark. There should be exactly one call since the current interval is too
 	// young and only one interval matches the FOR duration.
-	expectCallCnt += 1
+	expected.min = now.Add(-time.Minute)
+	expected.max = now.Add(-1)
 	s.Run("", "", now.Add(5*time.Second))
+
+	if err := wait(done, 100*time.Millisecond); err != nil {
+		t.Fatal(err)
+	}
+
+	// Send a message 10 minutes later and ensure that the system plays catchup.
+	expected.max = now.Add(10*time.Minute - 1)
+	s.RunCh <- &RunRequest{Now: now.Add(10 * time.Minute)}
 
 	if err := wait(done, 100*time.Millisecond); err != nil {
 		t.Fatal(err)
@@ -182,19 +196,25 @@ func TestContinuousQueryService_EveryHigherThanInterval(t *testing.T) {
 	s.RunInterval = 10 * time.Minute
 
 	done := make(chan struct{})
-	expectCallCnt := 0
-	callCnt := 0
+	var expected struct {
+		min time.Time
+		max time.Time
+	}
 
 	// Set a callback for ExecuteQuery.
-	qe := s.QueryExecutor.(*QueryExecutor)
-	qe.ExecuteQueryFn = func(query *influxql.Query, database string, chunkSize int, closing chan struct{}) <-chan *influxql.Result {
-		callCnt++
-		if callCnt >= expectCallCnt {
+	s.QueryExecutor.StatementExecutor = &StatementExecutor{
+		ExecuteStatementFn: func(stmt influxql.Statement, ctx influxql.ExecutionContext) error {
+			s := stmt.(*influxql.SelectStatement)
+			min, max, err := influxql.TimeRange(s.Condition)
+			if err != nil {
+				t.Errorf("unexpected error parsing time range: %s", err)
+			} else if !expected.min.Equal(min) || !expected.max.Equal(max) {
+				t.Errorf("mismatched time range: got=(%s, %s) exp=(%s, %s)", min, max, expected.min, expected.max)
+			}
 			done <- struct{}{}
-		}
-		dummych := make(chan *influxql.Result, 1)
-		dummych <- &influxql.Result{}
-		return dummych
+			ctx.Results <- &influxql.Result{}
+			return nil
+		},
 	}
 
 	s.Open()
@@ -204,7 +224,8 @@ func TestContinuousQueryService_EveryHigherThanInterval(t *testing.T) {
 	// This should trigger two queries (one for the current time interval, one for the previous)
 	// since the default FOR interval should be EVERY, not the GROUP BY interval.
 	now := time.Now().Truncate(10 * time.Minute)
-	expectCallCnt += 2
+	expected.min = now.Add(-time.Minute)
+	expected.max = now.Add(-1)
 	s.RunCh <- &RunRequest{Now: now}
 
 	if err := wait(done, 100*time.Millisecond); err != nil {
@@ -219,7 +240,8 @@ func TestContinuousQueryService_EveryHigherThanInterval(t *testing.T) {
 	}
 
 	// Run again 1 minute later. Another two queries should run.
-	expectCallCnt += 2
+	expected.min = now
+	expected.max = now.Add(time.Minute - 1)
 	s.RunCh <- &RunRequest{Now: now.Add(time.Minute)}
 
 	if err := wait(done, 100*time.Millisecond); err != nil {
@@ -232,6 +254,54 @@ func TestContinuousQueryService_EveryHigherThanInterval(t *testing.T) {
 	}
 }
 
+func TestContinuousQueryService_GroupByOffset(t *testing.T) {
+	s := NewTestService(t)
+	mc := NewMetaClient(t)
+	mc.CreateDatabase("db", "")
+	mc.CreateContinuousQuery("db", "cq", `CREATE CONTINUOUS QUERY cq ON db BEGIN SELECT mean(value) INTO cpu_mean FROM cpu GROUP BY time(1m, 30s) END`)
+	s.MetaClient = mc
+
+	// Set RunInterval high so we can trigger using Run method.
+	s.RunInterval = 10 * time.Minute
+
+	done := make(chan struct{})
+	var expected struct {
+		min time.Time
+		max time.Time
+	}
+
+	// Set a callback for ExecuteStatement.
+	s.QueryExecutor.StatementExecutor = &StatementExecutor{
+		ExecuteStatementFn: func(stmt influxql.Statement, ctx influxql.ExecutionContext) error {
+			s := stmt.(*influxql.SelectStatement)
+			min, max, err := influxql.TimeRange(s.Condition)
+			if err != nil {
+				t.Errorf("unexpected error parsing time range: %s", err)
+			} else if !expected.min.Equal(min) || !expected.max.Equal(max) {
+				t.Errorf("mismatched time range: got=(%s, %s) exp=(%s, %s)", min, max, expected.min, expected.max)
+			}
+			done <- struct{}{}
+			ctx.Results <- &influxql.Result{}
+			return nil
+		},
+	}
+
+	s.Open()
+	defer s.Close()
+
+	// Set the 'now' time to the start of a 10 minute interval with a 30 second offset.
+	// Then trigger a run. This should trigger two queries (one for the current time
+	// interval, one for the previous).
+	now := time.Now().UTC().Truncate(10 * time.Minute).Add(30 * time.Second)
+	expected.min = now.Add(-time.Minute)
+	expected.max = now.Add(-1)
+	s.RunCh <- &RunRequest{Now: now}
+
+	if err := wait(done, 100*time.Millisecond); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // Test service when not the cluster leader (CQs shouldn't run).
 func TestContinuousQueryService_NotLeader(t *testing.T) {
 	s := NewTestService(t)
@@ -240,40 +310,13 @@ func TestContinuousQueryService_NotLeader(t *testing.T) {
 	s.MetaClient.(*MetaClient).Leader = false
 
 	done := make(chan struct{})
-	qe := s.QueryExecutor.(*QueryExecutor)
-	// Set a callback for ExecuteQuery. Shouldn't get called because we're not the leader.
-	qe.ExecuteQueryFn = func(query *influxql.Query, database string, chunkSize int, closing chan struct{}) <-chan *influxql.Result {
-		done <- struct{}{}
-		dummych := make(chan *influxql.Result, 1)
-		dummych <- &influxql.Result{Err: errUnexpected}
-		return dummych
-	}
-
-	s.Open()
-	// Trigger service to run CQs.
-	s.RunCh <- &RunRequest{Now: time.Now()}
-	// Expect timeout error because ExecuteQuery callback wasn't called.
-	if err := wait(done, 100*time.Millisecond); err == nil {
-		t.Error(err)
-	}
-	s.Close()
-}
-
-// Test service behavior when meta store fails to get databases.
-func TestContinuousQueryService_MetaClientFailsToGetDatabases(t *testing.T) {
-	s := NewTestService(t)
-	// Set RunInterval high so we can test triggering with the RunCh below.
-	s.RunInterval = 10 * time.Second
-	s.MetaClient.(*MetaClient).Err = errExpected
-
-	done := make(chan struct{})
-	qe := s.QueryExecutor.(*QueryExecutor)
-	// Set ExecuteQuery callback, which shouldn't get called because of meta store failure.
-	qe.ExecuteQueryFn = func(query *influxql.Query, database string, chunkSize int, closing chan struct{}) <-chan *influxql.Result {
-		done <- struct{}{}
-		dummych := make(chan *influxql.Result, 1)
-		dummych <- &influxql.Result{Err: errUnexpected}
-		return dummych
+	// Set a callback for ExecuteStatement. Shouldn't get called because we're not the leader.
+	s.QueryExecutor.StatementExecutor = &StatementExecutor{
+		ExecuteStatementFn: func(stmt influxql.Statement, ctx influxql.ExecutionContext) error {
+			done <- struct{}{}
+			ctx.Results <- &influxql.Result{Err: errUnexpected}
+			return nil
+		},
 	}
 
 	s.Open()
@@ -289,7 +332,12 @@ func TestContinuousQueryService_MetaClientFailsToGetDatabases(t *testing.T) {
 // Test ExecuteContinuousQuery with invalid queries.
 func TestExecuteContinuousQuery_InvalidQueries(t *testing.T) {
 	s := NewTestService(t)
-	dbis, _ := s.MetaClient.Databases()
+	s.QueryExecutor.StatementExecutor = &StatementExecutor{
+		ExecuteStatementFn: func(stmt influxql.Statement, ctx influxql.ExecutionContext) error {
+			return errUnexpected
+		},
+	}
+	dbis := s.MetaClient.Databases()
 	dbi := dbis[0]
 	cqi := dbi.ContinuousQueries[0]
 
@@ -317,10 +365,13 @@ func TestExecuteContinuousQuery_InvalidQueries(t *testing.T) {
 // Test ExecuteContinuousQuery when QueryExecutor returns an error.
 func TestExecuteContinuousQuery_QueryExecutor_Error(t *testing.T) {
 	s := NewTestService(t)
-	qe := s.QueryExecutor.(*QueryExecutor)
-	qe.Err = errExpected
+	s.QueryExecutor.StatementExecutor = &StatementExecutor{
+		ExecuteStatementFn: func(stmt influxql.Statement, ctx influxql.ExecutionContext) error {
+			return errExpected
+		},
+	}
 
-	dbis, _ := s.MetaClient.Databases()
+	dbis := s.MetaClient.Databases()
 	dbi := dbis[0]
 	cqi := dbi.ContinuousQueries[0]
 
@@ -336,7 +387,7 @@ func NewTestService(t *testing.T) *Service {
 	s := NewService(NewConfig())
 	ms := NewMetaClient(t)
 	s.MetaClient = ms
-	s.QueryExecutor = NewQueryExecutor(t)
+	s.QueryExecutor = influxql.NewQueryExecutor()
 	s.RunInterval = time.Millisecond
 
 	// Set Logger to write to dev/null so stdout isn't polluted.
@@ -390,30 +441,30 @@ func (ms *MetaClient) AcquireLease(name string) (l *meta.Lease, err error) {
 	return nil, meta.ErrServiceUnavailable
 }
 
-// Databases returns a list of database info about each database in the cluster.
-func (ms *MetaClient) Databases() ([]meta.DatabaseInfo, error) {
+// Databases returns a list of database info about each database in the coordinator.
+func (ms *MetaClient) Databases() []meta.DatabaseInfo {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-	return ms.DatabaseInfos, ms.Err
+	return ms.DatabaseInfos
 }
 
 // Database returns a single database by name.
-func (ms *MetaClient) Database(name string) (*meta.DatabaseInfo, error) {
+func (ms *MetaClient) Database(name string) *meta.DatabaseInfo {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 	return ms.database(name)
 }
 
-func (ms *MetaClient) database(name string) (*meta.DatabaseInfo, error) {
+func (ms *MetaClient) database(name string) *meta.DatabaseInfo {
 	if ms.Err != nil {
-		return nil, ms.Err
+		return nil
 	}
 	for i := range ms.DatabaseInfos {
 		if ms.DatabaseInfos[i].Name == name {
-			return &ms.DatabaseInfos[i], nil
+			return &ms.DatabaseInfos[i]
 		}
 	}
-	return nil, fmt.Errorf("database not found: %s", name)
+	return nil
 }
 
 // CreateDatabase adds a new database to the meta store.
@@ -448,10 +499,8 @@ func (ms *MetaClient) CreateContinuousQuery(database, name, query string) error 
 		return ms.Err
 	}
 
-	dbi, err := ms.database(database)
-	if err != nil {
-		return err
-	} else if dbi == nil {
+	dbi := ms.database(database)
+	if dbi == nil {
 		return fmt.Errorf("database not found: %s", database)
 	}
 
@@ -473,65 +522,33 @@ func (ms *MetaClient) CreateContinuousQuery(database, name, query string) error 
 
 // QueryExecutor is a mock query executor.
 type QueryExecutor struct {
-	ExecuteQueryFn func(query *influxql.Query, database string, chunkSize int, closing chan struct{}) <-chan *influxql.Result
-	Results        []*influxql.Result
-	ResultInterval time.Duration
-	Err            error
-	ErrAfterResult int
-	t              *testing.T
+	*influxql.QueryExecutor
+	Err error
+	t   *testing.T
+}
+
+// StatementExecutor is a mock statement executor.
+type StatementExecutor struct {
+	ExecuteStatementFn func(stmt influxql.Statement, ctx influxql.ExecutionContext) error
+}
+
+func (e *StatementExecutor) ExecuteStatement(stmt influxql.Statement, ctx influxql.ExecutionContext) error {
+	return e.ExecuteStatementFn(stmt, ctx)
 }
 
 // NewQueryExecutor returns a *QueryExecutor.
 func NewQueryExecutor(t *testing.T) *QueryExecutor {
+	e := influxql.NewQueryExecutor()
+	e.StatementExecutor = &StatementExecutor{}
 	return &QueryExecutor{
-		ErrAfterResult: -1,
-		t:              t,
+		QueryExecutor: e,
+		t:             t,
 	}
-}
-
-// ExecuteQuery returns a channel that the caller can read query results from.
-func (qe *QueryExecutor) ExecuteQuery(query *influxql.Query, database string, chunkSize int, closing chan struct{}) <-chan *influxql.Result {
-	// If the test set a callback, call it.
-	if qe.ExecuteQueryFn != nil {
-		return qe.ExecuteQueryFn(query, database, chunkSize, make(chan struct{}))
-	}
-
-	ch := make(chan *influxql.Result, 1)
-
-	// Are we supposed to error immediately?
-	if qe.ErrAfterResult == -1 && qe.Err != nil {
-		ch <- &influxql.Result{Err: qe.Err}
-		close(ch)
-		return ch
-	}
-
-	// Start a go routine to send results and / or error.
-	go func() {
-		n := 0
-		for i, r := range qe.Results {
-			if i == qe.ErrAfterResult-1 {
-				qe.t.Logf("ExecuteQuery(): ErrAfterResult %d", qe.ErrAfterResult-1)
-				ch <- &influxql.Result{Err: qe.Err}
-				close(ch)
-				return
-			}
-			ch <- r
-			n++
-			time.Sleep(qe.ResultInterval)
-		}
-		qe.t.Logf("ExecuteQuery(): all (%d) results sent", n)
-		if n == 0 {
-			ch <- &influxql.Result{Err: qe.Err}
-		}
-		close(ch)
-	}()
-
-	return ch
 }
 
 // PointsWriter is a mock points writer.
 type PointsWriter struct {
-	WritePointsFn   func(p *cluster.WritePointsRequest) error
+	WritePointsFn   func(p *coordinator.WritePointsRequest) error
 	Err             error
 	PointsPerSecond int
 	t               *testing.T
@@ -546,7 +563,7 @@ func NewPointsWriter(t *testing.T) *PointsWriter {
 }
 
 // WritePoints mocks writing points.
-func (pw *PointsWriter) WritePoints(p *cluster.WritePointsRequest) error {
+func (pw *PointsWriter) WritePoints(p *coordinator.WritePointsRequest) error {
 	// If the test set a callback, call it.
 	if pw.WritePointsFn != nil {
 		if err := pw.WritePointsFn(p); err != nil {

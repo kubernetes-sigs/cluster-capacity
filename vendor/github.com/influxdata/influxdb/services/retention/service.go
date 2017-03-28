@@ -1,6 +1,7 @@
 package retention // import "github.com/influxdata/influxdb/services/retention"
 
 import (
+	"io"
 	"log"
 	"os"
 	"sync"
@@ -12,7 +13,7 @@ import (
 // Service represents the retention policy enforcement service.
 type Service struct {
 	MetaClient interface {
-		Databases() ([]meta.DatabaseInfo, error)
+		Databases() []meta.DatabaseInfo
 		DeleteShardGroup(database, policy string, id uint64) error
 	}
 	TSDBStore interface {
@@ -54,9 +55,10 @@ func (s *Service) Close() error {
 	return nil
 }
 
-// SetLogger sets the internal logger to the logger passed in.
-func (s *Service) SetLogger(l *log.Logger) {
-	s.logger = l
+// SetLogOutput sets the writer to which all logs are written. It must not be
+// called after Open is called.
+func (s *Service) SetLogOutput(w io.Writer) {
+	s.logger = log.New(w, "[retention] ", log.LstdFlags)
 }
 
 func (s *Service) deleteShardGroups() {
@@ -70,12 +72,7 @@ func (s *Service) deleteShardGroups() {
 			return
 
 		case <-ticker.C:
-			dbs, err := s.MetaClient.Databases()
-			if err != nil {
-				s.logger.Printf("error getting databases: %s", err.Error())
-				continue
-			}
-
+			dbs := s.MetaClient.Databases()
 			for _, d := range dbs {
 				for _, r := range d.RetentionPolicies {
 					for _, g := range r.ExpiredShardGroups(time.Now().UTC()) {
@@ -111,10 +108,7 @@ func (s *Service) deleteShards() {
 				rp string
 			}
 			deletedShardIDs := make(map[uint64]deletionInfo, 0)
-			dbs, err := s.MetaClient.Databases()
-			if err != nil {
-				s.logger.Printf("error getting databases: %s", err.Error())
-			}
+			dbs := s.MetaClient.Databases()
 			for _, d := range dbs {
 				for _, r := range d.RetentionPolicies {
 					for _, g := range r.DeletedShardGroups() {

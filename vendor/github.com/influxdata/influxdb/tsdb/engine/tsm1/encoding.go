@@ -3,10 +3,11 @@ package tsm1
 import (
 	"encoding/binary"
 	"fmt"
-	"sort"
+	"runtime"
 	"time"
 
 	"github.com/influxdata/influxdb/influxql"
+	"github.com/influxdata/influxdb/pkg/pool"
 	"github.com/influxdata/influxdb/tsdb"
 )
 
@@ -26,6 +27,65 @@ const (
 	// encodedBlockHeaderSize is the size of the header for an encoded block.  There is one
 	// byte encoding the type of the block.
 	encodedBlockHeaderSize = 1
+)
+
+func init() {
+	// Prime the pools with with at one encoder/decoder for each available CPU
+	vals := make([]interface{}, 0, runtime.NumCPU())
+	for _, p := range []*pool.Generic{
+		timeEncoderPool, timeDecoderPool,
+		integerEncoderPool, integerDecoderPool,
+		floatDecoderPool, floatDecoderPool,
+		stringEncoderPool, stringEncoderPool,
+		booleanEncoderPool, booleanDecoderPool,
+	} {
+		vals = vals[:0]
+		// Check one out to force the allocation now and hold onto it
+		for i := 0; i < runtime.NumCPU(); i++ {
+			v := p.Get(tsdb.DefaultMaxPointsPerBlock)
+			vals = append(vals, v)
+		}
+		// Add them all back
+		for _, v := range vals {
+			p.Put(v)
+		}
+	}
+}
+
+var (
+	// encoder pools
+	timeEncoderPool = pool.NewGeneric(runtime.NumCPU(), func(sz int) interface{} {
+		return NewTimeEncoder(sz)
+	})
+	integerEncoderPool = pool.NewGeneric(runtime.NumCPU(), func(sz int) interface{} {
+		return NewIntegerEncoder(sz)
+	})
+	floatEncoderPool = pool.NewGeneric(runtime.NumCPU(), func(sz int) interface{} {
+		return NewFloatEncoder()
+	})
+	stringEncoderPool = pool.NewGeneric(runtime.NumCPU(), func(sz int) interface{} {
+		return NewStringEncoder(sz)
+	})
+	booleanEncoderPool = pool.NewGeneric(runtime.NumCPU(), func(sz int) interface{} {
+		return NewBooleanEncoder(sz)
+	})
+
+	// decoder pools
+	timeDecoderPool = pool.NewGeneric(runtime.NumCPU(), func(sz int) interface{} {
+		return &TimeDecoder{}
+	})
+	integerDecoderPool = pool.NewGeneric(runtime.NumCPU(), func(sz int) interface{} {
+		return &IntegerDecoder{}
+	})
+	floatDecoderPool = pool.NewGeneric(runtime.NumCPU(), func(sz int) interface{} {
+		return &FloatDecoder{}
+	})
+	stringDecoderPool = pool.NewGeneric(runtime.NumCPU(), func(sz int) interface{} {
+		return &StringDecoder{}
+	})
+	booleanDecoderPool = pool.NewGeneric(runtime.NumCPU(), func(sz int) interface{} {
+		return &BooleanDecoder{}
+	})
 )
 
 type Value interface {
@@ -48,43 +108,37 @@ func NewValue(t int64, value interface{}) Value {
 	case string:
 		return &StringValue{unixnano: t, value: v}
 	}
-	return &EmptyValue{}
+	return EmptyValue{}
 }
 
-type EmptyValue struct {
+func NewIntegerValue(t int64, v int64) Value {
+	return &IntegerValue{unixnano: t, value: v}
 }
 
-func (e *EmptyValue) UnixNano() int64    { return tsdb.EOF }
-func (e *EmptyValue) Value() interface{} { return nil }
-func (e *EmptyValue) Size() int          { return 0 }
-func (e *EmptyValue) String() string     { return "" }
+func NewFloatValue(t int64, v float64) Value {
+	return &FloatValue{unixnano: t, value: v}
+}
 
-func (_ *EmptyValue) internalOnly()   {}
+func NewBooleanValue(t int64, v bool) Value {
+	return &BooleanValue{unixnano: t, value: v}
+}
+
+func NewStringValue(t int64, v string) Value {
+	return &StringValue{unixnano: t, value: v}
+}
+
+type EmptyValue struct{}
+
+func (e EmptyValue) UnixNano() int64    { return tsdb.EOF }
+func (e EmptyValue) Value() interface{} { return nil }
+func (e EmptyValue) Size() int          { return 0 }
+func (e EmptyValue) String() string     { return "" }
+
+func (_ EmptyValue) internalOnly()    {}
 func (_ *StringValue) internalOnly()  {}
 func (_ *IntegerValue) internalOnly() {}
 func (_ *BooleanValue) internalOnly() {}
 func (_ *FloatValue) internalOnly()   {}
-
-// Values represented a time ascending sorted collection of Value types.
-// the underlying type should be the same across all values, but the interface
-// makes the code cleaner.
-type Values []Value
-
-func (a Values) MinTime() int64 {
-	return a[0].UnixNano()
-}
-
-func (a Values) MaxTime() int64 {
-	return a[len(a)-1].UnixNano()
-}
-
-func (a Values) Size() int {
-	sz := 0
-	for _, v := range a {
-		sz += v.Size()
-	}
-	return sz
-}
 
 // Encode converts the values to a byte slice.  If there are no values,
 // this function panics.
@@ -144,7 +198,10 @@ func BlockCount(block []byte) int {
 		panic(fmt.Sprintf("count of short block: got %v, exp %v", len(block), encodedBlockHeaderSize))
 	}
 	// first byte is the block type
-	tb, _ := unpackBlock(block[1:])
+	tb, _, err := unpackBlock(block[1:])
+	if err != nil {
+		panic(fmt.Sprintf("BlockCount: error unpacking block: %s", err.Error()))
+	}
 	return CountTimestamps(tb)
 }
 
@@ -162,7 +219,8 @@ func DecodeBlock(block []byte, vals []Value) ([]Value, error) {
 
 	switch blockType {
 	case BlockFloat64:
-		decoded, err := DecodeFloatBlock(block, nil)
+		var buf []FloatValue
+		decoded, err := DecodeFloatBlock(block, &buf)
 		if len(vals) < len(decoded) {
 			vals = make([]Value, len(decoded))
 		}
@@ -171,7 +229,8 @@ func DecodeBlock(block []byte, vals []Value) ([]Value, error) {
 		}
 		return vals[:len(decoded)], err
 	case BlockInteger:
-		decoded, err := DecodeIntegerBlock(block, nil)
+		var buf []IntegerValue
+		decoded, err := DecodeIntegerBlock(block, &buf)
 		if len(vals) < len(decoded) {
 			vals = make([]Value, len(decoded))
 		}
@@ -181,7 +240,8 @@ func DecodeBlock(block []byte, vals []Value) ([]Value, error) {
 		return vals[:len(decoded)], err
 
 	case BlockBoolean:
-		decoded, err := DecodeBooleanBlock(block, nil)
+		var buf []BooleanValue
+		decoded, err := DecodeBooleanBlock(block, &buf)
 		if len(vals) < len(decoded) {
 			vals = make([]Value, len(decoded))
 		}
@@ -191,7 +251,8 @@ func DecodeBlock(block []byte, vals []Value) ([]Value, error) {
 		return vals[:len(decoded)], err
 
 	case BlockString:
-		decoded, err := DecodeStringBlock(block, nil)
+		var buf []StringValue
+		decoded, err := DecodeStringBlock(block, &buf)
 		if len(vals) < len(decoded) {
 			vals = make([]Value, len(decoded))
 		}
@@ -204,28 +265,6 @@ func DecodeBlock(block []byte, vals []Value) ([]Value, error) {
 		panic(fmt.Sprintf("unknown block type: %d", blockType))
 	}
 }
-
-// Deduplicate returns a new Values slice with any values that have the same timestamp removed.
-// The Value that appears last in the slice is the one that is kept.
-func (a Values) Deduplicate() Values {
-	m := make(map[int64]Value, len(a))
-	for _, val := range a {
-		m[val.UnixNano()] = val
-	}
-
-	other := make([]Value, 0, len(m))
-	for _, val := range m {
-		other = append(other, val)
-	}
-
-	sort.Sort(Values(other))
-	return other
-}
-
-// Sort methods
-func (a Values) Len() int           { return len(a) }
-func (a Values) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a Values) Less(i, j int) bool { return a[i].UnixNano() < a[j].UnixNano() }
 
 type FloatValue struct {
 	unixnano int64
@@ -257,37 +296,45 @@ func encodeFloatBlock(buf []byte, values []Value) ([]byte, error) {
 	// for timestamps and values.
 
 	// Encode values using Gorilla float compression
-	venc := NewFloatEncoder()
+	venc := getFloatEncoder()
 
 	// Encode timestamps using an adaptive encoder that uses delta-encoding,
 	// frame-or-reference and run length encoding.
-	tsenc := NewTimeEncoder()
+	tsenc := getTimeEncoder(len(values))
 
-	for _, v := range values {
-		tsenc.Write(time.Unix(0, v.UnixNano()))
-		venc.Push(v.(*FloatValue).value)
-	}
-	venc.Finish()
+	var b []byte
+	err := func() error {
+		for _, v := range values {
+			tsenc.Write(v.UnixNano())
+			venc.Push(v.(*FloatValue).value)
+		}
+		venc.Finish()
 
-	// Encoded timestamp values
-	tb, err := tsenc.Bytes()
-	if err != nil {
-		return nil, err
-	}
-	// Encoded float values
-	vb, err := venc.Bytes()
-	if err != nil {
-		return nil, err
-	}
+		// Encoded timestamp values
+		tb, err := tsenc.Bytes()
+		if err != nil {
+			return err
+		}
+		// Encoded float values
+		vb, err := venc.Bytes()
+		if err != nil {
+			return err
+		}
 
-	// Prepend the first timestamp of the block in the first 8 bytes and the block
-	// in the next byte, followed by the block
-	block := packBlockHeader(BlockFloat64)
-	block = append(block, packBlock(tb, vb)...)
-	return block, nil
+		// Prepend the first timestamp of the block in the first 8 bytes and the block
+		// in the next byte, followed by the block
+		b = packBlock(buf, BlockFloat64, tb, vb)
+
+		return nil
+	}()
+
+	putTimeEncoder(tsenc)
+	putFloatEncoder(venc)
+
+	return b, err
 }
 
-func DecodeFloatBlock(block []byte, a []FloatValue) ([]FloatValue, error) {
+func DecodeFloatBlock(block []byte, a *[]FloatValue) ([]FloatValue, error) {
 	// Block type is the next block, make sure we actually have a float block
 	blockType := block[0]
 	if blockType != BlockFloat64 {
@@ -295,65 +342,56 @@ func DecodeFloatBlock(block []byte, a []FloatValue) ([]FloatValue, error) {
 	}
 	block = block[1:]
 
-	tb, vb := unpackBlock(block)
-
-	// Setup our timestamp and value decoders
-	dec := NewTimeDecoder(tb)
-	iter, err := NewFloatDecoder(vb)
+	tb, vb, err := unpackBlock(block)
 	if err != nil {
 		return nil, err
 	}
 
-	// Decode both a timestamp and value
-	i := 0
-	for dec.Next() && iter.Next() {
-		ts := dec.Read()
-		v := iter.Values()
-		if i < len(a) {
-			a[i].unixnano = ts.UnixNano()
-			a[i].value = v
-		} else {
-			a = append(a, FloatValue{ts.UnixNano(), v})
+	tdec := timeDecoderPool.Get(0).(*TimeDecoder)
+	vdec := floatDecoderPool.Get(0).(*FloatDecoder)
+
+	var i int
+	err = func() error {
+		// Setup our timestamp and value decoders
+		tdec.Init(tb)
+		err = vdec.SetBytes(vb)
+		if err != nil {
+			return err
 		}
-		i++
-	}
 
-	// Did timestamp decoding have an error?
-	if dec.Error() != nil {
-		return nil, dec.Error()
-	}
-	// Did float decoding have an error?
-	if iter.Error() != nil {
-		return nil, iter.Error()
-	}
+		// Decode both a timestamp and value
+		for tdec.Next() && vdec.Next() {
+			ts := tdec.Read()
+			v := vdec.Values()
+			if i < len(*a) {
+				elem := &(*a)[i]
+				elem.unixnano = ts
+				elem.value = v
+			} else {
+				*a = append(*a, FloatValue{ts, v})
+			}
+			i++
+		}
 
-	return a[:i], nil
+		// Did timestamp decoding have an error?
+		err = tdec.Error()
+		if err != nil {
+			return err
+		}
+
+		// Did float decoding have an error?
+		err = vdec.Error()
+		if err != nil {
+			return err
+		}
+		return nil
+	}()
+
+	timeDecoderPool.Put(tdec)
+	floatDecoderPool.Put(vdec)
+
+	return (*a)[:i], err
 }
-
-// FloatValues represents a slice of float values.
-type FloatValues []FloatValue
-
-// Deduplicate returns a new slice with any values that have the same timestamp removed.
-// The Value that appears last in the slice is the one that is kept.
-func (a FloatValues) Deduplicate() FloatValues {
-	m := make(map[int64]FloatValue)
-	for _, val := range a {
-		m[val.UnixNano()] = val
-	}
-
-	other := make(FloatValues, 0, len(m))
-	for _, val := range m {
-		other = append(other, val)
-	}
-
-	sort.Sort(other)
-	return other
-}
-
-// Sort methods
-func (a FloatValues) Len() int           { return len(a) }
-func (a FloatValues) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a FloatValues) Less(i, j int) bool { return a[i].UnixNano() < a[j].UnixNano() }
 
 type BooleanValue struct {
 	unixnano int64
@@ -383,37 +421,42 @@ func encodeBooleanBlock(buf []byte, values []Value) ([]byte, error) {
 
 	// A boolean block is encoded using different compression strategies
 	// for timestamps and values.
-
-	// Encode values using Gorilla float compression
-	venc := NewBooleanEncoder()
+	venc := getBooleanEncoder(len(values))
 
 	// Encode timestamps using an adaptive encoder
-	tsenc := NewTimeEncoder()
+	tsenc := getTimeEncoder(len(values))
 
-	for _, v := range values {
-		tsenc.Write(time.Unix(0, v.UnixNano()))
-		venc.Write(v.(*BooleanValue).value)
-	}
+	var b []byte
+	err := func() error {
+		for _, v := range values {
+			tsenc.Write(v.UnixNano())
+			venc.Write(v.(*BooleanValue).value)
+		}
 
-	// Encoded timestamp values
-	tb, err := tsenc.Bytes()
-	if err != nil {
-		return nil, err
-	}
-	// Encoded float values
-	vb, err := venc.Bytes()
-	if err != nil {
-		return nil, err
-	}
+		// Encoded timestamp values
+		tb, err := tsenc.Bytes()
+		if err != nil {
+			return err
+		}
+		// Encoded float values
+		vb, err := venc.Bytes()
+		if err != nil {
+			return err
+		}
 
-	// Prepend the first timestamp of the block in the first 8 bytes and the block
-	// in the next byte, followed by the block
-	block := packBlockHeader(BlockBoolean)
-	block = append(block, packBlock(tb, vb)...)
-	return block, nil
+		// Prepend the first timestamp of the block in the first 8 bytes and the block
+		// in the next byte, followed by the block
+		b = packBlock(buf, BlockBoolean, tb, vb)
+		return nil
+	}()
+
+	putTimeEncoder(tsenc)
+	putBooleanEncoder(venc)
+
+	return b, err
 }
 
-func DecodeBooleanBlock(block []byte, a []BooleanValue) ([]BooleanValue, error) {
+func DecodeBooleanBlock(block []byte, a *[]BooleanValue) ([]BooleanValue, error) {
 	// Block type is the next block, make sure we actually have a float block
 	blockType := block[0]
 	if blockType != BlockBoolean {
@@ -421,62 +464,52 @@ func DecodeBooleanBlock(block []byte, a []BooleanValue) ([]BooleanValue, error) 
 	}
 	block = block[1:]
 
-	tb, vb := unpackBlock(block)
+	tb, vb, err := unpackBlock(block)
+	if err != nil {
+		return nil, err
+	}
 
-	// Setup our timestamp and value decoders
-	dec := NewTimeDecoder(tb)
-	vdec := NewBooleanDecoder(vb)
+	tdec := timeDecoderPool.Get(0).(*TimeDecoder)
+	vdec := booleanDecoderPool.Get(0).(*BooleanDecoder)
 
-	// Decode both a timestamp and value
-	i := 0
-	for dec.Next() && vdec.Next() {
-		ts := dec.Read()
-		v := vdec.Read()
-		if i < len(a) {
-			a[i].unixnano = ts.UnixNano()
-			a[i].value = v
-		} else {
-			a = append(a, BooleanValue{ts.UnixNano(), v})
+	var i int
+	err = func() error {
+		// Setup our timestamp and value decoders
+		tdec.Init(tb)
+		vdec.SetBytes(vb)
+
+		// Decode both a timestamp and value
+		for tdec.Next() && vdec.Next() {
+			ts := tdec.Read()
+			v := vdec.Read()
+			if i < len(*a) {
+				elem := &(*a)[i]
+				elem.unixnano = ts
+				elem.value = v
+			} else {
+				*a = append(*a, BooleanValue{ts, v})
+			}
+			i++
 		}
-		i++
-	}
 
-	// Did timestamp decoding have an error?
-	if dec.Error() != nil {
-		return nil, dec.Error()
-	}
-	// Did boolean decoding have an error?
-	if vdec.Error() != nil {
-		return nil, vdec.Error()
-	}
+		// Did timestamp decoding have an error?
+		err = tdec.Error()
+		if err != nil {
+			return err
+		}
+		// Did boolean decoding have an error?
+		err = vdec.Error()
+		if err != nil {
+			return err
+		}
+		return nil
+	}()
 
-	return a[:i], nil
+	timeDecoderPool.Put(tdec)
+	booleanDecoderPool.Put(vdec)
+
+	return (*a)[:i], err
 }
-
-// BooleanValues represents a slice of boolean values.
-type BooleanValues []BooleanValue
-
-// Deduplicate returns a new slice with any values that have the same timestamp removed.
-// The Value that appears last in the slice is the one that is kept.
-func (a BooleanValues) Deduplicate() BooleanValues {
-	m := make(map[int64]BooleanValue)
-	for _, val := range a {
-		m[val.UnixNano()] = val
-	}
-
-	other := make(BooleanValues, 0, len(m))
-	for _, val := range m {
-		other = append(other, val)
-	}
-
-	sort.Sort(other)
-	return other
-}
-
-// Sort methods
-func (a BooleanValues) Len() int           { return len(a) }
-func (a BooleanValues) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a BooleanValues) Less(i, j int) bool { return a[i].UnixNano() < a[j].UnixNano() }
 
 type IntegerValue struct {
 	unixnano int64
@@ -500,30 +533,39 @@ func (f *IntegerValue) String() string {
 }
 
 func encodeIntegerBlock(buf []byte, values []Value) ([]byte, error) {
-	tsEnc := NewTimeEncoder()
-	vEnc := NewIntegerEncoder()
-	for _, v := range values {
-		tsEnc.Write(time.Unix(0, v.UnixNano()))
-		vEnc.Write(v.(*IntegerValue).value)
-	}
+	tsEnc := getTimeEncoder(len(values))
+	vEnc := getIntegerEncoder(len(values))
 
-	// Encoded timestamp values
-	tb, err := tsEnc.Bytes()
-	if err != nil {
-		return nil, err
-	}
-	// Encoded int64 values
-	vb, err := vEnc.Bytes()
-	if err != nil {
-		return nil, err
-	}
+	var b []byte
+	err := func() error {
+		for _, v := range values {
+			tsEnc.Write(v.UnixNano())
+			vEnc.Write(v.(*IntegerValue).value)
+		}
 
-	// Prepend the first timestamp of the block in the first 8 bytes
-	block := packBlockHeader(BlockInteger)
-	return append(block, packBlock(tb, vb)...), nil
+		// Encoded timestamp values
+		tb, err := tsEnc.Bytes()
+		if err != nil {
+			return err
+		}
+		// Encoded int64 values
+		vb, err := vEnc.Bytes()
+		if err != nil {
+			return err
+		}
+
+		// Prepend the first timestamp of the block in the first 8 bytes
+		b = packBlock(buf, BlockInteger, tb, vb)
+		return nil
+	}()
+
+	putTimeEncoder(tsEnc)
+	putIntegerEncoder(vEnc)
+
+	return b, err
 }
 
-func DecodeIntegerBlock(block []byte, a []IntegerValue) ([]IntegerValue, error) {
+func DecodeIntegerBlock(block []byte, a *[]IntegerValue) ([]IntegerValue, error) {
 	blockType := block[0]
 	if blockType != BlockInteger {
 		return nil, fmt.Errorf("invalid block type: exp %d, got %d", BlockInteger, blockType)
@@ -532,62 +574,52 @@ func DecodeIntegerBlock(block []byte, a []IntegerValue) ([]IntegerValue, error) 
 	block = block[1:]
 
 	// The first 8 bytes is the minimum timestamp of the block
-	tb, vb := unpackBlock(block)
+	tb, vb, err := unpackBlock(block)
+	if err != nil {
+		return nil, err
+	}
 
-	// Setup our timestamp and value decoders
-	tsDec := NewTimeDecoder(tb)
-	vDec := NewIntegerDecoder(vb)
+	tdec := timeDecoderPool.Get(0).(*TimeDecoder)
+	vdec := integerDecoderPool.Get(0).(*IntegerDecoder)
 
-	// Decode both a timestamp and value
-	i := 0
-	for tsDec.Next() && vDec.Next() {
-		ts := tsDec.Read()
-		v := vDec.Read()
-		if i < len(a) {
-			a[i].unixnano = ts.UnixNano()
-			a[i].value = v
-		} else {
-			a = append(a, IntegerValue{ts.UnixNano(), v})
+	var i int
+	err = func() error {
+		// Setup our timestamp and value decoders
+		tdec.Init(tb)
+		vdec.SetBytes(vb)
+
+		// Decode both a timestamp and value
+		for tdec.Next() && vdec.Next() {
+			ts := tdec.Read()
+			v := vdec.Read()
+			if i < len(*a) {
+				elem := &(*a)[i]
+				elem.unixnano = ts
+				elem.value = v
+			} else {
+				*a = append(*a, IntegerValue{ts, v})
+			}
+			i++
 		}
-		i++
-	}
 
-	// Did timestamp decoding have an error?
-	if tsDec.Error() != nil {
-		return nil, tsDec.Error()
-	}
-	// Did int64 decoding have an error?
-	if vDec.Error() != nil {
-		return nil, vDec.Error()
-	}
+		// Did timestamp decoding have an error?
+		err = tdec.Error()
+		if err != nil {
+			return err
+		}
+		// Did int64 decoding have an error?
+		err = vdec.Error()
+		if err != nil {
+			return err
+		}
+		return nil
+	}()
 
-	return a[:i], nil
+	timeDecoderPool.Put(tdec)
+	integerDecoderPool.Put(vdec)
+
+	return (*a)[:i], err
 }
-
-// IntegerValues represents a slice of integer values.
-type IntegerValues []IntegerValue
-
-// Deduplicate returns a new slice with any values that have the same timestamp removed.
-// The Value that appears last in the slice is the one that is kept.
-func (a IntegerValues) Deduplicate() IntegerValues {
-	m := make(map[int64]IntegerValue)
-	for _, val := range a {
-		m[val.UnixNano()] = val
-	}
-
-	other := make(IntegerValues, 0, len(m))
-	for _, val := range m {
-		other = append(other, val)
-	}
-
-	sort.Sort(other)
-	return other
-}
-
-// Sort methods
-func (a IntegerValues) Len() int           { return len(a) }
-func (a IntegerValues) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a IntegerValues) Less(i, j int) bool { return a[i].UnixNano() < a[j].UnixNano() }
 
 type StringValue struct {
 	unixnano int64
@@ -611,30 +643,40 @@ func (f *StringValue) String() string {
 }
 
 func encodeStringBlock(buf []byte, values []Value) ([]byte, error) {
-	tsEnc := NewTimeEncoder()
-	vEnc := NewStringEncoder()
-	for _, v := range values {
-		tsEnc.Write(time.Unix(0, v.UnixNano()))
-		vEnc.Write(v.(*StringValue).value)
-	}
+	tsEnc := getTimeEncoder(len(values))
+	vEnc := getStringEncoder(len(values) * len(values[0].(*StringValue).value))
 
-	// Encoded timestamp values
-	tb, err := tsEnc.Bytes()
-	if err != nil {
-		return nil, err
-	}
-	// Encoded string values
-	vb, err := vEnc.Bytes()
-	if err != nil {
-		return nil, err
-	}
+	var b []byte
+	err := func() error {
+		for _, v := range values {
+			tsEnc.Write(v.UnixNano())
+			vEnc.Write(v.(*StringValue).value)
+		}
 
-	// Prepend the first timestamp of the block in the first 8 bytes
-	block := packBlockHeader(BlockString)
-	return append(block, packBlock(tb, vb)...), nil
+		// Encoded timestamp values
+		tb, err := tsEnc.Bytes()
+		if err != nil {
+			return err
+		}
+		// Encoded string values
+		vb, err := vEnc.Bytes()
+		if err != nil {
+			return err
+		}
+
+		// Prepend the first timestamp of the block in the first 8 bytes
+		b = packBlock(buf, BlockString, tb, vb)
+
+		return nil
+	}()
+
+	putTimeEncoder(tsEnc)
+	putStringEncoder(vEnc)
+
+	return b, err
 }
 
-func DecodeStringBlock(block []byte, a []StringValue) ([]StringValue, error) {
+func DecodeStringBlock(block []byte, a *[]StringValue) ([]StringValue, error) {
 	blockType := block[0]
 	if blockType != BlockString {
 		return nil, fmt.Errorf("invalid block type: exp %d, got %d", BlockString, blockType)
@@ -643,93 +685,94 @@ func DecodeStringBlock(block []byte, a []StringValue) ([]StringValue, error) {
 	block = block[1:]
 
 	// The first 8 bytes is the minimum timestamp of the block
-	tb, vb := unpackBlock(block)
-
-	// Setup our timestamp and value decoders
-	tsDec := NewTimeDecoder(tb)
-	vDec, err := NewStringDecoder(vb)
+	tb, vb, err := unpackBlock(block)
 	if err != nil {
 		return nil, err
 	}
 
-	// Decode both a timestamp and value
-	i := 0
-	for tsDec.Next() && vDec.Next() {
-		ts := tsDec.Read()
-		v := vDec.Read()
-		if i < len(a) {
-			a[i].unixnano = ts.UnixNano()
-			a[i].value = v
-		} else {
-			a = append(a, StringValue{ts.UnixNano(), v})
+	tdec := timeDecoderPool.Get(0).(*TimeDecoder)
+	vdec := stringDecoderPool.Get(0).(*StringDecoder)
+
+	var i int
+	err = func() error {
+		// Setup our timestamp and value decoders
+		tdec.Init(tb)
+		err = vdec.SetBytes(vb)
+		if err != nil {
+			return err
 		}
-		i++
-	}
 
-	// Did timestamp decoding have an error?
-	if tsDec.Error() != nil {
-		return nil, tsDec.Error()
-	}
-	// Did string decoding have an error?
-	if vDec.Error() != nil {
-		return nil, vDec.Error()
-	}
+		// Decode both a timestamp and value
+		for tdec.Next() && vdec.Next() {
+			ts := tdec.Read()
+			v := vdec.Read()
+			if i < len(*a) {
+				elem := &(*a)[i]
+				elem.unixnano = ts
+				elem.value = v
+			} else {
+				*a = append(*a, StringValue{ts, v})
+			}
+			i++
+		}
 
-	return a[:i], nil
+		// Did timestamp decoding have an error?
+		err = tdec.Error()
+		if err != nil {
+			return err
+		}
+		// Did string decoding have an error?
+		err = vdec.Error()
+		if err != nil {
+			return err
+		}
+		return nil
+	}()
+
+	timeDecoderPool.Put(tdec)
+	stringDecoderPool.Put(vdec)
+
+	return (*a)[:i], err
 }
 
-// StringValues represents a slice of string values.
-type StringValues []StringValue
-
-// Deduplicate returns a new slice with any values that have the same timestamp removed.
-// The Value that appears last in the slice is the one that is kept.
-func (a StringValues) Deduplicate() StringValues {
-	m := make(map[int64]StringValue)
-	for _, val := range a {
-		m[val.UnixNano()] = val
-	}
-
-	other := make(StringValues, 0, len(m))
-	for _, val := range m {
-		other = append(other, val)
-	}
-
-	sort.Sort(other)
-	return other
-}
-
-// Sort methods
-func (a StringValues) Len() int           { return len(a) }
-func (a StringValues) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a StringValues) Less(i, j int) bool { return a[i].UnixNano() < a[j].UnixNano() }
-
-func packBlockHeader(blockType byte) []byte {
-	return []byte{blockType}
-}
-
-func packBlock(ts []byte, values []byte) []byte {
+func packBlock(buf []byte, typ byte, ts []byte, values []byte) []byte {
 	// We encode the length of the timestamp block using a variable byte encoding.
 	// This allows small byte slices to take up 1 byte while larger ones use 2 or more.
-	b := make([]byte, 10)
-	i := binary.PutUvarint(b, uint64(len(ts)))
+	sz := 1 + binary.MaxVarintLen64 + len(ts) + len(values)
+	if cap(buf) < sz {
+		buf = make([]byte, sz)
+	}
+	b := buf[:sz]
+	b[0] = typ
+	i := binary.PutUvarint(b[1:1+binary.MaxVarintLen64], uint64(len(ts)))
+	i += 1
 
 	// block is <len timestamp bytes>, <ts bytes>, <value bytes>
-	block := append(b[:i], ts...)
-
+	copy(b[i:], ts)
 	// We don't encode the value length because we know it's the rest of the block after
 	// the timestamp block.
-	return append(block, values...)
+	copy(b[i+len(ts):], values)
+	return b[:i+len(ts)+len(values)]
 }
 
-func unpackBlock(buf []byte) (ts, values []byte) {
+func unpackBlock(buf []byte) (ts, values []byte, err error) {
 	// Unpack the timestamp block length
 	tsLen, i := binary.Uvarint(buf)
+	if i <= 0 {
+		err = fmt.Errorf("unpackBlock: unable to read timestamp block length")
+		return
+	}
 
 	// Unpack the timestamp bytes
-	ts = buf[int(i) : int(i)+int(tsLen)]
+	tsIdx := int(i) + int(tsLen)
+	if tsIdx > len(buf) {
+		err = fmt.Errorf("unpackBlock: not enough data for timestamp")
+		return
+	}
+	ts = buf[int(i):tsIdx]
 
 	// Unpack the value bytes
-	values = buf[int(i)+int(tsLen):]
+	values = buf[tsIdx:]
 	return
 }
 
@@ -743,3 +786,37 @@ func ZigZagEncode(x int64) uint64 {
 func ZigZagDecode(v uint64) int64 {
 	return int64((v >> 1) ^ uint64((int64(v&1)<<63)>>63))
 }
+func getTimeEncoder(sz int) TimeEncoder {
+	x := timeEncoderPool.Get(sz).(TimeEncoder)
+	x.Reset()
+	return x
+}
+func putTimeEncoder(enc TimeEncoder) { timeEncoderPool.Put(enc) }
+
+func getIntegerEncoder(sz int) IntegerEncoder {
+	x := integerEncoderPool.Get(sz).(IntegerEncoder)
+	x.Reset()
+	return x
+}
+func putIntegerEncoder(enc IntegerEncoder) { integerEncoderPool.Put(enc) }
+
+func getFloatEncoder() *FloatEncoder {
+	x := floatEncoderPool.Get(1024).(*FloatEncoder)
+	x.Reset()
+	return x
+}
+func putFloatEncoder(enc *FloatEncoder) { floatEncoderPool.Put(enc) }
+
+func getStringEncoder(sz int) StringEncoder {
+	x := stringEncoderPool.Get(sz).(StringEncoder)
+	x.Reset()
+	return x
+}
+func putStringEncoder(enc StringEncoder) { stringEncoderPool.Put(enc) }
+
+func getBooleanEncoder(sz int) BooleanEncoder {
+	x := booleanEncoderPool.Get(sz).(BooleanEncoder)
+	x.Reset()
+	return x
+}
+func putBooleanEncoder(enc BooleanEncoder) { booleanEncoderPool.Put(enc) }

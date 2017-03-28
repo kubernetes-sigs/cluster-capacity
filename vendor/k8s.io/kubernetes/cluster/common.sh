@@ -709,6 +709,21 @@ EOF
 DOCKER_TEST_LOG_LEVEL: $(yaml-quote ${DOCKER_TEST_LOG_LEVEL})
 EOF
   fi
+  if [ -n "${DOCKER_LOG_DRIVER:-}" ]; then
+      cat >>$file <<EOF
+DOCKER_LOG_DRIVER: $(yaml-quote ${DOCKER_LOG_DRIVER})
+EOF
+  fi
+  if [ -n "${DOCKER_LOG_MAX_SIZE:-}" ]; then
+      cat >>$file <<EOF
+DOCKER_LOG_MAX_SIZE: $(yaml-quote ${DOCKER_LOG_MAX_SIZE})
+EOF
+  fi
+  if [ -n "${DOCKER_LOG_MAX_FILE:-}" ]; then
+      cat >>$file <<EOF
+DOCKER_LOG_MAX_FILE: $(yaml-quote ${DOCKER_LOG_MAX_FILE})
+EOF
+  fi
   if [ -n "${ENABLE_CUSTOM_METRICS:-}" ]; then
     cat >>$file <<EOF
 ENABLE_CUSTOM_METRICS: $(yaml-quote ${ENABLE_CUSTOM_METRICS})
@@ -738,6 +753,7 @@ NUM_NODES: $(yaml-quote ${NUM_NODES})
 STORAGE_BACKEND: $(yaml-quote ${STORAGE_BACKEND:-etcd3})
 STORAGE_MEDIA_TYPE: $(yaml-quote ${STORAGE_MEDIA_TYPE:-})
 ENABLE_GARBAGE_COLLECTOR: $(yaml-quote ${ENABLE_GARBAGE_COLLECTOR:-})
+ENABLE_LEGACY_ABAC: $(yaml-quote ${ENABLE_LEGACY_ABAC:-})
 MASTER_ADVERTISE_ADDRESS: $(yaml-quote ${MASTER_ADVERTISE_ADDRESS:-})
 ETCD_CA_KEY: $(yaml-quote ${ETCD_CA_KEY_BASE64:-})
 ETCD_CA_CERT: $(yaml-quote ${ETCD_CA_CERT_BASE64:-})
@@ -1037,7 +1053,7 @@ function generate-certs {
 # $1 master env (kube-env of master; result of calling get-master-env)
 # $2 env key to use
 function get-env-val() {
-  local match=`(echo "${1}" | grep ${2}) || echo ""`
+  local match=`(echo "${1}" | grep -E "^${2}:") || echo ""`
   if [[ -z ${match} ]]; then
     echo ""
   fi
@@ -1058,6 +1074,8 @@ function parse-master-env() {
   EXTRA_DOCKER_OPTS=$(get-env-val "${master_env}" "EXTRA_DOCKER_OPTS")
   KUBELET_CERT_BASE64=$(get-env-val "${master_env}" "KUBELET_CERT")
   KUBELET_KEY_BASE64=$(get-env-val "${master_env}" "KUBELET_KEY")
+  MASTER_CERT_BASE64=$(get-env-val "${master_env}" "MASTER_CERT")
+  MASTER_KEY_BASE64=$(get-env-val "${master_env}" "MASTER_KEY")
 }
 
 # Update or verify required gcloud components are installed

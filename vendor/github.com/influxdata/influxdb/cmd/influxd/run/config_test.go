@@ -12,16 +12,14 @@ import (
 func TestConfig_Parse(t *testing.T) {
 	// Parse configuration.
 	var c run.Config
-	if _, err := toml.Decode(`
-join = "foo:123,bar:456"
-
+	if err := c.FromToml(`
 [meta]
 dir = "/tmp/meta"
 
 [data]
 dir = "/tmp/data"
 
-[cluster]
+[coordinator]
 
 [admin]
 bind-address = ":8083"
@@ -35,11 +33,20 @@ protocol = "udp"
 [[graphite]]
 protocol = "tcp"
 
-[collectd]
+[[collectd]]
 bind-address = ":1000"
 
-[opentsdb]
+[[collectd]]
+bind-address = ":1010"
+
+[[opentsdb]]
 bind-address = ":2000"
+
+[[opentsdb]]
+bind-address = ":2010"
+
+[[opentsdb]]
+bind-address = ":2020"
 
 [[udp]]
 bind-address = ":4444"
@@ -52,7 +59,7 @@ enabled = true
 
 [continuous_queries]
 enabled = true
-`, &c); err != nil {
+`); err != nil {
 		t.Fatal(err)
 	}
 
@@ -65,24 +72,28 @@ enabled = true
 		t.Fatalf("unexpected admin bind address: %s", c.Admin.BindAddress)
 	} else if c.HTTPD.BindAddress != ":8087" {
 		t.Fatalf("unexpected api bind address: %s", c.HTTPD.BindAddress)
-	} else if len(c.Graphites) != 2 {
-		t.Fatalf("unexpected graphites count: %d", len(c.Graphites))
-	} else if c.Graphites[0].Protocol != "udp" {
-		t.Fatalf("unexpected graphite protocol(0): %s", c.Graphites[0].Protocol)
-	} else if c.Graphites[1].Protocol != "tcp" {
-		t.Fatalf("unexpected graphite protocol(1): %s", c.Graphites[1].Protocol)
-	} else if c.Collectd.BindAddress != ":1000" {
-		t.Fatalf("unexpected collectd bind address: %s", c.Collectd.BindAddress)
-	} else if c.OpenTSDB.BindAddress != ":2000" {
-		t.Fatalf("unexpected opentsdb bind address: %s", c.OpenTSDB.BindAddress)
-	} else if c.UDPs[0].BindAddress != ":4444" {
-		t.Fatalf("unexpected udp bind address: %s", c.UDPs[0].BindAddress)
+	} else if len(c.GraphiteInputs) != 2 {
+		t.Fatalf("unexpected graphiteInputs count: %d", len(c.GraphiteInputs))
+	} else if c.GraphiteInputs[0].Protocol != "udp" {
+		t.Fatalf("unexpected graphite protocol(0): %s", c.GraphiteInputs[0].Protocol)
+	} else if c.GraphiteInputs[1].Protocol != "tcp" {
+		t.Fatalf("unexpected graphite protocol(1): %s", c.GraphiteInputs[1].Protocol)
+	} else if c.CollectdInputs[0].BindAddress != ":1000" {
+		t.Fatalf("unexpected collectd bind address: %s", c.CollectdInputs[0].BindAddress)
+	} else if c.CollectdInputs[1].BindAddress != ":1010" {
+		t.Fatalf("unexpected collectd bind address: %s", c.CollectdInputs[1].BindAddress)
+	} else if c.OpenTSDBInputs[0].BindAddress != ":2000" {
+		t.Fatalf("unexpected opentsdb bind address: %s", c.OpenTSDBInputs[0].BindAddress)
+	} else if c.OpenTSDBInputs[1].BindAddress != ":2010" {
+		t.Fatalf("unexpected opentsdb bind address: %s", c.OpenTSDBInputs[1].BindAddress)
+	} else if c.OpenTSDBInputs[2].BindAddress != ":2020" {
+		t.Fatalf("unexpected opentsdb bind address: %s", c.OpenTSDBInputs[2].BindAddress)
+	} else if c.UDPInputs[0].BindAddress != ":4444" {
+		t.Fatalf("unexpected udp bind address: %s", c.UDPInputs[0].BindAddress)
 	} else if c.Subscriber.Enabled != true {
 		t.Fatalf("unexpected subscriber enabled: %v", c.Subscriber.Enabled)
 	} else if c.ContinuousQuery.Enabled != true {
 		t.Fatalf("unexpected continuous query enabled: %v", c.ContinuousQuery.Enabled)
-	} else if exp, got := "foo:123,bar:456", c.Join; exp != got {
-		t.Fatalf("unexpected join value: got %v, exp %v", got, exp)
 	}
 }
 
@@ -97,7 +108,7 @@ dir = "/tmp/meta"
 [data]
 dir = "/tmp/data"
 
-[cluster]
+[coordinator]
 
 [admin]
 bind-address = ":8083"
@@ -111,14 +122,22 @@ protocol = "udp"
 [[graphite]]
 protocol = "tcp"
 
-[collectd]
+[[collectd]]
 bind-address = ":1000"
 
-[opentsdb]
+[[collectd]]
+bind-address = ":1010"
+
+[[opentsdb]]
 bind-address = ":2000"
+
+[[opentsdb]]
+bind-address = ":2010"
 
 [[udp]]
 bind-address = ":4444"
+
+[[udp]]
 
 [monitoring]
 enabled = true
@@ -133,7 +152,24 @@ enabled = true
 		t.Fatalf("failed to set env var: %v", err)
 	}
 
+	if err := os.Setenv("INFLUXDB_UDP_0_BIND_ADDRESS", ":5555"); err != nil {
+		t.Fatalf("failed to set env var: %v", err)
+	}
+
 	if err := os.Setenv("INFLUXDB_GRAPHITE_1_PROTOCOL", "udp"); err != nil {
+		t.Fatalf("failed to set env var: %v", err)
+	}
+
+	if err := os.Setenv("INFLUXDB_COLLECTD_1_BIND_ADDRESS", ":1020"); err != nil {
+		t.Fatalf("failed to set env var: %v", err)
+	}
+
+	if err := os.Setenv("INFLUXDB_OPENTSDB_0_BIND_ADDRESS", ":2020"); err != nil {
+		t.Fatalf("failed to set env var: %v", err)
+	}
+
+	// uint64 type
+	if err := os.Setenv("INFLUXDB_DATA_CACHE_MAX_MEMORY_SIZE", "1000"); err != nil {
 		t.Fatalf("failed to set env var: %v", err)
 	}
 
@@ -141,12 +177,28 @@ enabled = true
 		t.Fatalf("failed to apply env overrides: %v", err)
 	}
 
-	if c.UDPs[0].BindAddress != ":4444" {
-		t.Fatalf("unexpected udp bind address: %s", c.UDPs[0].BindAddress)
+	if c.UDPInputs[0].BindAddress != ":5555" {
+		t.Fatalf("unexpected udp bind address: %s", c.UDPInputs[0].BindAddress)
 	}
 
-	if c.Graphites[1].Protocol != "udp" {
-		t.Fatalf("unexpected graphite protocol(0): %s", c.Graphites[0].Protocol)
+	if c.UDPInputs[1].BindAddress != ":1234" {
+		t.Fatalf("unexpected udp bind address: %s", c.UDPInputs[1].BindAddress)
+	}
+
+	if c.GraphiteInputs[1].Protocol != "udp" {
+		t.Fatalf("unexpected graphite protocol: %s", c.GraphiteInputs[1].Protocol)
+	}
+
+	if c.CollectdInputs[1].BindAddress != ":1020" {
+		t.Fatalf("unexpected collectd bind address: %s", c.CollectdInputs[1].BindAddress)
+	}
+
+	if c.OpenTSDBInputs[0].BindAddress != ":2020" {
+		t.Fatalf("unexpected opentsdb bind address: %s", c.OpenTSDBInputs[0].BindAddress)
+	}
+
+	if c.Data.CacheMaxMemorySize != 1000 {
+		t.Fatalf("unexpected cache max memory size: %v", c.Data.CacheMaxMemorySize)
 	}
 }
 
@@ -184,5 +236,22 @@ enabled = false
 
 	if err := c.Validate(); err == nil {
 		t.Fatalf("got nil, expected error")
+	}
+}
+
+func TestConfig_DeprecatedOptions(t *testing.T) {
+	// Parse configuration.
+	var c run.Config
+	if err := c.FromToml(`
+[cluster]
+max-select-point = 100
+`); err != nil {
+		t.Fatal(err)
+	}
+
+	// Validate configuration.
+	if c.Coordinator.MaxSelectPointN != 100 {
+		t.Fatalf("unexpected coordinator max select points: %d", c.Coordinator.MaxSelectPointN)
+
 	}
 }

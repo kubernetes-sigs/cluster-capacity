@@ -17,22 +17,15 @@ limitations under the License.
 package defaulttolerationseconds
 
 import (
-	"encoding/json"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/v1"
 )
 
 func TestForgivenessAdmission(t *testing.T) {
 	var defaultTolerationSeconds int64 = 300
-
-	marshalTolerations := func(tolerations []v1.Toleration) string {
-		tolerationsData, _ := json.Marshal(tolerations)
-		return string(tolerationsData)
-	}
 
 	genTolerationSeconds := func(s int64) *int64 {
 		return &s
@@ -41,276 +34,234 @@ func TestForgivenessAdmission(t *testing.T) {
 	handler := NewDefaultTolerationSeconds()
 	tests := []struct {
 		description  string
-		requestedPod v1.Pod
-		expectedPod  v1.Pod
+		requestedPod api.Pod
+		expectedPod  api.Pod
 	}{
 		{
 			description: "pod has no tolerations, expect add tolerations for `notread:NoExecute` and `unreachable:NoExecute`",
-			requestedPod: v1.Pod{
-				Spec: v1.PodSpec{},
+			requestedPod: api.Pod{
+				Spec: api.PodSpec{},
 			},
-			expectedPod: v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						v1.TolerationsAnnotationKey: marshalTolerations([]v1.Toleration{
-							{
-								Key:               metav1.TaintNodeNotReady,
-								Operator:          v1.TolerationOpExists,
-								Effect:            v1.TaintEffectNoExecute,
-								TolerationSeconds: &defaultTolerationSeconds,
-							},
-							{
-								Key:               metav1.TaintNodeUnreachable,
-								Operator:          v1.TolerationOpExists,
-								Effect:            v1.TaintEffectNoExecute,
-								TolerationSeconds: &defaultTolerationSeconds,
-							},
-						}),
+			expectedPod: api.Pod{
+				Spec: api.PodSpec{
+					Tolerations: []api.Toleration{
+						{
+							Key:               metav1.TaintNodeNotReady,
+							Operator:          api.TolerationOpExists,
+							Effect:            api.TaintEffectNoExecute,
+							TolerationSeconds: &defaultTolerationSeconds,
+						},
+						{
+							Key:               metav1.TaintNodeUnreachable,
+							Operator:          api.TolerationOpExists,
+							Effect:            api.TaintEffectNoExecute,
+							TolerationSeconds: &defaultTolerationSeconds,
+						},
 					},
 				},
-				Spec: v1.PodSpec{},
 			},
 		},
 		{
 			description: "pod has tolerations, but none is for taint `notread:NoExecute` or `unreachable:NoExecute`, expect add tolerations for `notread:NoExecute` and `unreachable:NoExecute`",
-			requestedPod: v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						v1.TolerationsAnnotationKey: marshalTolerations([]v1.Toleration{
-							{
-								Key:               "foo",
-								Operator:          v1.TolerationOpEqual,
-								Value:             "bar",
-								Effect:            v1.TaintEffectNoSchedule,
-								TolerationSeconds: genTolerationSeconds(700),
-							},
-						}),
+			requestedPod: api.Pod{
+				Spec: api.PodSpec{
+					Tolerations: []api.Toleration{
+						{
+							Key:               "foo",
+							Operator:          api.TolerationOpEqual,
+							Value:             "bar",
+							Effect:            api.TaintEffectNoSchedule,
+							TolerationSeconds: genTolerationSeconds(700),
+						},
 					},
 				},
-				Spec: v1.PodSpec{},
 			},
-			expectedPod: v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						v1.TolerationsAnnotationKey: marshalTolerations([]v1.Toleration{
-							{
-								Key:               "foo",
-								Operator:          v1.TolerationOpEqual,
-								Value:             "bar",
-								Effect:            v1.TaintEffectNoSchedule,
-								TolerationSeconds: genTolerationSeconds(700),
-							},
-							{
-								Key:               metav1.TaintNodeNotReady,
-								Operator:          v1.TolerationOpExists,
-								Effect:            v1.TaintEffectNoExecute,
-								TolerationSeconds: &defaultTolerationSeconds,
-							},
-							{
-								Key:               metav1.TaintNodeUnreachable,
-								Operator:          v1.TolerationOpExists,
-								Effect:            v1.TaintEffectNoExecute,
-								TolerationSeconds: &defaultTolerationSeconds,
-							},
-						}),
+			expectedPod: api.Pod{
+				Spec: api.PodSpec{
+					Tolerations: []api.Toleration{
+						{
+							Key:               "foo",
+							Operator:          api.TolerationOpEqual,
+							Value:             "bar",
+							Effect:            api.TaintEffectNoSchedule,
+							TolerationSeconds: genTolerationSeconds(700),
+						},
+						{
+							Key:               metav1.TaintNodeNotReady,
+							Operator:          api.TolerationOpExists,
+							Effect:            api.TaintEffectNoExecute,
+							TolerationSeconds: &defaultTolerationSeconds,
+						},
+						{
+							Key:               metav1.TaintNodeUnreachable,
+							Operator:          api.TolerationOpExists,
+							Effect:            api.TaintEffectNoExecute,
+							TolerationSeconds: &defaultTolerationSeconds,
+						},
 					},
 				},
-				Spec: v1.PodSpec{},
 			},
 		},
 		{
 			description: "pod specified a toleration for taint `notReady:NoExecute`, expect add toleration for `unreachable:NoExecute`",
-			requestedPod: v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						v1.TolerationsAnnotationKey: marshalTolerations([]v1.Toleration{
-							{
-								Key:               metav1.TaintNodeNotReady,
-								Operator:          v1.TolerationOpExists,
-								Effect:            v1.TaintEffectNoExecute,
-								TolerationSeconds: genTolerationSeconds(700),
-							},
-						}),
+			requestedPod: api.Pod{
+				Spec: api.PodSpec{
+					Tolerations: []api.Toleration{
+						{
+							Key:               metav1.TaintNodeNotReady,
+							Operator:          api.TolerationOpExists,
+							Effect:            api.TaintEffectNoExecute,
+							TolerationSeconds: genTolerationSeconds(700),
+						},
 					},
 				},
-				Spec: v1.PodSpec{},
 			},
-			expectedPod: v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						v1.TolerationsAnnotationKey: marshalTolerations([]v1.Toleration{
-							{
-								Key:               metav1.TaintNodeNotReady,
-								Operator:          v1.TolerationOpExists,
-								Effect:            v1.TaintEffectNoExecute,
-								TolerationSeconds: genTolerationSeconds(700),
-							},
-							{
-								Key:               metav1.TaintNodeUnreachable,
-								Operator:          v1.TolerationOpExists,
-								Effect:            v1.TaintEffectNoExecute,
-								TolerationSeconds: &defaultTolerationSeconds,
-							},
-						}),
+			expectedPod: api.Pod{
+				Spec: api.PodSpec{
+					Tolerations: []api.Toleration{
+						{
+							Key:               metav1.TaintNodeNotReady,
+							Operator:          api.TolerationOpExists,
+							Effect:            api.TaintEffectNoExecute,
+							TolerationSeconds: genTolerationSeconds(700),
+						},
+						{
+							Key:               metav1.TaintNodeUnreachable,
+							Operator:          api.TolerationOpExists,
+							Effect:            api.TaintEffectNoExecute,
+							TolerationSeconds: &defaultTolerationSeconds,
+						},
 					},
 				},
-				Spec: v1.PodSpec{},
 			},
 		},
 		{
 			description: "pod specified a toleration for taint `unreachable:NoExecute`, expect add toleration for `notReady:NoExecute`",
-			requestedPod: v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						v1.TolerationsAnnotationKey: marshalTolerations([]v1.Toleration{
-							{
-								Key:               metav1.TaintNodeUnreachable,
-								Operator:          v1.TolerationOpExists,
-								Effect:            v1.TaintEffectNoExecute,
-								TolerationSeconds: genTolerationSeconds(700),
-							},
-						}),
+			requestedPod: api.Pod{
+				Spec: api.PodSpec{
+					Tolerations: []api.Toleration{
+						{
+							Key:               metav1.TaintNodeUnreachable,
+							Operator:          api.TolerationOpExists,
+							Effect:            api.TaintEffectNoExecute,
+							TolerationSeconds: genTolerationSeconds(700),
+						},
 					},
 				},
-				Spec: v1.PodSpec{},
 			},
-			expectedPod: v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						v1.TolerationsAnnotationKey: marshalTolerations([]v1.Toleration{
-							{
-								Key:               metav1.TaintNodeUnreachable,
-								Operator:          v1.TolerationOpExists,
-								Effect:            v1.TaintEffectNoExecute,
-								TolerationSeconds: genTolerationSeconds(700),
-							},
-							{
-								Key:               metav1.TaintNodeNotReady,
-								Operator:          v1.TolerationOpExists,
-								Effect:            v1.TaintEffectNoExecute,
-								TolerationSeconds: &defaultTolerationSeconds,
-							},
-						}),
+			expectedPod: api.Pod{
+				Spec: api.PodSpec{
+					Tolerations: []api.Toleration{
+						{
+							Key:               metav1.TaintNodeUnreachable,
+							Operator:          api.TolerationOpExists,
+							Effect:            api.TaintEffectNoExecute,
+							TolerationSeconds: genTolerationSeconds(700),
+						},
+						{
+							Key:               metav1.TaintNodeNotReady,
+							Operator:          api.TolerationOpExists,
+							Effect:            api.TaintEffectNoExecute,
+							TolerationSeconds: &defaultTolerationSeconds,
+						},
 					},
 				},
-				Spec: v1.PodSpec{},
 			},
 		},
 		{
 			description: "pod specified tolerations for both `notread:NoExecute` and `unreachable:NoExecute`, expect no change",
-			requestedPod: v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						v1.TolerationsAnnotationKey: marshalTolerations([]v1.Toleration{
-							{
-								Key:               metav1.TaintNodeNotReady,
-								Operator:          v1.TolerationOpExists,
-								Effect:            v1.TaintEffectNoExecute,
-								TolerationSeconds: genTolerationSeconds(700),
-							},
-							{
-								Key:               metav1.TaintNodeUnreachable,
-								Operator:          v1.TolerationOpExists,
-								Effect:            v1.TaintEffectNoExecute,
-								TolerationSeconds: genTolerationSeconds(700),
-							},
-						}),
+			requestedPod: api.Pod{
+				Spec: api.PodSpec{
+					Tolerations: []api.Toleration{
+						{
+							Key:               metav1.TaintNodeNotReady,
+							Operator:          api.TolerationOpExists,
+							Effect:            api.TaintEffectNoExecute,
+							TolerationSeconds: genTolerationSeconds(700),
+						},
+						{
+							Key:               metav1.TaintNodeUnreachable,
+							Operator:          api.TolerationOpExists,
+							Effect:            api.TaintEffectNoExecute,
+							TolerationSeconds: genTolerationSeconds(700),
+						},
 					},
 				},
-				Spec: v1.PodSpec{},
 			},
-			expectedPod: v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						v1.TolerationsAnnotationKey: marshalTolerations([]v1.Toleration{
-							{
-								Key:               metav1.TaintNodeNotReady,
-								Operator:          v1.TolerationOpExists,
-								Effect:            v1.TaintEffectNoExecute,
-								TolerationSeconds: genTolerationSeconds(700),
-							},
-							{
-								Key:               metav1.TaintNodeUnreachable,
-								Operator:          v1.TolerationOpExists,
-								Effect:            v1.TaintEffectNoExecute,
-								TolerationSeconds: genTolerationSeconds(700),
-							},
-						}),
+			expectedPod: api.Pod{
+				Spec: api.PodSpec{
+					Tolerations: []api.Toleration{
+						{
+							Key:               metav1.TaintNodeNotReady,
+							Operator:          api.TolerationOpExists,
+							Effect:            api.TaintEffectNoExecute,
+							TolerationSeconds: genTolerationSeconds(700),
+						},
+						{
+							Key:               metav1.TaintNodeUnreachable,
+							Operator:          api.TolerationOpExists,
+							Effect:            api.TaintEffectNoExecute,
+							TolerationSeconds: genTolerationSeconds(700),
+						},
 					},
 				},
-				Spec: v1.PodSpec{},
 			},
 		},
 		{
 			description: "pod specified toleration for taint `unreachable`, expect add toleration for `notReady:NoExecute`",
-			requestedPod: v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						v1.TolerationsAnnotationKey: marshalTolerations([]v1.Toleration{
-							{
-								Key:               metav1.TaintNodeUnreachable,
-								Operator:          v1.TolerationOpExists,
-								TolerationSeconds: genTolerationSeconds(700),
-							},
-						}),
+			requestedPod: api.Pod{
+				Spec: api.PodSpec{
+					Tolerations: []api.Toleration{
+						{
+							Key:               metav1.TaintNodeUnreachable,
+							Operator:          api.TolerationOpExists,
+							TolerationSeconds: genTolerationSeconds(700),
+						},
 					},
 				},
-				Spec: v1.PodSpec{},
 			},
-			expectedPod: v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						v1.TolerationsAnnotationKey: marshalTolerations([]v1.Toleration{
-							{
-								Key:               metav1.TaintNodeUnreachable,
-								Operator:          v1.TolerationOpExists,
-								TolerationSeconds: genTolerationSeconds(700),
-							},
-							{
-								Key:               metav1.TaintNodeNotReady,
-								Operator:          v1.TolerationOpExists,
-								Effect:            v1.TaintEffectNoExecute,
-								TolerationSeconds: genTolerationSeconds(300),
-							},
-						}),
+			expectedPod: api.Pod{
+				Spec: api.PodSpec{
+					Tolerations: []api.Toleration{
+						{
+							Key:               metav1.TaintNodeUnreachable,
+							Operator:          api.TolerationOpExists,
+							TolerationSeconds: genTolerationSeconds(700),
+						},
+						{
+							Key:               metav1.TaintNodeNotReady,
+							Operator:          api.TolerationOpExists,
+							Effect:            api.TaintEffectNoExecute,
+							TolerationSeconds: genTolerationSeconds(300),
+						},
 					},
 				},
-				Spec: v1.PodSpec{},
 			},
 		},
 		{
 			description: "pod has wildcard toleration for all kind of taints, expect no change",
-			requestedPod: v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						v1.TolerationsAnnotationKey: marshalTolerations([]v1.Toleration{
-							{
-								Operator:          v1.TolerationOpExists,
-								TolerationSeconds: genTolerationSeconds(700),
-							},
-						}),
+			requestedPod: api.Pod{
+				Spec: api.PodSpec{
+					Tolerations: []api.Toleration{
+						{Operator: api.TolerationOpExists, TolerationSeconds: genTolerationSeconds(700)},
 					},
 				},
-				Spec: v1.PodSpec{},
 			},
-			expectedPod: v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						v1.TolerationsAnnotationKey: marshalTolerations([]v1.Toleration{
-							{
-								Operator:          v1.TolerationOpExists,
-								TolerationSeconds: genTolerationSeconds(700),
-							},
-						}),
+			expectedPod: api.Pod{
+				Spec: api.PodSpec{
+					Tolerations: []api.Toleration{
+						{
+							Operator:          api.TolerationOpExists,
+							TolerationSeconds: genTolerationSeconds(700),
+						},
 					},
 				},
-				Spec: v1.PodSpec{},
 			},
 		},
 	}
 
 	for _, test := range tests {
-		err := handler.Admit(admission.NewAttributesRecord(&test.requestedPod, nil, api.Kind("Pod").WithVersion("version"), "foo", "name", v1.Resource("pods").WithVersion("version"), "", "ignored", nil))
+		err := handler.Admit(admission.NewAttributesRecord(&test.requestedPod, nil, api.Kind("Pod").WithVersion("version"), "foo", "name", api.Resource("pods").WithVersion("version"), "", "ignored", nil))
 		if err != nil {
 			t.Errorf("[%s]: unexpected error %v for pod %+v", test.description, err, test.requestedPod)
 		}

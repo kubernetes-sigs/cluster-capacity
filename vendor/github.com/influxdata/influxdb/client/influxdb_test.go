@@ -139,8 +139,8 @@ func TestClient_Ping(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error.  expected %v, actual %v", nil, err)
 	}
-	if d == 0 {
-		t.Fatalf("expected a duration greater than zero.  actual %v", d)
+	if d.Nanoseconds() == 0 {
+		t.Fatalf("expected a duration greater than zero.  actual %v", d.Nanoseconds())
 	}
 	if version != "x.x" {
 		t.Fatalf("unexpected version.  expected %s,  actual %v", "x.x", version)
@@ -318,6 +318,44 @@ func TestClient_UserAgent(t *testing.T) {
 		if receivedUserAgent != test.expected {
 			t.Fatalf("Unexpected user agent. expected %v, actual %v", test.expected, receivedUserAgent)
 		}
+	}
+}
+
+func TestClient_Messages(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"results":[{"messages":[{"level":"warning","text":"deprecation test"}]}]}`))
+	}))
+	defer ts.Close()
+
+	u, _ := url.Parse(ts.URL)
+	config := client.Config{URL: *u}
+	c, err := client.NewClient(config)
+	if err != nil {
+		t.Fatalf("unexpected error.  expected %v, actual %v", nil, err)
+	}
+
+	query := client.Query{}
+	resp, err := c.Query(query)
+	if err != nil {
+		t.Fatalf("unexpected error.  expected %v, actual %v", nil, err)
+	}
+
+	if got, exp := len(resp.Results), 1; got != exp {
+		t.Fatalf("unexpected number of results.  expected %v, actual %v", exp, got)
+	}
+
+	r := resp.Results[0]
+	if got, exp := len(r.Messages), 1; got != exp {
+		t.Fatalf("unexpected number of messages.  expected %v, actual %v", exp, got)
+	}
+
+	m := r.Messages[0]
+	if got, exp := m.Level, "warning"; got != exp {
+		t.Errorf("unexpected message level.  expected %v, actual %v", exp, got)
+	}
+	if got, exp := m.Text, "deprecation test"; got != exp {
+		t.Errorf("unexpected message text.  expected %v, actual %v", exp, got)
 	}
 }
 
@@ -511,6 +549,7 @@ func TestEpochToTime(t *testing.T) {
 
 func emptyTestServer() *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(50 * time.Millisecond)
 		w.Header().Set("X-Influxdb-Version", "x.x")
 		return
 	}))

@@ -1,8 +1,10 @@
 package monitor // import "github.com/influxdata/influxdb/monitor"
 
 import (
+	"errors"
 	"expvar"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"runtime"
@@ -11,18 +13,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/influxdata/influxdb"
 	"github.com/influxdata/influxdb/models"
 	"github.com/influxdata/influxdb/monitor/diagnostics"
 	"github.com/influxdata/influxdb/services/meta"
 )
 
-const leaderWaitTimeout = 30 * time.Second
-
 // Policy constants.
 const (
 	MonitorRetentionPolicy         = "monitor"
 	MonitorRetentionPolicyDuration = 7 * 24 * time.Hour
+	MonitorRetentionPolicyReplicaN = 1
 )
 
 // Monitor represents an instance of the monitor system.
@@ -33,46 +33,45 @@ type Monitor struct {
 	Branch    string
 	BuildTime string
 
-	wg   sync.WaitGroup
-	done chan struct{}
-	mu   sync.Mutex
+	wg sync.WaitGroup
 
+	mu                sync.RWMutex
+	globalTags        map[string]string
 	diagRegistrations map[string]diagnostics.Client
+	reporter          Reporter
+	done              chan struct{}
+	storeCreated      bool
+	storeEnabled      bool
+	storeAddress      string
 
-	storeCreated           bool
-	storeEnabled           bool
 	storeDatabase          string
 	storeRetentionPolicy   string
 	storeRetentionDuration time.Duration
 	storeReplicationFactor int
-	storeAddress           string
 	storeInterval          time.Duration
 
 	MetaClient interface {
-		ClusterID() uint64
-		CreateDatabase(name string) (*meta.DatabaseInfo, error)
-		CreateRetentionPolicy(database string, rpi *meta.RetentionPolicyInfo) (*meta.RetentionPolicyInfo, error)
-		SetDefaultRetentionPolicy(database, name string) error
-		DropRetentionPolicy(database, name string) error
+		CreateDatabaseWithRetentionPolicy(name string, spec *meta.RetentionPolicySpec) (*meta.DatabaseInfo, error)
+		Database(name string) *meta.DatabaseInfo
 	}
-
-	NodeID uint64
 
 	// Writer for pushing stats back into the database.
-	// This causes a circular dependency if it depends on cluster directly so it
-	// is wrapped in a simpler interface.
-	PointsWriter interface {
-		WritePoints(database, retentionPolicy string, points models.Points) error
-	}
+	PointsWriter PointsWriter
 
 	Logger *log.Logger
 }
 
+// PointsWriter is a simplified interface for writing the points the monitor gathers
+type PointsWriter interface {
+	WritePoints(database, retentionPolicy string, points models.Points) error
+}
+
 // New returns a new instance of the monitor system.
-func New(c Config) *Monitor {
+func New(r Reporter, c Config) *Monitor {
 	return &Monitor{
-		done:                 make(chan struct{}),
+		globalTags:           make(map[string]string),
 		diagRegistrations:    make(map[string]diagnostics.Client),
+		reporter:             r,
 		storeEnabled:         c.StoreEnabled,
 		storeDatabase:        c.StoreDatabase,
 		storeInterval:        time.Duration(c.StoreInterval),
@@ -81,9 +80,20 @@ func New(c Config) *Monitor {
 	}
 }
 
+func (m *Monitor) open() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.done != nil
+}
+
 // Open opens the monitoring system, using the given clusterID, node ID, and hostname
 // for identification purpose.
 func (m *Monitor) Open() error {
+	if m.open() {
+		m.Logger.Println("Monitor is already open")
+		return nil
+	}
+
 	m.Logger.Printf("Starting monitor system")
 
 	// Self-register various stats and diagnostics.
@@ -97,9 +107,12 @@ func (m *Monitor) Open() error {
 	m.RegisterDiagnosticsClient("network", &network{})
 	m.RegisterDiagnosticsClient("system", &system{})
 
+	m.mu.Lock()
+	m.done = make(chan struct{})
+	m.mu.Unlock()
+
 	// If enabled, record stats in a InfluxDB system.
 	if m.storeEnabled {
-
 		// Start periodic writes to system.
 		m.wg.Add(1)
 		go m.storeStatistics()
@@ -109,16 +122,65 @@ func (m *Monitor) Open() error {
 }
 
 // Close closes the monitor system.
-func (m *Monitor) Close() {
+func (m *Monitor) Close() error {
+	if !m.open() {
+		m.Logger.Println("Monitor is already closed.")
+		return nil
+	}
+
 	m.Logger.Println("shutting down monitor system")
+	m.mu.Lock()
 	close(m.done)
+	m.mu.Unlock()
+
 	m.wg.Wait()
+
+	m.mu.Lock()
 	m.done = nil
+	m.mu.Unlock()
+
+	m.DeregisterDiagnosticsClient("build")
+	m.DeregisterDiagnosticsClient("runtime")
+	m.DeregisterDiagnosticsClient("network")
+	m.DeregisterDiagnosticsClient("system")
+	return nil
 }
 
-// SetLogger sets the internal logger to the logger passed in.
-func (m *Monitor) SetLogger(l *log.Logger) {
-	m.Logger = l
+// SetGlobalTag can be used to set tags that will appear on all points
+// written by the Monitor.
+func (m *Monitor) SetGlobalTag(key string, value interface{}) {
+	m.mu.Lock()
+	m.globalTags[key] = fmt.Sprintf("%v", value)
+	m.mu.Unlock()
+}
+
+// RemoteWriterConfig represents the configuration of a remote writer
+type RemoteWriterConfig struct {
+	RemoteAddr string
+	NodeID     string
+	Username   string
+	Password   string
+	ClusterID  uint64
+}
+
+// SetPointsWriter can be used to set a writer for the monitoring points.
+func (m *Monitor) SetPointsWriter(pw PointsWriter) error {
+	if !m.storeEnabled {
+		// not enabled, nothing to do
+		return nil
+	}
+	m.mu.Lock()
+	m.PointsWriter = pw
+	m.mu.Unlock()
+
+	// Subsequent calls to an already open Monitor are just a no-op.
+	return m.Open()
+}
+
+// SetLogOutput sets the writer to which all logs are written. It must not be
+// called after Open is called.
+func (m *Monitor) SetLogOutput(w io.Writer) {
+	m.Logger = log.New(w, "[monitor] ", log.LstdFlags)
 }
 
 // RegisterDiagnosticsClient registers a diagnostics client with the given name and tags.
@@ -148,8 +210,7 @@ func (m *Monitor) Statistics(tags map[string]string) ([]*Statistic, error) {
 		}
 
 		statistic := &Statistic{
-			Tags:   make(map[string]string),
-			Values: make(map[string]interface{}),
+			Statistic: models.NewStatistic(""),
 		}
 
 		// Add any supplied tags.
@@ -214,9 +275,7 @@ func (m *Monitor) Statistics(tags map[string]string) ([]*Statistic, error) {
 
 	// Add Go memstats.
 	statistic := &Statistic{
-		Name:   "runtime",
-		Tags:   make(map[string]string),
-		Values: make(map[string]interface{}),
+		Statistic: models.NewStatistic("runtime"),
 	}
 
 	// Add any supplied tags to Go memstats
@@ -245,7 +304,18 @@ func (m *Monitor) Statistics(tags map[string]string) ([]*Statistic, error) {
 	}
 	statistics = append(statistics, statistic)
 
+	statistics = m.gatherStatistics(statistics, tags)
 	return statistics, nil
+}
+
+func (m *Monitor) gatherStatistics(statistics []*Statistic, tags map[string]string) []*Statistic {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	for _, s := range m.reporter.Statistics(tags) {
+		statistics = append(statistics, &Statistic{Statistic: s})
+	}
+	return statistics
 }
 
 // Diagnostics fetches diagnostic information for each registered
@@ -272,35 +342,39 @@ func (m *Monitor) createInternalStorage() {
 		return
 	}
 
-	if _, err := m.MetaClient.CreateDatabase(m.storeDatabase); err != nil {
-		m.Logger.Printf("failed to create database '%s', failed to create storage: %s",
-			m.storeDatabase, err.Error())
-		return
-	}
+	if di := m.MetaClient.Database(m.storeDatabase); di == nil {
+		duration := MonitorRetentionPolicyDuration
+		replicaN := MonitorRetentionPolicyReplicaN
+		spec := meta.RetentionPolicySpec{
+			Name:     MonitorRetentionPolicy,
+			Duration: &duration,
+			ReplicaN: &replicaN,
+		}
 
-	rpi := meta.NewRetentionPolicyInfo(MonitorRetentionPolicy)
-	rpi.Duration = MonitorRetentionPolicyDuration
-	rpi.ReplicaN = 1
-	if _, err := m.MetaClient.CreateRetentionPolicy(m.storeDatabase, rpi); err != nil {
-		m.Logger.Printf("failed to create retention policy '%s', failed to create internal storage: %s",
-			rpi.Name, err.Error())
-		return
-	}
-
-	if err := m.MetaClient.SetDefaultRetentionPolicy(m.storeDatabase, rpi.Name); err != nil {
-		m.Logger.Printf("failed to set default retention policy on '%s', failed to create internal storage: %s",
-			m.storeDatabase, err.Error())
-		return
-	}
-
-	err := m.MetaClient.DropRetentionPolicy(m.storeDatabase, "default")
-	if err != nil && err.Error() != influxdb.ErrRetentionPolicyNotFound("default").Error() {
-		m.Logger.Printf("failed to delete retention policy 'default', failed to created internal storage: %s", err.Error())
-		return
+		if _, err := m.MetaClient.CreateDatabaseWithRetentionPolicy(m.storeDatabase, &spec); err != nil {
+			m.Logger.Printf("failed to create database '%s', failed to create storage: %s",
+				m.storeDatabase, err.Error())
+			return
+		}
 	}
 
 	// Mark storage creation complete.
 	m.storeCreated = true
+}
+
+// waitUntilInterval waits until we are on an even interval for the duration.
+func (m *Monitor) waitUntilInterval(d time.Duration) error {
+	now := time.Now()
+	until := now.Truncate(d).Add(d)
+	timer := time.NewTimer(until.Sub(now))
+	defer timer.Stop()
+
+	select {
+	case <-timer.C:
+		return nil
+	case <-m.done:
+		return errors.New("interrupted")
+	}
 }
 
 // storeStatistics writes the statistics to an InfluxDB system.
@@ -309,63 +383,62 @@ func (m *Monitor) storeStatistics() {
 	m.Logger.Printf("Storing statistics in database '%s' retention policy '%s', at interval %s",
 		m.storeDatabase, m.storeRetentionPolicy, m.storeInterval)
 
-	// Get cluster-level metadata. Nothing different is going to happen if errors occur.
-	clusterID := m.MetaClient.ClusterID()
 	hostname, _ := os.Hostname()
-	clusterTags := map[string]string{
-		"clusterID": fmt.Sprintf("%d", clusterID),
-		"nodeID":    fmt.Sprintf("%d", m.NodeID),
-		"hostname":  hostname,
+	m.SetGlobalTag("hostname", hostname)
+
+	// Wait until an even interval to start recording monitor statistics.
+	// If we are interrupted before the interval for some reason, exit early.
+	if err := m.waitUntilInterval(m.storeInterval); err != nil {
+		return
 	}
 
 	tick := time.NewTicker(m.storeInterval)
 	defer tick.Stop()
+
 	for {
 		select {
-		case <-tick.C:
-			m.createInternalStorage()
+		case now := <-tick.C:
+			now = now.Truncate(m.storeInterval)
+			func() {
+				m.mu.Lock()
+				defer m.mu.Unlock()
+				m.createInternalStorage()
+			}()
 
-			stats, err := m.Statistics(clusterTags)
+			stats, err := m.Statistics(m.globalTags)
 			if err != nil {
 				m.Logger.Printf("failed to retrieve registered statistics: %s", err)
-				continue
+				return
 			}
 
 			points := make(models.Points, 0, len(stats))
 			for _, s := range stats {
-				pt, err := models.NewPoint(s.Name, s.Tags, s.Values, time.Now().Truncate(time.Second))
+				pt, err := models.NewPoint(s.Name, models.NewTags(s.Tags), s.Values, now)
 				if err != nil {
 					m.Logger.Printf("Dropping point %v: %v", s.Name, err)
-					continue
+					return
 				}
 				points = append(points, pt)
 			}
 
-			if err := m.PointsWriter.WritePoints(m.storeDatabase, m.storeRetentionPolicy, points); err != nil {
-				m.Logger.Printf("failed to store statistics: %s", err)
-			}
+			func() {
+				m.mu.RLock()
+				defer m.mu.RUnlock()
+
+				if err := m.PointsWriter.WritePoints(m.storeDatabase, m.storeRetentionPolicy, points); err != nil {
+					m.Logger.Printf("failed to store statistics: %s", err)
+				}
+			}()
 		case <-m.done:
 			m.Logger.Printf("terminating storage of statistics")
 			return
 		}
-
 	}
 }
 
 // Statistic represents the information returned by a single monitor client.
 type Statistic struct {
-	Name   string                 `json:"name"`
-	Tags   map[string]string      `json:"tags"`
-	Values map[string]interface{} `json:"values"`
-}
-
-// newStatistic returns a new statistic object.
-func newStatistic(name string, tags map[string]string, values map[string]interface{}) *Statistic {
-	return &Statistic{
-		Name:   name,
-		Tags:   tags,
-		Values: values,
-	}
+	models.Statistic
 }
 
 // valueNames returns a sorted list of the value names, if any.
@@ -377,6 +450,14 @@ func (s *Statistic) ValueNames() []string {
 	sort.Strings(a)
 	return a
 }
+
+type Statistics []*Statistic
+
+func (a Statistics) Len() int { return len(a) }
+func (a Statistics) Less(i, j int) bool {
+	return a[i].Name < a[j].Name
+}
+func (a Statistics) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 
 // DiagnosticsFromMap returns a Diagnostics from a map.
 func DiagnosticsFromMap(m map[string]interface{}) *diagnostics.Diagnostics {

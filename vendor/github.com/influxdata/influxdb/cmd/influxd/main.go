@@ -8,10 +8,10 @@ import (
 	"math/rand"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
+	"github.com/influxdata/influxdb/cmd"
 	"github.com/influxdata/influxdb/cmd/influxd/backup"
 	"github.com/influxdata/influxdb/cmd/influxd/help"
 	"github.com/influxdata/influxdb/cmd/influxd/restore"
@@ -69,7 +69,7 @@ func NewMain() *Main {
 
 // Run determines and runs the command specified by the CLI args.
 func (m *Main) Run(args ...string) error {
-	name, args := ParseCommandName(args)
+	name, args := cmd.ParseCommandName(args)
 
 	// Extract name from args.
 	switch name {
@@ -141,32 +141,6 @@ func (m *Main) Run(args ...string) error {
 	return nil
 }
 
-// ParseCommandName extracts the command name and args from the args list.
-func ParseCommandName(args []string) (string, []string) {
-	// Retrieve command name as first argument.
-	var name string
-	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
-		name = args[0]
-	}
-
-	// Special case -h immediately following binary name
-	if len(args) > 0 && args[0] == "-h" {
-		name = "help"
-	}
-
-	// If command is "help" and has an argument then rewrite args to use "-h".
-	if name == "help" && len(args) > 1 {
-		args[0], args[1] = args[1], "-h"
-		name = args[0]
-	}
-
-	// If a named command is specified then return it with its arguments.
-	if name != "" {
-		return name, args[1:]
-	}
-	return "", args
-}
-
 // VersionCommand represents the command executed by "influxd version".
 type VersionCommand struct {
 	Stdout io.Writer
@@ -185,7 +159,7 @@ func NewVersionCommand() *VersionCommand {
 func (cmd *VersionCommand) Run(args ...string) error {
 	// Parse flags in case -h is specified.
 	fs := flag.NewFlagSet("", flag.ContinueOnError)
-	fs.Usage = func() { fmt.Fprintln(cmd.Stderr, strings.TrimSpace(versionUsage)) }
+	fs.Usage = func() { fmt.Fprintln(cmd.Stderr, versionUsage) }
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -196,8 +170,7 @@ func (cmd *VersionCommand) Run(args ...string) error {
 	return nil
 }
 
-var versionUsage = `
-usage: version
+var versionUsage = `Displays the InfluxDB version, build branch and git commit hash.
 
-	version displays the InfluxDB version, build branch and git commit hash
+Usage: influxd version
 `

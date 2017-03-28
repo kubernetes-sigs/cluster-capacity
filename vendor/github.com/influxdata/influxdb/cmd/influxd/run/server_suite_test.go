@@ -31,7 +31,7 @@ func init() {
 			&Query{
 				name:    "create database should error with bad name",
 				command: `CREATE DATABASE 0xdb0`,
-				exp:     `{"error":"error parsing query: found 0, expected identifier at line 1, char 17"}`,
+				exp:     `{"error":"error parsing query: found 0xdb0, expected identifier at line 1, char 17"}`,
 			},
 			&Query{
 				name:    "create database with retention duration should error with bad retention duration",
@@ -54,24 +54,24 @@ func init() {
 				exp:     `{"results":[{"series":[{"name":"databases","columns":["name"],"values":[["db0"],["db0_r"]]}]}]}`,
 			},
 			&Query{
-				name:    "create database should not error with existing database with IF NOT EXISTS",
-				command: `CREATE DATABASE IF NOT EXISTS db0`,
+				name:    "create database should not error with existing database",
+				command: `CREATE DATABASE db0`,
 				exp:     `{"results":[{}]}`,
 			},
 			&Query{
-				name:    "create database should create non-existing database with IF NOT EXISTS",
-				command: `CREATE DATABASE IF NOT EXISTS db1`,
+				name:    "create database should create non-existing database",
+				command: `CREATE DATABASE db1`,
 				exp:     `{"results":[{}]}`,
 			},
 			&Query{
-				name:    "create database with retention duration should error if retention policy is different with IF NOT EXISTS",
-				command: `CREATE DATABASE IF NOT EXISTS db1 WITH DURATION 24h`,
+				name:    "create database with retention duration should error if retention policy is different",
+				command: `CREATE DATABASE db1 WITH DURATION 24h`,
 				exp:     `{"results":[{"error":"retention policy conflicts with an existing policy"}]}`,
 			},
 			&Query{
-				name:    "create database should error IF NOT EXISTS with bad retention duration",
-				command: `CREATE DATABASE IF NOT EXISTS db1 WITH DURATION xyz`,
-				exp:     `{"error":"error parsing query: found xyz, expected duration at line 1, char 49"}`,
+				name:    "create database should error with bad retention duration",
+				command: `CREATE DATABASE db1 WITH DURATION xyz`,
+				exp:     `{"error":"error parsing query: found xyz, expected duration at line 1, char 35"}`,
 			},
 			&Query{
 				name:    "show database should succeed",
@@ -102,8 +102,8 @@ func init() {
 				exp:     `{"results":[{}]}`,
 			},
 			&Query{
-				name:    "drop database should not error with non-existing database db1 WITH IF EXISTS",
-				command: `DROP DATABASE IF EXISTS db1`,
+				name:    "drop database should not error with non-existing database db1",
+				command: `DROP DATABASE db1`,
 				exp:     `{"results":[{}]}`,
 			},
 			&Query{
@@ -200,6 +200,50 @@ func init() {
 				command: `SELECT * FROM cpu GROUP BY *`,
 				exp:     `{"results":[{"series":[{"name":"cpu","tags":{"host":"serverA","region":"uswest"},"columns":["time","val"],"values":[["2000-01-01T00:00:00Z",23.2]]}]}]}`,
 				params:  url.Values{"db": []string{"db0"}},
+			},
+		},
+	}
+
+	tests["delete_series"] = Test{
+		db: "db0",
+		rp: "rp0",
+		writes: Writes{
+			&Write{data: fmt.Sprintf(`cpu,host=serverA,region=uswest val=23.2 %d`, mustParseTime(time.RFC3339Nano, "2000-01-01T00:00:00Z").UnixNano())},
+			&Write{data: fmt.Sprintf(`cpu,host=serverA,region=uswest val=100 %d`, mustParseTime(time.RFC3339Nano, "2000-01-02T00:00:00Z").UnixNano())},
+			&Write{data: fmt.Sprintf(`cpu,host=serverA,region=uswest val=200 %d`, mustParseTime(time.RFC3339Nano, "2000-01-03T00:00:00Z").UnixNano())},
+			&Write{db: "db1", data: fmt.Sprintf(`cpu,host=serverA,region=uswest val=23.2 %d`, mustParseTime(time.RFC3339Nano, "2000-01-01T00:00:00Z").UnixNano())},
+		},
+		queries: []*Query{
+			&Query{
+				name:    "Show series is present",
+				command: `SHOW SERIES`,
+				exp:     `{"results":[{"series":[{"columns":["key"],"values":[["cpu,host=serverA,region=uswest"]]}]}]}`,
+				params:  url.Values{"db": []string{"db0"}},
+			},
+			&Query{
+				name:    "Delete series",
+				command: `DELETE FROM cpu WHERE time < '2000-01-03T00:00:00Z'`,
+				exp:     `{"results":[{}]}`,
+				params:  url.Values{"db": []string{"db0"}},
+				once:    true,
+			},
+			&Query{
+				name:    "Show series still exists",
+				command: `SHOW SERIES`,
+				exp:     `{"results":[{"series":[{"columns":["key"],"values":[["cpu,host=serverA,region=uswest"]]}]}]}`,
+				params:  url.Values{"db": []string{"db0"}},
+			},
+			&Query{
+				name:    "Make sure last point still exists",
+				command: `SELECT * FROM cpu`,
+				exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","host","region","val"],"values":[["2000-01-03T00:00:00Z","serverA","uswest",200]]}]}]}`,
+				params:  url.Values{"db": []string{"db0"}},
+			},
+			&Query{
+				name:    "Make sure data wasn't deleted from other database.",
+				command: `SELECT * FROM cpu`,
+				exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","host","region","val"],"values":[["2000-01-01T00:00:00Z","serverA","uswest",23.2]]}]}]}`,
+				params:  url.Values{"db": []string{"db1"}},
 			},
 		},
 	}
@@ -302,7 +346,7 @@ func init() {
 			&Query{
 				name:    "Drop series with WHERE field should error",
 				command: `DROP SERIES FROM c WHERE val > 50.0`,
-				exp:     `{"results":[{"error":"DROP SERIES doesn't support fields in WHERE clause"}]}`,
+				exp:     `{"results":[{"error":"fields not supported in WHERE clause during deletion"}]}`,
 				params:  url.Values{"db": []string{"db0"}},
 			},
 			&Query{
@@ -420,7 +464,7 @@ func init() {
 			&Query{
 				name:    "show retention policies should return auto-created policy",
 				command: `SHOW RETENTION POLICIES ON db0`,
-				exp:     `{"results":[{"series":[{"columns":["name","duration","shardGroupDuration","replicaN","default"],"values":[["default","0","168h0m0s",1,true]]}]}]}`,
+				exp:     `{"results":[{"series":[{"columns":["name","duration","shardGroupDuration","replicaN","default"],"values":[["autogen","0s","168h0m0s",1,true]]}]}]}`,
 			},
 		},
 	}

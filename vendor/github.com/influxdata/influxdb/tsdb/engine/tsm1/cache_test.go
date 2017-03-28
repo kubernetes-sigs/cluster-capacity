@@ -3,8 +3,14 @@ package tsm1
 import (
 	"fmt"
 	"io/ioutil"
+	"math"
+	"math/rand"
 	"os"
 	"reflect"
+	"runtime"
+	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/golang/snappy"
@@ -51,6 +57,27 @@ func TestCache_CacheWrite(t *testing.T) {
 	}
 }
 
+func TestCache_CacheWrite_TypeConflict(t *testing.T) {
+	v0 := NewValue(1, 1.0)
+	v1 := NewValue(2, int(64))
+	values := Values{v0, v1}
+	valuesSize := v0.Size() + v1.Size()
+
+	c := NewCache(uint64(2*valuesSize), "")
+
+	if err := c.Write("foo", values[:1]); err != nil {
+		t.Fatalf("failed to write key foo to cache: %s", err.Error())
+	}
+
+	if err := c.Write("foo", values[1:]); err == nil {
+		t.Fatalf("expected field type conflict")
+	}
+
+	if exp, got := uint64(v0.Size()), c.Size(); exp != got {
+		t.Fatalf("cache size incorrect after 2 writes, exp %d, got %d", exp, got)
+	}
+}
+
 func TestCache_CacheWriteMulti(t *testing.T) {
 	v0 := NewValue(1, 1.0)
 	v1 := NewValue(2, 2.0)
@@ -69,6 +96,151 @@ func TestCache_CacheWriteMulti(t *testing.T) {
 
 	if exp, keys := []string{"bar", "foo"}, c.Keys(); !reflect.DeepEqual(keys, exp) {
 		t.Fatalf("cache keys incorrect after 2 writes, exp %v, got %v", exp, keys)
+	}
+}
+
+func TestCache_CacheWriteMulti_TypeConflict(t *testing.T) {
+	v0 := NewValue(1, 1.0)
+	v1 := NewValue(2, 2.0)
+	v2 := NewValue(3, int64(3))
+	values := Values{v0, v1, v2}
+	valuesSize := uint64(v0.Size() + v1.Size() + v2.Size())
+
+	c := NewCache(3*valuesSize, "")
+
+	if err := c.WriteMulti(map[string][]Value{"foo": values[:1], "bar": values[1:]}); err == nil {
+		t.Fatalf(" expected field type conflict")
+	}
+
+	if exp, got := uint64(v0.Size()), c.Size(); exp != got {
+		t.Fatalf("cache size incorrect after 2 writes, exp %d, got %d", exp, got)
+	}
+
+	if exp, keys := []string{"foo"}, c.Keys(); !reflect.DeepEqual(keys, exp) {
+		t.Fatalf("cache keys incorrect after 2 writes, exp %v, got %v", exp, keys)
+	}
+}
+
+func TestCache_Cache_DeleteRange(t *testing.T) {
+	v0 := NewValue(1, 1.0)
+	v1 := NewValue(2, 2.0)
+	v2 := NewValue(3, 3.0)
+	values := Values{v0, v1, v2}
+	valuesSize := uint64(v0.Size() + v1.Size() + v2.Size())
+
+	c := NewCache(3*valuesSize, "")
+
+	if err := c.WriteMulti(map[string][]Value{"foo": values, "bar": values}); err != nil {
+		t.Fatalf("failed to write key foo to cache: %s", err.Error())
+	}
+	if n := c.Size(); n != 2*valuesSize {
+		t.Fatalf("cache size incorrect after 2 writes, exp %d, got %d", 2*valuesSize, n)
+	}
+
+	if exp, keys := []string{"bar", "foo"}, c.Keys(); !reflect.DeepEqual(keys, exp) {
+		t.Fatalf("cache keys incorrect after 2 writes, exp %v, got %v", exp, keys)
+	}
+
+	c.DeleteRange([]string{"bar"}, 2, math.MaxInt64)
+
+	if exp, keys := []string{"bar", "foo"}, c.Keys(); !reflect.DeepEqual(keys, exp) {
+		t.Fatalf("cache keys incorrect after 2 writes, exp %v, got %v", exp, keys)
+	}
+
+	if got, exp := c.Size(), valuesSize+uint64(v0.Size()); exp != got {
+		t.Fatalf("cache size incorrect after 2 writes, exp %d, got %d", exp, got)
+	}
+
+	if got, exp := len(c.Values("bar")), 1; got != exp {
+		t.Fatalf("cache values mismatch: got %v, exp %v", got, exp)
+	}
+
+	if got, exp := len(c.Values("foo")), 3; got != exp {
+		t.Fatalf("cache values mismatch: got %v, exp %v", got, exp)
+	}
+}
+
+func TestCache_DeleteRange_NoValues(t *testing.T) {
+	v0 := NewValue(1, 1.0)
+	v1 := NewValue(2, 2.0)
+	v2 := NewValue(3, 3.0)
+	values := Values{v0, v1, v2}
+	valuesSize := uint64(v0.Size() + v1.Size() + v2.Size())
+
+	c := NewCache(3*valuesSize, "")
+
+	if err := c.WriteMulti(map[string][]Value{"foo": values}); err != nil {
+		t.Fatalf("failed to write key foo to cache: %s", err.Error())
+	}
+	if n := c.Size(); n != valuesSize {
+		t.Fatalf("cache size incorrect after 2 writes, exp %d, got %d", 2*valuesSize, n)
+	}
+
+	if exp, keys := []string{"foo"}, c.Keys(); !reflect.DeepEqual(keys, exp) {
+		t.Fatalf("cache keys incorrect after 2 writes, exp %v, got %v", exp, keys)
+	}
+
+	c.DeleteRange([]string{"foo"}, math.MinInt64, math.MaxInt64)
+
+	if exp, keys := 0, len(c.Keys()); !reflect.DeepEqual(keys, exp) {
+		t.Fatalf("cache keys incorrect after 2 writes, exp %v, got %v", exp, keys)
+	}
+
+	if got, exp := c.Size(), uint64(0); exp != got {
+		t.Fatalf("cache size incorrect after 2 writes, exp %d, got %d", exp, got)
+	}
+
+	if got, exp := len(c.Values("foo")), 0; got != exp {
+		t.Fatalf("cache values mismatch: got %v, exp %v", got, exp)
+	}
+}
+
+func TestCache_Cache_Delete(t *testing.T) {
+	v0 := NewValue(1, 1.0)
+	v1 := NewValue(2, 2.0)
+	v2 := NewValue(3, 3.0)
+	values := Values{v0, v1, v2}
+	valuesSize := uint64(v0.Size() + v1.Size() + v2.Size())
+
+	c := NewCache(3*valuesSize, "")
+
+	if err := c.WriteMulti(map[string][]Value{"foo": values, "bar": values}); err != nil {
+		t.Fatalf("failed to write key foo to cache: %s", err.Error())
+	}
+	if n := c.Size(); n != 2*valuesSize {
+		t.Fatalf("cache size incorrect after 2 writes, exp %d, got %d", 2*valuesSize, n)
+	}
+
+	if exp, keys := []string{"bar", "foo"}, c.Keys(); !reflect.DeepEqual(keys, exp) {
+		t.Fatalf("cache keys incorrect after 2 writes, exp %v, got %v", exp, keys)
+	}
+
+	c.Delete([]string{"bar"})
+
+	if exp, keys := []string{"foo"}, c.Keys(); !reflect.DeepEqual(keys, exp) {
+		t.Fatalf("cache keys incorrect after 2 writes, exp %v, got %v", exp, keys)
+	}
+
+	if got, exp := c.Size(), valuesSize; exp != got {
+		t.Fatalf("cache size incorrect after 2 writes, exp %d, got %d", exp, got)
+	}
+
+	if got, exp := len(c.Values("bar")), 0; got != exp {
+		t.Fatalf("cache values mismatch: got %v, exp %v", got, exp)
+	}
+
+	if got, exp := len(c.Values("foo")), 3; got != exp {
+		t.Fatalf("cache values mismatch: got %v, exp %v", got, exp)
+	}
+}
+
+func TestCache_Cache_Delete_NonExistent(t *testing.T) {
+	c := NewCache(1024, "")
+
+	c.Delete([]string{"bar"})
+
+	if got, exp := c.Size(), uint64(0); exp != got {
+		t.Fatalf("cache size incorrect exp %d, got %d", exp, got)
 	}
 }
 
@@ -252,7 +424,7 @@ func TestCache_CacheWriteMemoryExceeded(t *testing.T) {
 	if exp, keys := []string{"foo"}, c.Keys(); !reflect.DeepEqual(keys, exp) {
 		t.Fatalf("cache keys incorrect after writes, exp %v, got %v", exp, keys)
 	}
-	if err := c.Write("bar", Values{v1}); err != ErrCacheMemoryExceeded {
+	if err := c.Write("bar", Values{v1}); err == nil || !strings.Contains(err.Error(), "cache-max-memory-size") {
 		t.Fatalf("wrong error writing key bar to cache")
 	}
 
@@ -261,7 +433,7 @@ func TestCache_CacheWriteMemoryExceeded(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to snapshot cache: %v", err)
 	}
-	if err := c.Write("bar", Values{v1}); err != ErrCacheMemoryExceeded {
+	if err := c.Write("bar", Values{v1}); err == nil || !strings.Contains(err.Error(), "cache-max-memory-size") {
 		t.Fatalf("wrong error writing key bar to cache")
 	}
 
@@ -274,6 +446,37 @@ func TestCache_CacheWriteMemoryExceeded(t *testing.T) {
 	if deduped := c.Values("bar"); !reflect.DeepEqual(expAscValues, deduped) {
 		t.Fatalf("deduped ascending values for bar incorrect, exp: %v, got %v", expAscValues, deduped)
 	}
+}
+
+func TestCache_Deduplicate_Concurrent(t *testing.T) {
+	values := make(map[string][]Value)
+
+	for i := 0; i < 1000; i++ {
+		for j := 0; j < 100; j++ {
+			values[fmt.Sprintf("cpu%d", i)] = []Value{NewValue(int64(i+j)+int64(rand.Intn(10)), float64(i))}
+		}
+	}
+
+	wg := sync.WaitGroup{}
+	c := NewCache(1000000, "")
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 1000; i++ {
+			c.WriteMulti(values)
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 1000; i++ {
+			c.Deduplicate()
+		}
+	}()
+
+	wg.Wait()
 }
 
 // Ensure the CacheLoader can correctly load from a single segment, even if it's corrupted.
@@ -406,6 +609,65 @@ func TestCacheLoader_LoadDouble(t *testing.T) {
 	}
 }
 
+// Ensure the CacheLoader can load deleted series
+func TestCacheLoader_LoadDeleted(t *testing.T) {
+	// Create a WAL segment.
+	dir := mustTempDir()
+	defer os.RemoveAll(dir)
+	f := mustTempFile(dir)
+	w := NewWALSegmentWriter(f)
+
+	p1 := NewValue(1, 1.0)
+	p2 := NewValue(2, 2.0)
+	p3 := NewValue(3, 3.0)
+
+	values := map[string][]Value{
+		"foo": []Value{p1, p2, p3},
+	}
+
+	entry := &WriteWALEntry{
+		Values: values,
+	}
+
+	if err := w.Write(mustMarshalEntry(entry)); err != nil {
+		t.Fatal("write points", err)
+	}
+
+	dentry := &DeleteRangeWALEntry{
+		Keys: []string{"foo"},
+		Min:  2,
+		Max:  3,
+	}
+
+	if err := w.Write(mustMarshalEntry(dentry)); err != nil {
+		t.Fatal("write points", err)
+	}
+
+	// Load the cache using the segment.
+	cache := NewCache(1024, "")
+	loader := NewCacheLoader([]string{f.Name()})
+	if err := loader.Load(cache); err != nil {
+		t.Fatalf("failed to load cache: %s", err.Error())
+	}
+
+	// Check the cache.
+	if values := cache.Values("foo"); !reflect.DeepEqual(values, Values{p1}) {
+		t.Fatalf("cache key foo not as expected, got %v, exp %v", values, Values{p1})
+	}
+
+	// Reload the cache using the segment.
+	cache = NewCache(1024, "")
+	loader = NewCacheLoader([]string{f.Name()})
+	if err := loader.Load(cache); err != nil {
+		t.Fatalf("failed to load cache: %s", err.Error())
+	}
+
+	// Check the cache.
+	if values := cache.Values("foo"); !reflect.DeepEqual(values, Values{p1}) {
+		t.Fatalf("cache key foo not as expected, got %v, exp %v", values, Values{p1})
+	}
+}
+
 func mustTempDir() string {
 	dir, err := ioutil.TempDir("", "tsm1-test")
 	if err != nil {
@@ -433,12 +695,49 @@ func mustMarshalEntry(entry WALEntry) (WalEntryType, []byte) {
 	return entry.Type(), snappy.Encode(b, b)
 }
 
+var fvSize = uint64(NewValue(1, float64(1)).Size())
+
 func BenchmarkCacheFloatEntries(b *testing.B) {
+	cache := NewCache(uint64(b.N)*fvSize, "")
+	vals := make([][]Value, b.N)
 	for i := 0; i < b.N; i++ {
-		cache := NewCache(10000, "")
-		for j := 0; j < 10000; j++ {
-			v := NewValue(1, float64(j))
-			cache.Write("test", []Value{v})
+		vals[i] = []Value{NewValue(1, float64(i))}
+	}
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		if err := cache.Write("test", vals[i]); err != nil {
+			b.Fatal("err:", err, "i:", i, "N:", b.N)
 		}
 	}
+}
+
+type points struct {
+	key  string
+	vals []Value
+}
+
+func BenchmarkCacheParallelFloatEntries(b *testing.B) {
+	c := b.N * runtime.GOMAXPROCS(0)
+	cache := NewCache(uint64(c)*fvSize, "")
+	vals := make([]points, c)
+	for i := 0; i < c; i++ {
+		v := make([]Value, 10)
+		for j := 0; j < 10; j++ {
+			v[j] = NewValue(1, float64(i+j))
+		}
+		vals[i] = points{key: fmt.Sprintf("cpu%v", rand.Intn(20)), vals: v}
+	}
+	i := int32(-1)
+	b.ResetTimer()
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			j := atomic.AddInt32(&i, 1)
+			v := vals[j]
+			if err := cache.Write(v.key, v.vals); err != nil {
+				b.Fatal("err:", err, "j:", j, "N:", b.N)
+			}
+		}
+	})
 }

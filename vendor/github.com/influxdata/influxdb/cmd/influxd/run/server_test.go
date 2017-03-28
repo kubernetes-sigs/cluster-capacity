@@ -1,17 +1,46 @@
 package run_test
 
 import (
+	"flag"
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/influxdata/influxdb/cluster"
+	"github.com/influxdata/influxdb/coordinator"
 	"github.com/influxdata/influxdb/models"
 )
+
+// Global server used by benchmarks
+var benchServer *Server
+
+func TestMain(m *testing.M) {
+	flag.Parse()
+
+	// Setup
+	c := NewConfig()
+	c.Retention.Enabled = false
+	c.Monitor.StoreEnabled = false
+	c.Meta.LoggingEnabled = false
+	c.Admin.Enabled = false
+	c.Subscriber.Enabled = false
+	c.ContinuousQuery.Enabled = false
+	c.Data.MaxSeriesPerDatabase = 10000000 // 10M
+	c.Data.MaxValuesPerTag = 1000000       // 1M
+	benchServer = OpenDefaultServer(c)
+
+	// Run suite.
+	r := m.Run()
+
+	// Cleanup
+	benchServer.Close()
+
+	os.Exit(r)
+}
 
 // Ensure that HTTP responses include the InfluxDB version.
 func TestServer_HTTPResponseVersion(t *testing.T) {
@@ -54,7 +83,7 @@ func TestServer_Query_DropAndRecreateDatabase(t *testing.T) {
 
 	test := tests.load(t, "drop_and_recreate_database")
 
-	if err := s.CreateDatabaseAndRetentionPolicy(test.database(), newRetentionPolicyInfo(test.retentionPolicy(), 1, 0)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy(test.database(), newRetentionPolicySpec(test.retentionPolicy(), 1, 0)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.MetaClient.SetDefaultRetentionPolicy(test.database(), test.retentionPolicy()); err != nil {
@@ -86,13 +115,45 @@ func TestServer_Query_DropDatabaseIsolated(t *testing.T) {
 
 	test := tests.load(t, "drop_database_isolated")
 
-	if err := s.CreateDatabaseAndRetentionPolicy(test.database(), newRetentionPolicyInfo(test.retentionPolicy(), 1, 0)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy(test.database(), newRetentionPolicySpec(test.retentionPolicy(), 1, 0)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.MetaClient.SetDefaultRetentionPolicy(test.database(), test.retentionPolicy()); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.CreateDatabaseAndRetentionPolicy("db1", newRetentionPolicyInfo("rp1", 1, 0)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db1", newRetentionPolicySpec("rp1", 1, 0)); err != nil {
+		t.Fatal(err)
+	}
+
+	for i, query := range test.queries {
+		if i == 0 {
+			if err := test.init(s); err != nil {
+				t.Fatalf("test init failed: %s", err)
+			}
+		}
+		if query.skip {
+			t.Logf("SKIP:: %s", query.name)
+			continue
+		}
+		if err := query.Execute(s); err != nil {
+			t.Error(query.Error(err))
+		} else if !query.success() {
+			t.Error(query.failureMessage())
+		}
+	}
+}
+
+func TestServer_Query_DeleteSeries(t *testing.T) {
+	t.Parallel()
+	s := OpenServer(NewConfig())
+	defer s.Close()
+
+	test := tests.load(t, "delete_series")
+
+	if err := s.CreateDatabaseAndRetentionPolicy(test.database(), newRetentionPolicySpec(test.retentionPolicy(), 1, 0)); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.MetaClient.SetDefaultRetentionPolicy(test.database(), test.retentionPolicy()); err != nil {
 		t.Fatal(err)
 	}
 
@@ -121,7 +182,7 @@ func TestServer_Query_DropAndRecreateSeries(t *testing.T) {
 
 	test := tests.load(t, "drop_and_recreate_series")
 
-	if err := s.CreateDatabaseAndRetentionPolicy(test.database(), newRetentionPolicyInfo(test.retentionPolicy(), 1, 0)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy(test.database(), newRetentionPolicySpec(test.retentionPolicy(), 1, 0)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.MetaClient.SetDefaultRetentionPolicy(test.database(), test.retentionPolicy()); err != nil {
@@ -173,7 +234,7 @@ func TestServer_Query_DropSeriesFromRegex(t *testing.T) {
 
 	test := tests.load(t, "drop_series_from_regex")
 
-	if err := s.CreateDatabaseAndRetentionPolicy(test.database(), newRetentionPolicyInfo(test.retentionPolicy(), 1, 0)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy(test.database(), newRetentionPolicySpec(test.retentionPolicy(), 1, 0)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.MetaClient.SetDefaultRetentionPolicy(test.database(), test.retentionPolicy()); err != nil {
@@ -298,7 +359,7 @@ func TestServer_UserCommands(t *testing.T) {
 			&Query{
 				name:    "bad create user request",
 				command: `CREATE USER 0xBAD WITH PASSWORD pwd1337`,
-				exp:     `{"error":"error parsing query: found 0, expected identifier at line 1, char 13"}`,
+				exp:     `{"error":"error parsing query: found 0xBAD, expected identifier at line 1, char 13"}`,
 			},
 			&Query{
 				name:    "bad create user request, no name",
@@ -347,7 +408,7 @@ func TestServer_Write_LineProtocol_Float(t *testing.T) {
 	s := OpenServer(NewConfig())
 	defer s.Close()
 
-	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicyInfo("rp0", 1, 1*time.Hour)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 1*time.Hour)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -372,7 +433,7 @@ func TestServer_Write_LineProtocol_Bool(t *testing.T) {
 	s := OpenServer(NewConfig())
 	defer s.Close()
 
-	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicyInfo("rp0", 1, 1*time.Hour)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 1*time.Hour)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -397,7 +458,7 @@ func TestServer_Write_LineProtocol_String(t *testing.T) {
 	s := OpenServer(NewConfig())
 	defer s.Close()
 
-	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicyInfo("rp0", 1, 1*time.Hour)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 1*time.Hour)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -422,7 +483,7 @@ func TestServer_Write_LineProtocol_Integer(t *testing.T) {
 	s := OpenServer(NewConfig())
 	defer s.Close()
 
-	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicyInfo("rp0", 1, 1*time.Hour)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 1*time.Hour)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -448,7 +509,7 @@ func TestServer_Write_LineProtocol_Partial(t *testing.T) {
 	s := OpenServer(NewConfig())
 	defer s.Close()
 
-	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicyInfo("rp0", 1, 1*time.Hour)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 1*time.Hour)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -495,7 +556,7 @@ func TestServer_Query_DefaultDBAndRP(t *testing.T) {
 		&Query{
 			name:    "default rp exists",
 			command: `show retention policies ON db0`,
-			exp:     `{"results":[{"series":[{"columns":["name","duration","shardGroupDuration","replicaN","default"],"values":[["default","0","168h0m0s",1,false],["rp0","0","168h0m0s",1,true]]}]}]}`,
+			exp:     `{"results":[{"series":[{"columns":["name","duration","shardGroupDuration","replicaN","default"],"values":[["autogen","0s","168h0m0s",1,false],["rp0","0s","168h0m0s",1,true]]}]}]}`,
 		},
 		&Query{
 			name:    "default rp",
@@ -844,9 +905,55 @@ func TestServer_Query_Count(t *testing.T) {
 			exp:     `{"results":[{}]}`,
 		},
 		&Query{
-			name:    "selecting count(*) should error",
+			name:    "selecting count(*) should expand the wildcard",
 			command: `SELECT count(*) FROM db0.rp0.cpu`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","count_value"],"values":[["1970-01-01T00:00:00Z",1]]}]}]}`,
+		},
+		&Query{
+			name:    "selecting count(2) should error",
+			command: `SELECT count(2) FROM db0.rp0.cpu`,
 			exp:     `{"error":"error parsing query: expected field argument in count()"}`,
+		},
+	}...)
+
+	if err := test.init(s); err != nil {
+		t.Fatalf("test init failed: %s", err)
+	}
+
+	for _, query := range test.queries {
+		if query.skip {
+			t.Logf("SKIP:: %s", query.name)
+			continue
+		}
+		if err := query.Execute(s); err != nil {
+			t.Error(query.Error(err))
+		} else if !query.success() {
+			t.Error(query.failureMessage())
+		}
+	}
+}
+
+// Ensure the server can limit concurrent series.
+func TestServer_Query_MaxSelectSeriesN(t *testing.T) {
+	t.Parallel()
+	config := NewConfig()
+	config.Coordinator.MaxSelectSeriesN = 3
+	s := OpenServer(config)
+	defer s.Close()
+
+	test := NewTest("db0", "rp0")
+	test.writes = Writes{
+		&Write{data: `cpu,host=server01 value=1.0 0`},
+		&Write{data: `cpu,host=server02 value=1.0 0`},
+		&Write{data: `cpu,host=server03 value=1.0 0`},
+		&Write{data: `cpu,host=server04 value=1.0 0`},
+	}
+
+	test.addQueries([]*Query{
+		&Query{
+			name:    "exceeed max series",
+			command: `SELECT COUNT(value) FROM db0.rp0.cpu`,
+			exp:     `{"results":[{"error":"max-select-series limit exceeded: (4/3)"}]}`,
 		},
 	}...)
 
@@ -1547,12 +1654,12 @@ cpu value=25 1278010023000000000
 		&Query{
 			name:    "calculate derivative of count with unit default (2s) group by time",
 			command: `SELECT derivative(count(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:02Z",0]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:00Z",2],["2010-07-01T18:47:02Z",0]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate derivative of count with unit 4s group by time",
 			command: `SELECT derivative(count(value), 4s) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:02Z",0]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:00Z",4],["2010-07-01T18:47:02Z",0]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate derivative of mean with unit default (2s) group by time",
@@ -1574,6 +1681,17 @@ cpu value=25 1278010023000000000
 			command: `SELECT derivative(median(value), 4s) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s)`,
 			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:02Z",20]]}]}]}`,
 		},
+		&Query{
+			name:    "calculate derivative of mode with unit default (2s) group by time",
+			command: `SELECT derivative(mode(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:02Z",10]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate derivative of mode with unit 4s group by time",
+			command: `SELECT derivative(mode(value), 4s) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:02Z",20]]}]}]}`,
+		},
+
 		&Query{
 			name:    "calculate derivative of sum with unit default (2s) group by time",
 			command: `SELECT derivative(sum(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s)`,
@@ -1671,12 +1789,12 @@ cpu value=20 1278010021000000000
 		&Query{
 			name:    "calculate derivative of count with unit default (2s) group by time with fill 0",
 			command: `SELECT derivative(count(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:02Z",-2]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:00Z",2],["2010-07-01T18:47:02Z",-2]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate derivative of count with unit 4s group by time with fill  0",
 			command: `SELECT derivative(count(value), 4s) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:02Z",-4]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:00Z",4],["2010-07-01T18:47:02Z",-4]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate derivative of count with unit default (2s) group by time with fill previous",
@@ -1691,12 +1809,12 @@ cpu value=20 1278010021000000000
 		&Query{
 			name:    "calculate derivative of mean with unit default (2s) group by time with fill 0",
 			command: `SELECT derivative(mean(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:02Z",-15]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:00Z",15],["2010-07-01T18:47:02Z",-15]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate derivative of mean with unit 4s group by time with fill 0",
 			command: `SELECT derivative(mean(value), 4s) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:02Z",-30]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:00Z",30],["2010-07-01T18:47:02Z",-30]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate derivative of mean with unit default (2s) group by time with fill previous",
@@ -1711,12 +1829,12 @@ cpu value=20 1278010021000000000
 		&Query{
 			name:    "calculate derivative of median with unit default (2s) group by time with fill 0",
 			command: `SELECT derivative(median(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:02Z",-15]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:00Z",15],["2010-07-01T18:47:02Z",-15]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate derivative of median with unit 4s group by time with fill 0",
 			command: `SELECT derivative(median(value), 4s) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:02Z",-30]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:00Z",30],["2010-07-01T18:47:02Z",-30]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate derivative of median with unit default (2s) group by time with fill previous",
@@ -1729,14 +1847,34 @@ cpu value=20 1278010021000000000
 			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:02Z",0]]}]}]}`,
 		},
 		&Query{
+			name:    "calculate derivative of mode with unit default (2s) group by time with fill 0",
+			command: `SELECT derivative(mode(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:00Z",10],["2010-07-01T18:47:02Z",-10]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate derivative of mode with unit 4s group by time with fill 0",
+			command: `SELECT derivative(mode(value), 4s) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:00Z",20],["2010-07-01T18:47:02Z",-20]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate derivative of mode with unit default (2s) group by time with fill previous",
+			command: `SELECT derivative(mode(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(previous)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:02Z",0]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate derivative of mode with unit 4s group by time with fill previous",
+			command: `SELECT derivative(mode(value), 4s) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(previous)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:02Z",0]]}]}]}`,
+		},
+		&Query{
 			name:    "calculate derivative of sum with unit default (2s) group by time with fill 0",
 			command: `SELECT derivative(sum(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:02Z",-30]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:00Z",30],["2010-07-01T18:47:02Z",-30]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate derivative of sum with unit 4s group by time with fill 0",
 			command: `SELECT derivative(sum(value), 4s) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:02Z",-60]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:00Z",60],["2010-07-01T18:47:02Z",-60]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate derivative of sum with unit default (2s) group by time with fill previous",
@@ -1751,12 +1889,12 @@ cpu value=20 1278010021000000000
 		&Query{
 			name:    "calculate derivative of first with unit default (2s) group by time with fill 0",
 			command: `SELECT derivative(first(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:02Z",-10]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:00Z",10],["2010-07-01T18:47:02Z",-10]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate derivative of first with unit 4s group by time with fill 0",
 			command: `SELECT derivative(first(value), 4s) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:02Z",-20]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:00Z",20],["2010-07-01T18:47:02Z",-20]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate derivative of first with unit default (2s) group by time with fill previous",
@@ -1771,12 +1909,12 @@ cpu value=20 1278010021000000000
 		&Query{
 			name:    "calculate derivative of last with unit default (2s) group by time with fill 0",
 			command: `SELECT derivative(last(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:02Z",-20]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:00Z",20],["2010-07-01T18:47:02Z",-20]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate derivative of last with unit 4s group by time with fill 0",
 			command: `SELECT derivative(last(value), 4s) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:02Z",-40]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:00Z",40],["2010-07-01T18:47:02Z",-40]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate derivative of last with unit default (2s) group by time with fill previous",
@@ -1791,12 +1929,12 @@ cpu value=20 1278010021000000000
 		&Query{
 			name:    "calculate derivative of min with unit default (2s) group by time with fill 0",
 			command: `SELECT derivative(min(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:02Z",-10]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:00Z",10],["2010-07-01T18:47:02Z",-10]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate derivative of min with unit 4s group by time with fill 0",
 			command: `SELECT derivative(min(value), 4s) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:02Z",-20]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:00Z",20],["2010-07-01T18:47:02Z",-20]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate derivative of min with unit default (2s) group by time with fill previous",
@@ -1811,12 +1949,12 @@ cpu value=20 1278010021000000000
 		&Query{
 			name:    "calculate derivative of max with unit default (2s) group by time with fill 0",
 			command: `SELECT derivative(max(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:02Z",-20]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:00Z",20],["2010-07-01T18:47:02Z",-20]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate derivative of max with unit 4s group by time with fill 0",
 			command: `SELECT derivative(max(value), 4s) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:02Z",-40]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:00Z",40],["2010-07-01T18:47:02Z",-40]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate derivative of max with unit default (2s) group by time with fill previous",
@@ -1831,12 +1969,12 @@ cpu value=20 1278010021000000000
 		&Query{
 			name:    "calculate derivative of percentile with unit default (2s) group by time with fill 0",
 			command: `SELECT derivative(percentile(value, 50)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:02Z",-10]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:00Z",10],["2010-07-01T18:47:02Z",-10]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate derivative of percentile with unit 4s group by time with fill 0",
 			command: `SELECT derivative(percentile(value, 50), 4s) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:02Z",-20]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","derivative"],"values":[["2010-07-01T18:47:00Z",20],["2010-07-01T18:47:02Z",-20]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate derivative of percentile with unit default (2s) group by time with fill previous",
@@ -1887,7 +2025,7 @@ cpu value=25 1278010023000000000
 		&Query{
 			name:    "calculate difference of count",
 			command: `SELECT difference(count(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","difference"],"values":[["2010-07-01T18:47:02Z",0]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","difference"],"values":[["2010-07-01T18:47:00Z",2],["2010-07-01T18:47:02Z",0]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate difference of mean",
@@ -1897,6 +2035,11 @@ cpu value=25 1278010023000000000
 		&Query{
 			name:    "calculate difference of median",
 			command: `SELECT difference(median(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","difference"],"values":[["2010-07-01T18:47:02Z",10]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate difference of mode",
+			command: `SELECT difference(mode(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s)`,
 			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","difference"],"values":[["2010-07-01T18:47:02Z",10]]}]}]}`,
 		},
 		&Query{
@@ -1949,7 +2092,7 @@ cpu value=25 1278010023000000000
 	}
 }
 
-// Ensure the server can handle various group by time difference queries.
+// Ensure the server can handle various group by time difference queries with fill.
 func TestServer_Query_SelectGroupByTimeDifferenceWithFill(t *testing.T) {
 	t.Parallel()
 	s := OpenServer(NewConfig())
@@ -1966,7 +2109,7 @@ cpu value=20 1278010021000000000
 		&Query{
 			name:    "calculate difference of count with fill 0",
 			command: `SELECT difference(count(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","difference"],"values":[["2010-07-01T18:47:02Z",-2]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","difference"],"values":[["2010-07-01T18:47:00Z",2],["2010-07-01T18:47:02Z",-2]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate difference of count with fill previous",
@@ -1976,7 +2119,7 @@ cpu value=20 1278010021000000000
 		&Query{
 			name:    "calculate difference of mean with fill 0",
 			command: `SELECT difference(mean(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","difference"],"values":[["2010-07-01T18:47:02Z",-15]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","difference"],"values":[["2010-07-01T18:47:00Z",15],["2010-07-01T18:47:02Z",-15]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate difference of mean with fill previous",
@@ -1986,7 +2129,7 @@ cpu value=20 1278010021000000000
 		&Query{
 			name:    "calculate difference of median with fill 0",
 			command: `SELECT difference(median(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","difference"],"values":[["2010-07-01T18:47:02Z",-15]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","difference"],"values":[["2010-07-01T18:47:00Z",15],["2010-07-01T18:47:02Z",-15]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate difference of median with fill previous",
@@ -1994,9 +2137,19 @@ cpu value=20 1278010021000000000
 			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","difference"],"values":[["2010-07-01T18:47:02Z",0]]}]}]}`,
 		},
 		&Query{
+			name:    "calculate difference of mode with fill 0",
+			command: `SELECT difference(mode(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","difference"],"values":[["2010-07-01T18:47:00Z",10],["2010-07-01T18:47:02Z",-10]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate difference of mode with fill previous",
+			command: `SELECT difference(mode(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(previous)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","difference"],"values":[["2010-07-01T18:47:02Z",0]]}]}]}`,
+		},
+		&Query{
 			name:    "calculate difference of sum with fill 0",
 			command: `SELECT difference(sum(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","difference"],"values":[["2010-07-01T18:47:02Z",-30]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","difference"],"values":[["2010-07-01T18:47:00Z",30],["2010-07-01T18:47:02Z",-30]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate difference of sum with fill previous",
@@ -2006,7 +2159,7 @@ cpu value=20 1278010021000000000
 		&Query{
 			name:    "calculate difference of first with fill 0",
 			command: `SELECT difference(first(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","difference"],"values":[["2010-07-01T18:47:02Z",-10]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","difference"],"values":[["2010-07-01T18:47:00Z",10],["2010-07-01T18:47:02Z",-10]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate difference of first with fill previous",
@@ -2016,7 +2169,7 @@ cpu value=20 1278010021000000000
 		&Query{
 			name:    "calculate difference of last with fill 0",
 			command: `SELECT difference(last(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","difference"],"values":[["2010-07-01T18:47:02Z",-20]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","difference"],"values":[["2010-07-01T18:47:00Z",20],["2010-07-01T18:47:02Z",-20]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate difference of last with fill previous",
@@ -2026,7 +2179,7 @@ cpu value=20 1278010021000000000
 		&Query{
 			name:    "calculate difference of min with fill 0",
 			command: `SELECT difference(min(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","difference"],"values":[["2010-07-01T18:47:02Z",-10]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","difference"],"values":[["2010-07-01T18:47:00Z",10],["2010-07-01T18:47:02Z",-10]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate difference of min with fill previous",
@@ -2036,7 +2189,7 @@ cpu value=20 1278010021000000000
 		&Query{
 			name:    "calculate difference of max with fill 0",
 			command: `SELECT difference(max(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","difference"],"values":[["2010-07-01T18:47:02Z",-20]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","difference"],"values":[["2010-07-01T18:47:00Z",20],["2010-07-01T18:47:02Z",-20]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate difference of max with fill previous",
@@ -2046,7 +2199,7 @@ cpu value=20 1278010021000000000
 		&Query{
 			name:    "calculate difference of percentile with fill 0",
 			command: `SELECT difference(percentile(value, 50)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","difference"],"values":[["2010-07-01T18:47:02Z",-10]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","difference"],"values":[["2010-07-01T18:47:00Z",10],["2010-07-01T18:47:02Z",-10]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate difference of percentile with fill previous",
@@ -2094,7 +2247,7 @@ cpu value=35 1278010025000000000
 		&Query{
 			name:    "calculate moving average of count",
 			command: `SELECT moving_average(count(value), 2) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:05' group by time(2s)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","moving_average"],"values":[["2010-07-01T18:47:02Z",2],["2010-07-01T18:47:04Z",2]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","moving_average"],"values":[["2010-07-01T18:47:00Z",1],["2010-07-01T18:47:02Z",2],["2010-07-01T18:47:04Z",2]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate moving average of mean",
@@ -2105,6 +2258,11 @@ cpu value=35 1278010025000000000
 			name:    "calculate moving average of median",
 			command: `SELECT moving_average(median(value), 2) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:05' group by time(2s)`,
 			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","moving_average"],"values":[["2010-07-01T18:47:02Z",17.5],["2010-07-01T18:47:04Z",27.5]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate moving average of mode",
+			command: `SELECT moving_average(mode(value), 2) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:05' group by time(2s)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","moving_average"],"values":[["2010-07-01T18:47:02Z",15],["2010-07-01T18:47:04Z",25]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate moving average of sum",
@@ -2175,7 +2333,7 @@ cpu value=35 1278010025000000000
 		&Query{
 			name:    "calculate moving average of count with fill 0",
 			command: `SELECT moving_average(count(value), 2) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:05' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","moving_average"],"values":[["2010-07-01T18:47:02Z",1],["2010-07-01T18:47:04Z",1]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","moving_average"],"values":[["2010-07-01T18:47:00Z",1],["2010-07-01T18:47:02Z",1],["2010-07-01T18:47:04Z",1]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate moving average of count with fill previous",
@@ -2185,7 +2343,7 @@ cpu value=35 1278010025000000000
 		&Query{
 			name:    "calculate moving average of mean with fill 0",
 			command: `SELECT moving_average(mean(value), 2) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:05' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","moving_average"],"values":[["2010-07-01T18:47:02Z",6.25],["2010-07-01T18:47:04Z",16.25]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","moving_average"],"values":[["2010-07-01T18:47:00Z",6.25],["2010-07-01T18:47:02Z",6.25],["2010-07-01T18:47:04Z",16.25]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate moving average of mean with fill previous",
@@ -2195,7 +2353,7 @@ cpu value=35 1278010025000000000
 		&Query{
 			name:    "calculate moving average of median with fill 0",
 			command: `SELECT moving_average(median(value), 2) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:05' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","moving_average"],"values":[["2010-07-01T18:47:02Z",6.25],["2010-07-01T18:47:04Z",16.25]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","moving_average"],"values":[["2010-07-01T18:47:00Z",6.25],["2010-07-01T18:47:02Z",6.25],["2010-07-01T18:47:04Z",16.25]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate moving average of median with fill previous",
@@ -2203,9 +2361,19 @@ cpu value=35 1278010025000000000
 			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","moving_average"],"values":[["2010-07-01T18:47:02Z",12.5],["2010-07-01T18:47:04Z",22.5]]}]}]}`,
 		},
 		&Query{
+			name:    "calculate moving average of mode with fill 0",
+			command: `SELECT moving_average(mode(value), 2) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:05' group by time(2s) fill(0)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","moving_average"],"values":[["2010-07-01T18:47:00Z",5],["2010-07-01T18:47:02Z",5],["2010-07-01T18:47:04Z",15]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate moving average of mode with fill previous",
+			command: `SELECT moving_average(mode(value), 2) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:05' group by time(2s) fill(previous)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","moving_average"],"values":[["2010-07-01T18:47:02Z",10],["2010-07-01T18:47:04Z",20]]}]}]}`,
+		},
+		&Query{
 			name:    "calculate moving average of sum with fill 0",
 			command: `SELECT moving_average(sum(value), 2) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:05' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","moving_average"],"values":[["2010-07-01T18:47:02Z",12.5],["2010-07-01T18:47:04Z",32.5]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","moving_average"],"values":[["2010-07-01T18:47:00Z",12.5],["2010-07-01T18:47:02Z",12.5],["2010-07-01T18:47:04Z",32.5]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate moving average of sum with fill previous",
@@ -2215,7 +2383,7 @@ cpu value=35 1278010025000000000
 		&Query{
 			name:    "calculate moving average of first with fill 0",
 			command: `SELECT moving_average(first(value), 2) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:05' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","moving_average"],"values":[["2010-07-01T18:47:02Z",5],["2010-07-01T18:47:04Z",15]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","moving_average"],"values":[["2010-07-01T18:47:00Z",5],["2010-07-01T18:47:02Z",5],["2010-07-01T18:47:04Z",15]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate moving average of first with fill previous",
@@ -2225,7 +2393,7 @@ cpu value=35 1278010025000000000
 		&Query{
 			name:    "calculate moving average of last with fill 0",
 			command: `SELECT moving_average(last(value), 2) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:05' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","moving_average"],"values":[["2010-07-01T18:47:02Z",7.5],["2010-07-01T18:47:04Z",17.5]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","moving_average"],"values":[["2010-07-01T18:47:00Z",7.5],["2010-07-01T18:47:02Z",7.5],["2010-07-01T18:47:04Z",17.5]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate moving average of last with fill previous",
@@ -2235,7 +2403,7 @@ cpu value=35 1278010025000000000
 		&Query{
 			name:    "calculate moving average of min with fill 0",
 			command: `SELECT moving_average(min(value), 2) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:05' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","moving_average"],"values":[["2010-07-01T18:47:02Z",5],["2010-07-01T18:47:04Z",15]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","moving_average"],"values":[["2010-07-01T18:47:00Z",5],["2010-07-01T18:47:02Z",5],["2010-07-01T18:47:04Z",15]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate moving average of min with fill previous",
@@ -2245,7 +2413,7 @@ cpu value=35 1278010025000000000
 		&Query{
 			name:    "calculate moving average of max with fill 0",
 			command: `SELECT moving_average(max(value), 2) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:05' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","moving_average"],"values":[["2010-07-01T18:47:02Z",7.5],["2010-07-01T18:47:04Z",17.5]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","moving_average"],"values":[["2010-07-01T18:47:00Z",7.5],["2010-07-01T18:47:02Z",7.5],["2010-07-01T18:47:04Z",17.5]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate moving average of max with fill previous",
@@ -2255,12 +2423,316 @@ cpu value=35 1278010025000000000
 		&Query{
 			name:    "calculate moving average of percentile with fill 0",
 			command: `SELECT moving_average(percentile(value, 50), 2) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:05' group by time(2s) fill(0)`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","moving_average"],"values":[["2010-07-01T18:47:02Z",5],["2010-07-01T18:47:04Z",15]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","moving_average"],"values":[["2010-07-01T18:47:00Z",5],["2010-07-01T18:47:02Z",5],["2010-07-01T18:47:04Z",15]]}]}]}`,
 		},
 		&Query{
 			name:    "calculate moving average of percentile with fill previous",
 			command: `SELECT moving_average(percentile(value, 50), 2) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:05' group by time(2s) fill(previous)`,
 			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","moving_average"],"values":[["2010-07-01T18:47:02Z",10],["2010-07-01T18:47:04Z",20]]}]}]}`,
+		},
+	}...)
+
+	for i, query := range test.queries {
+		if i == 0 {
+			if err := test.init(s); err != nil {
+				t.Fatalf("test init failed: %s", err)
+			}
+		}
+		if query.skip {
+			t.Logf("SKIP:: %s", query.name)
+			continue
+		}
+		if err := query.Execute(s); err != nil {
+			t.Error(query.Error(err))
+		} else if !query.success() {
+			t.Error(query.failureMessage())
+		}
+	}
+}
+
+// Ensure the server can handle various group by time cumulative sum queries.
+func TestServer_Query_SelectGroupByTimeCumulativeSum(t *testing.T) {
+	t.Parallel()
+	s := OpenServer(NewConfig())
+	defer s.Close()
+
+	test := NewTest("db0", "rp0")
+	test.writes = Writes{
+		&Write{data: fmt.Sprintf(`cpu value=10 1278010020000000000
+cpu value=15 1278010021000000000
+cpu value=20 1278010022000000000
+cpu value=25 1278010023000000000
+`)},
+	}
+
+	test.addQueries([]*Query{
+		&Query{
+			name:    "calculate cumulative sum of count",
+			command: `SELECT cumulative_sum(count(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","cumulative_sum"],"values":[["2010-07-01T18:47:00Z",2],["2010-07-01T18:47:02Z",4]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate cumulative sum of mean",
+			command: `SELECT cumulative_sum(mean(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","cumulative_sum"],"values":[["2010-07-01T18:47:00Z",12.5],["2010-07-01T18:47:02Z",35]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate cumulative sum of median",
+			command: `SELECT cumulative_sum(median(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","cumulative_sum"],"values":[["2010-07-01T18:47:00Z",12.5],["2010-07-01T18:47:02Z",35]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate cumulative sum of mode",
+			command: `SELECT cumulative_sum(mode(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","cumulative_sum"],"values":[["2010-07-01T18:47:00Z",10],["2010-07-01T18:47:02Z",30]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate cumulative sum of sum",
+			command: `SELECT cumulative_sum(sum(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","cumulative_sum"],"values":[["2010-07-01T18:47:00Z",25],["2010-07-01T18:47:02Z",70]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate cumulative sum of first",
+			command: `SELECT cumulative_sum(first(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","cumulative_sum"],"values":[["2010-07-01T18:47:00Z",10],["2010-07-01T18:47:02Z",30]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate cumulative sum of last",
+			command: `SELECT cumulative_sum(last(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","cumulative_sum"],"values":[["2010-07-01T18:47:00Z",15],["2010-07-01T18:47:02Z",40]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate cumulative sum of min",
+			command: `SELECT cumulative_sum(min(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","cumulative_sum"],"values":[["2010-07-01T18:47:00Z",10],["2010-07-01T18:47:02Z",30]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate cumulative sum of max",
+			command: `SELECT cumulative_sum(max(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","cumulative_sum"],"values":[["2010-07-01T18:47:00Z",15],["2010-07-01T18:47:02Z",40]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate cumulative sum of percentile",
+			command: `SELECT cumulative_sum(percentile(value, 50)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","cumulative_sum"],"values":[["2010-07-01T18:47:00Z",10],["2010-07-01T18:47:02Z",30]]}]}]}`,
+		},
+	}...)
+
+	for i, query := range test.queries {
+		if i == 0 {
+			if err := test.init(s); err != nil {
+				t.Fatalf("test init failed: %s", err)
+			}
+		}
+		if query.skip {
+			t.Logf("SKIP:: %s", query.name)
+			continue
+		}
+		if err := query.Execute(s); err != nil {
+			t.Error(query.Error(err))
+		} else if !query.success() {
+			t.Error(query.failureMessage())
+		}
+	}
+}
+
+// Ensure the server can handle various group by time cumulative sum queries with fill.
+func TestServer_Query_SelectGroupByTimeCumulativeSumWithFill(t *testing.T) {
+	t.Parallel()
+	s := OpenServer(NewConfig())
+	defer s.Close()
+
+	test := NewTest("db0", "rp0")
+	test.writes = Writes{
+		&Write{data: fmt.Sprintf(`cpu value=10 1278010020000000000
+cpu value=20 1278010021000000000
+`)},
+	}
+
+	test.addQueries([]*Query{
+		&Query{
+			name:    "calculate cumulative sum of count with fill 0",
+			command: `SELECT cumulative_sum(count(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","cumulative_sum"],"values":[["2010-07-01T18:47:00Z",2],["2010-07-01T18:47:02Z",2]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate cumulative sum of count with fill previous",
+			command: `SELECT cumulative_sum(count(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(previous)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","cumulative_sum"],"values":[["2010-07-01T18:47:00Z",2],["2010-07-01T18:47:02Z",4]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate cumulative sum of mean with fill 0",
+			command: `SELECT cumulative_sum(mean(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","cumulative_sum"],"values":[["2010-07-01T18:47:00Z",15],["2010-07-01T18:47:02Z",15]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate cumulative sum of mean with fill previous",
+			command: `SELECT cumulative_sum(mean(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(previous)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","cumulative_sum"],"values":[["2010-07-01T18:47:00Z",15],["2010-07-01T18:47:02Z",30]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate cumulative sum of median with fill 0",
+			command: `SELECT cumulative_sum(median(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","cumulative_sum"],"values":[["2010-07-01T18:47:00Z",15],["2010-07-01T18:47:02Z",15]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate cumulative sum of median with fill previous",
+			command: `SELECT cumulative_sum(median(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(previous)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","cumulative_sum"],"values":[["2010-07-01T18:47:00Z",15],["2010-07-01T18:47:02Z",30]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate cumulative sum of mode with fill 0",
+			command: `SELECT cumulative_sum(mode(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","cumulative_sum"],"values":[["2010-07-01T18:47:00Z",10],["2010-07-01T18:47:02Z",10]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate cumulative sum of mode with fill previous",
+			command: `SELECT cumulative_sum(mode(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(previous)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","cumulative_sum"],"values":[["2010-07-01T18:47:00Z",10],["2010-07-01T18:47:02Z",20]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate cumulative sum of sum with fill 0",
+			command: `SELECT cumulative_sum(sum(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","cumulative_sum"],"values":[["2010-07-01T18:47:00Z",30],["2010-07-01T18:47:02Z",30]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate cumulative sum of sum with fill previous",
+			command: `SELECT cumulative_sum(sum(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(previous)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","cumulative_sum"],"values":[["2010-07-01T18:47:00Z",30],["2010-07-01T18:47:02Z",60]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate cumulative sum of first with fill 0",
+			command: `SELECT cumulative_sum(first(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","cumulative_sum"],"values":[["2010-07-01T18:47:00Z",10],["2010-07-01T18:47:02Z",10]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate cumulative sum of first with fill previous",
+			command: `SELECT cumulative_sum(first(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(previous)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","cumulative_sum"],"values":[["2010-07-01T18:47:00Z",10],["2010-07-01T18:47:02Z",20]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate cumulative sum of last with fill 0",
+			command: `SELECT cumulative_sum(last(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","cumulative_sum"],"values":[["2010-07-01T18:47:00Z",20],["2010-07-01T18:47:02Z",20]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate cumulative sum of last with fill previous",
+			command: `SELECT cumulative_sum(last(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(previous)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","cumulative_sum"],"values":[["2010-07-01T18:47:00Z",20],["2010-07-01T18:47:02Z",40]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate cumulative sum of min with fill 0",
+			command: `SELECT cumulative_sum(min(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","cumulative_sum"],"values":[["2010-07-01T18:47:00Z",10],["2010-07-01T18:47:02Z",10]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate cumulative sum of min with fill previous",
+			command: `SELECT cumulative_sum(min(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(previous)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","cumulative_sum"],"values":[["2010-07-01T18:47:00Z",10],["2010-07-01T18:47:02Z",20]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate cumulative sum of max with fill 0",
+			command: `SELECT cumulative_sum(max(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","cumulative_sum"],"values":[["2010-07-01T18:47:00Z",20],["2010-07-01T18:47:02Z",20]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate cumulative sum of max with fill previous",
+			command: `SELECT cumulative_sum(max(value)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(previous)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","cumulative_sum"],"values":[["2010-07-01T18:47:00Z",20],["2010-07-01T18:47:02Z",40]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate cumulative sum of percentile with fill 0",
+			command: `SELECT cumulative_sum(percentile(value, 50)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(0)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","cumulative_sum"],"values":[["2010-07-01T18:47:00Z",10],["2010-07-01T18:47:02Z",10]]}]}]}`,
+		},
+		&Query{
+			name:    "calculate cumulative sum of percentile with fill previous",
+			command: `SELECT cumulative_sum(percentile(value, 50)) from db0.rp0.cpu where time >= '2010-07-01 18:47:00' and time <= '2010-07-01 18:47:03' group by time(2s) fill(previous)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","cumulative_sum"],"values":[["2010-07-01T18:47:00Z",10],["2010-07-01T18:47:02Z",20]]}]}]}`,
+		},
+	}...)
+
+	for i, query := range test.queries {
+		if i == 0 {
+			if err := test.init(s); err != nil {
+				t.Fatalf("test init failed: %s", err)
+			}
+		}
+		if query.skip {
+			t.Logf("SKIP:: %s", query.name)
+			continue
+		}
+		if err := query.Execute(s); err != nil {
+			t.Error(query.Error(err))
+		} else if !query.success() {
+			t.Error(query.failureMessage())
+		}
+	}
+}
+
+func TestServer_Query_SelectGroupByTime_MultipleAggregates(t *testing.T) {
+	t.Parallel()
+	s := OpenServer(NewConfig())
+	defer s.Close()
+
+	test := NewTest("db0", "rp0")
+	test.writes = Writes{
+		&Write{data: fmt.Sprintf(`test,t=a x=1i 1000000000
+test,t=b y=1i 1000000000
+test,t=a x=2i 2000000000
+test,t=b y=2i 2000000000
+test,t=a x=3i 3000000000
+test,t=b y=3i 3000000000
+`)},
+	}
+
+	test.addQueries([]*Query{
+		&Query{
+			name:    "two aggregates with a group by host",
+			command: `SELECT mean(x) as x, mean(y) as y from db0.rp0.test where time >= 1s and time < 4s group by t, time(1s)`,
+			exp:     `{"results":[{"series":[{"name":"test","tags":{"t":"a"},"columns":["time","x","y"],"values":[["1970-01-01T00:00:01Z",1,null],["1970-01-01T00:00:02Z",2,null],["1970-01-01T00:00:03Z",3,null]]},{"name":"test","tags":{"t":"b"},"columns":["time","x","y"],"values":[["1970-01-01T00:00:01Z",null,1],["1970-01-01T00:00:02Z",null,2],["1970-01-01T00:00:03Z",null,3]]}]}]}`,
+		},
+	}...)
+
+	for i, query := range test.queries {
+		if i == 0 {
+			if err := test.init(s); err != nil {
+				t.Fatalf("test init failed: %s", err)
+			}
+		}
+		if query.skip {
+			t.Logf("SKIP:: %s", query.name)
+			continue
+		}
+		if err := query.Execute(s); err != nil {
+			t.Error(query.Error(err))
+		} else if !query.success() {
+			t.Error(query.failureMessage())
+		}
+	}
+}
+
+func TestServer_Query_MathWithFill(t *testing.T) {
+	t.Parallel()
+	s := OpenServer(NewConfig())
+	defer s.Close()
+
+	test := NewTest("db0", "rp0")
+	test.writes = Writes{
+		&Write{data: fmt.Sprintf(`cpu value=15 1278010020000000000
+`)},
+	}
+
+	test.addQueries([]*Query{
+		&Query{
+			name:    "multiplication with fill previous",
+			command: `SELECT 4*mean(value) FROM db0.rp0.cpu WHERE time >= '2010-07-01 18:47:00' AND time < '2010-07-01 18:48:30' GROUP BY time(30s) FILL(previous)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","mean"],"values":[["2010-07-01T18:47:00Z",60],["2010-07-01T18:47:30Z",60],["2010-07-01T18:48:00Z",60]]}]}]}`,
+		},
+		&Query{
+			name:    "multiplication of mode value with fill previous",
+			command: `SELECT 4*mode(value) FROM db0.rp0.cpu WHERE time >= '2010-07-01 18:47:00' AND time < '2010-07-01 18:48:30' GROUP BY time(30s) FILL(previous)`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","mode"],"values":[["2010-07-01T18:47:00Z",60],["2010-07-01T18:47:30Z",60],["2010-07-01T18:48:00Z",60]]}]}]}`,
 		},
 	}...)
 
@@ -2290,7 +2762,7 @@ func TestServer_Query_MergeMany(t *testing.T) {
 	defer s.Close()
 
 	// set infinite retention policy as we are inserting data in the past and don't want retention policy enforcement to make this test racy
-	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicyInfo("rp0", 1, 0)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -2350,7 +2822,7 @@ func TestServer_Query_SLimitAndSOffset(t *testing.T) {
 	defer s.Close()
 
 	// set infinite retention policy as we are inserting data in the past and don't want retention policy enforcement to make this test racy
-	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicyInfo("rp0", 1, 0)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -2406,7 +2878,7 @@ func TestServer_Query_Regex(t *testing.T) {
 	s := OpenServer(NewConfig())
 	defer s.Close()
 
-	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicyInfo("rp0", 1, 0)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.MetaClient.SetDefaultRetentionPolicy("db0", "rp0"); err != nil {
@@ -2583,19 +3055,19 @@ func TestServer_Query_Aggregates_IntMany(t *testing.T) {
 			name:    "first - int",
 			params:  url.Values{"db": []string{"db0"}},
 			command: `SELECT FIRST(value) FROM intmany`,
-			exp:     `{"results":[{"series":[{"name":"intmany","columns":["time","first"],"values":[["1970-01-01T00:00:00Z",2]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"intmany","columns":["time","first"],"values":[["2000-01-01T00:00:00Z",2]]}]}]}`,
 		},
 		&Query{
 			name:    "first - int - epoch ms",
 			params:  url.Values{"db": []string{"db0"}, "epoch": []string{"ms"}},
 			command: `SELECT FIRST(value) FROM intmany`,
-			exp:     fmt.Sprintf(`{"results":[{"series":[{"name":"intmany","columns":["time","first"],"values":[[%d,2]]}]}]}`, mustParseTime(time.RFC3339Nano, "1970-01-01T00:00:00Z").UnixNano()/int64(time.Millisecond)),
+			exp:     fmt.Sprintf(`{"results":[{"series":[{"name":"intmany","columns":["time","first"],"values":[[%d,2]]}]}]}`, mustParseTime(time.RFC3339Nano, "2000-01-01T00:00:00Z").UnixNano()/int64(time.Millisecond)),
 		},
 		&Query{
 			name:    "last - int",
 			params:  url.Values{"db": []string{"db0"}},
 			command: `SELECT LAST(value) FROM intmany`,
-			exp:     `{"results":[{"series":[{"name":"intmany","columns":["time","last"],"values":[["1970-01-01T00:00:00Z",9]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"intmany","columns":["time","last"],"values":[["2000-01-01T00:01:10Z",9]]}]}]}`,
 		},
 		&Query{
 			name:    "spread - int",
@@ -2614,6 +3086,18 @@ func TestServer_Query_Aggregates_IntMany(t *testing.T) {
 			params:  url.Values{"db": []string{"db0"}},
 			command: `SELECT MEDIAN(value) FROM intmany where time < '2000-01-01T00:01:10Z'`,
 			exp:     `{"results":[{"series":[{"name":"intmany","columns":["time","median"],"values":[["1970-01-01T00:00:00Z",4]]}]}]}`,
+		},
+		&Query{
+			name:    "mode - single - int",
+			params:  url.Values{"db": []string{"db0"}},
+			command: `SELECT MODE(value) FROM intmany`,
+			exp:     `{"results":[{"series":[{"name":"intmany","columns":["time","mode"],"values":[["1970-01-01T00:00:00Z",4]]}]}]}`,
+		},
+		&Query{
+			name:    "mode - multiple - int",
+			params:  url.Values{"db": []string{"db0"}},
+			command: `SELECT MODE(value) FROM intmany where time < '2000-01-01T00:01:10Z'`,
+			exp:     `{"results":[{"series":[{"name":"intmany","columns":["time","mode"],"values":[["1970-01-01T00:00:00Z",4]]}]}]}`,
 		},
 		&Query{
 			name:    "distinct as call - int",
@@ -2963,13 +3447,13 @@ func TestServer_Query_Aggregates_FloatMany(t *testing.T) {
 			name:    "first - float",
 			params:  url.Values{"db": []string{"db0"}},
 			command: `SELECT FIRST(value) FROM floatmany`,
-			exp:     `{"results":[{"series":[{"name":"floatmany","columns":["time","first"],"values":[["1970-01-01T00:00:00Z",2]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"floatmany","columns":["time","first"],"values":[["2000-01-01T00:00:00Z",2]]}]}]}`,
 		},
 		&Query{
 			name:    "last - float",
 			params:  url.Values{"db": []string{"db0"}},
 			command: `SELECT LAST(value) FROM floatmany`,
-			exp:     `{"results":[{"series":[{"name":"floatmany","columns":["time","last"],"values":[["1970-01-01T00:00:00Z",9]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"floatmany","columns":["time","last"],"values":[["2000-01-01T00:01:10Z",9]]}]}]}`,
 		},
 		&Query{
 			name:    "spread - float",
@@ -2988,6 +3472,18 @@ func TestServer_Query_Aggregates_FloatMany(t *testing.T) {
 			params:  url.Values{"db": []string{"db0"}},
 			command: `SELECT MEDIAN(value) FROM floatmany where time < '2000-01-01T00:01:10Z'`,
 			exp:     `{"results":[{"series":[{"name":"floatmany","columns":["time","median"],"values":[["1970-01-01T00:00:00Z",4]]}]}]}`,
+		},
+		&Query{
+			name:    "mode - single - float",
+			params:  url.Values{"db": []string{"db0"}},
+			command: `SELECT MODE(value) FROM floatmany`,
+			exp:     `{"results":[{"series":[{"name":"floatmany","columns":["time","mode"],"values":[["1970-01-01T00:00:00Z",4]]}]}]}`,
+		},
+		&Query{
+			name:    "mode - multiple - float",
+			params:  url.Values{"db": []string{"db0"}},
+			command: `SELECT MODE(value) FROM floatmany where time < '2000-01-01T00:00:10Z'`,
+			exp:     `{"results":[{"series":[{"name":"floatmany","columns":["time","mode"],"values":[["1970-01-01T00:00:00Z",2]]}]}]}`,
 		},
 		&Query{
 			name:    "distinct as call - float",
@@ -3106,6 +3602,65 @@ func TestServer_Query_Aggregates_FloatOverlap(t *testing.T) {
 			params:  url.Values{"db": []string{"db0"}},
 			command: `SELECT sum(value) / mean(value) as div FROM floatoverlap GROUP BY region`,
 			exp:     `{"results":[{"series":[{"name":"floatoverlap","tags":{"region":"us-east"},"columns":["time","div"],"values":[["1970-01-01T00:00:00Z",2]]},{"name":"floatoverlap","tags":{"region":"us-west"},"columns":["time","div"],"values":[["1970-01-01T00:00:00Z",1]]}]}]}`,
+		},
+	}...)
+
+	for i, query := range test.queries {
+		if i == 0 {
+			if err := test.init(s); err != nil {
+				t.Fatalf("test init failed: %s", err)
+			}
+		}
+		if query.skip {
+			t.Logf("SKIP:: %s", query.name)
+			continue
+		}
+		if err := query.Execute(s); err != nil {
+			t.Error(query.Error(err))
+		} else if !query.success() {
+			t.Error(query.failureMessage())
+		}
+	}
+}
+
+func TestServer_Query_Aggregates_GroupByOffset(t *testing.T) {
+	t.Parallel()
+	s := OpenDefaultServer(NewConfig())
+	defer s.Close()
+
+	test := NewTest("db0", "rp0")
+	test.writes = Writes{
+		&Write{data: strings.Join([]string{
+			fmt.Sprintf(`offset,region=us-east,host=serverA value=20.0 %d`, mustParseTime(time.RFC3339Nano, "2000-01-01T00:00:00Z").UnixNano()),
+			fmt.Sprintf(`offset,region=us-east,host=serverB value=30.0 %d`, mustParseTime(time.RFC3339Nano, "2000-01-01T00:00:10Z").UnixNano()),
+			fmt.Sprintf(`offset,region=us-west,host=serverC value=100.0 %d`, mustParseTime(time.RFC3339Nano, "2000-01-01T00:00:00Z").UnixNano()),
+		}, "\n")},
+	}
+
+	test.addQueries([]*Query{
+		&Query{
+			name:    "group by offset - standard",
+			params:  url.Values{"db": []string{"db0"}},
+			command: `SELECT sum(value) FROM "offset" WHERE time >= '1999-12-31T23:59:55Z' AND time < '2000-01-01T00:00:15Z' GROUP BY time(10s, 5s) FILL(0)`,
+			exp:     `{"results":[{"series":[{"name":"offset","columns":["time","sum"],"values":[["1999-12-31T23:59:55Z",120],["2000-01-01T00:00:05Z",30]]}]}]}`,
+		},
+		&Query{
+			name:    "group by offset - misaligned time",
+			params:  url.Values{"db": []string{"db0"}},
+			command: `SELECT sum(value) FROM "offset" WHERE time >= '2000-01-01T00:00:00Z' AND time < '2000-01-01T00:00:20Z' GROUP BY time(10s, 5s) FILL(0)`,
+			exp:     `{"results":[{"series":[{"name":"offset","columns":["time","sum"],"values":[["1999-12-31T23:59:55Z",120],["2000-01-01T00:00:05Z",30],["2000-01-01T00:00:15Z",0]]}]}]}`,
+		},
+		&Query{
+			name:    "group by offset - negative time",
+			params:  url.Values{"db": []string{"db0"}},
+			command: `SELECT sum(value) FROM "offset" WHERE time >= '1999-12-31T23:59:55Z' AND time < '2000-01-01T00:00:15Z' GROUP BY time(10s, -5s) FILL(0)`,
+			exp:     `{"results":[{"series":[{"name":"offset","columns":["time","sum"],"values":[["1999-12-31T23:59:55Z",120],["2000-01-01T00:00:05Z",30]]}]}]}`,
+		},
+		&Query{
+			name:    "group by offset - modulo",
+			params:  url.Values{"db": []string{"db0"}},
+			command: `SELECT sum(value) FROM "offset" WHERE time >= '1999-12-31T23:59:55Z' AND time < '2000-01-01T00:00:15Z' GROUP BY time(10s, 35s) FILL(0)`,
+			exp:     `{"results":[{"series":[{"name":"offset","columns":["time","sum"],"values":[["1999-12-31T23:59:55Z",120],["2000-01-01T00:00:05Z",30]]}]}]}`,
 		},
 	}...)
 
@@ -3302,7 +3857,7 @@ func TestServer_Query_AggregateSelectors(t *testing.T) {
 	s := OpenServer(NewConfig())
 	defer s.Close()
 
-	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicyInfo("rp0", 1, 0)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.MetaClient.SetDefaultRetentionPolicy("db0", "rp0"); err != nil {
@@ -3331,7 +3886,7 @@ func TestServer_Query_AggregateSelectors(t *testing.T) {
 			name:    "baseline",
 			params:  url.Values{"db": []string{"db0"}},
 			command: `SELECT * FROM network`,
-			exp:     `{"results":[{"series":[{"name":"network","columns":["time","core","host","region","rx","tx"],"values":[["2000-01-01T00:00:00Z",2,"server01","west",10,20],["2000-01-01T00:00:10Z",3,"server02","west",40,50],["2000-01-01T00:00:20Z",4,"server03","east",40,55],["2000-01-01T00:00:30Z",1,"server04","east",40,60],["2000-01-01T00:00:40Z",2,"server05","west",50,70],["2000-01-01T00:00:50Z",3,"server06","east",50,40],["2000-01-01T00:01:00Z",4,"server07","west",70,30],["2000-01-01T00:01:10Z",1,"server08","east",90,10],["2000-01-01T00:01:20Z",2,"server09","east",5,4]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"network","columns":["time","core","core_1","host","region","rx","tx"],"values":[["2000-01-01T00:00:00Z",2,"1","server01","west",10,20],["2000-01-01T00:00:10Z",3,"2","server02","west",40,50],["2000-01-01T00:00:20Z",4,"3","server03","east",40,55],["2000-01-01T00:00:30Z",1,"4","server04","east",40,60],["2000-01-01T00:00:40Z",2,"1","server05","west",50,70],["2000-01-01T00:00:50Z",3,"2","server06","east",50,40],["2000-01-01T00:01:00Z",4,"3","server07","west",70,30],["2000-01-01T00:01:10Z",1,"4","server08","east",90,10],["2000-01-01T00:01:20Z",2,"1","server09","east",5,4]]}]}]}`,
 		},
 		&Query{
 			name:    "max - baseline 30s",
@@ -3519,6 +4074,42 @@ func TestServer_Query_AggregateSelectors(t *testing.T) {
 			exp:     `{"error":"error parsing query: mixing aggregate and non-aggregate queries is not supported"}`,
 		},
 		&Query{
+			name:    "mode - baseline 30s",
+			params:  url.Values{"db": []string{"db0"}},
+			command: `SELECT mode(rx) FROM network where time >= '2000-01-01T00:00:00Z' AND time <= '2000-01-01T00:01:29Z' group by time(30s)`,
+			exp:     `{"results":[{"series":[{"name":"network","columns":["time","mode"],"values":[["2000-01-01T00:00:00Z",40],["2000-01-01T00:00:30Z",50],["2000-01-01T00:01:00Z",5]]}]}]}`,
+		},
+		&Query{
+			name:    "mode - time",
+			params:  url.Values{"db": []string{"db0"}},
+			command: `SELECT time, mode(rx) FROM network where time >= '2000-01-01T00:00:00Z' AND time <= '2000-01-01T00:01:29Z' group by time(30s)`,
+			exp:     `{"error":"error parsing query: mixing aggregate and non-aggregate queries is not supported"}`,
+		},
+		&Query{
+			name:    "mode - tx",
+			params:  url.Values{"db": []string{"db0"}},
+			command: `SELECT tx, mode(rx) FROM network where time >= '2000-01-01T00:00:00Z' AND time <= '2000-01-01T00:01:29Z' group by time(30s)`,
+			exp:     `{"error":"error parsing query: mixing aggregate and non-aggregate queries is not supported"}`,
+		},
+		&Query{
+			name:    "mode - baseline 30s",
+			params:  url.Values{"db": []string{"db0"}},
+			command: `SELECT mode(rx) FROM network where time >= '2000-01-01T00:00:00Z' AND time <= '2000-01-01T00:01:29Z' group by time(30s)`,
+			exp:     `{"results":[{"series":[{"name":"network","columns":["time","mode"],"values":[["2000-01-01T00:00:00Z",40],["2000-01-01T00:00:30Z",50],["2000-01-01T00:01:00Z",5]]}]}]}`,
+		},
+		&Query{
+			name:    "mode - time",
+			params:  url.Values{"db": []string{"db0"}},
+			command: `SELECT time, mode(rx) FROM network where time >= '2000-01-01T00:00:00Z' AND time <= '2000-01-01T00:01:29Z' group by time(30s)`,
+			exp:     `{"error":"error parsing query: mixing aggregate and non-aggregate queries is not supported"}`,
+		},
+		&Query{
+			name:    "mode - tx",
+			params:  url.Values{"db": []string{"db0"}},
+			command: `SELECT tx, mode(rx) FROM network where time >= '2000-01-01T00:00:00Z' AND time <= '2000-01-01T00:01:29Z' group by time(30s)`,
+			exp:     `{"error":"error parsing query: mixing aggregate and non-aggregate queries is not supported"}`,
+		},
+		&Query{
 			name:    "spread - baseline 30s",
 			params:  url.Values{"db": []string{"db0"}},
 			command: `SELECT spread(rx) FROM network where time >= '2000-01-01T00:00:00Z' AND time <= '2000-01-01T00:01:29Z' group by time(30s)`,
@@ -3564,13 +4155,13 @@ func TestServer_Query_AggregateSelectors(t *testing.T) {
 			name:    "percentile - time",
 			params:  url.Values{"db": []string{"db0"}},
 			command: `SELECT time, percentile(rx, 75) FROM network where time >= '2000-01-01T00:00:00Z' AND time <= '2000-01-01T00:01:29Z' group by time(30s)`,
-			exp:     `{"error":"error parsing query: mixing aggregate and non-aggregate queries is not supported"}`,
+			exp:     `{"results":[{"series":[{"name":"network","columns":["time","percentile"],"values":[["2000-01-01T00:00:00Z",40],["2000-01-01T00:00:30Z",50],["2000-01-01T00:01:00Z",70]]}]}]}`,
 		},
 		&Query{
 			name:    "percentile - tx",
 			params:  url.Values{"db": []string{"db0"}},
 			command: `SELECT tx, percentile(rx, 75) FROM network where time >= '2000-01-01T00:00:00Z' AND time <= '2000-01-01T00:01:29Z' group by time(30s)`,
-			exp:     `{"error":"error parsing query: mixing aggregate and non-aggregate queries is not supported"}`,
+			exp:     `{"results":[{"series":[{"name":"network","columns":["time","tx","percentile"],"values":[["2000-01-01T00:00:00Z",50,40],["2000-01-01T00:00:30Z",70,50],["2000-01-01T00:01:00Z",30,70]]}]}]}`,
 		},
 	}...)
 
@@ -3598,7 +4189,7 @@ func TestServer_Query_TopInt(t *testing.T) {
 	s := OpenServer(NewConfig())
 	defer s.Close()
 
-	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicyInfo("rp0", 1, 0)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.MetaClient.SetDefaultRetentionPolicy("db0", "rp0"); err != nil {
@@ -3765,7 +4356,7 @@ func TestServer_Query_Aggregates_IdenticalTime(t *testing.T) {
 	s := OpenServer(NewConfig())
 	defer s.Close()
 
-	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicyInfo("rp0", 1, 0)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.MetaClient.SetDefaultRetentionPolicy("db0", "rp0"); err != nil {
@@ -3794,14 +4385,14 @@ func TestServer_Query_Aggregates_IdenticalTime(t *testing.T) {
 			name:    "last from multiple series with identical timestamp",
 			params:  url.Values{"db": []string{"db0"}},
 			command: `SELECT last(value) FROM "series"`,
-			exp:     `{"results":[{"series":[{"name":"series","columns":["time","last"],"values":[["1970-01-01T00:00:00Z",5]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"series","columns":["time","last"],"values":[["2000-01-01T00:00:00Z",5]]}]}]}`,
 			repeat:  100,
 		},
 		&Query{
 			name:    "first from multiple series with identical timestamp",
 			params:  url.Values{"db": []string{"db0"}},
 			command: `SELECT first(value) FROM "series"`,
-			exp:     `{"results":[{"series":[{"name":"series","columns":["time","first"],"values":[["1970-01-01T00:00:00Z",5]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"series","columns":["time","first"],"values":[["2000-01-01T00:00:00Z",5]]}]}]}`,
 			repeat:  100,
 		},
 	}...)
@@ -3833,7 +4424,7 @@ func TestServer_Query_GroupByTimeCutoffs(t *testing.T) {
 	s := OpenServer(NewConfig())
 	defer s.Close()
 
-	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicyInfo("rp0", 1, 0)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.MetaClient.SetDefaultRetentionPolicy("db0", "rp0"); err != nil {
@@ -3915,7 +4506,7 @@ func TestServer_Write_Precision(t *testing.T) {
 	s := OpenServer(NewConfig())
 	defer s.Close()
 
-	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicyInfo("rp0", 1, 0)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.MetaClient.SetDefaultRetentionPolicy("db0", "rp0"); err != nil {
@@ -4032,7 +4623,7 @@ func TestServer_Query_Wildcards(t *testing.T) {
 	s := OpenServer(NewConfig())
 	defer s.Close()
 
-	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicyInfo("rp0", 1, 0)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.MetaClient.SetDefaultRetentionPolicy("db0", "rp0"); err != nil {
@@ -4150,7 +4741,7 @@ func TestServer_Query_WildcardExpansion(t *testing.T) {
 	s := OpenServer(NewConfig())
 	defer s.Close()
 
-	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicyInfo("rp0", 1, 0)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.MetaClient.SetDefaultRetentionPolicy("db0", "rp0"); err != nil {
@@ -4200,10 +4791,10 @@ func TestServer_Query_WildcardExpansion(t *testing.T) {
 			exp:     `{"results":[{"series":[{"name":"wildcard","columns":["time","c","h","region","value"],"values":[["2000-01-01T00:00:00Z",80,"A","us-east",10],["2000-01-01T00:00:10Z",90,"B","us-east",20],["2000-01-01T00:00:20Z",70,"B","us-west",30],["2000-01-01T00:00:30Z",60,"A","us-east",40]]}]}]}`,
 		},
 		&Query{
-			name:    "duplicate tag and field key, always favor field over tag",
+			name:    "duplicate tag and field key",
 			command: `SELECT * FROM dupnames`,
 			params:  url.Values{"db": []string{"db0"}},
-			exp:     `{"results":[{"series":[{"name":"dupnames","columns":["time","day","region","value"],"values":[["2000-01-01T00:00:00Z",3,"us-east",10],["2000-01-01T00:00:10Z",2,"us-east",20],["2000-01-01T00:00:20Z",1,"us-west",30]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"dupnames","columns":["time","day","day_1","region","value"],"values":[["2000-01-01T00:00:00Z",3,"1","us-east",10],["2000-01-01T00:00:10Z",2,"2","us-east",20],["2000-01-01T00:00:20Z",1,"3","us-west",30]]}]}]}`,
 		},
 	}...)
 
@@ -4230,7 +4821,7 @@ func TestServer_Query_AcrossShardsAndFields(t *testing.T) {
 	s := OpenServer(NewConfig())
 	defer s.Close()
 
-	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicyInfo("rp0", 1, 0)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.MetaClient.SetDefaultRetentionPolicy("db0", "rp0"); err != nil {
@@ -4304,7 +4895,7 @@ func TestServer_Query_Where_Fields(t *testing.T) {
 	s := OpenServer(NewConfig())
 	defer s.Close()
 
-	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicyInfo("rp0", 1, 0)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.MetaClient.SetDefaultRetentionPolicy("db0", "rp0"); err != nil {
@@ -4526,7 +5117,7 @@ func TestServer_Query_Where_With_Tags(t *testing.T) {
 	s := OpenServer(NewConfig())
 	defer s.Close()
 
-	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicyInfo("rp0", 1, 0)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.MetaClient.SetDefaultRetentionPolicy("db0", "rp0"); err != nil {
@@ -4575,7 +5166,116 @@ func TestServer_Query_Where_With_Tags(t *testing.T) {
 			name:    "where on tag that should be double quoted but isn't",
 			params:  url.Values{"db": []string{"db0"}},
 			command: `show series where data-center = 'foo'`,
-			exp:     `{"error":"error parsing query: found DATA, expected identifier, string, number, bool at line 1, char 19"}`,
+			exp:     `{"results":[{"error":"invalid tag comparison operator"}]}`,
+		},
+		&Query{
+			name:    "where comparing tag and field",
+			params:  url.Values{"db": []string{"db0"}},
+			command: `select foo from where_events where tennant != foo`,
+			exp:     `{"results":[{"series":[{"name":"where_events","columns":["time","foo"],"values":[["2009-11-10T23:00:02Z","bar"],["2009-11-10T23:00:03Z","baz"],["2009-11-10T23:00:04Z","bat"],["2009-11-10T23:00:05Z","bar"],["2009-11-10T23:00:06Z","bap"]]}]}]}`,
+		},
+		&Query{
+			name:    "where comparing tag and tag",
+			params:  url.Values{"db": []string{"db0"}},
+			command: `select foo from where_events where tennant = tennant`,
+			exp:     `{"results":[{"series":[{"name":"where_events","columns":["time","foo"],"values":[["2009-11-10T23:00:02Z","bar"],["2009-11-10T23:00:03Z","baz"],["2009-11-10T23:00:04Z","bat"],["2009-11-10T23:00:05Z","bar"],["2009-11-10T23:00:06Z","bap"]]}]}]}`,
+		},
+	}...)
+
+	for i, query := range test.queries {
+		if i == 0 {
+			if err := test.init(s); err != nil {
+				t.Fatalf("test init failed: %s", err)
+			}
+		}
+		if query.skip {
+			t.Logf("SKIP:: %s", query.name)
+			continue
+		}
+		if err := query.Execute(s); err != nil {
+			t.Error(query.Error(err))
+		} else if !query.success() {
+			t.Error(query.failureMessage())
+		}
+	}
+}
+
+func TestServer_Query_With_EmptyTags(t *testing.T) {
+	t.Parallel()
+	s := OpenServer(NewConfig())
+	defer s.Close()
+
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.MetaClient.SetDefaultRetentionPolicy("db0", "rp0"); err != nil {
+		t.Fatal(err)
+	}
+
+	writes := []string{
+		fmt.Sprintf(`cpu value=1 %d`, mustParseTime(time.RFC3339Nano, "2009-11-10T23:00:02Z").UnixNano()),
+		fmt.Sprintf(`cpu,host=server01 value=2 %d`, mustParseTime(time.RFC3339Nano, "2009-11-10T23:00:03Z").UnixNano()),
+	}
+
+	test := NewTest("db0", "rp0")
+	test.writes = Writes{
+		&Write{data: strings.Join(writes, "\n")},
+	}
+
+	test.addQueries([]*Query{
+		&Query{
+			name:    "where empty tag",
+			params:  url.Values{"db": []string{"db0"}},
+			command: `select value from cpu where host = ''`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","value"],"values":[["2009-11-10T23:00:02Z",1]]}]}]}`,
+		},
+		&Query{
+			name:    "where not empty tag",
+			params:  url.Values{"db": []string{"db0"}},
+			command: `select value from cpu where host != ''`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","value"],"values":[["2009-11-10T23:00:03Z",2]]}]}]}`,
+		},
+		&Query{
+			name:    "where regex none",
+			params:  url.Values{"db": []string{"db0"}},
+			command: `select value from cpu where host !~ /.*/`,
+			exp:     `{"results":[{}]}`,
+		},
+		&Query{
+			name:    "where regex exact",
+			params:  url.Values{"db": []string{"db0"}},
+			command: `select value from cpu where host =~ /^server01$/`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","value"],"values":[["2009-11-10T23:00:03Z",2]]}]}]}`,
+		},
+		&Query{
+			name:    "where regex exact (not)",
+			params:  url.Values{"db": []string{"db0"}},
+			command: `select value from cpu where host !~ /^server01$/`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","value"],"values":[["2009-11-10T23:00:02Z",1]]}]}]}`,
+		},
+		&Query{
+			name:    "where regex at least one char",
+			params:  url.Values{"db": []string{"db0"}},
+			command: `select value from cpu where host =~ /.+/`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","value"],"values":[["2009-11-10T23:00:03Z",2]]}]}]}`,
+		},
+		&Query{
+			name:    "where regex not at least one char",
+			params:  url.Values{"db": []string{"db0"}},
+			command: `select value from cpu where host !~ /.+/`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","value"],"values":[["2009-11-10T23:00:02Z",1]]}]}]}`,
+		},
+		&Query{
+			name:    "group by empty tag",
+			params:  url.Values{"db": []string{"db0"}},
+			command: `select value from cpu group by host`,
+			exp:     `{"results":[{"series":[{"name":"cpu","tags":{"host":""},"columns":["time","value"],"values":[["2009-11-10T23:00:02Z",1]]},{"name":"cpu","tags":{"host":"server01"},"columns":["time","value"],"values":[["2009-11-10T23:00:03Z",2]]}]}]}`,
+		},
+		&Query{
+			name:    "group by missing tag",
+			params:  url.Values{"db": []string{"db0"}},
+			command: `select value from cpu group by region`,
+			exp:     `{"results":[{"series":[{"name":"cpu","tags":{"region":""},"columns":["time","value"],"values":[["2009-11-10T23:00:02Z",1],["2009-11-10T23:00:03Z",2]]}]}]}`,
 		},
 	}...)
 
@@ -4602,7 +5302,7 @@ func TestServer_Query_LimitAndOffset(t *testing.T) {
 	s := OpenServer(NewConfig())
 	defer s.Close()
 
-	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicyInfo("rp0", 1, 0)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.MetaClient.SetDefaultRetentionPolicy("db0", "rp0"); err != nil {
@@ -4671,7 +5371,7 @@ func TestServer_Query_LimitAndOffset(t *testing.T) {
 			params:  url.Values{"db": []string{"db0"}},
 		},
 		&Query{
-			name:    "limit + offset equal to the  number of points with group by time",
+			name:    "limit + offset equal to the number of points with group by time",
 			command: `select mean(foo) from "limited" WHERE time >= '2009-11-10T23:00:02Z' AND time < '2009-11-10T23:00:06Z' GROUP BY TIME(1s) LIMIT 3 OFFSET 3`,
 			exp:     `{"results":[{"series":[{"name":"limited","columns":["time","mean"],"values":[["2009-11-10T23:00:05Z",5]]}]}]}`,
 			params:  url.Values{"db": []string{"db0"}},
@@ -4680,6 +5380,18 @@ func TestServer_Query_LimitAndOffset(t *testing.T) {
 			name:    "limit - offset higher than number of points with group by time",
 			command: `select mean(foo) from "limited" WHERE time >= '2009-11-10T23:00:02Z' AND time < '2009-11-10T23:00:06Z' GROUP BY TIME(1s) LIMIT 2 OFFSET 20`,
 			exp:     `{"results":[{}]}`,
+			params:  url.Values{"db": []string{"db0"}},
+		},
+		&Query{
+			name:    "limit - group by tennant",
+			command: `select foo from "limited" group by tennant limit 1`,
+			exp:     `{"results":[{"series":[{"name":"limited","tags":{"tennant":"paul"},"columns":["time","foo"],"values":[["2009-11-10T23:00:02Z",2]]},{"name":"limited","tags":{"tennant":"todd"},"columns":["time","foo"],"values":[["2009-11-10T23:00:05Z",5]]}]}]}`,
+			params:  url.Values{"db": []string{"db0"}},
+		},
+		&Query{
+			name:    "limit and offset - group by tennant",
+			command: `select foo from "limited" group by tennant limit 1 offset 1`,
+			exp:     `{"results":[{"series":[{"name":"limited","tags":{"tennant":"paul"},"columns":["time","foo"],"values":[["2009-11-10T23:00:03Z",3]]}]}]}`,
 			params:  url.Values{"db": []string{"db0"}},
 		},
 	}...)
@@ -4707,7 +5419,7 @@ func TestServer_Query_Fill(t *testing.T) {
 	s := OpenServer(NewConfig())
 	defer s.Close()
 
-	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicyInfo("rp0", 1, 0)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.MetaClient.SetDefaultRetentionPolicy("db0", "rp0"); err != nil {
@@ -4806,7 +5518,7 @@ func TestServer_Query_Chunk(t *testing.T) {
 	s := OpenServer(NewConfig())
 	defer s.Close()
 
-	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicyInfo("rp0", 1, 0)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.MetaClient.SetDefaultRetentionPolicy("db0", "rp0"); err != nil {
@@ -4858,13 +5570,13 @@ func TestServer_Query_DropAndRecreateMeasurement(t *testing.T) {
 	s := OpenServer(NewConfig())
 	defer s.Close()
 
-	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicyInfo("rp0", 1, 0)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.MetaClient.SetDefaultRetentionPolicy("db0", "rp0"); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.CreateDatabaseAndRetentionPolicy("db1", newRetentionPolicyInfo("rp0", 1, 0)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db1", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.MetaClient.SetDefaultRetentionPolicy("db1", "rp0"); err != nil {
@@ -5019,12 +5731,84 @@ func TestServer_Query_DropAndRecreateMeasurement(t *testing.T) {
 	}
 }
 
+func TestServer_Query_ShowQueries_Future(t *testing.T) {
+	t.Parallel()
+	s := OpenServer(NewConfig())
+	defer s.Close()
+
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.MetaClient.SetDefaultRetentionPolicy("db0", "rp0"); err != nil {
+		t.Fatal(err)
+	}
+
+	writes := []string{
+		fmt.Sprintf(`cpu,host=server01 value=100 %d`, models.MaxNanoTime),
+	}
+
+	test := NewTest("db0", "rp0")
+	test.writes = Writes{
+		&Write{data: strings.Join(writes, "\n")},
+	}
+
+	test.addQueries([]*Query{
+		&Query{
+			name:    `show measurements`,
+			command: "SHOW MEASUREMENTS",
+			exp:     `{"results":[{"series":[{"name":"measurements","columns":["name"],"values":[["cpu"]]}]}]}`,
+			params:  url.Values{"db": []string{"db0"}},
+		},
+		&Query{
+			name:    `show series`,
+			command: "SHOW SERIES",
+			exp:     `{"results":[{"series":[{"columns":["key"],"values":[["cpu,host=server01"]]}]}]}`,
+			params:  url.Values{"db": []string{"db0"}},
+		},
+		&Query{
+			name:    `show tag keys`,
+			command: "SHOW TAG KEYS FROM cpu",
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["tagKey"],"values":[["host"]]}]}]}`,
+			params:  url.Values{"db": []string{"db0"}},
+		},
+		&Query{
+			name:    `show tag values`,
+			command: "SHOW TAG VALUES WITH KEY = \"host\"",
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["key","value"],"values":[["host","server01"]]}]}]}`,
+			params:  url.Values{"db": []string{"db0"}},
+		},
+		&Query{
+			name:    `show field keys`,
+			command: "SHOW FIELD KEYS",
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["fieldKey","fieldType"],"values":[["value","float"]]}]}]}`,
+			params:  url.Values{"db": []string{"db0"}},
+		},
+	}...)
+
+	for i, query := range test.queries {
+		if i == 0 {
+			if err := test.init(s); err != nil {
+				t.Fatalf("test init failed: %s", err)
+			}
+		}
+		if query.skip {
+			t.Logf("SKIP:: %s", query.name)
+			continue
+		}
+		if err := query.Execute(s); err != nil {
+			t.Error(query.Error(err))
+		} else if !query.success() {
+			t.Error(query.failureMessage())
+		}
+	}
+}
+
 func TestServer_Query_ShowSeries(t *testing.T) {
 	t.Parallel()
 	s := OpenServer(NewConfig())
 	defer s.Close()
 
-	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicyInfo("rp0", 1, 0)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.MetaClient.SetDefaultRetentionPolicy("db0", "rp0"); err != nil {
@@ -5121,12 +5905,56 @@ func TestServer_Query_ShowSeries(t *testing.T) {
 	}
 }
 
+func TestServer_Query_ShowStats(t *testing.T) {
+	t.Parallel()
+	s := OpenServer(NewConfig())
+	defer s.Close()
+
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.MetaClient.SetDefaultRetentionPolicy("db0", "rp0"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.MetaClient.CreateSubscription("db0", "rp0", "foo", "ALL", []string{"udp://localhost:9000"}); err != nil {
+		t.Fatal(err)
+	}
+
+	test := NewTest("db0", "rp0")
+	test.addQueries([]*Query{
+		&Query{
+			name:    `show shots`,
+			command: "SHOW STATS",
+			exp:     "subscriber", // Should see a subscriber stat in the json
+			pattern: true,
+		},
+	}...)
+
+	for i, query := range test.queries {
+		if i == 0 {
+			if err := test.init(s); err != nil {
+				t.Fatalf("test init failed: %s", err)
+			}
+		}
+		if query.skip {
+			t.Logf("SKIP:: %s", query.name)
+			continue
+		}
+		if err := query.Execute(s); err != nil {
+			t.Error(query.Error(err))
+		} else if !query.success() {
+			t.Error(query.failureMessage())
+		}
+	}
+}
+
 func TestServer_Query_ShowMeasurements(t *testing.T) {
 	t.Parallel()
 	s := OpenServer(NewConfig())
 	defer s.Close()
 
-	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicyInfo("rp0", 1, 0)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.MetaClient.SetDefaultRetentionPolicy("db0", "rp0"); err != nil {
@@ -5216,7 +6044,7 @@ func TestServer_Query_ShowTagKeys(t *testing.T) {
 	s := OpenServer(NewConfig())
 	defer s.Close()
 
-	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicyInfo("rp0", 1, 0)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.MetaClient.SetDefaultRetentionPolicy("db0", "rp0"); err != nil {
@@ -5276,8 +6104,20 @@ func TestServer_Query_ShowTagKeys(t *testing.T) {
 			params:  url.Values{"db": []string{"db0"}},
 		},
 		&Query{
+			name:    "show tag values with key regex",
+			command: "SHOW TAG VALUES WITH KEY =~ /ho/",
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["key","value"],"values":[["host","server01"],["host","server02"]]},{"name":"disk","columns":["key","value"],"values":[["host","server03"]]},{"name":"gpu","columns":["key","value"],"values":[["host","server02"],["host","server03"]]}]}]}`,
+			params:  url.Values{"db": []string{"db0"}},
+		},
+		&Query{
 			name:    `show tag values with key and where`,
 			command: `SHOW TAG VALUES FROM cpu WITH KEY = host WHERE region = 'uswest'`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["key","value"],"values":[["host","server01"]]}]}]}`,
+			params:  url.Values{"db": []string{"db0"}},
+		},
+		&Query{
+			name:    `show tag values with key regex and where`,
+			command: `SHOW TAG VALUES FROM cpu WITH KEY =~ /ho/ WHERE region = 'uswest'`,
 			exp:     `{"results":[{"series":[{"name":"cpu","columns":["key","value"],"values":[["host","server01"]]}]}]}`,
 			params:  url.Values{"db": []string{"db0"}},
 		},
@@ -5290,12 +6130,30 @@ func TestServer_Query_ShowTagKeys(t *testing.T) {
 		&Query{
 			name:    `show tag values with key and where does not match the regular expression`,
 			command: `SHOW TAG VALUES WITH KEY = region WHERE host !~ /server0[12]/`,
-			exp:     `{"results":[{"series":[{"name":"disk","columns":["key","value"],"values":[["region","caeast"]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"disk","columns":["key","value"],"values":[["region","caeast"]]},{"name":"gpu","columns":["key","value"],"values":[["region","caeast"]]}]}]}`,
+			params:  url.Values{"db": []string{"db0"}},
+		},
+		&Query{
+			name:    `show tag values with key and where partially matches the regular expression`,
+			command: `SHOW TAG VALUES WITH KEY = host WHERE region =~ /us/`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["key","value"],"values":[["host","server01"],["host","server02"]]},{"name":"gpu","columns":["key","value"],"values":[["host","server02"]]}]}]}`,
+			params:  url.Values{"db": []string{"db0"}},
+		},
+		&Query{
+			name:    `show tag values with key and where partially does not match the regular expression`,
+			command: `SHOW TAG VALUES WITH KEY = host WHERE region !~ /us/`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["key","value"],"values":[["host","server01"]]},{"name":"disk","columns":["key","value"],"values":[["host","server03"]]},{"name":"gpu","columns":["key","value"],"values":[["host","server03"]]}]}]}`,
 			params:  url.Values{"db": []string{"db0"}},
 		},
 		&Query{
 			name:    `show tag values with key in and where does not match the regular expression`,
 			command: `SHOW TAG VALUES FROM cpu WITH KEY IN (host, region) WHERE region = 'uswest'`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["key","value"],"values":[["host","server01"],["region","uswest"]]}]}]}`,
+			params:  url.Values{"db": []string{"db0"}},
+		},
+		&Query{
+			name:    `show tag values with key regex and where does not match the regular expression`,
+			command: `SHOW TAG VALUES FROM cpu WITH KEY =~ /(host|region)/ WHERE region = 'uswest'`,
 			exp:     `{"results":[{"series":[{"name":"cpu","columns":["key","value"],"values":[["host","server01"],["region","uswest"]]}]}]}`,
 			params:  url.Values{"db": []string{"db0"}},
 		},
@@ -5336,7 +6194,7 @@ func TestServer_Query_ShowFieldKeys(t *testing.T) {
 	s := OpenServer(NewConfig())
 	defer s.Close()
 
-	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicyInfo("rp0", 1, 0)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.MetaClient.SetDefaultRetentionPolicy("db0", "rp0"); err != nil {
@@ -5362,19 +6220,19 @@ func TestServer_Query_ShowFieldKeys(t *testing.T) {
 		&Query{
 			name:    `show field keys`,
 			command: `SHOW FIELD KEYS`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["fieldKey"],"values":[["field1"],["field2"],["field3"]]},{"name":"disk","columns":["fieldKey"],"values":[["field8"],["field9"]]},{"name":"gpu","columns":["fieldKey"],"values":[["field4"],["field5"],["field6"],["field7"]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["fieldKey","fieldType"],"values":[["field1","float"],["field2","float"],["field3","float"]]},{"name":"disk","columns":["fieldKey","fieldType"],"values":[["field8","float"],["field9","float"]]},{"name":"gpu","columns":["fieldKey","fieldType"],"values":[["field4","float"],["field5","float"],["field6","float"],["field7","float"]]}]}]}`,
 			params:  url.Values{"db": []string{"db0"}},
 		},
 		&Query{
 			name:    `show field keys from measurement`,
 			command: `SHOW FIELD KEYS FROM cpu`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["fieldKey"],"values":[["field1"],["field2"],["field3"]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["fieldKey","fieldType"],"values":[["field1","float"],["field2","float"],["field3","float"]]}]}]}`,
 			params:  url.Values{"db": []string{"db0"}},
 		},
 		&Query{
 			name:    `show field keys measurement with regex`,
 			command: `SHOW FIELD KEYS FROM /[cg]pu/`,
-			exp:     `{"results":[{"series":[{"name":"cpu","columns":["fieldKey"],"values":[["field1"],["field2"],["field3"]]},{"name":"gpu","columns":["fieldKey"],"values":[["field4"],["field5"],["field6"],["field7"]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["fieldKey","fieldType"],"values":[["field1","float"],["field2","float"],["field3","float"]]},{"name":"gpu","columns":["fieldKey","fieldType"],"values":[["field4","float"],["field5","float"],["field6","float"],["field7","float"]]}]}]}`,
 			params:  url.Values{"db": []string{"db0"}},
 		},
 	}...)
@@ -5398,12 +6256,11 @@ func TestServer_Query_ShowFieldKeys(t *testing.T) {
 }
 
 func TestServer_ContinuousQuery(t *testing.T) {
-	t.Skip()
 	t.Parallel()
 	s := OpenServer(NewConfig())
 	defer s.Close()
 
-	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicyInfo("rp0", 1, 0)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.MetaClient.SetDefaultRetentionPolicy("db0", "rp0"); err != nil {
@@ -5481,26 +6338,18 @@ func TestServer_ContinuousQuery(t *testing.T) {
 		&Query{
 			name:    `show continuous queries`,
 			command: `SHOW CONTINUOUS QUERIES`,
-			exp:     `{"results":[{"series":[{"name":"db0","columns":["name","query"],"values":[["cq1","CREATE CONTINUOUS QUERY cq1 ON db0 BEGIN SELECT count(value) INTO \"db0\".\"rp1\".:MEASUREMENT FROM \"db0\".\"rp0\"./[cg]pu/ GROUP BY time(5s) END"],["cq2","CREATE CONTINUOUS QUERY cq2 ON db0 BEGIN SELECT count(value) INTO \"db0\".\"rp2\".:MEASUREMENT FROM \"db0\".\"rp0\"./[cg]pu/ GROUP BY time(5s), * END"]]}]}]}`,
+			exp:     `{"results":[{"series":[{"name":"db0","columns":["name","query"],"values":[["cq1","CREATE CONTINUOUS QUERY cq1 ON db0 BEGIN SELECT count(value) INTO db0.rp1.:MEASUREMENT FROM db0.rp0./[cg]pu/ GROUP BY time(5s) END"],["cq2","CREATE CONTINUOUS QUERY cq2 ON db0 BEGIN SELECT count(value) INTO db0.rp2.:MEASUREMENT FROM db0.rp0./[cg]pu/ GROUP BY time(5s), * END"]]}]}]}`,
 		},
 	}...)
 
 	// Run first test to create CQs.
 	runTest(&test, t)
 
-	// Trigger CQs to run.
-	u := fmt.Sprintf("%s/data/process_continuous_queries?time=%d", s.URL(), interval0.UnixNano())
-	if _, err := s.HTTPPost(u, nil); err != nil {
-		t.Fatal(err)
-	}
-
-	// Wait for CQs to run. TODO: fix this ugly hack
-	time.Sleep(time.Second * 5)
-
 	// Setup tests to check the CQ results.
 	test2 := NewTest("db0", "rp1")
 	test2.addQueries([]*Query{
 		&Query{
+			skip:    true,
 			name:    "check results of cq1",
 			command: `SELECT * FROM "rp1"./[cg]pu/`,
 			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","count","host","region","value"],"values":[["` + interval2.UTC().Format(time.RFC3339Nano) + `",3,null,null,null]]},{"name":"gpu","columns":["time","count","host","region","value"],"values":[["` + interval1.UTC().Format(time.RFC3339Nano) + `",2,null,null,null],["` + interval0.UTC().Format(time.RFC3339Nano) + `",1,null,null,null]]}]}]}`,
@@ -5537,7 +6386,7 @@ func TestServer_ContinuousQuery_Deadlock(t *testing.T) {
 		s.Server = nil
 	}()
 
-	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicyInfo("rp0", 1, 0)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.MetaClient.SetDefaultRetentionPolicy("db0", "rp0"); err != nil {
@@ -5610,7 +6459,7 @@ func TestServer_Query_EvilIdentifiers(t *testing.T) {
 	s := OpenServer(NewConfig())
 	defer s.Close()
 
-	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicyInfo("rp0", 1, 0)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.MetaClient.SetDefaultRetentionPolicy("db0", "rp0"); err != nil {
@@ -5654,7 +6503,7 @@ func TestServer_Query_OrderByTime(t *testing.T) {
 	s := OpenServer(NewConfig())
 	defer s.Close()
 
-	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicyInfo("rp0", 1, 0)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.MetaClient.SetDefaultRetentionPolicy("db0", "rp0"); err != nil {
@@ -5716,7 +6565,7 @@ func TestServer_Query_FieldWithMultiplePeriods(t *testing.T) {
 	s := OpenServer(NewConfig())
 	defer s.Close()
 
-	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicyInfo("rp0", 1, 0)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.MetaClient.SetDefaultRetentionPolicy("db0", "rp0"); err != nil {
@@ -5770,7 +6619,7 @@ func TestServer_Query_FieldWithMultiplePeriodsMeasurementPrefixMatch(t *testing.
 	s := OpenServer(NewConfig())
 	defer s.Close()
 
-	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicyInfo("rp0", 1, 0)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.MetaClient.SetDefaultRetentionPolicy("db0", "rp0"); err != nil {
@@ -5824,7 +6673,7 @@ func TestServer_Query_IntoTarget(t *testing.T) {
 	s := OpenServer(NewConfig())
 	defer s.Close()
 
-	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicyInfo("rp0", 1, 0)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.MetaClient.SetDefaultRetentionPolicy("db0", "rp0"); err != nil {
@@ -5876,6 +6725,165 @@ func TestServer_Query_IntoTarget(t *testing.T) {
 	}
 }
 
+// Ensure that binary operators of aggregates of separate fields, when a field is sometimes missing and sometimes present,
+// result in values that are still properly time-aligned.
+func TestServer_Query_IntoTarget_Sparse(t *testing.T) {
+	t.Parallel()
+	s := OpenServer(NewConfig())
+	defer s.Close()
+
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.MetaClient.SetDefaultRetentionPolicy("db0", "rp0"); err != nil {
+		t.Fatal(err)
+	}
+
+	writes := []string{
+		// All points have fields n and a. Field b is not present in all intervals.
+		// First 10s interval is missing field b. Result a_n should be (2+5)*(3+7) = 70, b_n is null.
+		fmt.Sprintf(`foo a=2,n=3 %d`, mustParseTime(time.RFC3339Nano, "2000-01-01T00:00:01Z").UnixNano()),
+		fmt.Sprintf(`foo a=5,n=7 %d`, mustParseTime(time.RFC3339Nano, "2000-01-01T00:00:02Z").UnixNano()),
+		// Second 10s interval has field b. Result a_n = 11*17 = 187, b_n = 13*17 = 221.
+		fmt.Sprintf(`foo a=11,b=13,n=17 %d`, mustParseTime(time.RFC3339Nano, "2000-01-01T00:00:11Z").UnixNano()),
+	}
+
+	test := NewTest("db0", "rp0")
+	test.writes = Writes{
+		&Write{data: strings.Join(writes, "\n")},
+	}
+
+	test.addQueries([]*Query{
+		&Query{
+			name:    "into",
+			params:  url.Values{"db": []string{"db0"}},
+			command: `SELECT sum(a) * sum(n) as a_n, sum(b) * sum(n) as b_n INTO baz FROM foo WHERE time >= '2000-01-01T00:00:00Z' AND time < '2000-01-01T00:01:00Z' GROUP BY time(10s)`,
+			exp:     `{"results":[{"series":[{"name":"result","columns":["time","written"],"values":[["1970-01-01T00:00:00Z",2]]}]}]}`,
+		},
+		&Query{
+			name:    "confirm results",
+			params:  url.Values{"db": []string{"db0"}},
+			command: `SELECT * FROM baz`,
+			exp:     `{"results":[{"series":[{"name":"baz","columns":["time","a_n","b_n"],"values":[["2000-01-01T00:00:00Z",70,null],["2000-01-01T00:00:10Z",187,221]]}]}]}`,
+		},
+	}...)
+
+	if err := test.init(s); err != nil {
+		t.Fatalf("test init failed: %s", err)
+	}
+
+	for _, query := range test.queries {
+		if query.skip {
+			t.Logf("SKIP:: %s", query.name)
+			continue
+		}
+		if err := query.Execute(s); err != nil {
+			t.Error(query.Error(err))
+		} else if !query.success() {
+			t.Error(query.failureMessage())
+		}
+	}
+}
+
+// This test ensures that data is not duplicated with measurements
+// of the same name.
+func TestServer_Query_DuplicateMeasurements(t *testing.T) {
+	t.Parallel()
+	s := OpenDefaultServer(NewConfig())
+	defer s.Close()
+
+	// Create a second database.
+	if err := s.CreateDatabaseAndRetentionPolicy("db1", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.MetaClient.SetDefaultRetentionPolicy("db1", "rp0"); err != nil {
+		t.Fatal(err)
+	}
+
+	test := NewTest("db0", "rp0")
+	test.writes = Writes{
+		&Write{data: fmt.Sprintf(`cpu value=1 %d`, mustParseTime(time.RFC3339Nano, "2000-01-01T00:00:00Z").UnixNano())},
+	}
+
+	if err := test.init(s); err != nil {
+		t.Fatalf("test init failed: %s", err)
+	}
+
+	test = NewTest("db1", "rp0")
+	test.writes = Writes{
+		&Write{data: fmt.Sprintf(`cpu value=2 %d`, mustParseTime(time.RFC3339Nano, "2000-01-01T00:00:10Z").UnixNano())},
+	}
+
+	if err := test.init(s); err != nil {
+		t.Fatalf("test init failed: %s", err)
+	}
+
+	test.addQueries([]*Query{
+		&Query{
+			name:    "select from both databases",
+			params:  url.Values{"db": []string{"db0"}},
+			command: `SELECT value FROM db0.rp0.cpu, db1.rp0.cpu`,
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","value"],"values":[["2000-01-01T00:00:00Z",1],["2000-01-01T00:00:10Z",2]]}]}]}`,
+		},
+	}...)
+
+	for _, query := range test.queries {
+		if query.skip {
+			t.Logf("SKIP:: %s", query.name)
+			continue
+		}
+		if err := query.Execute(s); err != nil {
+			t.Error(query.Error(err))
+		} else if !query.success() {
+			t.Error(query.failureMessage())
+		}
+	}
+}
+
+func TestServer_Query_LargeTimestamp(t *testing.T) {
+	t.Parallel()
+	s := OpenDefaultServer(NewConfig())
+	defer s.Close()
+
+	writes := []string{
+		fmt.Sprintf(`cpu value=100 %d`, models.MaxNanoTime),
+	}
+
+	test := NewTest("db0", "rp0")
+	test.writes = Writes{
+		&Write{data: strings.Join(writes, "\n")},
+	}
+	test.addQueries([]*Query{
+		&Query{
+			name:    `select value at max nano time`,
+			params:  url.Values{"db": []string{"db0"}},
+			command: fmt.Sprintf(`SELECT value FROM cpu WHERE time <= %d`, models.MaxNanoTime),
+			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","value"],"values":[["` + time.Unix(0, models.MaxNanoTime).UTC().Format(time.RFC3339Nano) + `",100]]}]}]}`,
+		},
+	}...)
+
+	if err := test.init(s); err != nil {
+		t.Fatalf("test init failed: %s", err)
+	}
+
+	// Open a new server with the same configuration file.
+	// This is to ensure the meta data was marshaled correctly.
+	s2 := OpenServer(s.Config)
+	defer s2.Close()
+
+	for _, query := range test.queries {
+		if query.skip {
+			t.Logf("SKIP:: %s", query.name)
+			continue
+		}
+		if err := query.Execute(s); err != nil {
+			t.Error(query.Error(err))
+		} else if !query.success() {
+			t.Error(query.failureMessage())
+		}
+	}
+}
+
 // This test reproduced a data race with closing the
 // Subscriber points channel while writes were in-flight in the PointsWriter.
 func TestServer_ConcurrentPointsWriter_Subscriber(t *testing.T) {
@@ -5891,7 +6899,7 @@ func TestServer_ConcurrentPointsWriter_Subscriber(t *testing.T) {
 			case <-done:
 				return
 			default:
-				wpr := &cluster.WritePointsRequest{
+				wpr := &coordinator.WritePointsRequest{
 					Database:        "db0",
 					RetentionPolicy: "rp0",
 				}
@@ -5912,7 +6920,7 @@ func TestServer_WhereTimeInclusive(t *testing.T) {
 	s := OpenServer(NewConfig())
 	defer s.Close()
 
-	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicyInfo("rp0", 1, 0)); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.MetaClient.SetDefaultRetentionPolicy("db0", "rp0"); err != nil {
@@ -5996,6 +7004,64 @@ func TestServer_WhereTimeInclusive(t *testing.T) {
 			params:  url.Values{"db": []string{"db0"}},
 			command: `SELECT * from cpu where time < '2000-01-01T00:00:04Z'`,
 			exp:     `{"results":[{"series":[{"name":"cpu","columns":["time","value"],"values":[["2000-01-01T00:00:01Z",1],["2000-01-01T00:00:02Z",2],["2000-01-01T00:00:03Z",3]]}]}]}`,
+		},
+	}...)
+
+	if err := test.init(s); err != nil {
+		t.Fatalf("test init failed: %s", err)
+	}
+
+	for _, query := range test.queries {
+		if query.skip {
+			t.Logf("SKIP:: %s", query.name)
+			continue
+		}
+		if err := query.Execute(s); err != nil {
+			t.Error(query.Error(err))
+		} else if !query.success() {
+			t.Error(query.failureMessage())
+		}
+	}
+}
+
+func TestServer_Query_ImplicitEndTime(t *testing.T) {
+	t.Skip("flaky test")
+	t.Parallel()
+	s := OpenServer(NewConfig())
+	defer s.Close()
+
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.MetaClient.SetDefaultRetentionPolicy("db0", "rp0"); err != nil {
+		t.Fatal(err)
+	}
+
+	now := time.Now().UTC().Truncate(time.Second)
+	past := now.Add(-10 * time.Second)
+	future := now.Add(10 * time.Minute)
+	writes := []string{
+		fmt.Sprintf(`cpu value=1 %d`, past.UnixNano()),
+		fmt.Sprintf(`cpu value=2 %d`, future.UnixNano()),
+	}
+
+	test := NewTest("db0", "rp0")
+	test.writes = Writes{
+		&Write{data: strings.Join(writes, "\n")},
+	}
+
+	test.addQueries([]*Query{
+		&Query{
+			name:    "raw query",
+			params:  url.Values{"db": []string{"db0"}},
+			command: `SELECT * FROM cpu`,
+			exp:     fmt.Sprintf(`{"results":[{"series":[{"name":"cpu","columns":["time","value"],"values":[["%s",1],["%s",2]]}]}]}`, past.Format(time.RFC3339Nano), future.Format(time.RFC3339Nano)),
+		},
+		&Query{
+			name:    "aggregate query",
+			params:  url.Values{"db": []string{"db0"}},
+			command: `SELECT mean(value) FROM cpu WHERE time > now() - 1m GROUP BY time(1m) FILL(none)`,
+			exp:     fmt.Sprintf(`{"results":[{"series":[{"name":"cpu","columns":["time","mean"],"values":[["%s",1]]}]}]}`, now.Truncate(time.Minute).Format(time.RFC3339Nano)),
 		},
 	}...)
 

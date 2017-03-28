@@ -60,7 +60,7 @@ fi
 # variable. Also please update corresponding image for node e2e at:
 # https://github.com/kubernetes/kubernetes/blob/master/test/e2e_node/jenkins/image-config.yaml
 CVM_VERSION=${CVM_VERSION:-container-vm-v20170214}
-GCI_VERSION=${KUBE_GCI_VERSION:-gci-beta-56-9000-80-0}
+GCI_VERSION=${KUBE_GCI_VERSION:-gci-stable-56-9000-84-2}
 MASTER_IMAGE=${KUBE_GCE_MASTER_IMAGE:-}
 MASTER_IMAGE_PROJECT=${KUBE_GCE_MASTER_PROJECT:-google-containers}
 NODE_IMAGE=${KUBE_GCE_NODE_IMAGE:-${CVM_VERSION}}
@@ -110,7 +110,7 @@ ENABLE_L7_LOADBALANCING="${KUBE_ENABLE_L7_LOADBALANCING:-glbc}"
 #   standalone     - Heapster only. Metrics available via Heapster REST API.
 ENABLE_CLUSTER_MONITORING="${KUBE_ENABLE_CLUSTER_MONITORING:-influxdb}"
 
-# Set etcd image (e.g. 3.0.14-experimental.1) version (e.g. 3.0.14) if you need
+# Set etcd image (e.g. 3.0.17-alpha.1) and version (e.g. 3.0.17) if you need
 # non-default version.
 ETCD_IMAGE="${TEST_ETCD_IMAGE:-}"
 ETCD_VERSION="${TEST_ETCD_VERSION:-}"
@@ -136,6 +136,13 @@ APISERVER_TEST_ARGS="${APISERVER_TEST_ARGS:-} --runtime-config=extensions/v1beta
 CONTROLLER_MANAGER_TEST_ARGS="${CONTROLLER_MANAGER_TEST_ARGS:-} ${TEST_CLUSTER_RESYNC_PERIOD} ${TEST_CLUSTER_API_CONTENT_TYPE}"
 SCHEDULER_TEST_ARGS="${SCHEDULER_TEST_ARGS:-} ${TEST_CLUSTER_API_CONTENT_TYPE}"
 KUBEPROXY_TEST_ARGS="${KUBEPROXY_TEST_ARGS:-} ${TEST_CLUSTER_API_CONTENT_TYPE}"
+
+# Historically fluentd was a manifest pod and then was migrated to DaemonSet.
+# To avoid situation during cluster upgrade when there are two instances
+# of fluentd running on a node, kubelet need to mark node on which
+# fluentd is not running as a manifest pod with appropriate label.
+# TODO(piosz): remove this in 1.8
+NODE_LABELS="${KUBE_NODE_LABELS:-beta.kubernetes.io/fluentd-ds-ready=true}"
 
 # Optional: Enable node logging.
 ENABLE_NODE_LOGGING="${KUBE_ENABLE_NODE_LOGGING:-true}"
@@ -173,7 +180,6 @@ ENABLE_CLUSTER_UI="${KUBE_ENABLE_CLUSTER_UI:-true}"
 #   standalone     - Run node problem detector as standalone system daemon.
 if [[ "${NODE_OS_DISTRIBUTION}" == "gci" ]]; then
   # Enable standalone mode by default for gci.
-  # TODO: Consider upgrade test.
   ENABLE_NODE_PROBLEM_DETECTOR="${KUBE_ENABLE_NODE_PROBLEM_DETECTOR:-standalone}"
 else
   ENABLE_NODE_PROBLEM_DETECTOR="${KUBE_ENABLE_NODE_PROBLEM_DETECTOR:-daemonset}"
@@ -191,7 +197,7 @@ fi
 ENABLE_RESCHEDULER="${KUBE_ENABLE_RESCHEDULER:-true}"
 
 # If we included ResourceQuota, we should keep it at the end of the list to prevent incrementing quota usage prematurely.
-ADMISSION_CONTROL="${KUBE_ADMISSION_CONTROL:-NamespaceLifecycle,LimitRanger,ServiceAccount,PersistentVolumeLabel,DefaultStorageClass,ResourceQuota}"
+ADMISSION_CONTROL="${KUBE_ADMISSION_CONTROL:-NamespaceLifecycle,LimitRanger,ServiceAccount,PersistentVolumeLabel,PodPreset,DefaultStorageClass,DefaultTolerationSeconds,ResourceQuota}"
 
 # Optional: if set to true kube-up will automatically check for existing resources and clean them up.
 KUBE_UP_AUTOMATIC_CLEANUP=${KUBE_UP_AUTOMATIC_CLEANUP:-false}
@@ -234,6 +240,17 @@ SCHEDULING_ALGORITHM_PROVIDER="${SCHEDULING_ALGORITHM_PROVIDER:-}"
 
 # Optional: install a default StorageClass
 ENABLE_DEFAULT_STORAGE_CLASS="${ENABLE_DEFAULT_STORAGE_CLASS:-true}"
+
+# Optional: Enable legacy ABAC policy that makes all service accounts superusers.
+if [[ "${E2E_UPGRADE_TEST:-}" == "true" ]]; then
+  # Enable (match the regular default) when running upgrade tests (E2E_UPGRADE_TEST=true is set by upgrade CI jobs).
+  # This ensures the combination of legacy ABAC and default RBAC policies work properly for upgrade scenarios.
+  ENABLE_LEGACY_ABAC="${ENABLE_LEGACY_ABAC:-true}" # true, false
+else
+  # Disable by default when running regular e2e tests.
+  # This ensures default RBAC policies alone are sufficient for e2e tests from 1.6+
+  ENABLE_LEGACY_ABAC="${ENABLE_LEGACY_ABAC:-false}" # true, false
+fi
 
 # TODO(dawn1107): Remove this once the flag is built into CVM image.
 # Kernel panic upon soft lockup issue
