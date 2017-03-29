@@ -648,18 +648,29 @@ func (c *RESTClient) Do(req *http.Request) (*http.Response, error) {
 	// /watch/pods
 	// /services
 	// /namespaces/test-node-3/pods/pod-stub,
-
-	if parts[0] == "watch" {
-		if len(parts) < 2 {
+	// /pods?watch=true
+	isWatch := parts[0] == "watch"
+	if isWatch {
+		// TODO: this part needs unit testing...
+		parts = parts[1:]
+	}
+	if !isWatch {
+		value, ok := queryParams["watch"]
+		if ok {
+			isWatch = value[0] == "true"
+		}
+	}
+	if isWatch {
+		if len(parts) < 1 {
 			return nil, fmt.Errorf("Missing resource in REST client request url")
 		}
-		resource, err := ccapi.StringToResourceType(parts[1])
+		resource, err := ccapi.StringToResourceType(parts[0])
 		if err != nil {
 			return nil, fmt.Errorf("Unable to process request: %v", err)
 		}
 		body, err := c.createWatchReadCloser(resource, fieldsSelector)
 		if err != nil {
-			return nil, fmt.Errorf("Unable to create watcher for %s\n", parts[1])
+			return nil, fmt.Errorf("Unable to create watcher for %s\n", parts[0])
 		}
 		//var t io.ReadCloser = body
 		c.Resp = &http.Response{StatusCode: 200, Header: header, Body: (io.ReadCloser)(body)}
