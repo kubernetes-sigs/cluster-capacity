@@ -110,6 +110,7 @@ func (c *WatchBuffer) EmitWatchEvent(eType watch.EventType, object runtime.Objec
 	obj_str := runtime.EncodeOrDie(encoder, object)
 	obj_str = strings.Replace(obj_str, "\n", "", -1)
 
+	fmt.Printf("EMITTED EVENT obj_str: %v\n", obj_str)
 	var buffer bytes.Buffer
 	buffer.WriteString("{\"type\":\"")
 	buffer.WriteString(string(eType))

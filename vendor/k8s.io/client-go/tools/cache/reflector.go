@@ -360,6 +360,7 @@ loop:
 				return apierrs.FromObject(event.Object)
 			}
 			if e, a := r.expectedType, reflect.TypeOf(event.Object); e != nil && e != a {
+				fmt.Printf("EVENT OBJECT: %v\n", event.Object)
 				utilruntime.HandleError(fmt.Errorf("%s: expected type %v, but watch event object had type %v", r.name, e, a))
 				continue
 			}

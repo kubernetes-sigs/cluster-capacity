@@ -323,8 +323,10 @@ func (g TestGroup) ExternalTypes() map[string]reflect.Type {
 // KUBE_TEST_API_TYPE env var.
 func (g TestGroup) Codec() runtime.Codec {
 	if serializer.Serializer == nil {
+		fmt.Printf("legacy externalGroupVersions: %v\n", g.externalGroupVersion)
 		return api.Codecs.LegacyCodec(g.externalGroupVersion)
 	}
+	fmt.Printf("externalGroupVersions: %v\n", g.externalGroupVersion)
 	return api.Codecs.CodecForVersions(serializer.Serializer, api.Codecs.UniversalDeserializer(), schema.GroupVersions{g.externalGroupVersion}, nil)
 }
 

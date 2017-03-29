@@ -33,7 +33,7 @@ import (
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/api/validation"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	//clientset "k8s.io/client-go/kubernetes"
 	schedopt "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app/options"
 
@@ -46,7 +46,7 @@ var SupportedAdmissionControllers = sets.NewString([]string{"LimitRanger", "Reso
 
 type ClusterCapacityConfig struct {
 	Schedulers       []*schedopt.SchedulerServer
-	Pod              *api.Pod
+	Pod              *v1.Pod
 	KubeClient       clientset.Interface
 	Options          *ClusterCapacityOptions
 	DefaultScheduler *schedopt.SchedulerServer
@@ -186,19 +186,22 @@ func (s *ClusterCapacityConfig) ParseAPISpec() error {
 	}
 
 	//fmt.Printf("Pod: %#v\n", versionedPod)
-	s.Pod = &api.Pod{}
-	if err := v1.Convert_v1_Pod_To_api_Pod(versionedPod, s.Pod, nil); err != nil {
+
+	// TODO: client side validation seems like a long term problem for this command.
+	internalPod := &api.Pod{}
+	if err := v1.Convert_v1_Pod_To_api_Pod(versionedPod, internalPod, nil); err != nil {
 		return fmt.Errorf("unable to convert to internal version: %#v", err)
 
 	}
-
-	if errs := validation.ValidatePod(s.Pod); len(errs) > 0 {
+	if errs := validation.ValidatePod(internalPod); len(errs) > 0 {
 		var errStrs []string
 		for _, err := range errs {
 			errStrs = append(errStrs, fmt.Sprintf("%v: %v", err.Type, err.Field))
 		}
 		return fmt.Errorf("Invalid pod: %#v", strings.Join(errStrs, ", "))
 	}
+
+	s.Pod = versionedPod
 	return nil
 }
 

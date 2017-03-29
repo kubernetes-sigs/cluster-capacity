@@ -29,7 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/clientcmd"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	//clientset "k8s.io/client-go/kubernetes"
 	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
 
@@ -196,6 +196,7 @@ func runSimulator(s *options.ClusterCapacityConfig, syncWithClient bool) (*frame
 		return nil, err
 	}
 
+	fmt.Printf("runSimulator\n")
 	cc, err := framework.New(s.DefaultScheduler, s.Pod, s.Options.MaxLimit, mode, s.Options.AdmissionControl)
 	if err != nil {
 		return nil, err
@@ -208,14 +209,17 @@ func runSimulator(s *options.ClusterCapacityConfig, syncWithClient bool) (*frame
 	}
 
 	if syncWithClient {
+		fmt.Printf("runSimulator - syncWithClient\n")
 		err = cc.SyncWithClient(s.KubeClient)
 	} else {
+		fmt.Printf("runSimulator - syncWithStore\n")
 		err = cc.SyncWithStore(s.ResourceStore)
 	}
 	if err != nil {
 		return nil, err
 	}
 
+	fmt.Printf("runSimulator -run\n")
 	err = cc.Run()
 	if err != nil {
 		return nil, err

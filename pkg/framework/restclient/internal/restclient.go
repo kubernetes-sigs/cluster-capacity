@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package restclient
+package internal
 
 import (
 	"bytes"
@@ -483,7 +483,13 @@ func (c *RESTClient) createListReadCloser(resource ccapi.ResourceType, fieldsSel
 
 func (c *RESTClient) createGetReadCloser(resource ccapi.ResourceType, resourceName string, namespace string) (rc *io.ReadCloser, err error) {
 	//key := metav1.ObjectMeta{Name: resourceName, Namespace: namespace}
-	key := namespace + "/" + resourceName
+	// TODO: clean this up
+	key := ""
+	if namespace != "" {
+		key = namespace + "/"
+	}
+	key = key + resourceName
+
 	item, exists, err := c.resourceStore.GetByKey(resource, key)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to retrieve requested %v resource %v: %v", resource, resourceName, err)
