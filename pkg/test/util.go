@@ -33,10 +33,12 @@ func NodeExample(name string) api.Node {
 }
 
 func PodExample(name string) api.Pod {
-	return api.Pod{
+	pod := api.Pod{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "test", ResourceVersion: "10"},
 		Spec:       apitesting.DeepEqualSafePodSpec(),
 	}
+	pod.Spec.Containers = []api.Container{}
+	return pod
 }
 
 func ServiceExample(name string) api.Service {

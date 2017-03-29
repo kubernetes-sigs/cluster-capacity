@@ -172,7 +172,7 @@ func compareItems(expected, actual interface{}) bool {
 
 func getResourceList(client cache.Getter, resource ccapi.ResourceType) runtime.Object {
 	// client listerWatcher
-	listerWatcher := cache.NewListWatchFromClient(client, resource.String(), api.NamespaceAll, fields.ParseSelectorOrDie(""))
+	listerWatcher := cache.NewListWatchFromClient(client, resource.String(), metav1.NamespaceAll, fields.ParseSelectorOrDie(""))
 	options := metav1.ListOptions{ResourceVersion: "0"}
 	l, _ := listerWatcher.List(options)
 	return l

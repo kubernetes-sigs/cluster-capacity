@@ -67,12 +67,12 @@ type resourceStore struct {
 
 // Add resource obj to store and emit event handler if set
 func (s *resourceStore) Add(resource ccapi.ResourceType, obj interface{}) error {
-	cache, exists := s.resourceToCache[resource]
+	cacheL, exists := s.resourceToCache[resource]
 	if !exists {
 		return fmt.Errorf("Resource %s not recognized", resource)
 	}
 
-	err := cache.Add(obj)
+	err := cacheL.Add(obj)
 	if err != nil {
 		return fmt.Errorf("Unable to add %s: %v", resource, err)
 	}
@@ -87,12 +87,12 @@ func (s *resourceStore) Add(resource ccapi.ResourceType, obj interface{}) error 
 
 // Update resource obj to store and emit event handler if set
 func (s *resourceStore) Update(resource ccapi.ResourceType, obj interface{}) error {
-	cache, exists := s.resourceToCache[resource]
+	cacheL, exists := s.resourceToCache[resource]
 	if !exists {
 		return fmt.Errorf("Resource %s not recognized", resource)
 	}
 
-	err := cache.Update(obj)
+	err := cacheL.Update(obj)
 	if err != nil {
 		return fmt.Errorf("Unable to update %s: %v", resource, err)
 	}
@@ -107,12 +107,12 @@ func (s *resourceStore) Update(resource ccapi.ResourceType, obj interface{}) err
 
 // Delete resource obj to store and emit event handler if set
 func (s *resourceStore) Delete(resource ccapi.ResourceType, obj interface{}) error {
-	cache, exists := s.resourceToCache[resource]
+	cacheL, exists := s.resourceToCache[resource]
 	if !exists {
 		return fmt.Errorf("Resource %s not recognized", resource)
 	}
 
-	err := cache.Delete(obj)
+	err := cacheL.Delete(obj)
 	if err != nil {
 		return fmt.Errorf("Unable to delete %s: %v", resource, err)
 	}
@@ -126,27 +126,27 @@ func (s *resourceStore) Delete(resource ccapi.ResourceType, obj interface{}) err
 }
 
 func (s *resourceStore) List(resource ccapi.ResourceType) []interface{} {
-	if cache, exists := s.resourceToCache[resource]; exists {
-		return cache.List()
+	if cacheL, exists := s.resourceToCache[resource]; exists {
+		return cacheL.List()
 	}
 	return nil
 }
 
 func (s *resourceStore) Get(resource ccapi.ResourceType, obj interface{}) (item interface{}, exists bool, err error) {
-	cache, exists := s.resourceToCache[resource]
+	cacheL, exists := s.resourceToCache[resource]
 	if !exists {
 		return nil, false, fmt.Errorf("Resource %s not recognized", resource)
 	}
 
-	return cache.Get(obj)
+	return cacheL.Get(obj)
 }
 
 func (s *resourceStore) GetByKey(resource ccapi.ResourceType, key string) (item interface{}, exists bool, err error) {
-	cache, exists := s.resourceToCache[resource]
+	cacheL, exists := s.resourceToCache[resource]
 	if !exists {
 		return nil, false, fmt.Errorf("Resource %s not recognized", resource)
 	}
-	return cache.GetByKey(key)
+	return cacheL.GetByKey(key)
 }
 
 func (s *resourceStore) RegisterEventHandler(resource ccapi.ResourceType, handler cache.ResourceEventHandler) error {
@@ -158,8 +158,8 @@ func (s *resourceStore) RegisterEventHandler(resource ccapi.ResourceType, handle
 // given list. Store takes ownership of the list, you should not reference
 // it after calling this function.
 func (s *resourceStore) Replace(resource ccapi.ResourceType, items []interface{}, resourceVersion string) error {
-	if cache, exists := s.resourceToCache[resource]; exists {
-		err := cache.Replace(items, resourceVersion)
+	if cacheL, exists := s.resourceToCache[resource]; exists {
+		err := cacheL.Replace(items, resourceVersion)
 		if err != nil {
 			return err
 		}

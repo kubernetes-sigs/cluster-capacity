@@ -163,7 +163,7 @@ func (s *FakeResourceStore) Get(resource ccapi.ResourceType, obj interface{}) (i
 	return nil, false, nil
 }
 
-func (s *FakeResourceStore) GetByKey(key string) (item interface{}, exists bool, err error) {
+func (s *FakeResourceStore) GetByKey(resource ccapi.ResourceType, key string) (item interface{}, exists bool, err error) {
 	return nil, false, nil
 }
 

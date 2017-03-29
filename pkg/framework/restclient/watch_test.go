@@ -39,7 +39,7 @@ func newTestWatchRestClient() *RESTClient {
 
 func getResourceWatcher(client cache.Getter, resource ccapi.ResourceType) watch.Interface {
 	// client listerWatcher
-	listerWatcher := cache.NewListWatchFromClient(client, resource.String(), api.NamespaceAll, fields.ParseSelectorOrDie(""))
+	listerWatcher := cache.NewListWatchFromClient(client, resource.String(), metav1.NamespaceAll, fields.ParseSelectorOrDie(""))
 	// ask for watcher data
 	timemoutseconds := int64(10)
 
