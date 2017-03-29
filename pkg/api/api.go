@@ -19,9 +19,9 @@ package api
 import (
 	"fmt"
 
-	//"k8s.io/apimachinery/pkg/runtime"
-	//"k8s.io/kubernetes/pkg/api/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/kubernetes/pkg/api"
+	//"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/apis/extensions"
 )
 
@@ -46,7 +46,7 @@ func (r ResourceType) String() string {
 	return string(r)
 }
 
-func (r ResourceType) ObjectType() interface{} {
+func (r ResourceType) ObjectType() runtime.Object {
 	switch r {
 	case "pods":
 		return &api.Pod{}

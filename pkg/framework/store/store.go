@@ -19,9 +19,10 @@ package store
 import (
 	"fmt"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/kubernetes/pkg/api"
+	//"k8s.io/kubernetes/pkg/api"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 
 	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
@@ -33,7 +34,7 @@ type ResourceStore interface {
 	Delete(resource ccapi.ResourceType, obj interface{}) error
 	List(resource ccapi.ResourceType) []interface{}
 	Get(resource ccapi.ResourceType, obj interface{}) (item interface{}, exists bool, err error)
-	GetByKey(key string) (item interface{}, exists bool, err error)
+	GetByKey(resource ccapi.ResourceType, key string) (item interface{}, exists bool, err error)
 	RegisterEventHandler(resource ccapi.ResourceType, handler cache.ResourceEventHandler) error
 	// Replace will delete the contents of the store, using instead the
 	// given list. Store takes ownership of the list, you should not reference
@@ -140,8 +141,12 @@ func (s *resourceStore) Get(resource ccapi.ResourceType, obj interface{}) (item 
 	return cache.Get(obj)
 }
 
-func (s *resourceStore) GetByKey(key string) (item interface{}, exists bool, err error) {
-	return nil, false, nil
+func (s *resourceStore) GetByKey(resource ccapi.ResourceType, key string) (item interface{}, exists bool, err error) {
+	cache, exists := s.resourceToCache[resource]
+	if !exists {
+		return nil, false, fmt.Errorf("Resource %s not recognized", resource)
+	}
+	return cache.GetByKey(key)
 }
 
 func (s *resourceStore) RegisterEventHandler(resource ccapi.ResourceType, handler cache.ResourceEventHandler) error {
@@ -222,9 +227,9 @@ func NewResourceReflectors(client clientset.Interface, stopCh <-chan struct{}) *
 	for _, resource := range rs.Resources() {
 		var listWatcher *cache.ListWatch
 		if resource == ccapi.ReplicaSets {
-			listWatcher = cache.NewListWatchFromClient(client.Extensions().RESTClient(), resource.String(), api.NamespaceAll, fields.ParseSelectorOrDie(""))
+			listWatcher = cache.NewListWatchFromClient(client.Extensions().RESTClient(), resource.String(), metav1.NamespaceAll, fields.ParseSelectorOrDie(""))
 		} else {
-			listWatcher = cache.NewListWatchFromClient(client.Core().RESTClient(), resource.String(), api.NamespaceAll, fields.ParseSelectorOrDie(""))
+			listWatcher = cache.NewListWatchFromClient(client.Core().RESTClient(), resource.String(), metav1.NamespaceAll, fields.ParseSelectorOrDie(""))
 		}
 		cache.NewReflector(listWatcher, resource.ObjectType(), rs.resourceToCache[resource], 0).RunUntil(stopCh)
 	}

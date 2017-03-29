@@ -41,6 +41,7 @@ import (
 	"k8s.io/kubernetes/pkg/api/v1"
 	externalclientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
+	//clientset "k8s.io/client-go/kubernetes"
 	clientsetextensions "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/typed/extensions/internalversion"
 	einformers "k8s.io/kubernetes/pkg/client/informers/informers_generated/externalversions"
 	informers "k8s.io/kubernetes/pkg/client/informers/informers_generated/internalversion"
@@ -149,12 +150,12 @@ type ClusterCapacity struct {
 	defaultScheduler string
 
 	// pod to schedule
-	simulatedPod     *api.Pod
-	lastSimulatedPod *api.Pod
-	maxSimulated     int
-	simulated        int
-	status           Status
-	report           *ClusterCapacityReview
+	simulatedPod *api.Pod
+	//lastSimulatedPod *api.Pod
+	maxSimulated int
+	simulated    int
+	status       Status
+	report       *ClusterCapacityReview
 
 	// analysis limitation
 	resourceSpaceMode   ResourceSpaceMode
@@ -365,7 +366,7 @@ func (c *ClusterCapacity) nextPod() error {
 	}
 
 	c.simulated++
-	c.lastSimulatedPod = &pod
+	//c.lastSimulatedPod = &pod
 	return c.resourceStore.Add(ccapi.Pods, runtime.Object(&pod))
 }
 

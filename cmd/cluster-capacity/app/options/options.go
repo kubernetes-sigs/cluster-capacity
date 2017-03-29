@@ -31,8 +31,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/api/validation"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
+	//clientset "k8s.io/client-go/kubernetes"
 	schedopt "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app/options"
 
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/apiserver/cache"
@@ -158,22 +160,36 @@ func (s *ClusterCapacityConfig) ParseAPISpec() error {
 	}
 
 	decoder := yaml.NewYAMLOrJSONDecoder(spec, 4096)
-	err = decoder.Decode(&(s.Pod))
+	versionedPod := &v1.Pod{}
+	err = decoder.Decode(versionedPod)
 	if err != nil {
 		return fmt.Errorf("Failed to decode config file: %v", err)
 	}
 
-	if s.Pod.ObjectMeta.Namespace == "" {
-		s.Pod.ObjectMeta.Namespace = "default"
+	if versionedPod.ObjectMeta.Namespace == "" {
+		versionedPod.ObjectMeta.Namespace = "default"
 	}
 
 	// hardcoded from kube api defaults and validation
 	// TODO: rewrite when object validation gets more available for non kubectl approaches in kube
-	if s.Pod.Spec.DNSPolicy == "" {
-		s.Pod.Spec.DNSPolicy = api.DNSClusterFirst
+	if versionedPod.Spec.DNSPolicy == "" {
+		versionedPod.Spec.DNSPolicy = v1.DNSClusterFirst
 	}
-	if s.Pod.Spec.RestartPolicy == "" {
-		s.Pod.Spec.RestartPolicy = api.RestartPolicyAlways
+	if versionedPod.Spec.RestartPolicy == "" {
+		versionedPod.Spec.RestartPolicy = v1.RestartPolicyAlways
+	}
+
+	for i := range versionedPod.Spec.Containers {
+		if versionedPod.Spec.Containers[i].TerminationMessagePolicy == "" {
+			versionedPod.Spec.Containers[i].TerminationMessagePolicy = v1.TerminationMessageFallbackToLogsOnError
+		}
+	}
+
+	//fmt.Printf("Pod: %#v\n", versionedPod)
+	s.Pod = &api.Pod{}
+	if err := v1.Convert_v1_Pod_To_api_Pod(versionedPod, s.Pod, nil); err != nil {
+		return fmt.Errorf("unable to convert to internal version: %#v", err)
+
 	}
 
 	if errs := validation.ValidatePod(s.Pod); len(errs) > 0 {
@@ -199,5 +215,6 @@ func (s *ClusterCapacityConfig) SetDefaultScheduler() error {
 	}
 
 	s.DefaultScheduler.Kubeconfig = s.Options.Kubeconfig
+	//fmt.Printf("\n\nDefaultScheduler: %#v\n\n", s.DefaultScheduler)
 	return nil
 }

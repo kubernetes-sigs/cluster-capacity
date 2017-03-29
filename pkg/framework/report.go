@@ -19,7 +19,7 @@ package framework
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
+	//"strconv"
 	"strings"
 	"time"
 
@@ -172,7 +172,7 @@ func parsePodsReview(templatePods []*api.Pod, status Status) []*ClusterCapacityR
 		return result
 	}
 
-	slicedMessage = strings.Split(slicedMessage[1][31:], `, `)
+	/*slicedMessage = strings.Split(slicedMessage[1][31:], `, `)
 	allReasons := make([]FailReasonSummary, 0)
 	for _, nodeReason := range slicedMessage {
 		leftParenthesis := strings.LastIndex(nodeReason, `(`)
@@ -185,7 +185,7 @@ func parsePodsReview(templatePods []*api.Pod, status Status) []*ClusterCapacityR
 		})
 	}
 
-	result[(len(status.Pods)-1)%templatesCount].FailSummary = allReasons
+	result[(len(status.Pods)-1)%templatesCount].FailSummary = allReasons*/
 	return result
 }
 

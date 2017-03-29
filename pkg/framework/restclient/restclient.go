@@ -482,8 +482,9 @@ func (c *RESTClient) createListReadCloser(resource ccapi.ResourceType, fieldsSel
 }
 
 func (c *RESTClient) createGetReadCloser(resource ccapi.ResourceType, resourceName string, namespace string) (rc *io.ReadCloser, err error) {
-	key := &api.ObjectMeta{Name: resourceName, Namespace: namespace}
-	item, exists, err := c.resourceStore.Get(resource, key)
+	//key := metav1.ObjectMeta{Name: resourceName, Namespace: namespace}
+	key := namespace + "/" + resourceName
+	item, exists, err := c.resourceStore.GetByKey(resource, key)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to retrieve requested %v resource %v: %v", resource, resourceName, err)
 	}
@@ -687,7 +688,7 @@ func (c *RESTClient) Do(req *http.Request) (*http.Response, error) {
 			}
 			body, err = c.createGetReadCloser(resource, parts[1], "")
 			if err != nil {
-				return nil, fmt.Errorf("Unable to create getter for %s: %v\n", parts[0], err)
+				return nil, fmt.Errorf("2 Unable to create getter for %s: %v\n", parts[0], err)
 			}
 		case 3:
 			if parts[0] != "namespaces" {
@@ -736,7 +737,7 @@ func (c *RESTClient) Do(req *http.Request) (*http.Response, error) {
 			}
 			body, err = c.createGetReadCloser(resource, parts[3], parts[1])
 			if err != nil {
-				return nil, fmt.Errorf("Unable to create getter for %s: %v\n", parts[0], err)
+				return nil, fmt.Errorf("1 Unable to create getter for %s: %v\n", parts[0], err)
 			}
 		default:
 			return nil, fmt.Errorf("Cluster capacity RESTClient not implemented: unable to decode query url: %v", req.URL.Path)
