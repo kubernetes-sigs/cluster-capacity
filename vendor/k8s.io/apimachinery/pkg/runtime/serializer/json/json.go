@@ -73,7 +73,7 @@ var _ recognizer.RecognizingDecoder = &Serializer{}
 // normal JSON/YAML unmarshalling. If into is provided and the original data is not fully qualified with kind/version/group, the type of
 // the into will be used to alter the returned gvk. On success or most errors, the method will return the calculated schema kind.
 func (s *Serializer) Decode(originalData []byte, gvk *schema.GroupVersionKind, into runtime.Object) (runtime.Object, *schema.GroupVersionKind, error) {
-	fmt.Printf("DECODE originalData: %v, gvk: %v, into: %v\n", string(originalData), gvk, into)
+	// fmt.Printf("DECODE originalData: %v, gvk: %v, into: %v\n", string(originalData), gvk, into)
 	if versioned, ok := into.(*runtime.VersionedObjects); ok {
 		into = versioned.Last()
 		obj, actual, err := s.Decode(originalData, gvk, into)
@@ -161,6 +161,7 @@ func (s *Serializer) Decode(originalData []byte, gvk *schema.GroupVersionKind, i
 	if err := codec.NewDecoderBytes(data, new(codec.JsonHandle)).Decode(obj); err != nil {
 		return nil, actual, err
 	}
+	// fmt.Printf("DONE DECODE INTO %v\n", obj)
 	return obj, actual, nil
 }
 

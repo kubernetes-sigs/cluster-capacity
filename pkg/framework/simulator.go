@@ -27,6 +27,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/conversion"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -52,25 +53,25 @@ import (
 	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
 
 	// Admission policies
-	_ "k8s.io/kubernetes/plugin/pkg/admission/admit"
-	_ "k8s.io/kubernetes/plugin/pkg/admission/alwayspullimages"
-	_ "k8s.io/kubernetes/plugin/pkg/admission/antiaffinity"
-	_ "k8s.io/kubernetes/plugin/pkg/admission/deny"
-	_ "k8s.io/kubernetes/plugin/pkg/admission/exec"
-	_ "k8s.io/kubernetes/plugin/pkg/admission/gc"
-	_ "k8s.io/kubernetes/plugin/pkg/admission/imagepolicy"
-	_ "k8s.io/kubernetes/plugin/pkg/admission/initialresources"
-	_ "k8s.io/kubernetes/plugin/pkg/admission/limitranger"
-	_ "k8s.io/kubernetes/plugin/pkg/admission/namespace/autoprovision"
-	_ "k8s.io/kubernetes/plugin/pkg/admission/namespace/exists"
-	_ "k8s.io/kubernetes/plugin/pkg/admission/namespace/lifecycle"
-	_ "k8s.io/kubernetes/plugin/pkg/admission/persistentvolume/label"
-	_ "k8s.io/kubernetes/plugin/pkg/admission/podnodeselector"
-	_ "k8s.io/kubernetes/plugin/pkg/admission/resourcequota"
-	_ "k8s.io/kubernetes/plugin/pkg/admission/security/podsecuritypolicy"
-	_ "k8s.io/kubernetes/plugin/pkg/admission/securitycontext/scdeny"
-	_ "k8s.io/kubernetes/plugin/pkg/admission/serviceaccount"
-	_ "k8s.io/kubernetes/plugin/pkg/admission/storageclass/default"
+	// _ "k8s.io/kubernetes/plugin/pkg/admission/admit"
+	// _ "k8s.io/kubernetes/plugin/pkg/admission/alwayspullimages"
+	// _ "k8s.io/kubernetes/plugin/pkg/admission/antiaffinity"
+	// _ "k8s.io/kubernetes/plugin/pkg/admission/deny"
+	// _ "k8s.io/kubernetes/plugin/pkg/admission/exec"
+	// _ "k8s.io/kubernetes/plugin/pkg/admission/gc"
+	// _ "k8s.io/kubernetes/plugin/pkg/admission/imagepolicy"
+	// _ "k8s.io/kubernetes/plugin/pkg/admission/initialresources"
+	// _ "k8s.io/kubernetes/plugin/pkg/admission/limitranger"
+	// _ "k8s.io/kubernetes/plugin/pkg/admission/namespace/autoprovision"
+	// _ "k8s.io/kubernetes/plugin/pkg/admission/namespace/exists"
+	// _ "k8s.io/kubernetes/plugin/pkg/admission/namespace/lifecycle"
+	// _ "k8s.io/kubernetes/plugin/pkg/admission/persistentvolume/label"
+	// _ "k8s.io/kubernetes/plugin/pkg/admission/podnodeselector"
+	// _ "k8s.io/kubernetes/plugin/pkg/admission/resourcequota"
+	// _ "k8s.io/kubernetes/plugin/pkg/admission/security/podsecuritypolicy"
+	// _ "k8s.io/kubernetes/plugin/pkg/admission/securitycontext/scdeny"
+	// _ "k8s.io/kubernetes/plugin/pkg/admission/serviceaccount"
+	// _ "k8s.io/kubernetes/plugin/pkg/admission/storageclass/default"
 
 	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/record"
@@ -134,6 +135,8 @@ type ClusterCapacity struct {
 	// fake kube client
 	kubeclient         *clientset.Clientset
 	externalkubeclient *externalclientset.Clientset
+
+	informerFactory einformers.SharedInformerFactory
 
 	// fake rest clients
 	coreRestClient       *external.RESTClient
@@ -235,7 +238,7 @@ func (c *ClusterCapacity) Bind(binding *v1.Binding, schedulerName string) error 
 	fmt.Printf("Bind\n")
 	// pod name: binding.Name
 	// node name: binding.Target.Name
-	// fmt.Printf("\nPod: %v, node: %v, scheduler: %v\n", binding.Name, binding.Target.Name, schedulerName)
+	fmt.Printf("\nPod: %v, node: %v, scheduler: %v\n", binding.Name, binding.Target.Name, schedulerName)
 
 	// run the pod through strategy
 	key := &api.Pod{
@@ -338,7 +341,13 @@ func (c *ClusterCapacity) Update(pod *v1.Pod, podCondition *v1.PodCondition, sch
 
 func (c *ClusterCapacity) nextPod() error {
 	fmt.Printf("nextPod\n")
-	pod := *c.simulatedPod
+	// deep copy!
+	cloner := conversion.NewCloner()
+	pod := v1.Pod{}
+	if err := v1.DeepCopy_v1_Pod(c.simulatedPod, &pod, cloner); err != nil {
+		return err
+	}
+
 	// reset any node designation set
 	pod.Spec.NodeName = ""
 	// use simulated pod name with an index to construct the name
@@ -365,14 +374,19 @@ func (c *ClusterCapacity) nextPod() error {
 
 	c.simulated++
 	c.lastSimulatedPod = &pod
-	return c.resourceStore.Add(ccapi.Pods, runtime.Object(&pod))
+
+	fmt.Printf("nextPod about to add to store\n")
+	err = c.resourceStore.Add(ccapi.Pods, runtime.Object(&pod))
+	fmt.Printf("nextPod added to store: %v\n", err)
+	return err
 }
 
 func (c *ClusterCapacity) Run() error {
+	c.informerFactory.Start(c.stop)
+
 	// TODO(jchaloup): remove all pods that are not scheduled yet
 	for _, scheduler := range c.schedulers {
 		scheduler.Run()
-		fmt.Printf("STARTED SCHEDULER\n")
 	}
 	// wait some time before at least nodes are populated
 	// TODO(jchaloup); find a better way how to do this or at least decrease it to <100ms
@@ -406,16 +420,19 @@ func (b *localBinderPodConditionUpdater) Update(pod *v1.Pod, podCondition *v1.Po
 }
 
 func (c *ClusterCapacity) createSchedulerConfig(s *soptions.SchedulerServer) (*scheduler.Config, error) {
-	informerFactory := einformers.NewSharedInformerFactory(c.externalkubeclient, 0)
+	// TODO improve this
+	if c.informerFactory == nil {
+		c.informerFactory = einformers.NewSharedInformerFactory(c.externalkubeclient, 0)
+	}
 	configFactory := factory.NewConfigFactory(s.SchedulerName,
 		c.externalkubeclient,
-		informerFactory.Core().V1().Nodes(),
-		informerFactory.Core().V1().PersistentVolumes(),
-		informerFactory.Core().V1().PersistentVolumeClaims(),
-		informerFactory.Core().V1().ReplicationControllers(),
-		informerFactory.Extensions().V1beta1().ReplicaSets(),
-		informerFactory.Apps().V1beta1().StatefulSets(),
-		informerFactory.Core().V1().Services(),
+		c.informerFactory.Core().V1().Nodes(),
+		c.informerFactory.Core().V1().PersistentVolumes(),
+		c.informerFactory.Core().V1().PersistentVolumeClaims(),
+		c.informerFactory.Core().V1().ReplicationControllers(),
+		c.informerFactory.Extensions().V1beta1().ReplicaSets(),
+		c.informerFactory.Apps().V1beta1().StatefulSets(),
+		c.informerFactory.Core().V1().Services(),
 		s.HardPodAffinitySymmetricWeight)
 	config, err := createConfig(s, configFactory)
 

@@ -39,6 +39,7 @@ import (
 	"k8s.io/kubernetes/pkg/api/testapi"
 	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/apis/extensions"
+	"k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
 
 	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
@@ -217,17 +218,17 @@ func (c *RESTClient) Nodes(fieldsSelector fields.Selector) *v1.NodeList {
 	}
 }
 
-func (c *RESTClient) ReplicaSets(fieldsSelector fields.Selector) *extensions.ReplicaSetList {
+func (c *RESTClient) ReplicaSets(fieldsSelector fields.Selector) *v1beta1.ReplicaSetList {
 	items := c.resourceStore.List(ccapi.ReplicaSets)
-	typedItems := make([]extensions.ReplicaSet, 0, len(items))
+	typedItems := make([]v1beta1.ReplicaSet, 0, len(items))
 	for _, item := range items {
 		if !fieldsSelector.Matches(NewObjectFieldsAccessor(item)) {
 			continue
 		}
-		typedItems = append(typedItems, *item.(*extensions.ReplicaSet))
+		typedItems = append(typedItems, *item.(*v1beta1.ReplicaSet))
 	}
 
-	return &extensions.ReplicaSetList{
+	return &v1beta1.ReplicaSetList{
 		ListMeta: metav1.ListMeta{
 			ResourceVersion: "0",
 		},
@@ -432,10 +433,7 @@ func (c *RESTClient) request(verb string) *restclient.Request {
 		gvr := schema.GroupVersionResource{Group: "extensions", Version: "v1beta1", Resource: "replicasets"}
 		targetVersion = gvr.GroupVersion()
 	} else {
-		targetVersion = schema.GroupVersion{
-			Group:   testapi.Default.GroupVersion().Group,
-			Version: runtime.APIVersionInternal,
-		}
+		targetVersion = *testapi.Default.GroupVersion()
 	}
 
 	serializers := restclient.Serializers{
@@ -474,7 +472,7 @@ func (c *RESTClient) createListReadCloser(resource ccapi.ResourceType, fieldsSel
 		}
 
 		encoder := api.Codecs.EncoderForVersion(info.Serializer, gvr.GroupVersion())
-		nopCloser := ioutil.NopCloser(bytes.NewReader([]byte(runtime.EncodeOrDie(encoder, obj.(*extensions.ReplicaSetList)))))
+		nopCloser := ioutil.NopCloser(bytes.NewReader([]byte(runtime.EncodeOrDie(encoder, obj.(*v1beta1.ReplicaSetList)))))
 		return &nopCloser, nil
 	} else {
 		debug := runtime.EncodeOrDie(testapi.Default.Codec(), obj)
@@ -523,7 +521,7 @@ func (c *RESTClient) createGetReadCloser(resource ccapi.ResourceType, resourceNa
 	case ccapi.Nodes:
 		obj = runtime.Object(item.(*v1.Node))
 	case ccapi.ReplicaSets:
-		obj = runtime.Object(item.(*extensions.ReplicaSet))
+		obj = runtime.Object(item.(*v1beta1.ReplicaSet))
 		ns = item.(*extensions.ReplicaSet).Namespace
 	case ccapi.ResourceQuota:
 		obj = runtime.Object(item.(*v1.ResourceQuota))

@@ -219,8 +219,8 @@ func runSimulator(s *options.ClusterCapacityConfig, syncWithClient bool) (*frame
 		return nil, err
 	}
 
-	fmt.Printf("runSimulator -run\n")
 	err = cc.Run()
+	fmt.Printf("runSimulator - run result %v\n", err)
 	if err != nil {
 		return nil, err
 	}
