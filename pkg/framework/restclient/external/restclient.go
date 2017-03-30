@@ -477,7 +477,9 @@ func (c *RESTClient) createListReadCloser(resource ccapi.ResourceType, fieldsSel
 		nopCloser := ioutil.NopCloser(bytes.NewReader([]byte(runtime.EncodeOrDie(encoder, obj.(*extensions.ReplicaSetList)))))
 		return &nopCloser, nil
 	} else {
-		nopCloser := ioutil.NopCloser(bytes.NewReader([]byte(runtime.EncodeOrDie(testapi.Default.Codec(), obj))))
+		debug := runtime.EncodeOrDie(testapi.Default.Codec(), obj)
+		fmt.Printf("DEBUG: %v\n", debug)
+		nopCloser := ioutil.NopCloser(bytes.NewReader([]byte(debug)))
 		return &nopCloser, nil
 	}
 }
@@ -547,7 +549,9 @@ func (c *RESTClient) createGetReadCloser(resource ccapi.ResourceType, resourceNa
 		}
 	}
 
-	nopCloser := ioutil.NopCloser(bytes.NewReader([]byte(runtime.EncodeOrDie(testapi.Default.Codec(), obj))))
+	debug := runtime.EncodeOrDie(testapi.Default.Codec(), obj)
+	fmt.Printf("GET DEBUG: %v\n", debug)
+	nopCloser := ioutil.NopCloser(bytes.NewReader([]byte(debug)))
 	return &nopCloser, nil
 }
 

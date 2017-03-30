@@ -97,6 +97,7 @@ func (d DefaultingSerializer) Decode(data []byte, defaultGVK *schema.GroupVersio
 // UseOrCreateObject returns obj if the canonical ObjectKind returned by the provided typer matches gvk, or
 // invokes the ObjectCreator to instantiate a new gvk. Returns an error if the typer cannot find the object.
 func UseOrCreateObject(t ObjectTyper, c ObjectCreater, gvk schema.GroupVersionKind, obj Object) (Object, error) {
+	fmt.Printf("UseOrCreateObject: gvk: %v, obj: %v\n", gvk, obj)
 	if obj != nil {
 		kinds, _, err := t.ObjectKinds(obj)
 		if err != nil {
