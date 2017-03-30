@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -35,7 +34,7 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/kubernetes/pkg/api"
+	//"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/api/v1"
 	externalclientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
@@ -160,6 +159,7 @@ type ClusterCapacity struct {
 	resourceSpaceMode   ResourceSpaceMode
 	admissionController admission.Interface
 	admissionStopCh     chan struct{}
+	informerStopCh      chan struct{}
 
 	// stop the analysis
 	stop      chan struct{}
@@ -171,7 +171,7 @@ type ClusterCapacity struct {
 
 // capture all scheduled pods with reason why the analysis could not continue
 type Status struct {
-	Pods       []*api.Pod
+	Pods       []*v1.Pod
 	StopReason string
 }
 
@@ -241,7 +241,7 @@ func (c *ClusterCapacity) Bind(binding *v1.Binding, schedulerName string) error 
 	fmt.Printf("\nPod: %v, node: %v, scheduler: %v\n", binding.Name, binding.Target.Name, schedulerName)
 
 	// run the pod through strategy
-	key := &api.Pod{
+	key := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{Name: binding.Name, Namespace: binding.Namespace},
 	}
 	pod, exists, err := c.resourceStore.Get(ccapi.Pods, runtime.Object(key))
@@ -251,10 +251,10 @@ func (c *ClusterCapacity) Bind(binding *v1.Binding, schedulerName string) error 
 	if !exists {
 		return fmt.Errorf("Unable to bind, pod %v not found", pod)
 	}
-	updatedPod := *pod.(*api.Pod)
+	updatedPod := *pod.(*v1.Pod)
 	updatedPod.Spec.NodeName = binding.Target.Name
-	updatedPod.Status.Phase = api.PodRunning
-	// fmt.Printf("Pod binding: %v\n", updatedPod)
+	updatedPod.Status.Phase = v1.PodRunning
+	fmt.Printf("Pod binding: %v\n", updatedPod)
 
 	// TODO(jchaloup): rename Add to Update as this actually updates the scheduled pod
 	if err := c.strategy.Add(&updatedPod); err != nil {
@@ -301,21 +301,22 @@ func (c *ClusterCapacity) Close() {
 	c.coreRestClient.Close()
 	c.extensionsRestClient.Close()
 	close(c.admissionStopCh)
+	close(c.informerStopCh)
 	c.closed = true
 }
 
 func (c *ClusterCapacity) Update(pod *v1.Pod, podCondition *v1.PodCondition, schedulerName string) error {
 	// once the api.PodCondition
-	podUnschedulableCond := &v1.PodCondition{
+	/*podUnschedulableCond := &v1.PodCondition{
 		Type:   v1.PodScheduled,
 		Status: v1.ConditionFalse,
 		Reason: "Unschedulable",
 	}
 
-	stop := reflect.DeepEqual(podCondition, podUnschedulableCond)
-
+	stop := reflect.DeepEqual(podCondition, podUnschedulableCond)*/
+	stop := podCondition.Type == v1.PodScheduled && podCondition.Status == v1.ConditionFalse && podCondition.Reason == "Unschedulable"
 	//fmt.Printf("pod condition: %v\n", podCondition)
-	go func() {
+	/*go func() {
 		event := <-c.schedulerConfigs[schedulerName].Recorder.(*record.Recorder).Events
 		// end the simulation
 		// TODO(jchaloup): this needs to be reworked in a case of multiple schedulers
@@ -334,7 +335,25 @@ func (c *ClusterCapacity) Update(pod *v1.Pod, podCondition *v1.PodCondition, sch
 			c.stopped = true
 			c.stop <- struct{}{}
 		}
-	}()
+	}()*/
+
+	if stop {
+		fmt.Printf("THIS SHOULD REALLY STOP NOW!!!!!!\n")
+		c.status.StopReason = fmt.Sprintf("%v: %v", podCondition.Reason, podCondition.Message)
+		c.Close()
+		fmt.Printf("2 THIS SHOULD REALLY STOP NOW!!!!!!\n")
+
+		// The Update function can be run more than once before any corresponding
+		// scheduler is closed. The behaviour is implementation specific
+		c.stopMux.Lock()
+		defer c.stopMux.Unlock()
+		// if c.stopped {
+		//      return nil
+		// }
+		fmt.Printf("3 THIS SHOULD REALLY STOP NOW!!!!!!\n")
+		c.stopped = true
+		c.stop <- struct{}{}
+	}
 
 	return nil
 }
@@ -382,8 +401,8 @@ func (c *ClusterCapacity) nextPod() error {
 }
 
 func (c *ClusterCapacity) Run() error {
-	c.informerFactory.Start(c.stop)
-
+	//c.informerFactory.Start(c.stop)
+	c.informerFactory.Start(c.informerStopCh)
 	// TODO(jchaloup): remove all pods that are not scheduled yet
 	for _, scheduler := range c.schedulers {
 		scheduler.Run()
@@ -399,8 +418,9 @@ func (c *ClusterCapacity) Run() error {
 		close(c.stop)
 		return fmt.Errorf("Unable to create next pod to schedule: %v", err)
 	}
-
+	fmt.Printf("WAITING STOP\n")
 	<-c.stop
+	fmt.Printf("GOT STOP\n")
 	close(c.stop)
 
 	return nil
@@ -539,6 +559,7 @@ func New(s *soptions.SchedulerServer, simulatedPod *v1.Pod, maxPods int, resourc
 
 	cc.stop = make(chan struct{})
 	cc.admissionStopCh = make(chan struct{})
+	cc.informerStopCh = make(chan struct{})
 
 	// Create empty event recorder, broadcaster, metrics and everything up to binder.
 	// Binder is redirected to cluster capacity's counter.
