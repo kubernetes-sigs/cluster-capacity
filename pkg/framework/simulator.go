@@ -37,8 +37,8 @@ import (
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/api/v1"
 	externalclientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
-	clientsetextensions "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/typed/extensions/internalversion"
+	//clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
+	//clientsetextensions "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/typed/extensions/internalversion"
 	einformers "k8s.io/kubernetes/pkg/client/informers/informers_generated/externalversions"
 	soptions "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app/options"
 	"k8s.io/kubernetes/plugin/pkg/scheduler"
@@ -130,7 +130,7 @@ type ClusterCapacity struct {
 	strategy strategy.Strategy
 
 	// fake kube client
-	kubeclient         *clientset.Clientset
+	//kubeclient         *clientset.Clientset
 	externalkubeclient *externalclientset.Clientset
 
 	informerFactory einformers.SharedInformerFactory
@@ -456,9 +456,9 @@ func New(s *soptions.SchedulerServer, simulatedPod *v1.Pod, maxPods int, resourc
 	extensionsRestClient := external.NewRESTClient(resourceStore, "extensions")
 
 	cc := &ClusterCapacity{
-		resourceStore:        resourceStore,
-		strategy:             strategy.NewPredictiveStrategy(resourceStore),
-		kubeclient:           clientset.New(restClient),
+		resourceStore: resourceStore,
+		strategy:      strategy.NewPredictiveStrategy(resourceStore),
+		//kubeclient:           clientset.New(restClient),
 		externalkubeclient:   externalclientset.New(restClient),
 		simulatedPod:         simulatedPod,
 		simulated:            0,
@@ -468,7 +468,7 @@ func New(s *soptions.SchedulerServer, simulatedPod *v1.Pod, maxPods int, resourc
 		resourceSpaceMode:    resourceSpaceMode,
 	}
 
-	cc.kubeclient.ExtensionsClient = clientsetextensions.New(extensionsRestClient)
+	//cc.kubeclient.ExtensionsClient = clientsetextensions.New(extensionsRestClient)
 
 	for _, resource := range resourceStore.Resources() {
 		// The resource variable would be shared among all [Add|Update|Delete]Func functions
