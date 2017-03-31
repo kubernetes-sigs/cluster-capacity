@@ -17,7 +17,6 @@ limitations under the License.
 package scheduler
 
 import (
-	"fmt"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -147,9 +146,7 @@ func (s *Scheduler) Run() {
 }
 
 func (s *Scheduler) scheduleOne() {
-	fmt.Printf("SCHEDULE ONE\n")
 	pod := s.config.NextPod()
-	fmt.Printf("SCHEDULE ONE NEXT POD: %v\n", pod)
 	if pod.DeletionTimestamp != nil {
 		s.config.Recorder.Eventf(pod, v1.EventTypeWarning, "FailedScheduling", "skip schedule deleting pod: %v/%v", pod.Namespace, pod.Name)
 		glog.V(3).Infof("Skip schedule deleting pod: %v/%v", pod.Namespace, pod.Name)
@@ -157,12 +154,10 @@ func (s *Scheduler) scheduleOne() {
 	}
 
 	glog.V(3).Infof("Attempting to schedule pod: %v/%v", pod.Namespace, pod.Name)
-	fmt.Printf("Attempting to schedule pod: %v/%v\n", pod.Namespace, pod.Name)
 	start := time.Now()
 	dest, err := s.config.Algorithm.Schedule(pod, s.config.NodeLister)
 	if err != nil {
 		glog.V(1).Infof("Failed to schedule pod: %v/%v", pod.Namespace, pod.Name)
-		fmt.Printf("Failed to schedule pod: %v/%v%v\n", pod.Namespace, pod.Name, err)
 		s.config.Error(pod, err)
 		s.config.Recorder.Eventf(pod, v1.EventTypeWarning, "FailedScheduling", "%v", err)
 		s.config.PodConditionUpdater.Update(pod, &v1.PodCondition{

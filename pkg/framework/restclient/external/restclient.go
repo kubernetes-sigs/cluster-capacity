@@ -476,7 +476,6 @@ func (c *RESTClient) createListReadCloser(resource ccapi.ResourceType, fieldsSel
 		return &nopCloser, nil
 	} else {
 		debug := runtime.EncodeOrDie(testapi.Default.Codec(), obj)
-		fmt.Printf("DEBUG: %v\n", debug)
 		nopCloser := ioutil.NopCloser(bytes.NewReader([]byte(debug)))
 		return &nopCloser, nil
 	}
@@ -548,7 +547,6 @@ func (c *RESTClient) createGetReadCloser(resource ccapi.ResourceType, resourceNa
 	}
 
 	debug := runtime.EncodeOrDie(testapi.Default.Codec(), obj)
-	fmt.Printf("GET DEBUG: %v\n", debug)
 	nopCloser := ioutil.NopCloser(bytes.NewReader([]byte(debug)))
 	return &nopCloser, nil
 }
@@ -644,7 +642,7 @@ func (c *RESTClient) Do(req *http.Request) (*http.Response, error) {
 	queryParams := req.URL.Query()
 
 	// check all fields
-	fmt.Printf("URL request path: %v, rawQuery: %v, fields selector: %v\n", req.URL.Path, queryParams, fieldsSelector)
+	//fmt.Printf("URL request path: %v, rawQuery: %v, fields selector: %v\n", req.URL.Path, queryParams, fieldsSelector)
 	// is field selector on?
 	value, ok := queryParams[metav1.FieldSelectorQueryParam(testapi.Default.GroupVersion().String())]
 	if ok {
@@ -708,7 +706,7 @@ func (c *RESTClient) Do(req *http.Request) (*http.Response, error) {
 			}
 			body, err = c.createGetReadCloser(resource, parts[1], "")
 			if err != nil {
-				return nil, fmt.Errorf("2 Unable to create getter for %s: %v\n", parts[0], err)
+				return nil, fmt.Errorf("Unable to create getter for %s: %v\n", parts[0], err)
 			}
 		case 3:
 			if parts[0] != "namespaces" {
@@ -757,7 +755,7 @@ func (c *RESTClient) Do(req *http.Request) (*http.Response, error) {
 			}
 			body, err = c.createGetReadCloser(resource, parts[3], parts[1])
 			if err != nil {
-				return nil, fmt.Errorf("1 Unable to create getter for %s: %v\n", parts[0], err)
+				return nil, fmt.Errorf("Unable to create getter for %s: %v\n", parts[0], err)
 			}
 		default:
 			return nil, fmt.Errorf("Cluster capacity RESTClient not implemented: unable to decode query url: %v", req.URL.Path)

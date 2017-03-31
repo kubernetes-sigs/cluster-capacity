@@ -45,7 +45,6 @@ type predictiveStrategy struct {
 }
 
 func (s *predictiveStrategy) addPod(pod *v1.Pod) error {
-	fmt.Printf("predictiveStrategy addPod: %v\n", pod)
 	// No need to update any node.
 	// The scheduler keep resources consumed by all pods in its scheduler cache
 	// which is than confronted with pod's node Allocatable field.

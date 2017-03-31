@@ -34,7 +34,6 @@ import (
 	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/api/validation"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
-	//clientset "k8s.io/client-go/kubernetes"
 	schedopt "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app/options"
 
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/apiserver/cache"
@@ -185,8 +184,6 @@ func (s *ClusterCapacityConfig) ParseAPISpec() error {
 		}
 	}
 
-	//fmt.Printf("Pod: %#v\n", versionedPod)
-
 	// TODO: client side validation seems like a long term problem for this command.
 	internalPod := &api.Pod{}
 	if err := v1.Convert_v1_Pod_To_api_Pod(versionedPod, internalPod, nil); err != nil {
@@ -218,6 +215,5 @@ func (s *ClusterCapacityConfig) SetDefaultScheduler() error {
 	}
 
 	s.DefaultScheduler.Kubeconfig = s.Options.Kubeconfig
-	//fmt.Printf("\n\nDefaultScheduler: %#v\n\n", s.DefaultScheduler)
 	return nil
 }
