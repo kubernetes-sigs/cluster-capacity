@@ -1,5 +1,3 @@
-// Package escape contains utilities for escaping parts of InfluxQL
-// and InfluxDB line protocol.
 package escape // import "github.com/influxdata/influxdb/pkg/escape"
 
 import (
@@ -7,15 +5,6 @@ import (
 	"strings"
 )
 
-// Codes is a map of bytes to be escaped.
-var Codes = map[byte][]byte{
-	',': []byte(`\,`),
-	'"': []byte(`\"`),
-	' ': []byte(`\ `),
-	'=': []byte(`\=`),
-}
-
-// Bytes escapes characters on the input slice, as defined by Codes.
 func Bytes(in []byte) []byte {
 	for b, esc := range Codes {
 		in = bytes.Replace(in, []byte{b}, esc, -1)
@@ -25,8 +14,6 @@ func Bytes(in []byte) []byte {
 
 const escapeChars = `," =`
 
-// IsEscaped returns whether b has any escaped characters,
-// i.e. whether b seems to have been processed by Bytes.
 func IsEscaped(b []byte) bool {
 	for len(b) > 0 {
 		i := bytes.IndexByte(b, '\\')
@@ -42,8 +29,6 @@ func IsEscaped(b []byte) bool {
 	return false
 }
 
-// AppendUnescaped appends the unescaped version of src to dst
-// and returns the resulting slice.
 func AppendUnescaped(dst, src []byte) []byte {
 	var pos int
 	for len(src) > 0 {
@@ -66,7 +51,6 @@ func AppendUnescaped(dst, src []byte) []byte {
 	return dst
 }
 
-// Unescape returns a new slice containing the unescaped version of in.
 func Unescape(in []byte) []byte {
 	if len(in) == 0 {
 		return nil

@@ -15,10 +15,8 @@
 package integration
 
 import (
-	"bytes"
 	"fmt"
 	"math/rand"
-	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -290,18 +288,6 @@ func TestV3TxnRevision(t *testing.T) {
 		t.Fatalf("got rev %d, wanted rev %d", tresp.Header.Revision, presp.Header.Revision)
 	}
 
-	txndr := &pb.RequestOp{Request: &pb.RequestOp_RequestDeleteRange{RequestDeleteRange: &pb.DeleteRangeRequest{Key: []byte("def")}}}
-	txn = &pb.TxnRequest{Success: []*pb.RequestOp{txndr}}
-	tresp, err = kvc.Txn(context.TODO(), txn)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// did not update revision
-	if presp.Header.Revision != tresp.Header.Revision {
-		t.Fatalf("got rev %d, wanted rev %d", tresp.Header.Revision, presp.Header.Revision)
-	}
-
 	txnput := &pb.RequestOp{Request: &pb.RequestOp_RequestPut{RequestPut: &pb.PutRequest{Key: []byte("abc"), Value: []byte("123")}}}
 	txn = &pb.TxnRequest{Success: []*pb.RequestOp{txnput}}
 	tresp, err = kvc.Txn(context.TODO(), txn)
@@ -312,279 +298,6 @@ func TestV3TxnRevision(t *testing.T) {
 	// updated revision
 	if tresp.Header.Revision != presp.Header.Revision+1 {
 		t.Fatalf("got rev %d, wanted rev %d", tresp.Header.Revision, presp.Header.Revision+1)
-	}
-}
-
-// TestV3PutIgnoreValue ensures that writes with ignore_value overwrites with previous key-value pair.
-func TestV3PutIgnoreValue(t *testing.T) {
-	defer testutil.AfterTest(t)
-
-	clus := NewClusterV3(t, &ClusterConfig{Size: 1})
-	defer clus.Terminate(t)
-
-	kvc := toGRPC(clus.RandClient()).KV
-	key, val := []byte("foo"), []byte("bar")
-	putReq := pb.PutRequest{Key: key, Value: val}
-
-	// create lease
-	lc := toGRPC(clus.RandClient()).Lease
-	lresp, err := lc.LeaseGrant(context.TODO(), &pb.LeaseGrantRequest{TTL: 30})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if lresp.Error != "" {
-		t.Fatal(lresp.Error)
-	}
-
-	tests := []struct {
-		putFunc  func() error
-		putErr   error
-		wleaseID int64
-	}{
-		{ // put failure for non-existent key
-			func() error {
-				preq := putReq
-				preq.IgnoreValue = true
-				_, err := kvc.Put(context.TODO(), &preq)
-				return err
-			},
-			rpctypes.ErrGRPCKeyNotFound,
-			0,
-		},
-		{ // txn failure for non-existent key
-			func() error {
-				preq := putReq
-				preq.Value = nil
-				preq.IgnoreValue = true
-				txn := &pb.TxnRequest{}
-				txn.Success = append(txn.Success, &pb.RequestOp{
-					Request: &pb.RequestOp_RequestPut{RequestPut: &preq}})
-				_, err := kvc.Txn(context.TODO(), txn)
-				return err
-			},
-			rpctypes.ErrGRPCKeyNotFound,
-			0,
-		},
-		{ // put success
-			func() error {
-				_, err := kvc.Put(context.TODO(), &putReq)
-				return err
-			},
-			nil,
-			0,
-		},
-		{ // txn success, attach lease
-			func() error {
-				preq := putReq
-				preq.Value = nil
-				preq.Lease = lresp.ID
-				preq.IgnoreValue = true
-				txn := &pb.TxnRequest{}
-				txn.Success = append(txn.Success, &pb.RequestOp{
-					Request: &pb.RequestOp_RequestPut{RequestPut: &preq}})
-				_, err := kvc.Txn(context.TODO(), txn)
-				return err
-			},
-			nil,
-			lresp.ID,
-		},
-		{ // non-empty value with ignore_value should error
-			func() error {
-				preq := putReq
-				preq.IgnoreValue = true
-				_, err := kvc.Put(context.TODO(), &preq)
-				return err
-			},
-			rpctypes.ErrGRPCValueProvided,
-			0,
-		},
-		{ // overwrite with previous value, ensure no prev-kv is returned and lease is detached
-			func() error {
-				preq := putReq
-				preq.Value = nil
-				preq.IgnoreValue = true
-				presp, err := kvc.Put(context.TODO(), &preq)
-				if err != nil {
-					return err
-				}
-				if presp.PrevKv != nil && len(presp.PrevKv.Key) != 0 {
-					return fmt.Errorf("unexexpected previous key-value %v", presp.PrevKv)
-				}
-				return nil
-			},
-			nil,
-			0,
-		},
-		{ // revoke lease, ensure detached key doesn't get deleted
-			func() error {
-				_, err := lc.LeaseRevoke(context.TODO(), &pb.LeaseRevokeRequest{ID: lresp.ID})
-				return err
-			},
-			nil,
-			0,
-		},
-	}
-
-	for i, tt := range tests {
-		if err := tt.putFunc(); !eqErrGRPC(err, tt.putErr) {
-			t.Fatalf("#%d: err expected %v, got %v", i, tt.putErr, err)
-		}
-		if tt.putErr != nil {
-			continue
-		}
-		rr, err := kvc.Range(context.TODO(), &pb.RangeRequest{Key: key})
-		if err != nil {
-			t.Fatalf("#%d: %v", i, err)
-		}
-		if len(rr.Kvs) != 1 {
-			t.Fatalf("#%d: len(rr.KVs) expected 1, got %d", i, len(rr.Kvs))
-		}
-		if !bytes.Equal(rr.Kvs[0].Value, val) {
-			t.Fatalf("#%d: value expected %q, got %q", i, val, rr.Kvs[0].Value)
-		}
-		if rr.Kvs[0].Lease != tt.wleaseID {
-			t.Fatalf("#%d: lease ID expected %d, got %d", i, tt.wleaseID, rr.Kvs[0].Lease)
-		}
-	}
-}
-
-// TestV3PutIgnoreLease ensures that writes with ignore_lease uses previous lease for the key overwrites.
-func TestV3PutIgnoreLease(t *testing.T) {
-	defer testutil.AfterTest(t)
-
-	clus := NewClusterV3(t, &ClusterConfig{Size: 1})
-	defer clus.Terminate(t)
-
-	kvc := toGRPC(clus.RandClient()).KV
-
-	// create lease
-	lc := toGRPC(clus.RandClient()).Lease
-	lresp, err := lc.LeaseGrant(context.TODO(), &pb.LeaseGrantRequest{TTL: 30})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if lresp.Error != "" {
-		t.Fatal(lresp.Error)
-	}
-
-	key, val, val1 := []byte("zoo"), []byte("bar"), []byte("bar1")
-	putReq := pb.PutRequest{Key: key, Value: val}
-
-	tests := []struct {
-		putFunc  func() error
-		putErr   error
-		wleaseID int64
-		wvalue   []byte
-	}{
-		{ // put failure for non-existent key
-			func() error {
-				preq := putReq
-				preq.IgnoreLease = true
-				_, err := kvc.Put(context.TODO(), &preq)
-				return err
-			},
-			rpctypes.ErrGRPCKeyNotFound,
-			0,
-			nil,
-		},
-		{ // txn failure for non-existent key
-			func() error {
-				preq := putReq
-				preq.IgnoreLease = true
-				txn := &pb.TxnRequest{}
-				txn.Success = append(txn.Success, &pb.RequestOp{
-					Request: &pb.RequestOp_RequestPut{RequestPut: &preq}})
-				_, err := kvc.Txn(context.TODO(), txn)
-				return err
-			},
-			rpctypes.ErrGRPCKeyNotFound,
-			0,
-			nil,
-		},
-		{ // put success
-			func() error {
-				preq := putReq
-				preq.Lease = lresp.ID
-				_, err := kvc.Put(context.TODO(), &preq)
-				return err
-			},
-			nil,
-			lresp.ID,
-			val,
-		},
-		{ // txn success, modify value using 'ignore_lease' and ensure lease is not detached
-			func() error {
-				preq := putReq
-				preq.Value = val1
-				preq.IgnoreLease = true
-				txn := &pb.TxnRequest{}
-				txn.Success = append(txn.Success, &pb.RequestOp{
-					Request: &pb.RequestOp_RequestPut{RequestPut: &preq}})
-				_, err := kvc.Txn(context.TODO(), txn)
-				return err
-			},
-			nil,
-			lresp.ID,
-			val1,
-		},
-		{ // non-empty lease with ignore_lease should error
-			func() error {
-				preq := putReq
-				preq.Lease = lresp.ID
-				preq.IgnoreLease = true
-				_, err := kvc.Put(context.TODO(), &preq)
-				return err
-			},
-			rpctypes.ErrGRPCLeaseProvided,
-			0,
-			nil,
-		},
-		{ // overwrite with previous value, ensure no prev-kv is returned and lease is detached
-			func() error {
-				presp, err := kvc.Put(context.TODO(), &putReq)
-				if err != nil {
-					return err
-				}
-				if presp.PrevKv != nil && len(presp.PrevKv.Key) != 0 {
-					return fmt.Errorf("unexexpected previous key-value %v", presp.PrevKv)
-				}
-				return nil
-			},
-			nil,
-			0,
-			val,
-		},
-		{ // revoke lease, ensure detached key doesn't get deleted
-			func() error {
-				_, err := lc.LeaseRevoke(context.TODO(), &pb.LeaseRevokeRequest{ID: lresp.ID})
-				return err
-			},
-			nil,
-			0,
-			val,
-		},
-	}
-
-	for i, tt := range tests {
-		if err := tt.putFunc(); !eqErrGRPC(err, tt.putErr) {
-			t.Fatalf("#%d: err expected %v, got %v", i, tt.putErr, err)
-		}
-		if tt.putErr != nil {
-			continue
-		}
-		rr, err := kvc.Range(context.TODO(), &pb.RangeRequest{Key: key})
-		if err != nil {
-			t.Fatalf("#%d: %v", i, err)
-		}
-		if len(rr.Kvs) != 1 {
-			t.Fatalf("#%d: len(rr.KVs) expected 1, got %d", i, len(rr.Kvs))
-		}
-		if !bytes.Equal(rr.Kvs[0].Value, tt.wvalue) {
-			t.Fatalf("#%d: value expected %q, got %q", i, val, rr.Kvs[0].Value)
-		}
-		if rr.Kvs[0].Lease != tt.wleaseID {
-			t.Fatalf("#%d: lease ID expected %d, got %d", i, tt.wleaseID, rr.Kvs[0].Lease)
-		}
 	}
 }
 
@@ -763,6 +476,7 @@ func TestV3DeleteRange(t *testing.T) {
 		if !reflect.DeepEqual(tt.wantSet, keys) {
 			t.Errorf("expected %v on test %v, got %v", tt.wantSet, i, keys)
 		}
+
 		// can't defer because tcp ports will be in use
 		clus.Terminate(t)
 	}
@@ -858,29 +572,26 @@ func TestV3Hash(t *testing.T) {
 // TestV3StorageQuotaAPI tests the V3 server respects quotas at the API layer
 func TestV3StorageQuotaAPI(t *testing.T) {
 	defer testutil.AfterTest(t)
-	quotasize := int64(16 * os.Getpagesize())
 
 	clus := NewClusterV3(t, &ClusterConfig{Size: 3})
 
-	// Set a quota on one node
-	clus.Members[0].QuotaBackendBytes = quotasize
+	clus.Members[0].QuotaBackendBytes = 64 * 1024
 	clus.Members[0].Stop(t)
 	clus.Members[0].Restart(t)
 
 	defer clus.Terminate(t)
 	kvc := toGRPC(clus.Client(0)).KV
-	waitForRestart(t, kvc)
 
 	key := []byte("abc")
 
 	// test small put that fits in quota
 	smallbuf := make([]byte, 512)
-	if _, err := kvc.Put(context.TODO(), &pb.PutRequest{Key: key, Value: smallbuf}); err != nil {
+	if _, err := kvc.Put(context.TODO(), &pb.PutRequest{Key: key, Value: smallbuf}, grpc.FailFast(false)); err != nil {
 		t.Fatal(err)
 	}
 
 	// test big put
-	bigbuf := make([]byte, quotasize)
+	bigbuf := make([]byte, 64*1024)
 	_, err := kvc.Put(context.TODO(), &pb.PutRequest{Key: key, Value: bigbuf})
 	if !eqErrGRPC(err, rpctypes.ErrGRPCNoSpace) {
 		t.Fatalf("big put got %v, expected %v", err, rpctypes.ErrGRPCNoSpace)
@@ -906,31 +617,29 @@ func TestV3StorageQuotaAPI(t *testing.T) {
 // TestV3StorageQuotaApply tests the V3 server respects quotas during apply
 func TestV3StorageQuotaApply(t *testing.T) {
 	testutil.AfterTest(t)
-	quotasize := int64(16 * os.Getpagesize())
 
 	clus := NewClusterV3(t, &ClusterConfig{Size: 2})
 	defer clus.Terminate(t)
 	kvc0 := toGRPC(clus.Client(0)).KV
 	kvc1 := toGRPC(clus.Client(1)).KV
 
-	// Set a quota on one node
-	clus.Members[0].QuotaBackendBytes = quotasize
+	// force a node to have a different quota
+	clus.Members[0].QuotaBackendBytes = 64 * 1024
 	clus.Members[0].Stop(t)
 	clus.Members[0].Restart(t)
 	clus.waitLeader(t, clus.Members)
-	waitForRestart(t, kvc0)
 
 	key := []byte("abc")
 
 	// test small put still works
 	smallbuf := make([]byte, 1024)
-	_, serr := kvc0.Put(context.TODO(), &pb.PutRequest{Key: key, Value: smallbuf})
+	_, serr := kvc0.Put(context.TODO(), &pb.PutRequest{Key: key, Value: smallbuf}, grpc.FailFast(false))
 	if serr != nil {
 		t.Fatal(serr)
 	}
 
 	// test big put
-	bigbuf := make([]byte, quotasize)
+	bigbuf := make([]byte, 64*1024)
 	_, err := kvc1.Put(context.TODO(), &pb.PutRequest{Key: key, Value: bigbuf})
 	if err != nil {
 		t.Fatal(err)
@@ -1134,12 +843,6 @@ func TestV3RangeRequest(t *testing.T) {
 					SortOrder:  pb.RangeRequest_DESCEND,
 					SortTarget: pb.RangeRequest_CREATE,
 				},
-				{ // sort ASCEND by default
-					Key: []byte("a"), RangeEnd: []byte("z"),
-					Limit:      10,
-					SortOrder:  pb.RangeRequest_NONE,
-					SortTarget: pb.RangeRequest_CREATE,
-				},
 			},
 
 			[][]string{
@@ -1148,71 +851,8 @@ func TestV3RangeRequest(t *testing.T) {
 				{"b"},
 				{"c"},
 				{},
-				{"b", "a", "c", "d"},
 			},
-			[]bool{true, true, true, true, false, false},
-		},
-		// min/max mod rev
-		{
-			[]string{"rev2", "rev3", "rev4", "rev5", "rev6"},
-			[]pb.RangeRequest{
-				{
-					Key: []byte{0}, RangeEnd: []byte{0},
-					MinModRevision: 3,
-				},
-				{
-					Key: []byte{0}, RangeEnd: []byte{0},
-					MaxModRevision: 3,
-				},
-				{
-					Key: []byte{0}, RangeEnd: []byte{0},
-					MinModRevision: 3,
-					MaxModRevision: 5,
-				},
-				{
-					Key: []byte{0}, RangeEnd: []byte{0},
-					MaxModRevision: 10,
-				},
-			},
-
-			[][]string{
-				{"rev3", "rev4", "rev5", "rev6"},
-				{"rev2", "rev3"},
-				{"rev3", "rev4", "rev5"},
-				{"rev2", "rev3", "rev4", "rev5", "rev6"},
-			},
-			[]bool{false, false, false, false},
-		},
-		// min/max create rev
-		{
-			[]string{"rev2", "rev3", "rev2", "rev2", "rev6", "rev3"},
-			[]pb.RangeRequest{
-				{
-					Key: []byte{0}, RangeEnd: []byte{0},
-					MinCreateRevision: 3,
-				},
-				{
-					Key: []byte{0}, RangeEnd: []byte{0},
-					MaxCreateRevision: 3,
-				},
-				{
-					Key: []byte{0}, RangeEnd: []byte{0},
-					MinCreateRevision: 3,
-					MaxCreateRevision: 5,
-				},
-				{
-					Key: []byte{0}, RangeEnd: []byte{0},
-					MaxCreateRevision: 10,
-				},
-			},
-
-			[][]string{
-				{"rev3", "rev6"},
-				{"rev2", "rev3"},
-				{"rev3"},
-				{"rev2", "rev3", "rev6"},
-			},
-			[]bool{false, false, false, false},
+			[]bool{true, true, true, true, false},
 		},
 	}
 
@@ -1425,15 +1065,4 @@ func TestGRPCStreamRequireLeader(t *testing.T) {
 
 func eqErrGRPC(err1 error, err2 error) bool {
 	return !(err1 == nil && err2 != nil) || err1.Error() == err2.Error()
-}
-
-// waitForRestart tries a range request until the client's server responds.
-// This is mainly a stop-gap function until grpcproxy's KVClient adapter
-// (and by extension, clientv3) supports grpc.CallOption pass-through so
-// FailFast=false works with Put.
-func waitForRestart(t *testing.T, kvc pb.KVClient) {
-	req := &pb.RangeRequest{Key: []byte("_"), Serializable: true}
-	if _, err := kvc.Range(context.TODO(), req, grpc.FailFast(false)); err != nil {
-		t.Fatal(err)
-	}
 }

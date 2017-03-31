@@ -47,9 +47,6 @@ const basePath = "https://www.googleapis.com/identitytoolkit/v3/relyingparty/"
 
 // OAuth2 scopes used by this API.
 const (
-	// View and manage your data across Google Cloud Platform services
-	CloudPlatformScope = "https://www.googleapis.com/auth/cloud-platform"
-
 	// View and administer all your Firebase data and settings
 	FirebaseScope = "https://www.googleapis.com/auth/firebase"
 )
@@ -506,10 +503,6 @@ type IdentitytoolkitRelyingpartyDownloadAccountRequest struct {
 	// NextPageToken: The token for the next page. This should be taken from
 	// the previous response.
 	NextPageToken string `json:"nextPageToken,omitempty"`
-
-	// TargetProjectId: Specify which project (field value is actually
-	// project id) to operate. Only used when provided credential.
-	TargetProjectId string `json:"targetProjectId,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g.
 	// "DelegatedProjectNumber") to unconditionally include in API requests.
@@ -1650,20 +1643,6 @@ func (s *UserInfo) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-func (s *UserInfo) UnmarshalJSON(data []byte) error {
-	type noMethod UserInfo
-	var s1 struct {
-		PasswordUpdatedAt gensupport.JSONFloat64 `json:"passwordUpdatedAt"`
-		*noMethod
-	}
-	s1.noMethod = (*noMethod)(s)
-	if err := json.Unmarshal(data, &s1); err != nil {
-		return err
-	}
-	s.PasswordUpdatedAt = float64(s1.PasswordUpdatedAt)
-	return nil
-}
-
 type UserInfoProviderUserInfo struct {
 	// DisplayName: The user's display name at the IDP.
 	DisplayName string `json:"displayName,omitempty"`
@@ -2095,10 +2074,7 @@ func (c *RelyingpartyCreateAuthUriCall) Do(opts ...googleapi.CallOption) (*Creat
 	//   },
 	//   "response": {
 	//     "$ref": "CreateAuthUriResponse"
-	//   },
-	//   "scopes": [
-	//     "https://www.googleapis.com/auth/cloud-platform"
-	//   ]
+	//   }
 	// }
 
 }
@@ -2212,10 +2188,7 @@ func (c *RelyingpartyDeleteAccountCall) Do(opts ...googleapi.CallOption) (*Delet
 	//   },
 	//   "response": {
 	//     "$ref": "DeleteAccountResponse"
-	//   },
-	//   "scopes": [
-	//     "https://www.googleapis.com/auth/cloud-platform"
-	//   ]
+	//   }
 	// }
 
 }
@@ -2331,32 +2304,10 @@ func (c *RelyingpartyDownloadAccountCall) Do(opts ...googleapi.CallOption) (*Dow
 	//     "$ref": "DownloadAccountResponse"
 	//   },
 	//   "scopes": [
-	//     "https://www.googleapis.com/auth/cloud-platform",
 	//     "https://www.googleapis.com/auth/firebase"
 	//   ]
 	// }
 
-}
-
-// Pages invokes f for each page of results.
-// A non-nil error returned from f will halt the iteration.
-// The provided context supersedes any context provided to the Context method.
-func (c *RelyingpartyDownloadAccountCall) Pages(ctx context.Context, f func(*DownloadAccountResponse) error) error {
-	c.ctx_ = ctx
-	defer func(pt string) { c.identitytoolkitrelyingpartydownloadaccountrequest.NextPageToken = pt }(c.identitytoolkitrelyingpartydownloadaccountrequest.NextPageToken) // reset paging to original point
-	for {
-		x, err := c.Do()
-		if err != nil {
-			return err
-		}
-		if err := f(x); err != nil {
-			return err
-		}
-		if x.NextPageToken == "" {
-			return nil
-		}
-		c.identitytoolkitrelyingpartydownloadaccountrequest.NextPageToken = x.NextPageToken
-	}
 }
 
 // method id "identitytoolkit.relyingparty.getAccountInfo":
@@ -2468,10 +2419,7 @@ func (c *RelyingpartyGetAccountInfoCall) Do(opts ...googleapi.CallOption) (*GetA
 	//   },
 	//   "response": {
 	//     "$ref": "GetAccountInfoResponse"
-	//   },
-	//   "scopes": [
-	//     "https://www.googleapis.com/auth/cloud-platform"
-	//   ]
+	//   }
 	// }
 
 }
@@ -2585,10 +2533,7 @@ func (c *RelyingpartyGetOobConfirmationCodeCall) Do(opts ...googleapi.CallOption
 	//   },
 	//   "response": {
 	//     "$ref": "GetOobConfirmationCodeResponse"
-	//   },
-	//   "scopes": [
-	//     "https://www.googleapis.com/auth/cloud-platform"
-	//   ]
+	//   }
 	// }
 
 }
@@ -2735,10 +2680,7 @@ func (c *RelyingpartyGetProjectConfigCall) Do(opts ...googleapi.CallOption) (*Id
 	//   "path": "getProjectConfig",
 	//   "response": {
 	//     "$ref": "IdentitytoolkitRelyingpartyGetProjectConfigResponse"
-	//   },
-	//   "scopes": [
-	//     "https://www.googleapis.com/auth/cloud-platform"
-	//   ]
+	//   }
 	// }
 
 }
@@ -2836,10 +2778,7 @@ func (c *RelyingpartyGetPublicKeysCall) Do(opts ...googleapi.CallOption) (map[st
 	//   "path": "publicKeys",
 	//   "response": {
 	//     "$ref": "IdentitytoolkitRelyingpartyGetPublicKeysResponse"
-	//   },
-	//   "scopes": [
-	//     "https://www.googleapis.com/auth/cloud-platform"
-	//   ]
+	//   }
 	// }
 
 }
@@ -2957,10 +2896,7 @@ func (c *RelyingpartyGetRecaptchaParamCall) Do(opts ...googleapi.CallOption) (*G
 	//   "path": "getRecaptchaParam",
 	//   "response": {
 	//     "$ref": "GetRecaptchaParamResponse"
-	//   },
-	//   "scopes": [
-	//     "https://www.googleapis.com/auth/cloud-platform"
-	//   ]
+	//   }
 	// }
 
 }
@@ -3074,10 +3010,7 @@ func (c *RelyingpartyResetPasswordCall) Do(opts ...googleapi.CallOption) (*Reset
 	//   },
 	//   "response": {
 	//     "$ref": "ResetPasswordResponse"
-	//   },
-	//   "scopes": [
-	//     "https://www.googleapis.com/auth/cloud-platform"
-	//   ]
+	//   }
 	// }
 
 }
@@ -3191,10 +3124,7 @@ func (c *RelyingpartySetAccountInfoCall) Do(opts ...googleapi.CallOption) (*SetA
 	//   },
 	//   "response": {
 	//     "$ref": "SetAccountInfoResponse"
-	//   },
-	//   "scopes": [
-	//     "https://www.googleapis.com/auth/cloud-platform"
-	//   ]
+	//   }
 	// }
 
 }
@@ -3310,10 +3240,7 @@ func (c *RelyingpartySetProjectConfigCall) Do(opts ...googleapi.CallOption) (*Id
 	//   },
 	//   "response": {
 	//     "$ref": "IdentitytoolkitRelyingpartySetProjectConfigResponse"
-	//   },
-	//   "scopes": [
-	//     "https://www.googleapis.com/auth/cloud-platform"
-	//   ]
+	//   }
 	// }
 
 }
@@ -3429,10 +3356,7 @@ func (c *RelyingpartySignOutUserCall) Do(opts ...googleapi.CallOption) (*Identit
 	//   },
 	//   "response": {
 	//     "$ref": "IdentitytoolkitRelyingpartySignOutUserResponse"
-	//   },
-	//   "scopes": [
-	//     "https://www.googleapis.com/auth/cloud-platform"
-	//   ]
+	//   }
 	// }
 
 }
@@ -3546,10 +3470,7 @@ func (c *RelyingpartySignupNewUserCall) Do(opts ...googleapi.CallOption) (*Signu
 	//   },
 	//   "response": {
 	//     "$ref": "SignupNewUserResponse"
-	//   },
-	//   "scopes": [
-	//     "https://www.googleapis.com/auth/cloud-platform"
-	//   ]
+	//   }
 	// }
 
 }
@@ -3665,7 +3586,6 @@ func (c *RelyingpartyUploadAccountCall) Do(opts ...googleapi.CallOption) (*Uploa
 	//     "$ref": "UploadAccountResponse"
 	//   },
 	//   "scopes": [
-	//     "https://www.googleapis.com/auth/cloud-platform",
 	//     "https://www.googleapis.com/auth/firebase"
 	//   ]
 	// }
@@ -3781,10 +3701,7 @@ func (c *RelyingpartyVerifyAssertionCall) Do(opts ...googleapi.CallOption) (*Ver
 	//   },
 	//   "response": {
 	//     "$ref": "VerifyAssertionResponse"
-	//   },
-	//   "scopes": [
-	//     "https://www.googleapis.com/auth/cloud-platform"
-	//   ]
+	//   }
 	// }
 
 }
@@ -3898,10 +3815,7 @@ func (c *RelyingpartyVerifyCustomTokenCall) Do(opts ...googleapi.CallOption) (*V
 	//   },
 	//   "response": {
 	//     "$ref": "VerifyCustomTokenResponse"
-	//   },
-	//   "scopes": [
-	//     "https://www.googleapis.com/auth/cloud-platform"
-	//   ]
+	//   }
 	// }
 
 }
@@ -4015,10 +3929,7 @@ func (c *RelyingpartyVerifyPasswordCall) Do(opts ...googleapi.CallOption) (*Veri
 	//   },
 	//   "response": {
 	//     "$ref": "VerifyPasswordResponse"
-	//   },
-	//   "scopes": [
-	//     "https://www.googleapis.com/auth/cloud-platform"
-	//   ]
+	//   }
 	// }
 
 }

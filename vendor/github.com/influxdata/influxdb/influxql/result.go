@@ -35,14 +35,6 @@ func (t *TagSet) Swap(i, j int) {
 	t.Filters[i], t.Filters[j] = t.Filters[j], t.Filters[i]
 }
 
-// Reverse reverses the order of series keys and filters in the TagSet.
-func (t *TagSet) Reverse() {
-	for i, j := 0, len(t.Filters)-1; i < j; i, j = i+1, j-1 {
-		t.Filters[i], t.Filters[j] = t.Filters[j], t.Filters[i]
-		t.SeriesKeys[i], t.SeriesKeys[j] = t.SeriesKeys[j], t.SeriesKeys[i]
-	}
-}
-
 // Message represents a user-facing message to be included with the result.
 type Message struct {
 	Level string `json:"level"`
@@ -66,10 +58,9 @@ func ReadOnlyWarning(stmt string) *Message {
 type Result struct {
 	// StatementID is just the statement's position in the query. It's used
 	// to combine statement results if they're being buffered in memory.
-	StatementID int
+	StatementID int `json:"-"`
 	Series      models.Rows
 	Messages    []*Message
-	Partial     bool
 	Err         error
 }
 
@@ -77,18 +68,14 @@ type Result struct {
 func (r *Result) MarshalJSON() ([]byte, error) {
 	// Define a struct that outputs "error" as a string.
 	var o struct {
-		StatementID int           `json:"statement_id"`
-		Series      []*models.Row `json:"series,omitempty"`
-		Messages    []*Message    `json:"messages,omitempty"`
-		Partial     bool          `json:"partial,omitempty"`
-		Err         string        `json:"error,omitempty"`
+		Series   []*models.Row `json:"series,omitempty"`
+		Messages []*Message    `json:"messages,omitempty"`
+		Err      string        `json:"error,omitempty"`
 	}
 
 	// Copy fields to output struct.
-	o.StatementID = r.StatementID
 	o.Series = r.Series
 	o.Messages = r.Messages
-	o.Partial = r.Partial
 	if r.Err != nil {
 		o.Err = r.Err.Error()
 	}
@@ -99,21 +86,17 @@ func (r *Result) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON decodes the data into the Result struct
 func (r *Result) UnmarshalJSON(b []byte) error {
 	var o struct {
-		StatementID int           `json:"statement_id"`
-		Series      []*models.Row `json:"series,omitempty"`
-		Messages    []*Message    `json:"messages,omitempty"`
-		Partial     bool          `json:"partial,omitempty"`
-		Err         string        `json:"error,omitempty"`
+		Series   []*models.Row `json:"series,omitempty"`
+		Messages []*Message    `json:"messages,omitempty"`
+		Err      string        `json:"error,omitempty"`
 	}
 
 	err := json.Unmarshal(b, &o)
 	if err != nil {
 		return err
 	}
-	r.StatementID = o.StatementID
 	r.Series = o.Series
 	r.Messages = o.Messages
-	r.Partial = o.Partial
 	if o.Err != "" {
 		r.Err = errors.New(o.Err)
 	}

@@ -49,50 +49,51 @@ Finished defragmenting etcd member[127.0.0.1:2379]
 
 ## Space quota
 
-The space quota in `etcd` ensures the cluster operates in a reliable fashion. Without a space quota, `etcd` may suffer from poor performance if the keyspace grows excessively large, or it may simply run out of storage space, leading to unpredictable cluster behavior. If the keyspace's backend database for any member exceeds the space quota, `etcd` raises a cluster-wide alarm that puts the cluster into a maintenance mode which only accepts key reads and deletes. Only after freeing enough space in the keyspace and defragmenting the backend database, along with clearing the space quota alarm can the cluster resume normal operation.
+The space quota in `etcd` ensures the cluster operates in a reliable fashion. Without a space quota, `etcd` may suffer from poor performance if the keyspace grows excessively large, or it may simply run out of storage space, leading to unpredictable cluster behavior. If the keyspace's backend database for any member exceeds the space quota, `etcd` raises a cluster-wide alarm that puts the cluster into a maintenance mode which only accepts key reads and deletes. After freeing enough space in the keyspace, the alarm can be disarmed and the cluster will resume normal operation.
 
 By default, `etcd` sets a conservative space quota suitable for most applications, but it may be configured on the command line, in bytes:
 
 ```sh
 # set a very small 16MB quota
-$ etcd --quota-backend-bytes=$((16*1024*1024))
+$ etcd --quota-backend-bytes=16777216
 ```
 
 The space quota can be triggered with a loop:
 
 ```sh
 # fill keyspace
-$ while [ 1 ]; do dd if=/dev/urandom bs=1024 count=1024  | ETCDCTL_API=3 etcdctl put key  || break; done
+$ while [ 1 ]; do dd if=/dev/urandom bs=1024 count=1024  | etcdctl put key  || break; done
 ...
 Error:  rpc error: code = 8 desc = etcdserver: mvcc: database space exceeded
 # confirm quota space is exceeded
-$ ETCDCTL_API=3 etcdctl --write-out=table endpoint status
+$ etcdctl --write-out=table endpoint status
 +----------------+------------------+-----------+---------+-----------+-----------+------------+
 |    ENDPOINT    |        ID        |  VERSION  | DB SIZE | IS LEADER | RAFT TERM | RAFT INDEX |
 +----------------+------------------+-----------+---------+-----------+-----------+------------+
 | 127.0.0.1:2379 | bf9071f4639c75cc | 2.3.0+git | 18 MB   | true      |         2 |       3332 |
 +----------------+------------------+-----------+---------+-----------+-----------+------------+
 # confirm alarm is raised
-$ ETCDCTL_API=3 etcdctl alarm list
+$ etcdctl alarm list
 memberID:13803658152347727308 alarm:NOSPACE 
 ```
 
-Removing excessive keyspace data and defragmenting the backend database will put the cluster back within the quota limits:
+Removing excessive keyspace data will put the cluster back within the quota limits so the alarm can be disarmed:
 
 ```sh
 # get current revision
-$ rev=$(ETCDCTL_API=3 etcdctl --endpoints=:2379 endpoint status --write-out="json" | egrep -o '"revision":[0-9]*' | egrep -o '[0-9]*')
+$ etcdctl --endpoints=:2379 endpoint status
+[{"Endpoint":"127.0.0.1:2379","Status":{"header":{"cluster_id":8925027824743593106,"member_id":13803658152347727308,"revision":1516,"raft_term":2},"version":"2.3.0+git","dbSize":17973248,"leader":13803658152347727308,"raftIndex":6359,"raftTerm":2}}]
 # compact away all old revisions
-$ ETCDCTL_API=3 etcdctl compact $rev
+$ etdctl compact 1516
 compacted revision 1516
 # defragment away excessive space
-$ ETCDCTL_API=3 etcdctl defrag
+$ etcdctl defrag
 Finished defragmenting etcd member[127.0.0.1:2379]
 # disarm alarm
-$ ETCDCTL_API=3 etcdctl alarm disarm
+$ etcdctl alarm disarm
 memberID:13803658152347727308 alarm:NOSPACE 
 # test puts are allowed again
-$ ETCDCTL_API=3 etcdctl put newkey 123
+$ etdctl put newkey 123
 OK
 ```
 

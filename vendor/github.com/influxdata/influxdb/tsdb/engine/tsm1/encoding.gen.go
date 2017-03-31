@@ -56,34 +56,18 @@ func (a Values) assertOrdered() {
 // Deduplicate returns a new slice with any values that have the same timestamp removed.
 // The Value that appears last in the slice is the one that is kept.
 func (a Values) Deduplicate() Values {
-	if len(a) == 0 {
-		return a
+	m := make(map[int64]Value)
+	for _, val := range a {
+		m[val.UnixNano()] = val
 	}
 
-	// See if we're already sorted and deduped
-	var needSort bool
-	for i := 1; i < len(a); i++ {
-		if a[i-1].UnixNano() >= a[i].UnixNano() {
-			needSort = true
-			break
-		}
+	other := make(Values, 0, len(m))
+	for _, val := range m {
+		other = append(other, val)
 	}
 
-	if !needSort {
-		return a
-	}
-
-	sort.Stable(a)
-	var i int
-	for j := 1; j < len(a); j++ {
-		v := a[j]
-		if v.UnixNano() != a[i].UnixNano() {
-			i++
-		}
-		a[i] = v
-
-	}
-	return a[:i+1]
+	sort.Sort(other)
+	return other
 }
 
 //  Exclude returns the subset of values not in [min, max]
@@ -129,8 +113,13 @@ func (a Values) Merge(b Values) Values {
 	// Normally, both a and b should not contain duplicates.  Due to a bug in older versions, it's
 	// possible stored blocks might contain duplicate values.  Remove them if they exists before
 	// merging.
-	a = a.Deduplicate()
-	b = b.Deduplicate()
+	if !a.ordered() {
+		a = a.Deduplicate()
+	}
+
+	if !b.ordered() {
+		b = b.Deduplicate()
+	}
 
 	if a[len(a)-1].UnixNano() < b[0].UnixNano() {
 		return append(a, b...)
@@ -238,34 +227,18 @@ func (a FloatValues) assertOrdered() {
 // Deduplicate returns a new slice with any values that have the same timestamp removed.
 // The Value that appears last in the slice is the one that is kept.
 func (a FloatValues) Deduplicate() FloatValues {
-	if len(a) == 0 {
-		return a
+	m := make(map[int64]FloatValue)
+	for _, val := range a {
+		m[val.UnixNano()] = val
 	}
 
-	// See if we're already sorted and deduped
-	var needSort bool
-	for i := 1; i < len(a); i++ {
-		if a[i-1].UnixNano() >= a[i].UnixNano() {
-			needSort = true
-			break
-		}
+	other := make(FloatValues, 0, len(m))
+	for _, val := range m {
+		other = append(other, val)
 	}
 
-	if !needSort {
-		return a
-	}
-
-	sort.Stable(a)
-	var i int
-	for j := 1; j < len(a); j++ {
-		v := a[j]
-		if v.UnixNano() != a[i].UnixNano() {
-			i++
-		}
-		a[i] = v
-
-	}
-	return a[:i+1]
+	sort.Sort(other)
+	return other
 }
 
 //  Exclude returns the subset of values not in [min, max]
@@ -311,8 +284,13 @@ func (a FloatValues) Merge(b FloatValues) FloatValues {
 	// Normally, both a and b should not contain duplicates.  Due to a bug in older versions, it's
 	// possible stored blocks might contain duplicate values.  Remove them if they exists before
 	// merging.
-	a = a.Deduplicate()
-	b = b.Deduplicate()
+	if !a.ordered() {
+		a = a.Deduplicate()
+	}
+
+	if !b.ordered() {
+		b = b.Deduplicate()
+	}
 
 	if a[len(a)-1].UnixNano() < b[0].UnixNano() {
 		return append(a, b...)
@@ -420,34 +398,18 @@ func (a IntegerValues) assertOrdered() {
 // Deduplicate returns a new slice with any values that have the same timestamp removed.
 // The Value that appears last in the slice is the one that is kept.
 func (a IntegerValues) Deduplicate() IntegerValues {
-	if len(a) == 0 {
-		return a
+	m := make(map[int64]IntegerValue)
+	for _, val := range a {
+		m[val.UnixNano()] = val
 	}
 
-	// See if we're already sorted and deduped
-	var needSort bool
-	for i := 1; i < len(a); i++ {
-		if a[i-1].UnixNano() >= a[i].UnixNano() {
-			needSort = true
-			break
-		}
+	other := make(IntegerValues, 0, len(m))
+	for _, val := range m {
+		other = append(other, val)
 	}
 
-	if !needSort {
-		return a
-	}
-
-	sort.Stable(a)
-	var i int
-	for j := 1; j < len(a); j++ {
-		v := a[j]
-		if v.UnixNano() != a[i].UnixNano() {
-			i++
-		}
-		a[i] = v
-
-	}
-	return a[:i+1]
+	sort.Sort(other)
+	return other
 }
 
 //  Exclude returns the subset of values not in [min, max]
@@ -493,8 +455,13 @@ func (a IntegerValues) Merge(b IntegerValues) IntegerValues {
 	// Normally, both a and b should not contain duplicates.  Due to a bug in older versions, it's
 	// possible stored blocks might contain duplicate values.  Remove them if they exists before
 	// merging.
-	a = a.Deduplicate()
-	b = b.Deduplicate()
+	if !a.ordered() {
+		a = a.Deduplicate()
+	}
+
+	if !b.ordered() {
+		b = b.Deduplicate()
+	}
 
 	if a[len(a)-1].UnixNano() < b[0].UnixNano() {
 		return append(a, b...)
@@ -602,34 +569,18 @@ func (a StringValues) assertOrdered() {
 // Deduplicate returns a new slice with any values that have the same timestamp removed.
 // The Value that appears last in the slice is the one that is kept.
 func (a StringValues) Deduplicate() StringValues {
-	if len(a) == 0 {
-		return a
+	m := make(map[int64]StringValue)
+	for _, val := range a {
+		m[val.UnixNano()] = val
 	}
 
-	// See if we're already sorted and deduped
-	var needSort bool
-	for i := 1; i < len(a); i++ {
-		if a[i-1].UnixNano() >= a[i].UnixNano() {
-			needSort = true
-			break
-		}
+	other := make(StringValues, 0, len(m))
+	for _, val := range m {
+		other = append(other, val)
 	}
 
-	if !needSort {
-		return a
-	}
-
-	sort.Stable(a)
-	var i int
-	for j := 1; j < len(a); j++ {
-		v := a[j]
-		if v.UnixNano() != a[i].UnixNano() {
-			i++
-		}
-		a[i] = v
-
-	}
-	return a[:i+1]
+	sort.Sort(other)
+	return other
 }
 
 //  Exclude returns the subset of values not in [min, max]
@@ -675,8 +626,13 @@ func (a StringValues) Merge(b StringValues) StringValues {
 	// Normally, both a and b should not contain duplicates.  Due to a bug in older versions, it's
 	// possible stored blocks might contain duplicate values.  Remove them if they exists before
 	// merging.
-	a = a.Deduplicate()
-	b = b.Deduplicate()
+	if !a.ordered() {
+		a = a.Deduplicate()
+	}
+
+	if !b.ordered() {
+		b = b.Deduplicate()
+	}
 
 	if a[len(a)-1].UnixNano() < b[0].UnixNano() {
 		return append(a, b...)
@@ -784,34 +740,18 @@ func (a BooleanValues) assertOrdered() {
 // Deduplicate returns a new slice with any values that have the same timestamp removed.
 // The Value that appears last in the slice is the one that is kept.
 func (a BooleanValues) Deduplicate() BooleanValues {
-	if len(a) == 0 {
-		return a
+	m := make(map[int64]BooleanValue)
+	for _, val := range a {
+		m[val.UnixNano()] = val
 	}
 
-	// See if we're already sorted and deduped
-	var needSort bool
-	for i := 1; i < len(a); i++ {
-		if a[i-1].UnixNano() >= a[i].UnixNano() {
-			needSort = true
-			break
-		}
+	other := make(BooleanValues, 0, len(m))
+	for _, val := range m {
+		other = append(other, val)
 	}
 
-	if !needSort {
-		return a
-	}
-
-	sort.Stable(a)
-	var i int
-	for j := 1; j < len(a); j++ {
-		v := a[j]
-		if v.UnixNano() != a[i].UnixNano() {
-			i++
-		}
-		a[i] = v
-
-	}
-	return a[:i+1]
+	sort.Sort(other)
+	return other
 }
 
 //  Exclude returns the subset of values not in [min, max]
@@ -857,8 +797,13 @@ func (a BooleanValues) Merge(b BooleanValues) BooleanValues {
 	// Normally, both a and b should not contain duplicates.  Due to a bug in older versions, it's
 	// possible stored blocks might contain duplicate values.  Remove them if they exists before
 	// merging.
-	a = a.Deduplicate()
-	b = b.Deduplicate()
+	if !a.ordered() {
+		a = a.Deduplicate()
+	}
+
+	if !b.ordered() {
+		b = b.Deduplicate()
+	}
 
 	if a[len(a)-1].UnixNano() < b[0].UnixNano() {
 		return append(a, b...)

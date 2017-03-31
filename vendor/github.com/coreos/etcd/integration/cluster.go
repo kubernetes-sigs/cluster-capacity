@@ -276,18 +276,12 @@ func (c *cluster) AddMember(t *testing.T) {
 }
 
 func (c *cluster) RemoveMember(t *testing.T, id uint64) {
-	if err := c.removeMember(t, id); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func (c *cluster) removeMember(t *testing.T, id uint64) error {
 	// send remove request to the cluster
 	cc := MustNewHTTPClient(t, c.URLs(), c.cfg.ClientTLS)
 	ma := client.NewMembersAPI(cc)
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	if err := ma.Remove(ctx, types.ID(id).String()); err != nil {
-		return err
+		t.Fatalf("unexpected remove error %v", err)
 	}
 	cancel()
 	newMembers := make([]*member, 0)
@@ -308,7 +302,6 @@ func (c *cluster) removeMember(t *testing.T, id uint64) error {
 	}
 	c.Members = newMembers
 	c.waitMembersMatch(t, c.HTTPMembers())
-	return nil
 }
 
 func (c *cluster) Terminate(t *testing.T) {
@@ -336,7 +329,6 @@ func (c *cluster) waitMembersMatch(t *testing.T, membs []client.Member) {
 
 func (c *cluster) WaitLeader(t *testing.T) int { return c.waitLeader(t, c.Members) }
 
-// waitLeader waits until given members agree on the same leader.
 func (c *cluster) waitLeader(t *testing.T, membs []*member) int {
 	possibleLead := make(map[uint64]bool)
 	var lead uint64
@@ -370,28 +362,6 @@ func (c *cluster) waitLeader(t *testing.T, membs []*member) int {
 	return -1
 }
 
-func (c *cluster) WaitNoLeader(t *testing.T) { c.waitNoLeader(t, c.Members) }
-
-// waitNoLeader waits until given members lose leader.
-func (c *cluster) waitNoLeader(t *testing.T, membs []*member) {
-	noLeader := false
-	for !noLeader {
-		noLeader = true
-		for _, m := range membs {
-			select {
-			case <-m.s.StopNotify():
-				continue
-			default:
-			}
-			if m.s.Lead() != 0 {
-				noLeader = false
-				time.Sleep(10 * tickDuration)
-				break
-			}
-		}
-	}
-}
-
 func (c *cluster) waitVersion() {
 	for _, m := range c.Members {
 		for {
@@ -404,7 +374,7 @@ func (c *cluster) waitVersion() {
 }
 
 func (c *cluster) name(i int) string {
-	return fmt.Sprint(i)
+	return fmt.Sprint("node", i)
 }
 
 // isMembersEqual checks whether two members equal except ID field.
@@ -420,8 +390,7 @@ func isMembersEqual(membs []client.Member, wmembs []client.Member) bool {
 
 func newLocalListener(t *testing.T) net.Listener {
 	c := atomic.AddInt64(&localListenCount, 1)
-	// Go 1.8+ allows only numbers in port
-	addr := fmt.Sprintf("127.0.0.1:%05d%05d", c+basePort, os.Getpid())
+	addr := fmt.Sprintf("127.0.0.1:%d.%d.sock", c+basePort, os.Getpid())
 	return NewListenerWithAddr(t, addr)
 }
 
@@ -511,7 +480,7 @@ func mustNewMember(t *testing.T, mcfg memberConfig) *member {
 // listenGRPC starts a grpc server over a unix domain socket on the member
 func (m *member) listenGRPC() error {
 	// prefix with localhost so cert has right domain
-	m.grpcAddr = "localhost:" + m.Name
+	m.grpcAddr = "localhost:" + m.Name + ".sock"
 	l, err := transport.NewUnixListener(m.grpcAddr)
 	if err != nil {
 		return fmt.Errorf("listen failed on grpc socket %s (%v)", m.grpcAddr, err)
@@ -524,10 +493,6 @@ func (m *member) listenGRPC() error {
 	m.grpcAddr = m.grpcBridge.URL()
 	m.grpcListener = l
 	return nil
-}
-
-func (m *member) electionTimeout() time.Duration {
-	return time.Duration(m.s.Cfg.ElectionTicks) * time.Millisecond
 }
 
 func (m *member) DropConnections() { m.grpcBridge.Reset() }
@@ -550,7 +515,7 @@ func NewClientV3(m *member) (*clientv3.Client, error) {
 		}
 		cfg.TLS = tls
 	}
-	return newClientV3(cfg)
+	return clientv3.New(cfg)
 }
 
 // Clone returns a member with the same server configuration. The returned
@@ -688,7 +653,7 @@ func (m *member) Close() {
 		m.grpcServer.Stop()
 		m.grpcServer = nil
 	}
-	m.s.HardStop()
+	m.s.Stop()
 	for _, hs := range m.hss {
 		hs.CloseClientConnections()
 		hs.Close()
@@ -701,15 +666,6 @@ func (m *member) Stop(t *testing.T) {
 	m.Close()
 	m.hss = nil
 	plog.Printf("stopped %s (%s)", m.Name, m.grpcAddr)
-}
-
-// checkLeaderTransition waits for leader transition, returning the new leader ID.
-func checkLeaderTransition(t *testing.T, m *member, oldLead uint64) uint64 {
-	interval := time.Duration(m.s.Cfg.TickMs) * time.Millisecond
-	for m.s.Lead() == 0 || (m.s.Lead() == oldLead) {
-		time.Sleep(interval)
-	}
-	return m.s.Lead()
 }
 
 // StopNotify unblocks when a member stop completes
@@ -750,48 +706,6 @@ func (m *member) Terminate(t *testing.T) {
 		t.Fatal(err)
 	}
 	plog.Printf("terminated %s (%s)", m.Name, m.grpcAddr)
-}
-
-// Metric gets the metric value for a member
-func (m *member) Metric(metricName string) (string, error) {
-	cfgtls := transport.TLSInfo{}
-	tr, err := transport.NewTimeoutTransport(cfgtls, time.Second, time.Second, time.Second)
-	if err != nil {
-		return "", err
-	}
-	cli := &http.Client{Transport: tr}
-	resp, err := cli.Get(m.ClientURLs[0].String() + "/metrics")
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-	b, rerr := ioutil.ReadAll(resp.Body)
-	if rerr != nil {
-		return "", rerr
-	}
-	lines := strings.Split(string(b), "\n")
-	for _, l := range lines {
-		if strings.HasPrefix(l, metricName) {
-			return strings.Split(l, " ")[1], nil
-		}
-	}
-	return "", nil
-}
-
-// InjectPartition drops connections from m to others, vice versa.
-func (m *member) InjectPartition(t *testing.T, others []*member) {
-	for _, other := range others {
-		m.s.CutPeer(other.s.ID())
-		other.s.CutPeer(m.s.ID())
-	}
-}
-
-// RecoverPartition recovers connections from m to others, vice versa.
-func (m *member) RecoverPartition(t *testing.T, others []*member) {
-	for _, other := range others {
-		m.s.MendPeer(other.s.ID())
-		other.s.MendPeer(m.s.ID())
-	}
 }
 
 func MustNewHTTPClient(t *testing.T, eps []string, tls *transport.TLSInfo) client.Client {
@@ -889,6 +803,14 @@ type grpcAPI struct {
 	Watch pb.WatchClient
 	// Maintenance is the maintenance API for the client's connection.
 	Maintenance pb.MaintenanceClient
-	// Auth is the authentication API for the client's connection.
-	Auth pb.AuthClient
+}
+
+func toGRPC(c *clientv3.Client) grpcAPI {
+	return grpcAPI{
+		pb.NewClusterClient(c.ActiveConnection()),
+		pb.NewKVClient(c.ActiveConnection()),
+		pb.NewLeaseClient(c.ActiveConnection()),
+		pb.NewWatchClient(c.ActiveConnection()),
+		pb.NewMaintenanceClient(c.ActiveConnection()),
+	}
 }

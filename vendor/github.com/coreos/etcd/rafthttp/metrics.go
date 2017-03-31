@@ -16,6 +16,7 @@ package rafthttp
 
 import "github.com/prometheus/client_golang/prometheus"
 
+// TODO: record write/recv failures.
 var (
 	sentBytes = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "etcd",
@@ -35,24 +36,6 @@ var (
 		[]string{"From"},
 	)
 
-	sentFailures = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "etcd",
-		Subsystem: "network",
-		Name:      "peer_sent_failures_total",
-		Help:      "The total number of send failures from peers.",
-	},
-		[]string{"To"},
-	)
-
-	recvFailures = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "etcd",
-		Subsystem: "network",
-		Name:      "peer_received_failures_total",
-		Help:      "The total number of receive failures from peers.",
-	},
-		[]string{"From"},
-	)
-
 	rtts = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: "etcd",
 		Subsystem: "network",
@@ -67,7 +50,5 @@ var (
 func init() {
 	prometheus.MustRegister(sentBytes)
 	prometheus.MustRegister(receivedBytes)
-	prometheus.MustRegister(sentFailures)
-	prometheus.MustRegister(recvFailures)
 	prometheus.MustRegister(rtts)
 }

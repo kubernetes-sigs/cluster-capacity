@@ -17,9 +17,6 @@ func (c *KeyCursor) ReadFloatBlock(buf *[]FloatValue) ([]FloatValue, error) {
 	first := c.current[0]
 	*buf = (*buf)[:0]
 	values, err := first.r.ReadFloatBlockAt(&first.entry, buf)
-	if err != nil {
-		return nil, err
-	}
 
 	// Remove values we already read
 	values = FloatValues(values).Exclude(first.readMin, first.readMax)
@@ -180,9 +177,6 @@ func (c *KeyCursor) ReadIntegerBlock(buf *[]IntegerValue) ([]IntegerValue, error
 	first := c.current[0]
 	*buf = (*buf)[:0]
 	values, err := first.r.ReadIntegerBlockAt(&first.entry, buf)
-	if err != nil {
-		return nil, err
-	}
 
 	// Remove values we already read
 	values = IntegerValues(values).Exclude(first.readMin, first.readMax)
@@ -343,9 +337,6 @@ func (c *KeyCursor) ReadStringBlock(buf *[]StringValue) ([]StringValue, error) {
 	first := c.current[0]
 	*buf = (*buf)[:0]
 	values, err := first.r.ReadStringBlockAt(&first.entry, buf)
-	if err != nil {
-		return nil, err
-	}
 
 	// Remove values we already read
 	values = StringValues(values).Exclude(first.readMin, first.readMax)
@@ -506,9 +497,6 @@ func (c *KeyCursor) ReadBooleanBlock(buf *[]BooleanValue) ([]BooleanValue, error
 	first := c.current[0]
 	*buf = (*buf)[:0]
 	values, err := first.r.ReadBooleanBlockAt(&first.entry, buf)
-	if err != nil {
-		return nil, err
-	}
 
 	// Remove values we already read
 	values = BooleanValues(values).Exclude(first.readMin, first.readMax)

@@ -1,33 +1,47 @@
-package: github.com/ingvagabund/cluster-capacity
+package: github.com/kubernetes-incubator/cluster-capacity
 import:
 - package: github.com/emicklei/go-restful
-  version: v1.2
 - package: github.com/ghodss/yaml
 - package: github.com/renstrom/dedent
 - package: github.com/spf13/cobra
 - package: github.com/spf13/pflag
+- package: k8s.io/client-go
+  subpackages:
+  - tools/clientcmd
+  - tools/cache
+  - tools/record
+  - rest
+  - util/flowcontrol
+- package: k8s.io/apiserver
+  subpackages:
+  - pkg/admission
+  - pkg/endpoints/request
+- package: k8s.io/apimachinery
+  subpackages:
+  - pkg/runtime
+  - pkg/api/meta
+  - pkg/apis/meta/v1
+  - pkg/api/resource
+  - pkg/labels
+  - pkg/watch
+  - pkg/runtime/schema
+  - pkg/fields
+  - pkg/types
+  - pkg/conversion
 - package: k8s.io/kubernetes
-  version: v1.5.2
+  version: v1.6.0-rc.1
   subpackages:
   - pkg/api
-  - pkg/api/meta
-  - pkg/api/resource
   - pkg/api/testapi
   - pkg/api/testing
   - pkg/api/unversioned
   - pkg/api/validation
   - pkg/apis/extensions
-  - pkg/client/cache
   - pkg/client/clientset_generated/internalclientset
   - pkg/client/clientset_generated/internalclientset/typed/extensions/unversioned
-  - pkg/client/record
-  - pkg/client/restclient
-  - pkg/client/unversioned
-  - pkg/client/unversioned/clientcmd
+  - pkg/client/informers/informers_generated/internalversion
   - pkg/fields
-  - pkg/labels
-  - pkg/runtime
-  - pkg/util/flowcontrol
+  - pkg/kubeapiserver/authorizer
   - pkg/util/yaml
   - pkg/watch
   - plugin/cmd/kube-scheduler/app/options

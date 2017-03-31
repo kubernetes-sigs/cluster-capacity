@@ -11,7 +11,6 @@ SYNPOSIS
 'influx_inspect dumptsm' [options]
 'influx_inspect export' [options]
 'influx_inspect report' [options]
-'influx_inspect verify' [options]
 
 DESCRIPTION
 -----------
@@ -26,9 +25,6 @@ following commands.
 
 *report*::
   Displays shard level report.
-
-*verify*::
-  Verifies integrity of TSM files.
 
 DUMPTSM OPTIONS
 ---------------
@@ -77,10 +73,5 @@ REPORT OPTIONS
 
 -pattern <string>::
   Include only files matching a pattern.
-
-VERIFY OPTIONS
---------------
--dir <path>::
-  Root storage path. Defaults to '~/.influxdb'.
 
 include:footer.txt[]

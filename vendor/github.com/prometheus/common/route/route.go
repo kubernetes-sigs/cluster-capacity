@@ -1,7 +1,6 @@
 package route
 
 import (
-	"fmt"
 	"net/http"
 	"sync"
 
@@ -33,44 +32,10 @@ func WithParam(ctx context.Context, p, v string) context.Context {
 	return context.WithValue(ctx, param(p), v)
 }
 
-// ContextFunc returns a new context for a request.
-type ContextFunc func(r *http.Request) (context.Context, error)
-
-// Router wraps httprouter.Router and adds support for prefixed sub-routers
-// and per-request context injections.
-type Router struct {
-	rtr    *httprouter.Router
-	prefix string
-	ctxFn  ContextFunc
-}
-
-// New returns a new Router.
-func New(ctxFn ContextFunc) *Router {
-	if ctxFn == nil {
-		ctxFn = func(r *http.Request) (context.Context, error) {
-			return context.Background(), nil
-		}
-	}
-	return &Router{
-		rtr:   httprouter.New(),
-		ctxFn: ctxFn,
-	}
-}
-
-// WithPrefix returns a router that prefixes all registered routes with prefix.
-func (r *Router) WithPrefix(prefix string) *Router {
-	return &Router{rtr: r.rtr, prefix: r.prefix + prefix, ctxFn: r.ctxFn}
-}
-
-// handle turns a HandlerFunc into an httprouter.Handle.
-func (r *Router) handle(h http.HandlerFunc) httprouter.Handle {
-	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
-		reqCtx, err := r.ctxFn(req)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Error creating request context: %v", err), http.StatusBadRequest)
-			return
-		}
-		ctx, cancel := context.WithCancel(reqCtx)
+// handle turns a Handle into httprouter.Handle
+func handle(h http.HandlerFunc) httprouter.Handle {
+	return func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
 		for _, p := range params {
@@ -78,40 +43,51 @@ func (r *Router) handle(h http.HandlerFunc) httprouter.Handle {
 		}
 
 		mtx.Lock()
-		ctxts[req] = ctx
+		ctxts[r] = ctx
 		mtx.Unlock()
 
-		h(w, req)
+		h(w, r)
 
 		mtx.Lock()
-		delete(ctxts, req)
+		delete(ctxts, r)
 		mtx.Unlock()
 	}
 }
 
-// Get registers a new GET route.
-func (r *Router) Get(path string, h http.HandlerFunc) {
-	r.rtr.GET(r.prefix+path, r.handle(h))
+// Router wraps httprouter.Router and adds support for prefixed sub-routers.
+type Router struct {
+	rtr    *httprouter.Router
+	prefix string
 }
 
-// Options registers a new OPTIONS route.
-func (r *Router) Options(path string, h http.HandlerFunc) {
-	r.rtr.OPTIONS(r.prefix+path, r.handle(h))
+// New returns a new Router.
+func New() *Router {
+	return &Router{rtr: httprouter.New()}
+}
+
+// WithPrefix returns a router that prefixes all registered routes with prefix.
+func (r *Router) WithPrefix(prefix string) *Router {
+	return &Router{rtr: r.rtr, prefix: r.prefix + prefix}
+}
+
+// Get registers a new GET route.
+func (r *Router) Get(path string, h http.HandlerFunc) {
+	r.rtr.GET(r.prefix+path, handle(h))
 }
 
 // Del registers a new DELETE route.
 func (r *Router) Del(path string, h http.HandlerFunc) {
-	r.rtr.DELETE(r.prefix+path, r.handle(h))
+	r.rtr.DELETE(r.prefix+path, handle(h))
 }
 
 // Put registers a new PUT route.
 func (r *Router) Put(path string, h http.HandlerFunc) {
-	r.rtr.PUT(r.prefix+path, r.handle(h))
+	r.rtr.PUT(r.prefix+path, handle(h))
 }
 
 // Post registers a new POST route.
 func (r *Router) Post(path string, h http.HandlerFunc) {
-	r.rtr.POST(r.prefix+path, r.handle(h))
+	r.rtr.POST(r.prefix+path, handle(h))
 }
 
 // Redirect takes an absolute path and sends an internal HTTP redirect for it,

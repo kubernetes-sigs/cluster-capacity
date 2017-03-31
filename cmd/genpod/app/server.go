@@ -22,8 +22,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"k8s.io/client-go/tools/clientcmd"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
-	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
 	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
 
 	"github.com/kubernetes-incubator/cluster-capacity/cmd/genpod/app/options"

@@ -30,12 +30,12 @@ const Scope = "https://www.googleapis.com/auth/cloud-platform"
 
 // Client is a Google Cloud Vision API client.
 type Client struct {
-	client *vkit.ImageAnnotatorClient
+	client *vkit.Client
 }
 
 // NewClient creates a new vision client.
 func NewClient(ctx context.Context, opts ...option.ClientOption) (*Client, error) {
-	c, err := vkit.NewImageAnnotatorClient(ctx, opts...)
+	c, err := vkit.NewClient(ctx, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -79,8 +79,8 @@ type AnnotateRequest struct {
 	// MaxLogos is the maximum number of logos to detect in the image.
 	// Specifying a number greater than zero enables logo detection.
 	MaxLogos int
-	// MaxLabels is the maximum number of labels to detect in the image.
-	// Specifying a number greater than zero enables labels detection.
+	// MaxLabels is the maximum number of logos to detect in the image.
+	// Specifying a number greater than zero enables logo detection.
 	MaxLabels int
 	// MaxTexts is the maximum number of separate pieces of text to detect in the
 	// image. Specifying a number greater than zero enables text detection.

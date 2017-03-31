@@ -10,7 +10,6 @@ import (
 
 	"github.com/influxdata/influxdb/influxql"
 	"github.com/influxdata/influxdb/models"
-	"go.uber.org/zap"
 )
 
 var (
@@ -28,13 +27,13 @@ type Engine interface {
 	Open() error
 	Close() error
 
-	WithLogger(zap.Logger)
+	SetLogOutput(io.Writer)
 	LoadMetadataIndex(shardID uint64, index *DatabaseIndex) error
 
 	Backup(w io.Writer, basePath string, since time.Time) error
 	Restore(r io.Reader, basePath string) error
 
-	CreateIterator(measurement string, opt influxql.IteratorOptions) (influxql.Iterator, error)
+	CreateIterator(opt influxql.IteratorOptions) (influxql.Iterator, error)
 	WritePoints(points []models.Point) error
 	ContainsSeries(keys []string) (map[string]bool, error)
 	DeleteSeries(keys []string) error
@@ -50,7 +49,6 @@ type Engine interface {
 
 	// Statistics will return statistics relevant to this engine.
 	Statistics(tags map[string]string) []models.Statistic
-	LastModified() time.Time
 
 	io.WriterTo
 }

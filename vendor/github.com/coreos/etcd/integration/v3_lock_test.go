@@ -49,11 +49,7 @@ func testMutex(t *testing.T, waiters int, chooseClient func() *clientv3.Client) 
 	lockedC := make(chan *concurrency.Mutex)
 	for i := 0; i < waiters; i++ {
 		go func() {
-			session, err := concurrency.NewSession(chooseClient())
-			if err != nil {
-				t.Error(err)
-			}
-			m := concurrency.NewMutex(session, "test-mutex")
+			m := concurrency.NewMutex(chooseClient(), "test-mutex")
 			if err := m.Lock(context.TODO()); err != nil {
 				t.Fatalf("could not wait on lock (%v)", err)
 			}
@@ -85,17 +81,12 @@ func testMutex(t *testing.T, waiters int, chooseClient func() *clientv3.Client) 
 func TestMutexSessionRelock(t *testing.T) {
 	clus := NewClusterV3(t, &ClusterConfig{Size: 3})
 	defer clus.Terminate(t)
-	session, err := concurrency.NewSession(clus.RandClient())
-	if err != nil {
-		t.Error(err)
-	}
-
-	m := concurrency.NewMutex(session, "test-mutex")
+	cli := clus.RandClient()
+	m := concurrency.NewMutex(cli, "test-mutex")
 	if err := m.Lock(context.TODO()); err != nil {
 		t.Fatal(err)
 	}
-
-	m2 := concurrency.NewMutex(session, "test-mutex")
+	m2 := concurrency.NewMutex(cli, "test-mutex")
 	if err := m2.Lock(context.TODO()); err != nil {
 		t.Fatal(err)
 	}
@@ -128,12 +119,8 @@ func testRWMutex(t *testing.T, waiters int, chooseClient func() *clientv3.Client
 	wlockedC := make(chan *recipe.RWMutex, 1)
 	for i := 0; i < waiters; i++ {
 		go func() {
-			session, err := concurrency.NewSession(chooseClient())
-			if err != nil {
-				t.Error(err)
-			}
-			rwm := recipe.NewRWMutex(session, "test-rwmutex")
-			if rand.Intn(2) == 0 {
+			rwm := recipe.NewRWMutex(chooseClient(), "test-rwmutex")
+			if rand.Intn(1) == 0 {
 				if err := rwm.RLock(); err != nil {
 					t.Fatalf("could not rlock (%v)", err)
 				}

@@ -1,10 +1,10 @@
-// Copyright 2016, Google Inc. All rights reserved.
+// Copyright 2016 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,10 +17,6 @@
 // Package pubsub is an experimental, auto-generated package for the
 // pubsub API.
 //
-// Provides reliable, many-to-many, asynchronous messaging between
-// applications.
+// Provides reliable, many-to-many, asynchronous messaging between applications.
 //
-// Use the client at cloud.google.com/go/pubsub in preference to this.
 package pubsub // import "cloud.google.com/go/pubsub/apiv1"
-
-const gapicNameVersion = "gapic/0.1.0"

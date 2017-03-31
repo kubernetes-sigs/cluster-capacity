@@ -33,7 +33,7 @@ func TestTxnError(t *testing.T) {
 	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 1})
 	defer clus.Terminate(t)
 
-	kv := clus.RandClient()
+	kv := clientv3.NewKV(clus.RandClient())
 	ctx := context.TODO()
 
 	_, err := kv.Txn(ctx).Then(clientv3.OpPut("foo", "bar1"), clientv3.OpPut("foo", "bar2")).Commit()
@@ -57,7 +57,7 @@ func TestTxnWriteFail(t *testing.T) {
 	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 3})
 	defer clus.Terminate(t)
 
-	kv := clus.Client(0)
+	kv := clientv3.NewKV(clus.Client(0))
 
 	clus.Members[0].Stop(t)
 
@@ -73,7 +73,6 @@ func TestTxnWriteFail(t *testing.T) {
 	}()
 
 	go func() {
-		defer close(getc)
 		select {
 		case <-time.After(5 * time.Second):
 			t.Fatalf("timed out waiting for txn fail")
@@ -87,10 +86,11 @@ func TestTxnWriteFail(t *testing.T) {
 		if len(gresp.Kvs) != 0 {
 			t.Fatalf("expected no keys, got %v", gresp.Kvs)
 		}
+		close(getc)
 	}()
 
 	select {
-	case <-time.After(2 * clus.Members[1].ServerConfig.ReqTimeout()):
+	case <-time.After(5 * time.Second):
 		t.Fatalf("timed out waiting for get")
 	case <-getc:
 	}
@@ -105,7 +105,7 @@ func TestTxnReadRetry(t *testing.T) {
 	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 3})
 	defer clus.Terminate(t)
 
-	kv := clus.Client(0)
+	kv := clientv3.NewKV(clus.Client(0))
 	clus.Members[0].Stop(t)
 	<-clus.Members[0].StopNotify()
 
@@ -125,7 +125,7 @@ func TestTxnReadRetry(t *testing.T) {
 	clus.Members[0].Restart(t)
 	select {
 	case <-donec:
-	case <-time.After(2 * clus.Members[1].ServerConfig.ReqTimeout()):
+	case <-time.After(5 * time.Second):
 		t.Fatalf("waited too long")
 	}
 }
@@ -136,7 +136,7 @@ func TestTxnSuccess(t *testing.T) {
 	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 3})
 	defer clus.Terminate(t)
 
-	kv := clus.Client(0)
+	kv := clientv3.NewKV(clus.Client(0))
 	ctx := context.TODO()
 
 	_, err := kv.Txn(ctx).Then(clientv3.OpPut("foo", "bar")).Commit()

@@ -121,7 +121,7 @@ function start() {
     echo "Starting $NAME..."
     if which start-stop-daemon &>/dev/null; then
         start-stop-daemon \
-            --chuid $USER:$GROUP \
+            --chuid $GROUP:$USER \
             --start \
             --quiet \
             --pidfile $PIDFILE \
@@ -156,8 +156,7 @@ function stop() {
         if kill -0 $PID &>/dev/null; then
             echo "Stopping $NAME..."
             # Process still up, send SIGTERM and remove PIDFILE
-            kill -s TERM $PID &>/dev/null && rm -f "$PIDFILE" &>/dev/null
-            n=0
+            kill -s SIGTERM $PID &>/dev/null && rm -f "$PIDFILE" &>/dev/null
             while true; do
                 # Enter loop to ensure process is stopped
                 kill -0 $PID &>/dev/null
@@ -173,7 +172,7 @@ function stop() {
                 if [ $n -eq 30 ]; then
                     # After 30 seconds, send SIGKILL
                     echo "Timeout exceeded, sending SIGKILL..."
-                    kill -s KILL $PID &>/dev/null
+                    kill -s SIGKILL $PID &>/dev/null
                 elif [ $? -eq 40 ]; then
                     # After 40 seconds, error out
                     log_failure_msg "could not stop $NAME process"

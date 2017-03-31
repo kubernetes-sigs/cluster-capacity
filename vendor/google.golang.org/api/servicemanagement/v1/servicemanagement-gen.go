@@ -241,90 +241,22 @@ func (s *Api) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-// AuditConfig: Specifies the audit configuration for a service.
-// It consists of which permission types are logged, and what
-// identities, if
-// any, are exempted from logging.
-// An AuditConifg must have one or more AuditLogConfigs.
+// AuditConfig: Enables "data access" audit logging for a service and
+// specifies a list
+// of members that are log-exempted.
 type AuditConfig struct {
-	// AuditLogConfigs: The configuration for logging of each type of
-	// permission.
-	// Next ID: 4
-	AuditLogConfigs []*AuditLogConfig `json:"auditLogConfigs,omitempty"`
-
 	// ExemptedMembers: Specifies the identities that are exempted from
 	// "data access" audit
 	// logging for the `service` specified above.
 	// Follows the same format of Binding.members.
-	// This field is deprecated in favor of per-permission-type exemptions.
 	ExemptedMembers []string `json:"exemptedMembers,omitempty"`
 
-	// Service: Specifies a service that will be enabled for audit
+	// Service: Specifies a service that will be enabled for "data access"
+	// audit
 	// logging.
 	// For example, `resourcemanager`, `storage`, `compute`.
 	// `allServices` is a special value that covers all services.
 	Service string `json:"service,omitempty"`
-
-	// ForceSendFields is a list of field names (e.g. "AuditLogConfigs") to
-	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
-	ForceSendFields []string `json:"-"`
-
-	// NullFields is a list of field names (e.g. "AuditLogConfigs") to
-	// include in API requests with the JSON null value. By default, fields
-	// with empty values are omitted from API requests. However, any field
-	// with an empty value appearing in NullFields will be sent to the
-	// server as null. It is an error if a field in this list has a
-	// non-empty value. This may be used to include null fields in Patch
-	// requests.
-	NullFields []string `json:"-"`
-}
-
-func (s *AuditConfig) MarshalJSON() ([]byte, error) {
-	type noMethod AuditConfig
-	raw := noMethod(*s)
-	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
-}
-
-// AuditLogConfig: Provides the configuration for logging a type of
-// permissions.
-// Example:
-//
-//     {
-//       "audit_log_configs": [
-//         {
-//           "log_type": "DATA_READ",
-//           "exempted_members": [
-//             "user:foo@gmail.com"
-//           ]
-//         },
-//         {
-//           "log_type": "DATA_WRITE",
-//         }
-//       ]
-//     }
-//
-// This enables 'DATA_READ' and 'DATA_WRITE' logging, while
-// exempting
-// foo@gmail.com from DATA_READ logging.
-type AuditLogConfig struct {
-	// ExemptedMembers: Specifies the identities that do not cause logging
-	// for this type of
-	// permission.
-	// Follows the same format of Binding.members.
-	ExemptedMembers []string `json:"exemptedMembers,omitempty"`
-
-	// LogType: The log type that this config enables.
-	//
-	// Possible values:
-	//   "LOG_TYPE_UNSPECIFIED" - Default case. Should never be this.
-	//   "ADMIN_READ" - Admin reads. Example: CloudIAM getIamPolicy
-	//   "DATA_WRITE" - Data writes. Example: CloudSQL Users create
-	//   "DATA_READ" - Data reads. Example: CloudSQL Users list
-	LogType string `json:"logType,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "ExemptedMembers") to
 	// unconditionally include in API requests. By default, fields with
@@ -344,8 +276,8 @@ type AuditLogConfig struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *AuditLogConfig) MarshalJSON() ([]byte, error) {
-	type noMethod AuditLogConfig
+func (s *AuditConfig) MarshalJSON() ([]byte, error) {
+	type noMethod AuditConfig
 	raw := noMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
@@ -504,14 +436,16 @@ func (s *AuthRequirement) MarshalJSON() ([]byte, error) {
 //
 //     name: calendar.googleapis.com
 //     authentication:
-//       providers:
-//       - id: google_calendar_auth
-//         jwks_uri: https://www.googleapis.com/oauth2/v1/certs
-//         issuer: https://securetoken.google.com
 //       rules:
 //       - selector: "*"
-//         requirements:
-//           provider_id: google_calendar_auth
+//         oauth:
+//           canonical_scopes:
+// https://www.googleapis.com/auth/calendar
+//
+//       - selector: google.calendar.Delegate
+//         oauth:
+//           canonical_scopes:
+// https://www.googleapis.com/auth/calendar.read
 type Authentication struct {
 	// Providers: Defines a set of authentication providers that a service
 	// supports.
@@ -680,20 +614,6 @@ func (s *BackendRule) MarshalJSON() ([]byte, error) {
 	type noMethod BackendRule
 	raw := noMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
-}
-
-func (s *BackendRule) UnmarshalJSON(data []byte) error {
-	type noMethod BackendRule
-	var s1 struct {
-		Deadline gensupport.JSONFloat64 `json:"deadline"`
-		*noMethod
-	}
-	s1.noMethod = (*noMethod)(s)
-	if err := json.Unmarshal(data, &s1); err != nil {
-		return err
-	}
-	s.Deadline = float64(s1.Deadline)
-	return nil
 }
 
 // Binding: Associates `members` with a `role`.
@@ -1671,7 +1591,29 @@ func (s *EnableServiceRequest) MarshalJSON() ([]byte, error) {
 //       # it to decide whether the subsequent cross-origin request is
 //       # allowed to proceed.
 //     - name: library-example.googleapis.com
+//       apis: google.example.library.v1.Library
 //       allow_cors: true
+//       # Below entry makes 'google.example.library.v1.Library'
+//       # API be served from endpoint address
+//       # google.example.library-example.v1.LibraryManager.
+//     - name: library-manager.googleapis.com
+//       apis: google.example.library.v1.LibraryManager
+//       # BNS address for a borg job. Can specify a task by appending
+//       # "/taskId" (e.g. "/0") to the job spec.
+//
+// Example OpenAPI extension for endpoint with allow_cors set to true:
+//
+//     {
+//       "swagger": "2.0",
+//       "info": {
+//         "description": "A simple..."
+//       },
+//       "host": "MY_PROJECT_ID.appspot.com",
+//       "x-google-endpoints": [{
+//         "name": "MY_PROJECT_ID.appspot.com",
+//         "allow_cors": "true"
+//       }]
+//     }
 type Endpoint struct {
 	// Aliases: DEPRECATED: This field is no longer supported. Instead of
 	// using aliases,
@@ -2043,32 +1985,24 @@ func (s *Http) MarshalJSON() ([]byte, error) {
 // message, as in the example below which describes a REST GET
 // operation on a resource collection of messages:
 //
-//
-//     service Messaging {
-//       rpc GetMessage(GetMessageRequest) returns (Message) {
-//         option (google.api.http).get =
+// ```proto
+// service Messaging {
+//   rpc GetMessage(GetMessageRequest) returns (Message) {
+//     option (google.api.http).get =
 // "/v1/messages/{message_id}/{sub.subfield}";
-//       }
-//     }
-//     message GetMessageRequest {
-//       message SubMessage {
-//         string subfield = 1;
-//       }
-//       string message_id = 1; // mapped to the URL
-//       SubMessage sub = 2;    // `sub.subfield` is url-mapped
-//     }
-//     message Message {
-//       string text = 1; // content of the resource
-//     }
-//
-// The same http annotation can alternatively be expressed inside
-// the
-// `GRPC API Configuration` YAML file.
-//
-//     http:
-//       rules:
-//         - selector: <proto_package_name>.Messaging.GetMessage
-//           get: /v1/messages/{message_id}/{sub.subfield}
+//   }
+// }
+// message GetMessageRequest {
+//   message SubMessage {
+//     string subfield = 1;
+//   }
+//   string message_id = 1; // mapped to the URL
+//   SubMessage sub = 2;    // `sub.subfield` is url-mapped
+// }
+// message Message {
+//   string text = 1; // content of the resource
+// }
+// ```
 //
 // This definition enables an automatic, bidrectional mapping of
 // HTTP
@@ -2091,16 +2025,17 @@ func (s *Http) MarshalJSON() ([]byte, error) {
 // parameters. Assume the following definition of the request
 // message:
 //
-//
-//     message GetMessageRequest {
-//       message SubMessage {
-//         string subfield = 1;
-//       }
-//       string message_id = 1; // mapped to the URL
-//       int64 revision = 2;    // becomes a parameter
-//       SubMessage sub = 3;    // `sub.subfield` becomes a parameter
-//     }
-//
+// ```proto
+// message GetMessageRequest {
+//   message SubMessage {
+//     string subfield = 1;
+//   }
+//   string message_id = 1; // mapped to the URL
+//   int64 revision = 2;    // becomes a parameter
+//   SubMessage sub = 3;    // `sub.subfield` becomes a
+// parameter
+// }
+// ```
 //
 // This enables a HTTP JSON to RPC mapping as below:
 //
@@ -2123,20 +2058,20 @@ func (s *Http) MarshalJSON() ([]byte, error) {
 // specifies the mapping. Consider a REST update method on the
 // message resource collection:
 //
-//
-//     service Messaging {
-//       rpc UpdateMessage(UpdateMessageRequest) returns (Message) {
-//         option (google.api.http) = {
-//           put: "/v1/messages/{message_id}"
-//           body: "message"
-//         };
-//       }
-//     }
-//     message UpdateMessageRequest {
-//       string message_id = 1; // mapped to the URL
-//       Message message = 2;   // mapped to the body
-//     }
-//
+// ```proto
+// service Messaging {
+//   rpc UpdateMessage(UpdateMessageRequest) returns (Message) {
+//     option (google.api.http) = {
+//       put: "/v1/messages/{message_id}"
+//       body: "message"
+//     };
+//   }
+// }
+// message UpdateMessageRequest {
+//   string message_id = 1; // mapped to the URL
+//   Message message = 2;   // mapped to the body
+// }
+// ```
 //
 // The following HTTP JSON to RPC mapping is enabled, where
 // the
@@ -2157,19 +2092,20 @@ func (s *Http) MarshalJSON() ([]byte, error) {
 // of
 // the update method:
 //
-//     service Messaging {
-//       rpc UpdateMessage(Message) returns (Message) {
-//         option (google.api.http) = {
-//           put: "/v1/messages/{message_id}"
-//           body: "*"
-//         };
-//       }
-//     }
-//     message Message {
-//       string message_id = 1;
-//       string text = 2;
-//     }
-//
+// ```proto
+// service Messaging {
+//   rpc UpdateMessage(Message) returns (Message) {
+//     option (google.api.http) = {
+//       put: "/v1/messages/{message_id}"
+//       body: "*"
+//     };
+//   }
+// }
+// message Message {
+//   string message_id = 1;
+//   string text = 2;
+// }
+// ```
 //
 // The following HTTP JSON to RPC mapping is enabled:
 //
@@ -2191,21 +2127,22 @@ func (s *Http) MarshalJSON() ([]byte, error) {
 // using
 // the `additional_bindings` option. Example:
 //
-//     service Messaging {
-//       rpc GetMessage(GetMessageRequest) returns (Message) {
-//         option (google.api.http) = {
-//           get: "/v1/messages/{message_id}"
-//           additional_bindings {
-//             get: "/v1/users/{user_id}/messages/{message_id}"
-//           }
-//         };
+// ```proto
+// service Messaging {
+//   rpc GetMessage(GetMessageRequest) returns (Message) {
+//     option (google.api.http) = {
+//       get: "/v1/messages/{message_id}"
+//       additional_bindings {
+//         get: "/v1/users/{user_id}/messages/{message_id}"
 //       }
-//     }
-//     message GetMessageRequest {
-//       string message_id = 1;
-//       string user_id = 2;
-//     }
-//
+//     };
+//   }
+// }
+// message GetMessageRequest {
+//   string message_id = 1;
+//   string user_id = 2;
+// }
+// ```
 //
 // This enables the following two alternative HTTP JSON to
 // RPC
@@ -2292,7 +2229,7 @@ type HttpRule struct {
 	// HTTP
 	// body. NOTE: the referred field must not be a repeated field and must
 	// be
-	// present at the top-level of request message type.
+	// present at the top-level of response message type.
 	Body string `json:"body,omitempty"`
 
 	// Custom: Custom pattern is used for defining custom verbs.
@@ -2953,16 +2890,16 @@ type MetricDescriptor struct {
 	// this
 	// descriptor. For example, following is the resource name of a
 	// custom
-	// metric within the GCP project `my-project-id`:
+	// metric within the GCP project 123456789:
 	//
 	//
-	// "projects/my-project-id/metricDescriptors/custom.googleapis.com%2Finvo
-	// ice%2Fpaid%2Famount"
+	// "projects/123456789/metricDescriptors/custom.googleapis.com%2Finvoice%
+	// 2Fpaid%2Famount"
 	Name string `json:"name,omitempty"`
 
 	// Type: The metric type, including its DNS name prefix. The type is
 	// not
-	// URL-encoded.  All user-defined custom metric types have the DNS
+	// URL-encoded.  All user-defined metric types have the DNS
 	// name
 	// `custom.googleapis.com`.  Metric types should use a natural
 	// hierarchical
@@ -3586,22 +3523,10 @@ func (s *OperationMetadata) MarshalJSON() ([]byte, error) {
 // field,
 // enumeration, etc.
 type Option struct {
-	// Name: The option's name. For protobuf built-in options (options
-	// defined in
-	// descriptor.proto), this is the short name. For example,
-	// "map_entry".
-	// For custom options, it should be the fully-qualified name. For
-	// example,
-	// "google.api.http".
+	// Name: The option's name. For example, "java_package".
 	Name string `json:"name,omitempty"`
 
-	// Value: The option's value packed in an Any message. If the value is a
-	// primitive,
-	// the corresponding wrapper type defined in
-	// google/protobuf/wrappers.proto
-	// should be used. If the value is an enum, it should be stored as an
-	// int32
-	// value using the google.protobuf.Int32Value type.
+	// Value: The option's value. For example, "com.google.protobuf".
 	Value googleapi.RawMessage `json:"value,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Name") to
@@ -3723,8 +3648,15 @@ func (s *Page) MarshalJSON() ([]byte, error) {
 // For a description of IAM and its features, see the
 // [IAM developer's guide](https://cloud.google.com/iam).
 type Policy struct {
-	// AuditConfigs: Specifies cloud audit logging configuration for this
-	// policy.
+	// AuditConfigs: Specifies audit logging configs for "data
+	// access".
+	// "data access": generally refers to data reads/writes and admin
+	// reads.
+	// "admin activity": generally refers to admin writes.
+	//
+	// Note: `AuditConfig` doesn't apply to "admin activity", which
+	// always
+	// enables audit logging.
 	AuditConfigs []*AuditConfig `json:"auditConfigs,omitempty"`
 
 	// Bindings: Associates a list of `members` to a `role`.
@@ -3974,15 +3906,10 @@ func (s *Rule) MarshalJSON() ([]byte, error) {
 //     title: Google Calendar API
 //     apis:
 //     - name: google.calendar.v3.Calendar
-//     authentication:
-//       providers:
-//       - id: google_calendar_auth
-//         jwks_uri: https://www.googleapis.com/oauth2/v1/certs
-//         issuer: https://securetoken.google.com
+//     backend:
 //       rules:
-//       - selector: "*"
-//         requirements:
-//           provider_id: google_calendar_auth
+//       - selector: "google.calendar.v3.*"
+//         address: calendar.example.com
 type Service struct {
 	// Apis: A list of API interfaces exported by this service. Only the
 	// `name` field
@@ -4150,15 +4077,6 @@ type SetIamPolicyRequest struct {
 	// Projects)
 	// might reject them.
 	Policy *Policy `json:"policy,omitempty"`
-
-	// UpdateMask: OPTIONAL: A FieldMask specifying which fields of the
-	// policy to modify. Only
-	// the fields in the mask will be modified. If no mask is provided, a
-	// default
-	// mask is used:
-	// paths: "bindings, etag"
-	// This field is only used by Cloud IAM.
-	UpdateMask string `json:"updateMask,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Policy") to
 	// unconditionally include in API requests. By default, fields with
@@ -4450,8 +4368,9 @@ type SystemParameter struct {
 	// insensitive.
 	HttpHeader string `json:"httpHeader,omitempty"`
 
-	// Name: Define the name of the parameter, such as "api_key" . It is
-	// case sensitive.
+	// Name: Define the name of the parameter, such as "api_key", "alt",
+	// "callback",
+	// and etc. It is case sensitive.
 	Name string `json:"name,omitempty"`
 
 	// UrlQueryParameter: Define the URL query parameter name to use for the
@@ -4546,26 +4465,29 @@ type SystemParameters struct {
 	// parameters
 	// and names is implementation-dependent.
 	//
-	// Example: define api key for all methods
+	// Example: define api key and alt name for all
+	// methods
 	//
-	//     system_parameters
-	//       rules:
-	//         - selector: "*"
-	//           parameters:
-	//             - name: api_key
-	//               url_query_parameter: api_key
+	// system_parameters
+	//   rules:
+	//     - selector: "*"
+	//       parameters:
+	//         - name: api_key
+	//           url_query_parameter: api_key
+	//         - name: alt
+	//           http_header: Response-Content-Type
 	//
+	// Example: define 2 api key names for a specific
+	// method.
 	//
-	// Example: define 2 api key names for a specific method.
-	//
-	//     system_parameters
-	//       rules:
-	//         - selector: "/ListShelves"
-	//           parameters:
-	//             - name: api_key
-	//               http_header: Api-Key1
-	//             - name: api_key
-	//               http_header: Api-Key2
+	// system_parameters
+	//   rules:
+	//     - selector: "/ListShelves"
+	//       parameters:
+	//         - name: api_key
+	//           http_header: Api-Key1
+	//         - name: api_key
+	//           http_header: Api-Key2
 	//
 	// **NOTE:** All service configuration rules follow "last one wins"
 	// order.
@@ -4804,20 +4726,6 @@ func (s *UndeleteServiceResponse) MarshalJSON() ([]byte, error) {
 
 // Usage: Configuration controlling usage of a service.
 type Usage struct {
-	// ProducerNotificationChannel: The full resource name of a channel used
-	// for sending notifications to the
-	// service producer.
-	//
-	// Google Service Management currently only supports
-	// [Google Cloud Pub/Sub](https://cloud.google.com/pubsub) as a
-	// notification
-	// channel. To use Google Cloud Pub/Sub as the channel, this must be the
-	// name
-	// of a Cloud Pub/Sub topic that uses the Cloud Pub/Sub topic name
-	// format
-	// documented in https://cloud.google.com/pubsub/docs/overview.
-	ProducerNotificationChannel string `json:"producerNotificationChannel,omitempty"`
-
 	// Requirements: Requirements that must be satisfied before a consumer
 	// project can use the
 	// service. Each requirement is of the form
@@ -4832,22 +4740,20 @@ type Usage struct {
 	// order.
 	Rules []*UsageRule `json:"rules,omitempty"`
 
-	// ForceSendFields is a list of field names (e.g.
-	// "ProducerNotificationChannel") to unconditionally include in API
-	// requests. By default, fields with empty values are omitted from API
-	// requests. However, any non-pointer, non-interface field appearing in
-	// ForceSendFields will be sent to the server regardless of whether the
-	// field is empty or not. This may be used to include empty fields in
-	// Patch requests.
+	// ForceSendFields is a list of field names (e.g. "Requirements") to
+	// unconditionally include in API requests. By default, fields with
+	// empty values are omitted from API requests. However, any non-pointer,
+	// non-interface field appearing in ForceSendFields will be sent to the
+	// server regardless of whether the field is empty or not. This may be
+	// used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
-	// NullFields is a list of field names (e.g.
-	// "ProducerNotificationChannel") to include in API requests with the
-	// JSON null value. By default, fields with empty values are omitted
-	// from API requests. However, any field with an empty value appearing
-	// in NullFields will be sent to the server as null. It is an error if a
-	// field in this list has a non-empty value. This may be used to include
-	// null fields in Patch requests.
+	// NullFields is a list of field names (e.g. "Requirements") to include
+	// in API requests with the JSON null value. By default, fields with
+	// empty values are omitted from API requests. However, any field with
+	// an empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
 	NullFields []string `json:"-"`
 }
 
@@ -6303,19 +6209,13 @@ type ServicesListCall struct {
 	header_      http.Header
 }
 
-// List: Lists managed services.
-//
-// If called without any authentication, it returns only the public
-// services.
-// If called with authentication, it returns all services that the
-// caller has
-// "servicemanagement.services.get" permission for.
-//
-// **BETA:** If the caller specifies the `consumer_id`, it returns only
-// the
-// services enabled on the consumer. The `consumer_id` must have the
-// format
-// of "project:{PROJECT-ID}".
+// List: Lists all managed services. The result is limited to services
+// that the
+// caller has "servicemanagement.services.get" permission for. If the
+// request
+// is made without authentication, it returns only public services that
+// are
+// available to everyone.
 func (r *ServicesService) List() *ServicesListCall {
 	c := &ServicesListCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	return c
@@ -6446,7 +6346,7 @@ func (c *ServicesListCall) Do(opts ...googleapi.CallOption) (*ListServicesRespon
 	}
 	return ret, nil
 	// {
-	//   "description": "Lists managed services.\n\nIf called without any authentication, it returns only the public services.\nIf called with authentication, it returns all services that the caller has\n\"servicemanagement.services.get\" permission for.\n\n**BETA:** If the caller specifies the `consumer_id`, it returns only the\nservices enabled on the consumer. The `consumer_id` must have the format\nof \"project:{PROJECT-ID}\".",
+	//   "description": "Lists all managed services. The result is limited to services that the\ncaller has \"servicemanagement.services.get\" permission for. If the request\nis made without authentication, it returns only public services that are\navailable to everyone.",
 	//   "flatPath": "v1/services",
 	//   "httpMethod": "GET",
 	//   "id": "servicemanagement.services.list",
@@ -6660,9 +6560,6 @@ type ServicesTestIamPermissionsCall struct {
 
 // TestIamPermissions: Returns permissions that a caller has on the
 // specified resource.
-// If the resource does not exist, this will return an empty set
-// of
-// permissions, not a NOT_FOUND error.
 func (r *ServicesService) TestIamPermissions(resource string, testiampermissionsrequest *TestIamPermissionsRequest) *ServicesTestIamPermissionsCall {
 	c := &ServicesTestIamPermissionsCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.resource = resource
@@ -6756,7 +6653,7 @@ func (c *ServicesTestIamPermissionsCall) Do(opts ...googleapi.CallOption) (*Test
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns permissions that a caller has on the specified resource.\nIf the resource does not exist, this will return an empty set of\npermissions, not a NOT_FOUND error.",
+	//   "description": "Returns permissions that a caller has on the specified resource.",
 	//   "flatPath": "v1/services/{servicesId}:testIamPermissions",
 	//   "httpMethod": "POST",
 	//   "id": "servicemanagement.services.testIamPermissions",

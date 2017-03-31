@@ -98,8 +98,6 @@ func (ms *MemoryStorage) InitialState() (pb.HardState, pb.ConfState, error) {
 
 // SetHardState saves the current HardState.
 func (ms *MemoryStorage) SetHardState(st pb.HardState) error {
-	ms.Lock()
-	defer ms.Unlock()
 	ms.hardState = st
 	return nil
 }
@@ -131,9 +129,6 @@ func (ms *MemoryStorage) Term(i uint64) (uint64, error) {
 	offset := ms.ents[0].Index
 	if i < offset {
 		return 0, ErrCompacted
-	}
-	if int(i-offset) >= len(ms.ents) {
-		return 0, ErrUnavailable
 	}
 	return ms.ents[i-offset].Term, nil
 }
@@ -173,13 +168,7 @@ func (ms *MemoryStorage) ApplySnapshot(snap pb.Snapshot) error {
 	ms.Lock()
 	defer ms.Unlock()
 
-	//handle check for old snapshot being applied
-	msIndex := ms.snapshot.Metadata.Index
-	snapIndex := snap.Metadata.Index
-	if msIndex >= snapIndex {
-		return ErrSnapOutOfDate
-	}
-
+	// TODO: return ErrSnapOutOfDate?
 	ms.snapshot = snap
 	ms.ents = []pb.Entry{{Term: snap.Metadata.Term, Index: snap.Metadata.Index}}
 	return nil

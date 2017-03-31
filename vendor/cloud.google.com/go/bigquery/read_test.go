@@ -20,7 +20,6 @@ import (
 	"testing"
 
 	"golang.org/x/net/context"
-	"google.golang.org/api/iterator"
 )
 
 type readTabledataArgs struct {
@@ -67,11 +66,9 @@ func (s *readServiceStub) readQuery(ctx context.Context, conf *readQueryConf, to
 
 func TestRead(t *testing.T) {
 	// The data for the service stub to return is populated for each test case in the testCases for loop.
-	ctx := context.Background()
 	service := &readServiceStub{}
 	c := &Client{
-		projectID: "project-id",
-		service:   service,
+		service: service,
 	}
 
 	queryJob := &Job{
@@ -81,38 +78,28 @@ func TestRead(t *testing.T) {
 		isQuery:   true,
 	}
 
-	for _, readFunc := range []func() *RowIterator{
-		func() *RowIterator {
-			return c.Dataset("dataset-id").Table("table-id").Read(ctx)
-		},
-		func() *RowIterator {
-			it, err := queryJob.Read(ctx)
-			if err != nil {
-				t.Fatal(err)
-			}
-			return it
-		},
-	} {
+	for _, src := range []ReadSource{defaultTable(service), queryJob} {
 		testCases := []struct {
 			data       [][][]Value
 			pageTokens map[string]string
-			want       [][]Value
+			want       []ValueList
 		}{
 			{
 				data:       [][][]Value{{{1, 2}, {11, 12}}, {{30, 40}, {31, 41}}},
 				pageTokens: map[string]string{"": "a", "a": ""},
-				want:       [][]Value{{1, 2}, {11, 12}, {30, 40}, {31, 41}},
+				want:       []ValueList{{1, 2}, {11, 12}, {30, 40}, {31, 41}},
 			},
 			{
 				data:       [][][]Value{{{1, 2}, {11, 12}}, {{30, 40}, {31, 41}}},
 				pageTokens: map[string]string{"": ""}, // no more pages after first one.
-				want:       [][]Value{{1, 2}, {11, 12}},
+				want:       []ValueList{{1, 2}, {11, 12}},
 			},
 		}
+
 		for _, tc := range testCases {
 			service.values = tc.data
 			service.pageTokens = tc.pageTokens
-			if got, ok := collectValues(t, readFunc()); ok {
+			if got, ok := doRead(t, c, src); ok {
 				if !reflect.DeepEqual(got, tc.want) {
 					t.Errorf("reading: got:\n%v\nwant:\n%v", got, tc.want)
 				}
@@ -121,41 +108,53 @@ func TestRead(t *testing.T) {
 	}
 }
 
-func collectValues(t *testing.T, it *RowIterator) ([][]Value, bool) {
-	var got [][]Value
-	for {
-		var vals []Value
-		err := it.Next(&vals)
-		if err == iterator.Done {
-			break
-		}
-		if err != nil {
-			t.Errorf("err calling Next: %v", err)
-			return nil, false
-		}
-		got = append(got, vals)
+// doRead calls Read with a ReadSource. Get is repeatedly called on the Iterator returned by Read and the results are returned.
+func doRead(t *testing.T, c *Client, src ReadSource) ([]ValueList, bool) {
+	it, err := c.Read(context.Background(), src)
+	if err != nil {
+		t.Errorf("err calling Read: %v", err)
+		return nil, false
 	}
+	var got []ValueList
+	for it.Next(context.Background()) {
+		var vals ValueList
+		if err := it.Get(&vals); err != nil {
+			t.Errorf("err calling Get: %v", err)
+			return nil, false
+		} else {
+			got = append(got, vals)
+		}
+	}
+
 	return got, true
 }
 
 func TestNoMoreValues(t *testing.T) {
 	c := &Client{
-		projectID: "project-id",
 		service: &readServiceStub{
 			values: [][][]Value{{{1, 2}, {11, 12}}},
 		},
 	}
-	it := c.Dataset("dataset-id").Table("table-id").Read(context.Background())
-	var vals []Value
+	it, err := c.Read(context.Background(), defaultTable(c.service))
+	if err != nil {
+		t.Fatalf("err calling Read: %v", err)
+	}
+	var vals ValueList
 	// We expect to retrieve two values and then fail on the next attempt.
-	if err := it.Next(&vals); err != nil {
-		t.Fatalf("Next: got: %v: want: nil", err)
+	if !it.Next(context.Background()) {
+		t.Fatalf("Next: got: false: want: true")
 	}
-	if err := it.Next(&vals); err != nil {
-		t.Fatalf("Next: got: %v: want: nil", err)
+	if !it.Next(context.Background()) {
+		t.Fatalf("Next: got: false: want: true")
 	}
-	if err := it.Next(&vals); err != iterator.Done {
-		t.Fatalf("Next: got: %v: want: iterator.Done", err)
+	if err := it.Get(&vals); err != nil {
+		t.Fatalf("Get: got: %v: want: nil", err)
+	}
+	if it.Next(context.Background()) {
+		t.Fatalf("Next: got: true: want: false")
+	}
+	if err := it.Get(&vals); err == nil {
+		t.Fatalf("Get: got: %v: want: non-nil", err)
 	}
 }
 
@@ -185,20 +184,24 @@ func TestIncompleteJob(t *testing.T) {
 			values: [][][]Value{{{1, 2}}},
 		},
 	}
+	c := &Client{service: service}
 	queryJob := &Job{
 		projectID: "project-id",
 		jobID:     "job-id",
 		service:   service,
 		isQuery:   true,
 	}
-	it, err := queryJob.Read(context.Background())
+	it, err := c.Read(context.Background(), queryJob)
 	if err != nil {
 		t.Fatalf("err calling Read: %v", err)
 	}
-	var got []Value
-	want := []Value{1, 2}
-	if err := it.Next(&got); err != nil {
-		t.Fatalf("Next: got: %v: want: nil", err)
+	var got ValueList
+	want := ValueList{1, 2}
+	if !it.Next(context.Background()) {
+		t.Fatalf("Next: got: false: want: true")
+	}
+	if err := it.Get(&got); err != nil {
+		t.Fatalf("Error calling Get: %v", err)
 	}
 	if service.numDelays != 0 {
 		t.Errorf("remaining numDelays : got: %v want:0", service.numDelays)
@@ -212,22 +215,23 @@ type errorReadService struct {
 	service
 }
 
-var errBang = errors.New("bang!")
-
 func (s *errorReadService) readTabledata(ctx context.Context, conf *readTableConf, token string) (*readDataResult, error) {
-	return nil, errBang
+	return nil, errors.New("bang!")
 }
 
 func TestReadError(t *testing.T) {
 	// test that service read errors are propagated back to the caller.
-	c := &Client{
-		projectID: "project-id",
-		service:   &errorReadService{},
+	c := &Client{service: &errorReadService{}}
+	it, err := c.Read(context.Background(), defaultTable(c.service))
+	if err != nil {
+		// Read should not return an error; only Err should.
+		t.Fatalf("err calling Read: %v", err)
 	}
-	it := c.Dataset("dataset-id").Table("table-id").Read(context.Background())
-	var vals []Value
-	if err := it.Next(&vals); err != errBang {
-		t.Fatalf("Get: got: %v: want: %v", err, errBang)
+	if it.Next(context.Background()) {
+		t.Fatalf("Next: got: true: want: false")
+	}
+	if err := it.Err(); err.Error() != "bang!" {
+		t.Fatalf("Get: got: %v: want: bang!", err)
 	}
 }
 
@@ -236,16 +240,16 @@ func TestReadTabledataOptions(t *testing.T) {
 	s := &readServiceStub{
 		values: [][][]Value{{{1, 2}}},
 	}
-	c := &Client{
-		projectID: "project-id",
-		service:   s,
+	c := &Client{service: s}
+	it, err := c.Read(context.Background(), defaultTable(s), RecordsPerRequest(5))
+
+	if err != nil {
+		t.Fatalf("err calling Read: %v", err)
 	}
-	it := c.Dataset("dataset-id").Table("table-id").Read(context.Background())
-	it.PageInfo().MaxSize = 5
-	var vals []Value
-	if err := it.Next(&vals); err != nil {
-		t.Fatal(err)
+	if !it.Next(context.Background()) {
+		t.Fatalf("Next: got: false: want: true")
 	}
+
 	want := []readTabledataArgs{{
 		conf: &readTableConf{
 			projectID: "project-id",
@@ -269,20 +273,21 @@ func TestReadQueryOptions(t *testing.T) {
 	s := &readServiceStub{
 		values: [][][]Value{{{1, 2}}},
 	}
+	c := &Client{service: s}
+
 	queryJob := &Job{
 		projectID: "project-id",
 		jobID:     "job-id",
 		service:   s,
 		isQuery:   true,
 	}
-	it, err := queryJob.Read(context.Background())
+	it, err := c.Read(context.Background(), queryJob, RecordsPerRequest(5))
+
 	if err != nil {
 		t.Fatalf("err calling Read: %v", err)
 	}
-	it.PageInfo().MaxSize = 5
-	var vals []Value
-	if err := it.Next(&vals); err != nil {
-		t.Fatalf("Next: got: %v: want: nil", err)
+	if !it.Next(context.Background()) {
+		t.Fatalf("Next: got: false: want: true")
 	}
 
 	want := []readQueryArgs{{

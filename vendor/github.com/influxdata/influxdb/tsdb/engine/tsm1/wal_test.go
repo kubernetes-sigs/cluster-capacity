@@ -2,7 +2,6 @@ package tsm1_test
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"testing"
 
@@ -37,7 +36,7 @@ func TestWALWriter_WritePoints_Single(t *testing.T) {
 		fatal(t, "write points", err)
 	}
 
-	if _, err := f.Seek(0, io.SeekStart); err != nil {
+	if _, err := f.Seek(0, os.SEEK_SET); err != nil {
 		fatal(t, "seek", err)
 	}
 
@@ -94,7 +93,7 @@ func TestWALWriter_WritePoints_LargeBatch(t *testing.T) {
 		fatal(t, "write points", err)
 	}
 
-	if _, err := f.Seek(0, io.SeekStart); err != nil {
+	if _, err := f.Seek(0, os.SEEK_SET); err != nil {
 		fatal(t, "seek", err)
 	}
 
@@ -154,7 +153,7 @@ func TestWALWriter_WritePoints_Multiple(t *testing.T) {
 	}
 
 	// Seek back to the beinning of the file for reading
-	if _, err := f.Seek(0, io.SeekStart); err != nil {
+	if _, err := f.Seek(0, os.SEEK_SET); err != nil {
 		fatal(t, "seek", err)
 	}
 
@@ -211,7 +210,7 @@ func TestWALWriter_WriteDelete_Single(t *testing.T) {
 		fatal(t, "write points", err)
 	}
 
-	if _, err := f.Seek(0, io.SeekStart); err != nil {
+	if _, err := f.Seek(0, os.SEEK_SET); err != nil {
 		fatal(t, "seek", err)
 	}
 
@@ -269,7 +268,7 @@ func TestWALWriter_WritePointsDelete_Multiple(t *testing.T) {
 	}
 
 	// Seek back to the beinning of the file for reading
-	if _, err := f.Seek(0, io.SeekStart); err != nil {
+	if _, err := f.Seek(0, os.SEEK_SET); err != nil {
 		fatal(t, "seek", err)
 	}
 
@@ -360,7 +359,7 @@ func TestWALWriter_WritePointsDeleteRange_Multiple(t *testing.T) {
 	}
 
 	// Seek back to the beinning of the file for reading
-	if _, err := f.Seek(0, io.SeekStart); err != nil {
+	if _, err := f.Seek(0, os.SEEK_SET); err != nil {
 		fatal(t, "seek", err)
 	}
 
@@ -539,7 +538,7 @@ func TestWALWriter_Corrupt(t *testing.T) {
 	}
 
 	// Create the WAL segment reader.
-	if _, err := f.Seek(0, io.SeekStart); err != nil {
+	if _, err := f.Seek(0, os.SEEK_SET); err != nil {
 		fatal(t, "seek", err)
 	}
 	r := tsm1.NewWALSegmentReader(f)
@@ -700,7 +699,7 @@ func BenchmarkWALSegmentReader(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
-		f.Seek(0, io.SeekStart)
+		f.Seek(0, os.SEEK_SET)
 		b.StartTimer()
 
 		for r.Next() {

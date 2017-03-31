@@ -121,32 +121,6 @@ func ExampleCodeCommit_DeleteRepository() {
 	fmt.Println(resp)
 }
 
-func ExampleCodeCommit_GetBlob() {
-	sess, err := session.NewSession()
-	if err != nil {
-		fmt.Println("failed to create session,", err)
-		return
-	}
-
-	svc := codecommit.New(sess)
-
-	params := &codecommit.GetBlobInput{
-		BlobId:         aws.String("ObjectId"),       // Required
-		RepositoryName: aws.String("RepositoryName"), // Required
-	}
-	resp, err := svc.GetBlob(params)
-
-	if err != nil {
-		// Print the error, cast err to awserr.Error to get the Code and
-		// Message from an error.
-		fmt.Println(err.Error())
-		return
-	}
-
-	// Pretty-print the response data.
-	fmt.Println(resp)
-}
-
 func ExampleCodeCommit_GetBranch() {
 	sess, err := session.NewSession()
 	if err != nil {
@@ -199,37 +173,6 @@ func ExampleCodeCommit_GetCommit() {
 	fmt.Println(resp)
 }
 
-func ExampleCodeCommit_GetDifferences() {
-	sess, err := session.NewSession()
-	if err != nil {
-		fmt.Println("failed to create session,", err)
-		return
-	}
-
-	svc := codecommit.New(sess)
-
-	params := &codecommit.GetDifferencesInput{
-		AfterCommitSpecifier:  aws.String("CommitName"),     // Required
-		RepositoryName:        aws.String("RepositoryName"), // Required
-		AfterPath:             aws.String("Path"),
-		BeforeCommitSpecifier: aws.String("CommitName"),
-		BeforePath:            aws.String("Path"),
-		MaxResults:            aws.Int64(1),
-		NextToken:             aws.String("NextToken"),
-	}
-	resp, err := svc.GetDifferences(params)
-
-	if err != nil {
-		// Print the error, cast err to awserr.Error to get the Code and
-		// Message from an error.
-		fmt.Println(err.Error())
-		return
-	}
-
-	// Pretty-print the response data.
-	fmt.Println(resp)
-}
-
 func ExampleCodeCommit_GetRepository() {
 	sess, err := session.NewSession()
 	if err != nil {
@@ -265,7 +208,7 @@ func ExampleCodeCommit_GetRepositoryTriggers() {
 	svc := codecommit.New(sess)
 
 	params := &codecommit.GetRepositoryTriggersInput{
-		RepositoryName: aws.String("RepositoryName"), // Required
+		RepositoryName: aws.String("RepositoryName"),
 	}
 	resp, err := svc.GetRepositoryTriggers(params)
 
@@ -343,20 +286,20 @@ func ExampleCodeCommit_PutRepositoryTriggers() {
 	svc := codecommit.New(sess)
 
 	params := &codecommit.PutRepositoryTriggersInput{
-		RepositoryName: aws.String("RepositoryName"), // Required
-		Triggers: []*codecommit.RepositoryTrigger{ // Required
+		RepositoryName: aws.String("RepositoryName"),
+		Triggers: []*codecommit.RepositoryTrigger{
 			{ // Required
-				DestinationArn: aws.String("Arn"), // Required
-				Events: []*string{ // Required
-					aws.String("RepositoryTriggerEventEnum"), // Required
-					// More values...
-				},
-				Name: aws.String("RepositoryTriggerName"), // Required
 				Branches: []*string{
 					aws.String("BranchName"), // Required
 					// More values...
 				},
-				CustomData: aws.String("RepositoryTriggerCustomData"),
+				CustomData:     aws.String("RepositoryTriggerCustomData"),
+				DestinationArn: aws.String("Arn"),
+				Events: []*string{
+					aws.String("RepositoryTriggerEventEnum"), // Required
+					// More values...
+				},
+				Name: aws.String("RepositoryTriggerName"),
 			},
 			// More values...
 		},
@@ -384,20 +327,20 @@ func ExampleCodeCommit_TestRepositoryTriggers() {
 	svc := codecommit.New(sess)
 
 	params := &codecommit.TestRepositoryTriggersInput{
-		RepositoryName: aws.String("RepositoryName"), // Required
-		Triggers: []*codecommit.RepositoryTrigger{ // Required
+		RepositoryName: aws.String("RepositoryName"),
+		Triggers: []*codecommit.RepositoryTrigger{
 			{ // Required
-				DestinationArn: aws.String("Arn"), // Required
-				Events: []*string{ // Required
-					aws.String("RepositoryTriggerEventEnum"), // Required
-					// More values...
-				},
-				Name: aws.String("RepositoryTriggerName"), // Required
 				Branches: []*string{
 					aws.String("BranchName"), // Required
 					// More values...
 				},
-				CustomData: aws.String("RepositoryTriggerCustomData"),
+				CustomData:     aws.String("RepositoryTriggerCustomData"),
+				DestinationArn: aws.String("Arn"),
+				Events: []*string{
+					aws.String("RepositoryTriggerEventEnum"), // Required
+					// More values...
+				},
+				Name: aws.String("RepositoryTriggerName"),
 			},
 			// More values...
 		},

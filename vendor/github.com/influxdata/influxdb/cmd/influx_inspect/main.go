@@ -1,4 +1,3 @@
-// The influx_inspect command displays detailed information about InfluxDB data files.
 package main
 
 import (
@@ -17,6 +16,7 @@ import (
 )
 
 func main() {
+
 	m := NewMain()
 	if err := m.Run(os.Args[1:]...); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -33,7 +33,7 @@ type Main struct {
 	Stderr io.Writer
 }
 
-// NewMain returns a new instance of Main.
+// NewMain return a new instance of Main.
 func NewMain() *Main {
 	return &Main{
 		Logger: log.New(os.Stderr, "[influx_inspect] ", log.LstdFlags),

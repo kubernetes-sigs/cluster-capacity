@@ -28,11 +28,12 @@ import (
 
 	"github.com/spf13/pflag"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/api/validation"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
-	"k8s.io/kubernetes/pkg/util/sets"
-	"k8s.io/kubernetes/pkg/util/yaml"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	schedopt "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app/options"
 
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/apiserver/cache"
@@ -44,7 +45,7 @@ var SupportedAdmissionControllers = sets.NewString([]string{"LimitRanger", "Reso
 
 type ClusterCapacityConfig struct {
 	Schedulers       []*schedopt.SchedulerServer
-	Pod              *api.Pod
+	Pod              *v1.Pod
 	KubeClient       clientset.Interface
 	Options          *ClusterCapacityOptions
 	DefaultScheduler *schedopt.SchedulerServer
@@ -158,31 +159,46 @@ func (s *ClusterCapacityConfig) ParseAPISpec() error {
 	}
 
 	decoder := yaml.NewYAMLOrJSONDecoder(spec, 4096)
-	err = decoder.Decode(&(s.Pod))
+	versionedPod := &v1.Pod{}
+	err = decoder.Decode(versionedPod)
 	if err != nil {
 		return fmt.Errorf("Failed to decode config file: %v", err)
 	}
 
-	if s.Pod.ObjectMeta.Namespace == "" {
-		s.Pod.ObjectMeta.Namespace = "default"
+	if versionedPod.ObjectMeta.Namespace == "" {
+		versionedPod.ObjectMeta.Namespace = "default"
 	}
 
 	// hardcoded from kube api defaults and validation
 	// TODO: rewrite when object validation gets more available for non kubectl approaches in kube
-	if s.Pod.Spec.DNSPolicy == "" {
-		s.Pod.Spec.DNSPolicy = api.DNSClusterFirst
+	if versionedPod.Spec.DNSPolicy == "" {
+		versionedPod.Spec.DNSPolicy = v1.DNSClusterFirst
 	}
-	if s.Pod.Spec.RestartPolicy == "" {
-		s.Pod.Spec.RestartPolicy = api.RestartPolicyAlways
+	if versionedPod.Spec.RestartPolicy == "" {
+		versionedPod.Spec.RestartPolicy = v1.RestartPolicyAlways
 	}
 
-	if errs := validation.ValidatePod(s.Pod); len(errs) > 0 {
+	for i := range versionedPod.Spec.Containers {
+		if versionedPod.Spec.Containers[i].TerminationMessagePolicy == "" {
+			versionedPod.Spec.Containers[i].TerminationMessagePolicy = v1.TerminationMessageFallbackToLogsOnError
+		}
+	}
+
+	// TODO: client side validation seems like a long term problem for this command.
+	internalPod := &api.Pod{}
+	if err := v1.Convert_v1_Pod_To_api_Pod(versionedPod, internalPod, nil); err != nil {
+		return fmt.Errorf("unable to convert to internal version: %#v", err)
+
+	}
+	if errs := validation.ValidatePod(internalPod); len(errs) > 0 {
 		var errStrs []string
 		for _, err := range errs {
 			errStrs = append(errStrs, fmt.Sprintf("%v: %v", err.Type, err.Field))
 		}
 		return fmt.Errorf("Invalid pod: %#v", strings.Join(errStrs, ", "))
 	}
+
+	s.Pod = versionedPod
 	return nil
 }
 
@@ -190,13 +206,14 @@ func (s *ClusterCapacityConfig) SetDefaultScheduler() error {
 	var err error
 	s.DefaultScheduler, err = parseSchedulerConfig(s.Options.DefaultSchedulerConfigFile)
 	if err != nil {
-		return err
+		return fmt.Errorf("Error in opening default scheduler config file: %v", err)
 	}
 
 	s.DefaultScheduler.Master, err = utils.GetMasterFromKubeConfig(s.Options.Kubeconfig)
 	if err != nil {
-		return err
+		return fmt.Errorf("Error in opening kubeconfig file %v", err)
 	}
+
 	s.DefaultScheduler.Kubeconfig = s.Options.Kubeconfig
 	return nil
 }

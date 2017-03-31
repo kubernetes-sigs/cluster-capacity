@@ -1,12 +1,12 @@
 {
  "kind": "discovery#restDescription",
- "etag": "\"tbys6C40o18GZwyMen5GMkdK-3s/9lrbPxfnfcTzLSOgIxD2Vj83GmI\"",
+ "etag": "\"tbys6C40o18GZwyMen5GMkdK-3s/Mf51tMCOQelv7PWZO1aUHit4Saw\"",
  "discoveryVersion": "v1",
  "id": "identitytoolkit:v3",
  "name": "identitytoolkit",
  "canonicalName": "Identity Toolkit",
  "version": "v3",
- "revision": "20161206",
+ "revision": "20161114",
  "title": "Google Identity Toolkit API",
  "description": "Help the third party sites to implement federated login.",
  "ownerDomain": "google.com",
@@ -70,9 +70,6 @@
  "auth": {
   "oauth2": {
    "scopes": {
-    "https://www.googleapis.com/auth/cloud-platform": {
-     "description": "View and manage your data across Google Cloud Platform services"
-    },
     "https://www.googleapis.com/auth/firebase": {
      "description": "View and administer all your Firebase data and settings"
     }
@@ -353,10 +350,6 @@
     "nextPageToken": {
      "type": "string",
      "description": "The token for the next page. This should be taken from the previous response."
-    },
-    "targetProjectId": {
-     "type": "string",
-     "description": "Specify which project (field value is actually project id) to operate. Only used when provided credential."
     }
    }
   },
@@ -1516,10 +1509,7 @@
      },
      "response": {
       "$ref": "CreateAuthUriResponse"
-     },
-     "scopes": [
-      "https://www.googleapis.com/auth/cloud-platform"
-     ]
+     }
     },
     "deleteAccount": {
      "id": "identitytoolkit.relyingparty.deleteAccount",
@@ -1531,10 +1521,7 @@
      },
      "response": {
       "$ref": "DeleteAccountResponse"
-     },
-     "scopes": [
-      "https://www.googleapis.com/auth/cloud-platform"
-     ]
+     }
     },
     "downloadAccount": {
      "id": "identitytoolkit.relyingparty.downloadAccount",
@@ -1548,7 +1535,6 @@
       "$ref": "DownloadAccountResponse"
      },
      "scopes": [
-      "https://www.googleapis.com/auth/cloud-platform",
       "https://www.googleapis.com/auth/firebase"
      ]
     },
@@ -1562,10 +1548,7 @@
      },
      "response": {
       "$ref": "GetAccountInfoResponse"
-     },
-     "scopes": [
-      "https://www.googleapis.com/auth/cloud-platform"
-     ]
+     }
     },
     "getOobConfirmationCode": {
      "id": "identitytoolkit.relyingparty.getOobConfirmationCode",
@@ -1577,10 +1560,7 @@
      },
      "response": {
       "$ref": "GetOobConfirmationCodeResponse"
-     },
-     "scopes": [
-      "https://www.googleapis.com/auth/cloud-platform"
-     ]
+     }
     },
     "getProjectConfig": {
      "id": "identitytoolkit.relyingparty.getProjectConfig",
@@ -1601,10 +1581,7 @@
      },
      "response": {
       "$ref": "IdentitytoolkitRelyingpartyGetProjectConfigResponse"
-     },
-     "scopes": [
-      "https://www.googleapis.com/auth/cloud-platform"
-     ]
+     }
     },
     "getPublicKeys": {
      "id": "identitytoolkit.relyingparty.getPublicKeys",
@@ -1613,10 +1590,7 @@
      "description": "Get token signing public key.",
      "response": {
       "$ref": "IdentitytoolkitRelyingpartyGetPublicKeysResponse"
-     },
-     "scopes": [
-      "https://www.googleapis.com/auth/cloud-platform"
-     ]
+     }
     },
     "getRecaptchaParam": {
      "id": "identitytoolkit.relyingparty.getRecaptchaParam",
@@ -1625,10 +1599,7 @@
      "description": "Get recaptcha secure param.",
      "response": {
       "$ref": "GetRecaptchaParamResponse"
-     },
-     "scopes": [
-      "https://www.googleapis.com/auth/cloud-platform"
-     ]
+     }
     },
     "resetPassword": {
      "id": "identitytoolkit.relyingparty.resetPassword",
@@ -1640,10 +1611,7 @@
      },
      "response": {
       "$ref": "ResetPasswordResponse"
-     },
-     "scopes": [
-      "https://www.googleapis.com/auth/cloud-platform"
-     ]
+     }
     },
     "setAccountInfo": {
      "id": "identitytoolkit.relyingparty.setAccountInfo",
@@ -1655,10 +1623,7 @@
      },
      "response": {
       "$ref": "SetAccountInfoResponse"
-     },
-     "scopes": [
-      "https://www.googleapis.com/auth/cloud-platform"
-     ]
+     }
     },
     "setProjectConfig": {
      "id": "identitytoolkit.relyingparty.setProjectConfig",
@@ -1670,10 +1635,7 @@
      },
      "response": {
       "$ref": "IdentitytoolkitRelyingpartySetProjectConfigResponse"
-     },
-     "scopes": [
-      "https://www.googleapis.com/auth/cloud-platform"
-     ]
+     }
     },
     "signOutUser": {
      "id": "identitytoolkit.relyingparty.signOutUser",
@@ -1685,10 +1647,7 @@
      },
      "response": {
       "$ref": "IdentitytoolkitRelyingpartySignOutUserResponse"
-     },
-     "scopes": [
-      "https://www.googleapis.com/auth/cloud-platform"
-     ]
+     }
     },
     "signupNewUser": {
      "id": "identitytoolkit.relyingparty.signupNewUser",
@@ -1700,10 +1659,7 @@
      },
      "response": {
       "$ref": "SignupNewUserResponse"
-     },
-     "scopes": [
-      "https://www.googleapis.com/auth/cloud-platform"
-     ]
+     }
     },
     "uploadAccount": {
      "id": "identitytoolkit.relyingparty.uploadAccount",
@@ -1717,7 +1673,6 @@
       "$ref": "UploadAccountResponse"
      },
      "scopes": [
-      "https://www.googleapis.com/auth/cloud-platform",
       "https://www.googleapis.com/auth/firebase"
      ]
     },
@@ -1731,10 +1686,7 @@
      },
      "response": {
       "$ref": "VerifyAssertionResponse"
-     },
-     "scopes": [
-      "https://www.googleapis.com/auth/cloud-platform"
-     ]
+     }
     },
     "verifyCustomToken": {
      "id": "identitytoolkit.relyingparty.verifyCustomToken",
@@ -1746,10 +1698,7 @@
      },
      "response": {
       "$ref": "VerifyCustomTokenResponse"
-     },
-     "scopes": [
-      "https://www.googleapis.com/auth/cloud-platform"
-     ]
+     }
     },
     "verifyPassword": {
      "id": "identitytoolkit.relyingparty.verifyPassword",
@@ -1761,10 +1710,7 @@
      },
      "response": {
       "$ref": "VerifyPasswordResponse"
-     },
-     "scopes": [
-      "https://www.googleapis.com/auth/cloud-platform"
-     ]
+     }
     }
    }
   }

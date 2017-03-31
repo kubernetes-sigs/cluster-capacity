@@ -37,7 +37,7 @@ func (w *WAL) renameWal(tmpdirpath string) (*WAL, error) {
 		return nil, err
 	}
 
-	w.fp = newFilePipeline(w.dir, SegmentSizeBytes)
+	w.fp = newFilePipeline(w.dir, segmentSizeBytes)
 	df, err := fileutil.OpenDir(w.dir)
 	w.dirFile = df
 	return w, err

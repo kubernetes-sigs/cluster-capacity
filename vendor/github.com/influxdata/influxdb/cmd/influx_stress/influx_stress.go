@@ -1,4 +1,3 @@
-// Command influx_stress is deprecated; use github.com/influxdata/influx-stress instead.
 package main
 
 import (

@@ -84,8 +84,7 @@
       "output":{"shape":"DescribeComplianceByConfigRuleResponse"},
       "errors":[
         {"shape":"InvalidParameterValueException"},
-        {"shape":"NoSuchConfigRuleException"},
-        {"shape":"InvalidNextTokenException"}
+        {"shape":"NoSuchConfigRuleException"}
       ]
     },
     "DescribeComplianceByResource":{
@@ -111,8 +110,7 @@
       "output":{"shape":"DescribeConfigRuleEvaluationStatusResponse"},
       "errors":[
         {"shape":"NoSuchConfigRuleException"},
-        {"shape":"InvalidParameterValueException"},
-        {"shape":"InvalidNextTokenException"}
+        {"shape":"InvalidParameterValueException"}
       ]
     },
     "DescribeConfigRules":{
@@ -124,8 +122,7 @@
       "input":{"shape":"DescribeConfigRulesRequest"},
       "output":{"shape":"DescribeConfigRulesResponse"},
       "errors":[
-        {"shape":"NoSuchConfigRuleException"},
-        {"shape":"InvalidNextTokenException"}
+        {"shape":"NoSuchConfigRuleException"}
       ]
     },
     "DescribeConfigurationRecorderStatus":{

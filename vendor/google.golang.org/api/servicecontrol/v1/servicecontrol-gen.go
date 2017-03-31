@@ -87,182 +87,6 @@ type ServicesService struct {
 	s *Service
 }
 
-// AuditLog: Common audit log format for Google Cloud Platform API
-// operations.
-//
-//
-type AuditLog struct {
-	// AuthenticationInfo: Authentication information.
-	AuthenticationInfo *AuthenticationInfo `json:"authenticationInfo,omitempty"`
-
-	// AuthorizationInfo: Authorization information. If there are
-	// multiple
-	// resources or permissions involved, then there is
-	// one AuthorizationInfo element for each {resource, permission} tuple.
-	AuthorizationInfo []*AuthorizationInfo `json:"authorizationInfo,omitempty"`
-
-	// MethodName: The name of the service method or operation.
-	// For API calls, this should be the name of the API method.
-	// For example,
-	//
-	//     "google.datastore.v1.Datastore.RunQuery"
-	//     "google.logging.v1.LoggingService.DeleteLog"
-	MethodName string `json:"methodName,omitempty"`
-
-	// NumResponseItems: The number of items returned from a List or Query
-	// API method,
-	// if applicable.
-	NumResponseItems int64 `json:"numResponseItems,omitempty,string"`
-
-	// Request: The operation request. This may not include all request
-	// parameters,
-	// such as those that are too large, privacy-sensitive, or
-	// duplicated
-	// elsewhere in the log record.
-	// It should never include user-generated data, such as file
-	// contents.
-	// When the JSON object represented here has a proto equivalent, the
-	// proto
-	// name will be indicated in the `@type` property.
-	Request googleapi.RawMessage `json:"request,omitempty"`
-
-	// RequestMetadata: Metadata about the operation.
-	RequestMetadata *RequestMetadata `json:"requestMetadata,omitempty"`
-
-	// ResourceName: The resource or collection that is the target of the
-	// operation.
-	// The name is a scheme-less URI, not including the API service
-	// name.
-	// For example:
-	//
-	//     "shelves/SHELF_ID/books"
-	//     "shelves/SHELF_ID/books/BOOK_ID"
-	ResourceName string `json:"resourceName,omitempty"`
-
-	// Response: The operation response. This may not include all response
-	// elements,
-	// such as those that are too large, privacy-sensitive, or
-	// duplicated
-	// elsewhere in the log record.
-	// It should never include user-generated data, such as file
-	// contents.
-	// When the JSON object represented here has a proto equivalent, the
-	// proto
-	// name will be indicated in the `@type` property.
-	Response googleapi.RawMessage `json:"response,omitempty"`
-
-	// ServiceData: Other service-specific data about the request, response,
-	// and other
-	// activities.
-	ServiceData googleapi.RawMessage `json:"serviceData,omitempty"`
-
-	// ServiceName: The name of the API service performing the operation.
-	// For example,
-	// "datastore.googleapis.com".
-	ServiceName string `json:"serviceName,omitempty"`
-
-	// Status: The status of the overall operation.
-	Status *Status `json:"status,omitempty"`
-
-	// ForceSendFields is a list of field names (e.g. "AuthenticationInfo")
-	// to unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
-	ForceSendFields []string `json:"-"`
-
-	// NullFields is a list of field names (e.g. "AuthenticationInfo") to
-	// include in API requests with the JSON null value. By default, fields
-	// with empty values are omitted from API requests. However, any field
-	// with an empty value appearing in NullFields will be sent to the
-	// server as null. It is an error if a field in this list has a
-	// non-empty value. This may be used to include null fields in Patch
-	// requests.
-	NullFields []string `json:"-"`
-}
-
-func (s *AuditLog) MarshalJSON() ([]byte, error) {
-	type noMethod AuditLog
-	raw := noMethod(*s)
-	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
-}
-
-// AuthenticationInfo: Authentication information for the operation.
-type AuthenticationInfo struct {
-	// AuthoritySelector: The authority selector specified by the requestor,
-	// if any.
-	// It is not guaranteed that the principal was allowed to use this
-	// authority.
-	AuthoritySelector string `json:"authoritySelector,omitempty"`
-
-	// PrincipalEmail: The email address of the authenticated user making
-	// the request.
-	PrincipalEmail string `json:"principalEmail,omitempty"`
-
-	// ForceSendFields is a list of field names (e.g. "AuthoritySelector")
-	// to unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
-	ForceSendFields []string `json:"-"`
-
-	// NullFields is a list of field names (e.g. "AuthoritySelector") to
-	// include in API requests with the JSON null value. By default, fields
-	// with empty values are omitted from API requests. However, any field
-	// with an empty value appearing in NullFields will be sent to the
-	// server as null. It is an error if a field in this list has a
-	// non-empty value. This may be used to include null fields in Patch
-	// requests.
-	NullFields []string `json:"-"`
-}
-
-func (s *AuthenticationInfo) MarshalJSON() ([]byte, error) {
-	type noMethod AuthenticationInfo
-	raw := noMethod(*s)
-	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
-}
-
-// AuthorizationInfo: Authorization information for the operation.
-type AuthorizationInfo struct {
-	// Granted: Whether or not authorization for `resource` and
-	// `permission`
-	// was granted.
-	Granted bool `json:"granted,omitempty"`
-
-	// Permission: The required IAM permission.
-	Permission string `json:"permission,omitempty"`
-
-	// Resource: The resource being accessed, as a REST-style string. For
-	// example:
-	//
-	//     bigquery.googlapis.com/projects/PROJECTID/datasets/DATASETID
-	Resource string `json:"resource,omitempty"`
-
-	// ForceSendFields is a list of field names (e.g. "Granted") to
-	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
-	ForceSendFields []string `json:"-"`
-
-	// NullFields is a list of field names (e.g. "Granted") to include in
-	// API requests with the JSON null value. By default, fields with empty
-	// values are omitted from API requests. However, any field with an
-	// empty value appearing in NullFields will be sent to the server as
-	// null. It is an error if a field in this list has a non-empty value.
-	// This may be used to include null fields in Patch requests.
-	NullFields []string `json:"-"`
-}
-
-func (s *AuthorizationInfo) MarshalJSON() ([]byte, error) {
-	type noMethod AuthorizationInfo
-	raw := noMethod(*s)
-	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
-}
-
 // CheckError: Defines the errors to be returned
 // in
 // google.api.servicecontrol.v1.CheckResponse.check_errors.
@@ -295,9 +119,6 @@ type CheckError struct {
 	//   "CLIENT_APP_BLOCKED" - The client application of the consumer
 	// request is invalid for the
 	// specific consumer project.
-	//   "API_TARGET_BLOCKED" - The API targeted by this request is invalid
-	// for the specified consumer
-	// project.
 	//   "API_KEY_INVALID" - The consumer's API key is invalid.
 	//   "API_KEY_EXPIRED" - The consumer's API Key has expired.
 	//   "API_KEY_NOT_FOUND" - The consumer's API Key was not found in
@@ -504,26 +325,6 @@ func (s *Distribution) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-func (s *Distribution) UnmarshalJSON(data []byte) error {
-	type noMethod Distribution
-	var s1 struct {
-		Maximum               gensupport.JSONFloat64 `json:"maximum"`
-		Mean                  gensupport.JSONFloat64 `json:"mean"`
-		Minimum               gensupport.JSONFloat64 `json:"minimum"`
-		SumOfSquaredDeviation gensupport.JSONFloat64 `json:"sumOfSquaredDeviation"`
-		*noMethod
-	}
-	s1.noMethod = (*noMethod)(s)
-	if err := json.Unmarshal(data, &s1); err != nil {
-		return err
-	}
-	s.Maximum = float64(s1.Maximum)
-	s.Mean = float64(s1.Mean)
-	s.Minimum = float64(s1.Minimum)
-	s.SumOfSquaredDeviation = float64(s1.SumOfSquaredDeviation)
-	return nil
-}
-
 // ExplicitBuckets: Describing buckets with arbitrary user-provided
 // width.
 type ExplicitBuckets struct {
@@ -615,22 +416,6 @@ func (s *ExponentialBuckets) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-func (s *ExponentialBuckets) UnmarshalJSON(data []byte) error {
-	type noMethod ExponentialBuckets
-	var s1 struct {
-		GrowthFactor gensupport.JSONFloat64 `json:"growthFactor"`
-		Scale        gensupport.JSONFloat64 `json:"scale"`
-		*noMethod
-	}
-	s1.noMethod = (*noMethod)(s)
-	if err := json.Unmarshal(data, &s1); err != nil {
-		return err
-	}
-	s.GrowthFactor = float64(s1.GrowthFactor)
-	s.Scale = float64(s1.Scale)
-	return nil
-}
-
 // LinearBuckets: Describing buckets with constant width.
 type LinearBuckets struct {
 	// NumFiniteBuckets: The number of finite buckets. With the underflow
@@ -672,22 +457,6 @@ func (s *LinearBuckets) MarshalJSON() ([]byte, error) {
 	type noMethod LinearBuckets
 	raw := noMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
-}
-
-func (s *LinearBuckets) UnmarshalJSON(data []byte) error {
-	type noMethod LinearBuckets
-	var s1 struct {
-		Offset gensupport.JSONFloat64 `json:"offset"`
-		Width  gensupport.JSONFloat64 `json:"width"`
-		*noMethod
-	}
-	s1.noMethod = (*noMethod)(s)
-	if err := json.Unmarshal(data, &s1); err != nil {
-		return err
-	}
-	s.Offset = float64(s1.Offset)
-	s.Width = float64(s1.Width)
-	return nil
 }
 
 // LogEntry: An individual log entry.
@@ -827,22 +596,6 @@ func (s *MetricValue) MarshalJSON() ([]byte, error) {
 	type noMethod MetricValue
 	raw := noMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
-}
-
-func (s *MetricValue) UnmarshalJSON(data []byte) error {
-	type noMethod MetricValue
-	var s1 struct {
-		DoubleValue *gensupport.JSONFloat64 `json:"doubleValue"`
-		*noMethod
-	}
-	s1.noMethod = (*noMethod)(s)
-	if err := json.Unmarshal(data, &s1); err != nil {
-		return err
-	}
-	if s1.DoubleValue != nil {
-		s.DoubleValue = (*float64)(s1.DoubleValue)
-	}
-	return nil
 }
 
 // MetricValueSet: Represents a set of metric values in the same
@@ -1133,48 +886,6 @@ func (s *ReportResponse) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-// RequestMetadata: Metadata about the request.
-type RequestMetadata struct {
-	// CallerIp: The IP address of the caller.
-	CallerIp string `json:"callerIp,omitempty"`
-
-	// CallerSuppliedUserAgent: The user agent of the caller.
-	// This information is not authenticated and should be treated
-	// accordingly.
-	// For example:
-	//
-	// +   `google-api-python-client/1.4.0`:
-	//     The request was made by the Google API client for Python.
-	// +   `Cloud SDK Command Line Tool apitools-client/1.0 gcloud/0.9.62`:
-	//     The request was made by the Google Cloud SDK CLI (gcloud).
-	// +   `AppEngine-Google; (+http://code.google.com/appengine; appid:
-	// s~my-project`:
-	//     The request was made from the `my-project` App Engine app.
-	CallerSuppliedUserAgent string `json:"callerSuppliedUserAgent,omitempty"`
-
-	// ForceSendFields is a list of field names (e.g. "CallerIp") to
-	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
-	ForceSendFields []string `json:"-"`
-
-	// NullFields is a list of field names (e.g. "CallerIp") to include in
-	// API requests with the JSON null value. By default, fields with empty
-	// values are omitted from API requests. However, any field with an
-	// empty value appearing in NullFields will be sent to the server as
-	// null. It is an error if a field in this list has a non-empty value.
-	// This may be used to include null fields in Patch requests.
-	NullFields []string `json:"-"`
-}
-
-func (s *RequestMetadata) MarshalJSON() ([]byte, error) {
-	type noMethod RequestMetadata
-	raw := noMethod(*s)
-	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
-}
-
 // Status: The `Status` type defines a logical error model that is
 // suitable for different
 // programming environments, including REST APIs and RPC APIs. It is
@@ -1313,11 +1024,9 @@ type ServicesCheckCall struct {
 //
 // If feasible, the client should cache the check results and reuse them
 // for
-// 60 seconds. In case of server errors, the client can rely on the
+// up to 60s. In case of server errors, the client may rely on the
 // cached
 // results for longer time.
-//
-// NOTE: the `CheckRequest` has the size limit of 64KB.
 //
 // This method requires the `servicemanagement.services.check`
 // permission
@@ -1416,7 +1125,7 @@ func (c *ServicesCheckCall) Do(opts ...googleapi.CallOption) (*CheckResponse, er
 	}
 	return ret, nil
 	// {
-	//   "description": "Checks an operation with Google Service Control to decide whether\nthe given operation should proceed. It should be called before the\noperation is executed.\n\nIf feasible, the client should cache the check results and reuse them for\n60 seconds. In case of server errors, the client can rely on the cached\nresults for longer time.\n\nNOTE: the `CheckRequest` has the size limit of 64KB.\n\nThis method requires the `servicemanagement.services.check` permission\non the specified service. For more information, see\n[Google Cloud IAM](https://cloud.google.com/iam).",
+	//   "description": "Checks an operation with Google Service Control to decide whether\nthe given operation should proceed. It should be called before the\noperation is executed.\n\nIf feasible, the client should cache the check results and reuse them for\nup to 60s. In case of server errors, the client may rely on the cached\nresults for longer time.\n\nThis method requires the `servicemanagement.services.check` permission\non the specified service. For more information, see\n[Google Cloud IAM](https://cloud.google.com/iam).",
 	//   "flatPath": "v1/services/{serviceName}:check",
 	//   "httpMethod": "POST",
 	//   "id": "servicecontrol.services.check",
@@ -1457,21 +1166,19 @@ type ServicesReportCall struct {
 	header_       http.Header
 }
 
-// Report: Reports operation results to Google Service Control, such as
-// logs and
-// metrics. It should be called after an operation is completed.
+// Report: Reports operations to Google Service Control. It should be
+// called
+// after the operation is completed.
 //
-// If feasible, the client should aggregate reporting data for up to
-// 5
-// seconds to reduce API traffic. Limiting aggregation to 5 seconds is
+// If feasible, the client should aggregate reporting data for up to 5s
 // to
-// reduce data loss during client crashes. Clients should carefully
-// choose
-// the aggregation time window to avoid data loss risk more than
-// 0.01%
-// for business and compliance reasons.
-//
-// NOTE: the `ReportRequest` has the size limit of 1MB.
+// reduce API traffic. Limiting aggregation to 5s is to reduce data
+// loss
+// during client crashes. Clients should carefully choose the
+// aggregation
+// window to avoid data loss risk more than 0.01% for business
+// and
+// compliance reasons.
 //
 // This method requires the `servicemanagement.services.report`
 // permission
@@ -1570,7 +1277,7 @@ func (c *ServicesReportCall) Do(opts ...googleapi.CallOption) (*ReportResponse, 
 	}
 	return ret, nil
 	// {
-	//   "description": "Reports operation results to Google Service Control, such as logs and\nmetrics. It should be called after an operation is completed.\n\nIf feasible, the client should aggregate reporting data for up to 5\nseconds to reduce API traffic. Limiting aggregation to 5 seconds is to\nreduce data loss during client crashes. Clients should carefully choose\nthe aggregation time window to avoid data loss risk more than 0.01%\nfor business and compliance reasons.\n\nNOTE: the `ReportRequest` has the size limit of 1MB.\n\nThis method requires the `servicemanagement.services.report` permission\non the specified service. For more information, see\n[Google Cloud IAM](https://cloud.google.com/iam).",
+	//   "description": "Reports operations to Google Service Control. It should be called\nafter the operation is completed.\n\nIf feasible, the client should aggregate reporting data for up to 5s to\nreduce API traffic. Limiting aggregation to 5s is to reduce data loss\nduring client crashes. Clients should carefully choose the aggregation\nwindow to avoid data loss risk more than 0.01% for business and\ncompliance reasons.\n\nThis method requires the `servicemanagement.services.report` permission\non the specified service. For more information, see\n[Google Cloud IAM](https://cloud.google.com/iam).",
 	//   "flatPath": "v1/services/{serviceName}:report",
 	//   "httpMethod": "POST",
 	//   "id": "servicecontrol.services.report",

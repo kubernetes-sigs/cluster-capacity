@@ -1,4 +1,3 @@
-// Package help is the help subcommand of the influxd command.
 package help
 
 import (

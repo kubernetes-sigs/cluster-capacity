@@ -1969,22 +1969,6 @@ func (s *GeolayerdataGeo) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-func (s *GeolayerdataGeo) UnmarshalJSON(data []byte) error {
-	type noMethod GeolayerdataGeo
-	var s1 struct {
-		Latitude  gensupport.JSONFloat64 `json:"latitude"`
-		Longitude gensupport.JSONFloat64 `json:"longitude"`
-		*noMethod
-	}
-	s1.noMethod = (*noMethod)(s)
-	if err := json.Unmarshal(data, &s1); err != nil {
-		return err
-	}
-	s.Latitude = float64(s1.Latitude)
-	s.Longitude = float64(s1.Longitude)
-	return nil
-}
-
 type GeolayerdataGeoBoundaryItem struct {
 	Latitude int64 `json:"latitude,omitempty"`
 
@@ -2071,22 +2055,6 @@ func (s *GeolayerdataGeoViewportHi) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-func (s *GeolayerdataGeoViewportHi) UnmarshalJSON(data []byte) error {
-	type noMethod GeolayerdataGeoViewportHi
-	var s1 struct {
-		Latitude  gensupport.JSONFloat64 `json:"latitude"`
-		Longitude gensupport.JSONFloat64 `json:"longitude"`
-		*noMethod
-	}
-	s1.noMethod = (*noMethod)(s)
-	if err := json.Unmarshal(data, &s1); err != nil {
-		return err
-	}
-	s.Latitude = float64(s1.Latitude)
-	s.Longitude = float64(s1.Longitude)
-	return nil
-}
-
 type GeolayerdataGeoViewportLo struct {
 	Latitude float64 `json:"latitude,omitempty"`
 
@@ -2113,22 +2081,6 @@ func (s *GeolayerdataGeoViewportLo) MarshalJSON() ([]byte, error) {
 	type noMethod GeolayerdataGeoViewportLo
 	raw := noMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
-}
-
-func (s *GeolayerdataGeoViewportLo) UnmarshalJSON(data []byte) error {
-	type noMethod GeolayerdataGeoViewportLo
-	var s1 struct {
-		Latitude  gensupport.JSONFloat64 `json:"latitude"`
-		Longitude gensupport.JSONFloat64 `json:"longitude"`
-		*noMethod
-	}
-	s1.noMethod = (*noMethod)(s)
-	if err := json.Unmarshal(data, &s1); err != nil {
-		return err
-	}
-	s.Latitude = float64(s1.Latitude)
-	s.Longitude = float64(s1.Longitude)
-	return nil
 }
 
 type Layersummaries struct {
@@ -2325,8 +2277,6 @@ type Notification struct {
 
 	// Kind: Resource type.
 	Kind string `json:"kind,omitempty"`
-
-	NotificationGroup string `json:"notificationGroup,omitempty"`
 
 	NotificationType string `json:"notification_type,omitempty"`
 
@@ -2683,6 +2633,8 @@ type Series struct {
 	// Kind: Resource type.
 	Kind string `json:"kind,omitempty"`
 
+	// Series: Series info list. The client always expects this element in
+	// the JSON output, hence declared here as OutputAlways.
 	Series []*SeriesSeries `json:"series,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the
@@ -3350,20 +3302,6 @@ func (s *VolumeSaleInfoListPrice) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-func (s *VolumeSaleInfoListPrice) UnmarshalJSON(data []byte) error {
-	type noMethod VolumeSaleInfoListPrice
-	var s1 struct {
-		Amount gensupport.JSONFloat64 `json:"amount"`
-		*noMethod
-	}
-	s1.noMethod = (*noMethod)(s)
-	if err := json.Unmarshal(data, &s1); err != nil {
-		return err
-	}
-	s.Amount = float64(s1.Amount)
-	return nil
-}
-
 type VolumeSaleInfoOffers struct {
 	// FinskyOfferType: The finsky offer type (e.g., PURCHASE=0 RENTAL=3)
 	FinskyOfferType int64 `json:"finskyOfferType,omitempty"`
@@ -3435,20 +3373,6 @@ func (s *VolumeSaleInfoOffersListPrice) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-func (s *VolumeSaleInfoOffersListPrice) UnmarshalJSON(data []byte) error {
-	type noMethod VolumeSaleInfoOffersListPrice
-	var s1 struct {
-		AmountInMicros gensupport.JSONFloat64 `json:"amountInMicros"`
-		*noMethod
-	}
-	s1.noMethod = (*noMethod)(s)
-	if err := json.Unmarshal(data, &s1); err != nil {
-		return err
-	}
-	s.AmountInMicros = float64(s1.AmountInMicros)
-	return nil
-}
-
 // VolumeSaleInfoOffersRentalDuration: The rental duration (for rental
 // offers only).
 type VolumeSaleInfoOffersRentalDuration struct {
@@ -3477,20 +3401,6 @@ func (s *VolumeSaleInfoOffersRentalDuration) MarshalJSON() ([]byte, error) {
 	type noMethod VolumeSaleInfoOffersRentalDuration
 	raw := noMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
-}
-
-func (s *VolumeSaleInfoOffersRentalDuration) UnmarshalJSON(data []byte) error {
-	type noMethod VolumeSaleInfoOffersRentalDuration
-	var s1 struct {
-		Count gensupport.JSONFloat64 `json:"count"`
-		*noMethod
-	}
-	s1.noMethod = (*noMethod)(s)
-	if err := json.Unmarshal(data, &s1); err != nil {
-		return err
-	}
-	s.Count = float64(s1.Count)
-	return nil
 }
 
 // VolumeSaleInfoOffersRetailPrice: Offer retail (=discounted) price in
@@ -3522,20 +3432,6 @@ func (s *VolumeSaleInfoOffersRetailPrice) MarshalJSON() ([]byte, error) {
 	type noMethod VolumeSaleInfoOffersRetailPrice
 	raw := noMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
-}
-
-func (s *VolumeSaleInfoOffersRetailPrice) UnmarshalJSON(data []byte) error {
-	type noMethod VolumeSaleInfoOffersRetailPrice
-	var s1 struct {
-		AmountInMicros gensupport.JSONFloat64 `json:"amountInMicros"`
-		*noMethod
-	}
-	s1.noMethod = (*noMethod)(s)
-	if err := json.Unmarshal(data, &s1); err != nil {
-		return err
-	}
-	s.AmountInMicros = float64(s1.AmountInMicros)
-	return nil
 }
 
 // VolumeSaleInfoRetailPrice: The actual selling price of the book. This
@@ -3570,20 +3466,6 @@ func (s *VolumeSaleInfoRetailPrice) MarshalJSON() ([]byte, error) {
 	type noMethod VolumeSaleInfoRetailPrice
 	raw := noMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
-}
-
-func (s *VolumeSaleInfoRetailPrice) UnmarshalJSON(data []byte) error {
-	type noMethod VolumeSaleInfoRetailPrice
-	var s1 struct {
-		Amount gensupport.JSONFloat64 `json:"amount"`
-		*noMethod
-	}
-	s1.noMethod = (*noMethod)(s)
-	if err := json.Unmarshal(data, &s1); err != nil {
-		return err
-	}
-	s.Amount = float64(s1.Amount)
-	return nil
 }
 
 // VolumeSearchInfo: Search result information related to this volume.
@@ -3956,20 +3838,6 @@ func (s *VolumeVolumeInfo) MarshalJSON() ([]byte, error) {
 	type noMethod VolumeVolumeInfo
 	raw := noMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
-}
-
-func (s *VolumeVolumeInfo) UnmarshalJSON(data []byte) error {
-	type noMethod VolumeVolumeInfo
-	var s1 struct {
-		AverageRating gensupport.JSONFloat64 `json:"averageRating"`
-		*noMethod
-	}
-	s1.noMethod = (*noMethod)(s)
-	if err := json.Unmarshal(data, &s1); err != nil {
-		return err
-	}
-	s.AverageRating = float64(s1.AverageRating)
-	return nil
 }
 
 // VolumeVolumeInfoDimensions: Physical dimensions of this volume.

@@ -15,6 +15,7 @@
 package v3rpc
 
 import (
+	"strings"
 	"sync"
 	"time"
 
@@ -24,7 +25,6 @@ import (
 	"github.com/coreos/etcd/pkg/types"
 	"github.com/coreos/etcd/raft"
 
-	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -53,8 +53,7 @@ func newUnaryInterceptor(s *etcdserver.EtcdServer) grpc.UnaryServerInterceptor {
 				}
 			}
 		}
-
-		return prometheus.UnaryServerInterceptor(ctx, req, info, handler)
+		return metricsUnaryInterceptor(ctx, req, info, handler)
 	}
 }
 
@@ -89,9 +88,42 @@ func newStreamInterceptor(s *etcdserver.EtcdServer) grpc.StreamServerInterceptor
 
 			}
 		}
-
-		return prometheus.StreamServerInterceptor(srv, ss, info, handler)
+		return metricsStreamInterceptor(srv, ss, info, handler)
 	}
+}
+
+func metricsUnaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+	service, method := splitMethodName(info.FullMethod)
+	receivedCounter.WithLabelValues(service, method).Inc()
+
+	start := time.Now()
+	resp, err = handler(ctx, req)
+	if err != nil {
+		failedCounter.WithLabelValues(service, method, grpc.Code(err).String()).Inc()
+	}
+	handlingDuration.WithLabelValues(service, method).Observe(time.Since(start).Seconds())
+
+	return resp, err
+}
+
+func metricsStreamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	service, method := splitMethodName(info.FullMethod)
+	receivedCounter.WithLabelValues(service, method).Inc()
+
+	err := handler(srv, ss)
+	if err != nil {
+		failedCounter.WithLabelValues(service, method, grpc.Code(err).String()).Inc()
+	}
+
+	return err
+}
+
+func splitMethodName(fullMethodName string) (string, string) {
+	fullMethodName = strings.TrimPrefix(fullMethodName, "/") // remove leading slash
+	if i := strings.Index(fullMethodName, "/"); i >= 0 {
+		return fullMethodName[:i], fullMethodName[i+1:]
+	}
+	return "unknown", "unknown"
 }
 
 type serverStreamWithCtx struct {

@@ -28,9 +28,29 @@ import (
 
 const prodAddr = "https://www.googleapis.com/bigquery/v2/"
 
-// ExternalData is a table which is stored outside of BigQuery.  It is implemented by GCSReference.
-type ExternalData interface {
-	externalDataConfig() bq.ExternalDataConfiguration
+// A Source is a source of data for the Copy function.
+type Source interface {
+	implementsSource()
+}
+
+// A Destination is a destination of data for the Copy function.
+type Destination interface {
+	implementsDestination()
+}
+
+// An Option is an optional argument to Copy.
+type Option interface {
+	implementsOption()
+}
+
+// A ReadSource is a source of data for the Read function.
+type ReadSource interface {
+	implementsReadSource()
+}
+
+// A ReadOption is an optional argument to Read.
+type ReadOption interface {
+	customizeRead(conf *pagingConf)
 }
 
 const Scope = "https://www.googleapis.com/auth/bigquery"
@@ -68,9 +88,88 @@ func NewClient(ctx context.Context, projectID string, opts ...option.ClientOptio
 	return c, nil
 }
 
-// Close closes any resources held by the client.
-// Close should be called when the client is no longer needed.
-// It need not be called at program exit.
-func (c *Client) Close() error {
-	return nil
+// initJobProto creates and returns a bigquery Job proto.
+// The proto is customized using any jobOptions in options.
+// The list of Options is returned with the jobOptions removed.
+func initJobProto(projectID string, options []Option) (*bq.Job, []Option) {
+	job := &bq.Job{}
+
+	var other []Option
+	for _, opt := range options {
+		if o, ok := opt.(jobOption); ok {
+			o.customizeJob(job, projectID)
+		} else {
+			other = append(other, opt)
+		}
+	}
+	return job, other
+}
+
+// Copy starts a BigQuery operation to copy data from a Source to a Destination.
+func (c *Client) Copy(ctx context.Context, dst Destination, src Source, options ...Option) (*Job, error) {
+	switch dst := dst.(type) {
+	case *Table:
+		switch src := src.(type) {
+		case *GCSReference:
+			return c.load(ctx, dst, src, options)
+		case *Table:
+			return c.cp(ctx, dst, Tables{src}, options)
+		case Tables:
+			return c.cp(ctx, dst, src, options)
+		case *Query:
+			return c.query(ctx, dst, src, options)
+		}
+	case *GCSReference:
+		if src, ok := src.(*Table); ok {
+			return c.extract(ctx, dst, src, options)
+		}
+	}
+	return nil, fmt.Errorf("no Copy operation matches dst/src pair: dst: %T ; src: %T", dst, src)
+}
+
+// Query creates a query with string q. You may optionally set
+// DefaultProjectID and DefaultDatasetID on the returned query before using it.
+func (c *Client) Query(q string) *Query {
+	return &Query{Q: q, client: c}
+}
+
+// Read submits a query for execution and returns the results via an Iterator.
+//
+// Read uses a temporary table to hold the results of the query job.
+//
+// For more control over how a query is performed, don't use this method but
+// instead pass the Query as a Source to Client.Copy, and call Read on the
+// resulting Job.
+func (q *Query) Read(ctx context.Context, options ...ReadOption) (*Iterator, error) {
+	dest := &Table{}
+	job, err := q.client.Copy(ctx, dest, q, WriteTruncate)
+	if err != nil {
+		return nil, err
+	}
+	return job.Read(ctx, options...)
+}
+
+// executeQuery submits a query for execution and returns the results via an Iterator.
+func (c *Client) executeQuery(ctx context.Context, q *Query, options ...ReadOption) (*Iterator, error) {
+	dest := &Table{}
+	job, err := c.Copy(ctx, dest, q, WriteTruncate)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.Read(ctx, job, options...)
+}
+
+// Dataset creates a handle to a BigQuery dataset in the client's project.
+func (c *Client) Dataset(id string) *Dataset {
+	return c.DatasetInProject(c.projectID, id)
+}
+
+// DatasetInProject creates a handle to a BigQuery dataset in the specified project.
+func (c *Client) DatasetInProject(projectID, datasetID string) *Dataset {
+	return &Dataset{
+		projectID: projectID,
+		id:        datasetID,
+		service:   c.service,
+	}
 }

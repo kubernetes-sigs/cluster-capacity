@@ -28,7 +28,7 @@ To start etcd automatically using custom settings at startup in Linux, using a [
 
 ### --snapshot-count
 + Number of committed transactions to trigger a snapshot to disk.
-+ default: "100000"
++ default: "10000"
 + env variable: ETCD_SNAPSHOT_COUNT
 
 ### --heartbeat-interval
@@ -140,12 +140,6 @@ To start etcd automatically using custom settings at startup in Linux, using a [
 + default: 0
 + env variable: ETCD_AUTO_COMPACTION_RETENTION
 
-
-### --enable-v2
-+ Accept etcd V2 client requests
-+ default: true
-+ env variable: ETCD_ENABLE_V2
-
 ## Proxy flags
 
 `--proxy` prefix flags configures etcd to run in [proxy mode][proxy]. "proxy" supports v2 API only.
@@ -253,7 +247,7 @@ The security flags help to [build a secure etcd cluster][security].
 + env variable: ETCD_DEBUG
 
 ### --log-package-levels
-+ Set individual etcd subpackages to specific log levels. An example being `etcdserver=WARNING,security=DEBUG`
++ Set individual etcd subpackages to specific log levels. An example being `etcdserver=WARNING,security=DEBUG` 
 + default: none (INFO for all packages)
 + env variable: ETCD_LOG_PACKAGE_LEVELS
 
@@ -282,12 +276,8 @@ Follow the instructions when using these flags.
 ## Profiling flags
 
 ### --enable-pprof
-+ Enable runtime profiling data via HTTP server. Address is at client URL + "/debug/pprof/"
++ Enable runtime profiling data via HTTP server. Address is at client URL + "/debug/pprof"
 + default: false
-
-### --metrics
-+ Set level of detail for exported metrics, specify 'extensive' to include histogram metrics.
-+ default: basic
 
 [build-cluster]: clustering.md#static
 [reconfig]: runtime-configuration.md

@@ -1,4 +1,3 @@
-// Package pool provides pool structures to help reduce garbage collector pressure.
 package pool
 
 // Bytes is a pool of byte slices that can be re-used.  Slices in

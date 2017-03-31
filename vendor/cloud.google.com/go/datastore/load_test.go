@@ -8,7 +8,7 @@
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// WITHOUT WARRNestedSimpleWithTagIES OR CONDITIONS OF NestedSimpleY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -409,102 +409,6 @@ func TestLoadEntityNested(t *testing.T) {
 
 		if !reflect.DeepEqual(tc.want, dst) {
 			t.Errorf("%s: compare:\ngot:  %#v\nwant: %#v", tc.desc, dst, tc.want)
-		}
-	}
-}
-
-type NestedStructPtrs struct {
-	*SimpleTwoFields
-	Nest      *SimpleTwoFields
-	TwiceNest *NestedSimple2
-	I         int
-}
-
-type NestedSimple2 struct {
-	A *Simple
-	I int
-}
-
-func TestAlreadyPopulatedDst(t *testing.T) {
-	testCases := []struct {
-		desc string
-		src  *pb.Entity
-		dst  interface{}
-		want interface{}
-	}{
-		{
-			"simple already populated, nil properties",
-			&pb.Entity{
-				Key: keyToProto(testKey0),
-				Properties: map[string]*pb.Value{
-					"I": {ValueType: &pb.Value_NullValue{}},
-				},
-			},
-			&Simple{
-				I: 12,
-			},
-			&Simple{},
-		},
-		{
-			"nested structs already populated",
-			&pb.Entity{
-				Key: keyToProto(testKey0),
-				Properties: map[string]*pb.Value{
-					"SS": {ValueType: &pb.Value_StringValue{"world"}},
-				},
-			},
-			&SimpleTwoFields{S: "hello" /* SS: "" */},
-			&SimpleTwoFields{S: "hello", SS: "world"},
-		},
-		{
-			"nested structs already populated, pValues nil",
-			&pb.Entity{
-				Key: keyToProto(testKey0),
-				Properties: map[string]*pb.Value{
-					"S":    {ValueType: &pb.Value_NullValue{}},
-					"SS":   {ValueType: &pb.Value_StringValue{"ss hello"}},
-					"Nest": {ValueType: &pb.Value_NullValue{}},
-					"TwiceNest": {ValueType: &pb.Value_EntityValue{
-						&pb.Entity{
-							Properties: map[string]*pb.Value{
-								"A": {ValueType: &pb.Value_NullValue{}},
-								"I": {ValueType: &pb.Value_IntegerValue{2}},
-							},
-						},
-					}},
-					"I": {ValueType: &pb.Value_IntegerValue{5}},
-				},
-			},
-			&NestedStructPtrs{
-				&SimpleTwoFields{S: "hello" /* SS: "" */},
-				&SimpleTwoFields{ /* S: "" */ SS: "twice hello"},
-				&NestedSimple2{
-					A: &Simple{I: 2},
-					/* I: 0 */
-				},
-				0,
-			},
-			&NestedStructPtrs{
-				&SimpleTwoFields{ /* S: "" */ SS: "ss hello"},
-				nil,
-				&NestedSimple2{
-					/* A: nil, */
-					I: 2,
-				},
-				5,
-			},
-		},
-	}
-
-	for _, tc := range testCases {
-		err := loadEntity(tc.dst, tc.src)
-		if err != nil {
-			t.Errorf("loadEntity: %s: %v", tc.desc, err)
-			continue
-		}
-
-		if !reflect.DeepEqual(tc.want, tc.dst) {
-			t.Errorf("%s: compare:\ngot:  %#v\nwant: %#v", tc.desc, tc.dst, tc.want)
 		}
 	}
 }

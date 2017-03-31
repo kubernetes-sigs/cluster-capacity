@@ -2,11 +2,12 @@ package influxql
 
 import (
 	"fmt"
+	"io/ioutil"
+	"log"
 	"sync"
 	"time"
 
 	"github.com/influxdata/influxdb/models"
-	"go.uber.org/zap"
 )
 
 const (
@@ -29,7 +30,7 @@ type TaskManager struct {
 
 	// Logger to use for all logging.
 	// Defaults to discarding all log output.
-	Logger zap.Logger
+	Logger *log.Logger
 
 	// Used for managing and tracking running queries.
 	queries  map[uint64]*QueryTask
@@ -42,7 +43,7 @@ type TaskManager struct {
 func NewTaskManager() *TaskManager {
 	return &TaskManager{
 		QueryTimeout: DefaultQueryTimeout,
-		Logger:       zap.New(zap.NullEncoder()),
+		Logger:       log.New(ioutil.Discard, "[query] ", log.LstdFlags),
 		queries:      make(map[uint64]*QueryTask),
 		nextID:       1,
 	}
@@ -156,8 +157,8 @@ func (t *TaskManager) AttachQuery(q *Query, database string, interrupt <-chan st
 
 			select {
 			case <-timer.C:
-				t.Logger.Warn(fmt.Sprintf("Detected slow query: %s (qid: %d, database: %s, threshold: %s)",
-					query.query, qid, query.database, t.LogQueriesAfter))
+				t.Logger.Printf("Detected slow query: %s (qid: %d, database: %s, threshold: %s)",
+					query.query, qid, query.database, t.LogQueriesAfter)
 			case <-closing:
 			}
 			return nil

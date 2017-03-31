@@ -26,10 +26,10 @@ import (
 	"github.com/renstrom/dedent"
 	"github.com/spf13/cobra"
 
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
-	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
-	"k8s.io/kubernetes/pkg/util/sets"
-	"k8s.io/kubernetes/pkg/util/wait"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/tools/clientcmd"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
 
 	"github.com/kubernetes-incubator/cluster-capacity/cmd/cluster-capacity/app/options"
@@ -87,6 +87,10 @@ func Validate(opt *options.ClusterCapacityOptions) error {
 
 	if len(opt.PodSpecFile) == 0 {
 		return fmt.Errorf("Pod spec file is missing")
+	}
+
+	if len(opt.Kubeconfig) == 0 {
+		return fmt.Errorf("kubeconfig is missing")
 	}
 
 	if opt.ResourceSpaceMode != "" && opt.ResourceSpaceMode != "ResourceSpaceFull" && opt.ResourceSpaceMode != "ResourceSpacePartial" {

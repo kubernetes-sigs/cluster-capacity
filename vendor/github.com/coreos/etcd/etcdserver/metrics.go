@@ -52,7 +52,7 @@ var (
 		Name:      "proposals_pending",
 		Help:      "The current number of pending proposals to commit.",
 	})
-	proposalsFailed = prometheus.NewCounter(prometheus.CounterOpts{
+	proposalsFailed = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: "etcd",
 		Subsystem: "server",
 		Name:      "proposals_failed_total",

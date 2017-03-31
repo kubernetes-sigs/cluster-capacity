@@ -68,12 +68,6 @@ VERSION:
 {{end}}\
 {{if .Cmd.HasSubCommands}}\
 
-API VERSION:
-{{printf "\t%s" .APIVersion}}
-{{end}}\
-{{if .Cmd.HasSubCommands}}\
-
-
 COMMANDS:
 {{range .SubCommands}}\
 {{ $cmdname := cmdName . $cmd }}\
@@ -154,14 +148,12 @@ func usageFunc(cmd *cobra.Command) error {
 		GlobalFlags string
 		SubCommands []*cobra.Command
 		Version     string
-		APIVersion  string
 	}{
 		cmd,
 		etcdFlagUsages(cmd.LocalFlags()),
 		etcdFlagUsages(cmd.InheritedFlags()),
 		subCommands,
 		version.Version,
-		version.APIVersion,
 	})
 	tabOut.Flush()
 	return nil

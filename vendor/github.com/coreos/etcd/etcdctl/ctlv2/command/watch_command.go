@@ -46,7 +46,7 @@ func NewWatchCommand() cli.Command {
 // watchCommandFunc executes the "watch" command.
 func watchCommandFunc(c *cli.Context, ki client.KeysAPI) {
 	if len(c.Args()) == 0 {
-		handleError(c, ExitBadArgs, errors.New("key required"))
+		handleError(ExitBadArgs, errors.New("key required"))
 	}
 	key := c.Args()[0]
 	recursive := c.Bool("recursive")
@@ -67,7 +67,7 @@ func watchCommandFunc(c *cli.Context, ki client.KeysAPI) {
 	for !stop {
 		resp, err := w.Next(context.TODO())
 		if err != nil {
-			handleError(c, ExitServerError, err)
+			handleError(ExitServerError, err)
 		}
 		if resp.Node.Dir {
 			continue

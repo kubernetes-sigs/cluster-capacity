@@ -27,7 +27,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/context"
 	pb "google.golang.org/genproto/googleapis/datastore/v1"
-	"google.golang.org/grpc"
 )
 
 type (
@@ -61,7 +60,12 @@ func makeUint8Slice(n int) []uint8 {
 }
 
 func newKey(stringID string, parent *Key) *Key {
-	return NameKey("kind", stringID, parent)
+	return &Key{
+		kind:   "kind",
+		name:   stringID,
+		id:     0,
+		parent: parent,
+	}
 }
 
 var (
@@ -134,37 +138,6 @@ type K0 struct {
 
 type K1 struct {
 	K []*Key
-}
-
-type S struct {
-	St string
-}
-
-type NoOmit struct {
-	A string
-	B int  `datastore:"Bb"`
-	C bool `datastore:",noindex"`
-}
-
-type OmitAll struct {
-	A string `datastore:",omitempty"`
-	B int    `datastore:"Bb,omitempty"`
-	C bool   `datastore:",omitempty,noindex"`
-	F []int  `datastore:",omitempty"`
-}
-
-type Omit struct {
-	A string `datastore:",omitempty"`
-	B int    `datastore:"Bb,omitempty"`
-	C bool   `datastore:",omitempty,noindex"`
-	F []int  `datastore:",omitempty"`
-	S `datastore:",omitempty"`
-}
-
-type NoOmits struct {
-	No []NoOmit `datastore:",omitempty"`
-	S  `datastore:",omitempty"`
-	Ss S `datastore:",omitempty"`
 }
 
 type N0 struct {
@@ -268,7 +241,7 @@ type Tagged struct {
 	J int `datastore:",noindex" json:"j"`
 
 	Y0 `datastore:"-"`
-	Z  chan int `datastore:"-"`
+	Z  chan int `datastore:"-,"`
 }
 
 type InvalidTagged1 struct {
@@ -278,14 +251,6 @@ type InvalidTagged1 struct {
 type InvalidTagged2 struct {
 	I int
 	J int `datastore:"I"`
-}
-
-type InvalidTagged3 struct {
-	X string `datastore:"-,noindex"`
-}
-
-type InvalidTagged4 struct {
-	X string `datastore:",garbage"`
 }
 
 type Inner1 struct {
@@ -301,27 +266,11 @@ type Inner3 struct {
 	Z bool
 }
 
-type Inner5 struct {
-	WW int
-}
-
-type Inner4 struct {
-	X Inner5
-}
-
 type Outer struct {
 	A int16
 	I []Inner1
 	J Inner2
 	Inner3
-}
-
-type OuterFlatten struct {
-	A      int16
-	I      []Inner1 `datastore:",flatten"`
-	J      Inner2   `datastore:",flatten,noindex"`
-	Inner3 `datastore:",flatten"`
-	K      Inner4 `datastore:",flatten"`
 }
 
 type OuterEquivalent struct {
@@ -349,7 +298,7 @@ type SliceOfSlices struct {
 	S []struct {
 		J int
 		F []float64
-	} `datastore:",flatten"`
+	}
 }
 
 type Recursive struct {
@@ -367,57 +316,10 @@ type MutuallyRecursive1 struct {
 	R []MutuallyRecursive0
 }
 
-type EntityWithKey struct {
-	I int
-	S string
-	K *Key `datastore:"__key__"`
-}
-
-type EntityWithKey2 EntityWithKey
-
-type WithNestedEntityWithKey struct {
-	N EntityWithKey
-}
-
-type WithNonKeyField struct {
-	I int
-	K string `datastore:"__key__"`
-}
-
-type NestedWithNonKeyField struct {
-	N WithNonKeyField
-}
-
-type Basic struct {
-	A string
-}
-
-type PtrToStructField struct {
-	B *Basic
-	C *Basic `datastore:"c,noindex"`
-	*Basic
-	D []*Basic
-}
-
-var two int = 2
-
-type PtrToInt struct {
-	I *int
-}
-
 type Doubler struct {
 	S string
 	I int64
 	B bool
-}
-
-type Repeat struct {
-	Key   string
-	Value []byte
-}
-
-type Repeated struct {
-	Repeats []Repeat
 }
 
 func (d *Doubler) Load(props []Property) error {
@@ -586,88 +488,6 @@ var testCases = []testCase{
 		"",
 	},
 	{
-		"omit empty, all",
-		&OmitAll{},
-		new(PropertyList),
-		"",
-		"",
-	},
-	{
-		"omit empty",
-		&Omit{},
-		&PropertyList{
-			Property{Name: "St", Value: "", NoIndex: false},
-		},
-		"",
-		"",
-	},
-	{
-		"omit empty, fields populated",
-		&Omit{
-			A: "a",
-			B: 10,
-			C: true,
-			F: []int{11},
-		},
-		&PropertyList{
-			Property{Name: "A", Value: "a", NoIndex: false},
-			Property{Name: "Bb", Value: int64(10), NoIndex: false},
-			Property{Name: "C", Value: true, NoIndex: true},
-			Property{Name: "F", Value: []interface{}{int64(11)}, NoIndex: false},
-			Property{Name: "St", Value: "", NoIndex: false},
-		},
-		"",
-		"",
-	},
-	{
-		"omit empty, fields populated",
-		&Omit{
-			A: "a",
-			B: 10,
-			C: true,
-			F: []int{11},
-			S: S{St: "string"},
-		},
-		&PropertyList{
-			Property{Name: "A", Value: "a", NoIndex: false},
-			Property{Name: "Bb", Value: int64(10), NoIndex: false},
-			Property{Name: "C", Value: true, NoIndex: true},
-			Property{Name: "F", Value: []interface{}{int64(11)}, NoIndex: false},
-			Property{Name: "St", Value: "string", NoIndex: false},
-		},
-		"",
-		"",
-	},
-	{
-		"omit empty does not propagate",
-		&NoOmits{
-			No: []NoOmit{
-				NoOmit{},
-			},
-			S:  S{},
-			Ss: S{},
-		},
-		&PropertyList{
-			Property{Name: "No", Value: []interface{}{
-				&Entity{
-					Properties: []Property{
-						Property{Name: "A", Value: "", NoIndex: false},
-						Property{Name: "Bb", Value: int64(0), NoIndex: false},
-						Property{Name: "C", Value: false, NoIndex: true},
-					},
-				},
-			}, NoIndex: false},
-			Property{Name: "Ss", Value: &Entity{
-				Properties: []Property{
-					Property{Name: "St", Value: "", NoIndex: false},
-				},
-			}, NoIndex: false},
-			Property{Name: "St", Value: "", NoIndex: false},
-		},
-		"",
-		"",
-	},
-	{
 		"key",
 		&K0{K: testKey1a},
 		&K0{K: testKey1b},
@@ -817,35 +637,6 @@ var testCases = []testCase{
 		"",
 	},
 	{
-		"slice of slices of bytes",
-		&Repeated{
-			Repeats: []Repeat{
-				{
-					Key:   "key 1",
-					Value: []byte("value 1"),
-				},
-				{
-					Key:   "key 2",
-					Value: []byte("value 2"),
-				},
-			},
-		},
-		&Repeated{
-			Repeats: []Repeat{
-				{
-					Key:   "key 1",
-					Value: []byte("value 1"),
-				},
-				{
-					Key:   "key 2",
-					Value: []byte("value 2"),
-				},
-			},
-		},
-		"",
-		"",
-	},
-	{
 		"long blob",
 		&B0{B: makeUint8Slice(maxIndexedProperties + 1)},
 		&B0{B: makeUint8Slice(maxIndexedProperties + 1)},
@@ -975,6 +766,16 @@ var testCases = []testCase{
 		"",
 	},
 	{
+		"save props load tagged",
+		&PropertyList{
+			Property{Name: "A", Value: int64(11), NoIndex: true},
+			Property{Name: "a", Value: int64(12), NoIndex: true},
+		},
+		&Tagged{A: 12},
+		"",
+		`cannot load field "A"`,
+	},
+	{
 		"invalid tagged1",
 		&InvalidTagged1{I: 1},
 		&InvalidTagged1{},
@@ -984,22 +785,8 @@ var testCases = []testCase{
 	{
 		"invalid tagged2",
 		&InvalidTagged2{I: 1, J: 2},
-		&InvalidTagged2{J: 2},
-		"",
-		"",
-	},
-	{
-		"invalid tagged3",
-		&InvalidTagged3{X: "hello"},
-		&InvalidTagged3{},
-		"struct tag has invalid property name: \"-\"",
-		"",
-	},
-	{
-		"invalid tagged4",
-		&InvalidTagged4{X: "hello"},
-		&InvalidTagged4{},
-		"struct tag has invalid option: \"garbage\"",
+		&InvalidTagged2{},
+		"struct tag has repeated property name",
 		"",
 	},
 	{
@@ -1055,64 +842,6 @@ var testCases = []testCase{
 		"",
 	},
 	{
-		"save outer load props flatten",
-		&OuterFlatten{
-			A: 1,
-			I: []Inner1{
-				{10, "ten"},
-				{20, "twenty"},
-				{30, "thirty"},
-			},
-			J: Inner2{
-				Y: 3.14,
-			},
-			Inner3: Inner3{
-				Z: true,
-			},
-			K: Inner4{
-				X: Inner5{
-					WW: 12,
-				},
-			},
-		},
-		&PropertyList{
-			Property{Name: "A", Value: int64(1), NoIndex: false},
-			Property{Name: "I.W", Value: []interface{}{int64(10), int64(20), int64(30)}, NoIndex: false},
-			Property{Name: "I.X", Value: []interface{}{"ten", "twenty", "thirty"}, NoIndex: false},
-			Property{Name: "J.Y", Value: float64(3.14), NoIndex: true},
-			Property{Name: "K.X.WW", Value: int64(12), NoIndex: false},
-			Property{Name: "Z", Value: true, NoIndex: false},
-		},
-		"",
-		"",
-	},
-	{
-		"load outer props flatten",
-		&PropertyList{
-			Property{Name: "A", Value: int64(1), NoIndex: false},
-			Property{Name: "I.W", Value: []interface{}{int64(10), int64(20), int64(30)}, NoIndex: false},
-			Property{Name: "I.X", Value: []interface{}{"ten", "twenty", "thirty"}, NoIndex: false},
-			Property{Name: "J.Y", Value: float64(3.14), NoIndex: true},
-			Property{Name: "Z", Value: true, NoIndex: false},
-		},
-		&OuterFlatten{
-			A: 1,
-			I: []Inner1{
-				{10, "ten"},
-				{20, "twenty"},
-				{30, "thirty"},
-			},
-			J: Inner2{
-				Y: 3.14,
-			},
-			Inner3: Inner3{
-				Z: true,
-			},
-		},
-		"",
-		"",
-	},
-	{
 		"save outer load props",
 		&Outer{
 			A: 1,
@@ -1130,31 +859,9 @@ var testCases = []testCase{
 		},
 		&PropertyList{
 			Property{Name: "A", Value: int64(1), NoIndex: false},
-			Property{Name: "I", Value: []interface{}{
-				&Entity{
-					Properties: []Property{
-						Property{Name: "W", Value: int64(10), NoIndex: false},
-						Property{Name: "X", Value: "ten", NoIndex: false},
-					},
-				},
-				&Entity{
-					Properties: []Property{
-						Property{Name: "W", Value: int64(20), NoIndex: false},
-						Property{Name: "X", Value: "twenty", NoIndex: false},
-					},
-				},
-				&Entity{
-					Properties: []Property{
-						Property{Name: "W", Value: int64(30), NoIndex: false},
-						Property{Name: "X", Value: "thirty", NoIndex: false},
-					},
-				},
-			}, NoIndex: false},
-			Property{Name: "J", Value: &Entity{
-				Properties: []Property{
-					Property{Name: "Y", Value: float64(3.14), NoIndex: false},
-				},
-			}, NoIndex: false},
+			Property{Name: "I.W", Value: []interface{}{int64(10), int64(20), int64(30)}, NoIndex: false},
+			Property{Name: "I.X", Value: []interface{}{"ten", "twenty", "thirty"}, NoIndex: false},
+			Property{Name: "J.Y", Value: float64(3.14), NoIndex: false},
 			Property{Name: "Z", Value: true, NoIndex: false},
 		},
 		"",
@@ -1180,18 +887,36 @@ var testCases = []testCase{
 		"",
 	},
 	{
+		"save outer-equivalent load outer",
+		&OuterEquivalent{
+			A:     1,
+			IDotW: []int32{10, 20, 30},
+			IDotX: []string{"ten", "twenty", "thirty"},
+			JDotY: 3.14,
+			Z:     true,
+		},
+		&Outer{
+			A: 1,
+			I: []Inner1{
+				{10, "ten"},
+				{20, "twenty"},
+				{30, "thirty"},
+			},
+			J: Inner2{
+				Y: 3.14,
+			},
+			Inner3: Inner3{
+				Z: true,
+			},
+		},
+		"",
+		"",
+	},
+	{
 		"dotted names save",
 		&Dotted{A: DottedA{B: DottedB{C: 88}}},
 		&PropertyList{
-			Property{Name: "A0.A1.A2", Value: &Entity{
-				Properties: []Property{
-					Property{Name: "B3", Value: &Entity{
-						Properties: []Property{
-							Property{Name: "C4.C5", Value: int64(88), NoIndex: false},
-						},
-					}, NoIndex: false},
-				},
-			}, NoIndex: false},
+			Property{Name: "A0.A1.A2.B3.C4.C5", Value: int64(88), NoIndex: false},
 		},
 		"",
 		"",
@@ -1199,15 +924,7 @@ var testCases = []testCase{
 	{
 		"dotted names load",
 		&PropertyList{
-			Property{Name: "A0.A1.A2", Value: &Entity{
-				Properties: []Property{
-					Property{Name: "B3", Value: &Entity{
-						Properties: []Property{
-							Property{Name: "C4.C5", Value: 99, NoIndex: false},
-						},
-					}, NoIndex: false},
-				},
-			}, NoIndex: false},
+			Property{Name: "A0.A1.A2.B3.C4.C5", Value: int64(99), NoIndex: false},
 		},
 		&Dotted{A: DottedA{B: DottedB{C: 99}}},
 		"",
@@ -1390,309 +1107,21 @@ var testCases = []testCase{
 			},
 		},
 		&PropertyList{
-			Property{Name: "Blue", Value: &Entity{
-				Properties: []Property{
-					Property{Name: "I", Value: int64(0), NoIndex: false},
-					Property{Name: "Nonymous", Value: []interface{}{
-						&Entity{
-							Properties: []Property{
-								Property{Name: "I", Value: int64(0), NoIndex: false},
-								Property{Name: "S", Value: "blu0", NoIndex: false},
-							},
-						},
-						&Entity{
-							Properties: []Property{
-								Property{Name: "I", Value: int64(0), NoIndex: false},
-								Property{Name: "S", Value: "blu1", NoIndex: false},
-							},
-						},
-						&Entity{
-							Properties: []Property{
-								Property{Name: "I", Value: int64(0), NoIndex: false},
-								Property{Name: "S", Value: "blu2", NoIndex: false},
-							},
-						},
-						&Entity{
-							Properties: []Property{
-								Property{Name: "I", Value: int64(0), NoIndex: false},
-								Property{Name: "S", Value: "blu3", NoIndex: false},
-							},
-						},
-					}, NoIndex: false},
-					Property{Name: "Other", Value: "", NoIndex: false},
-					Property{Name: "S", Value: "bleu", NoIndex: false},
-				},
-			}, NoIndex: false},
-			Property{Name: "green", Value: &Entity{
-				Properties: []Property{
-					Property{Name: "I", Value: int64(0), NoIndex: false},
-					Property{Name: "Nonymous", Value: []interface{}{
-						&Entity{
-							Properties: []Property{
-								Property{Name: "I", Value: int64(0), NoIndex: false},
-								Property{Name: "S", Value: "verde0", NoIndex: false},
-							},
-						},
-						&Entity{
-							Properties: []Property{
-								Property{Name: "I", Value: int64(0), NoIndex: false},
-								Property{Name: "S", Value: "verde1", NoIndex: false},
-							},
-						},
-						&Entity{
-							Properties: []Property{
-								Property{Name: "I", Value: int64(0), NoIndex: false},
-								Property{Name: "S", Value: "verde2", NoIndex: false},
-							},
-						},
-					}, NoIndex: false},
-					Property{Name: "Other", Value: "", NoIndex: false},
-					Property{Name: "S", Value: "vert", NoIndex: false},
-				},
-			}, NoIndex: false},
-			Property{Name: "red", Value: &Entity{
-				Properties: []Property{
-					Property{Name: "I", Value: int64(0), NoIndex: false},
-					Property{Name: "Nonymous", Value: []interface{}{
-						&Entity{
-							Properties: []Property{
-								Property{Name: "I", Value: int64(0), NoIndex: false},
-								Property{Name: "S", Value: "rosso0", NoIndex: false},
-							},
-						},
-						&Entity{
-							Properties: []Property{
-								Property{Name: "I", Value: int64(0), NoIndex: false},
-								Property{Name: "S", Value: "rosso1", NoIndex: false},
-							},
-						},
-					}, NoIndex: false},
-					Property{Name: "Other", Value: "", NoIndex: false},
-					Property{Name: "S", Value: "rouge", NoIndex: false},
-				},
-			}, NoIndex: false},
-		},
-		"",
-		"",
-	},
-	{
-		"nested entity with key",
-		&WithNestedEntityWithKey{
-			N: EntityWithKey{
-				I: 12,
-				S: "abcd",
-				K: testKey0,
-			},
-		},
-		&WithNestedEntityWithKey{
-			N: EntityWithKey{
-				I: 12,
-				S: "abcd",
-				K: testKey0,
-			},
-		},
-		"",
-		"",
-	},
-	{
-		"entity with key at top level",
-		&EntityWithKey{
-			I: 12,
-			S: "abc",
-			K: testKey0,
-		},
-		&EntityWithKey{
-			I: 12,
-			S: "abc",
-			K: testKey0,
-		},
-		"",
-		"",
-	},
-	{
-		"entity with key at top level (key is populated on load)",
-		&EntityWithKey{
-			I: 12,
-			S: "abc",
-		},
-		&EntityWithKey{
-			I: 12,
-			S: "abc",
-			K: testKey0,
-		},
-		"",
-		"",
-	},
-	{
-		"__key__ field not a *Key",
-		&NestedWithNonKeyField{
-			N: WithNonKeyField{
-				I: 12,
-				K: "abcd",
-			},
-		},
-		&NestedWithNonKeyField{
-			N: WithNonKeyField{
-				I: 12,
-				K: "abcd",
-			},
-		},
-		"datastore: __key__ field on struct datastore.WithNonKeyField is not a *datastore.Key",
-		"",
-	},
-	{
-		"save struct with ptr to struct fields",
-		&PtrToStructField{
-			&Basic{
-				A: "b",
-			},
-			&Basic{
-				A: "c",
-			},
-			&Basic{
-				A: "anon",
-			},
-			[]*Basic{
-				&Basic{
-					A: "slice0",
-				},
-				&Basic{
-					A: "slice1",
-				},
-			},
-		},
-		&PropertyList{
-			Property{Name: "A", Value: "anon", NoIndex: false},
-			Property{Name: "B", Value: &Entity{
-				Properties: []Property{
-					Property{Name: "A", Value: "b", NoIndex: false},
-				},
-			}},
-			Property{Name: "D", Value: []interface{}{
-				&Entity{
-					Properties: []Property{
-						Property{Name: "A", Value: "slice0", NoIndex: false},
-					},
-				},
-				&Entity{
-					Properties: []Property{
-						Property{Name: "A", Value: "slice1", NoIndex: false},
-					},
-				},
-			}, NoIndex: false},
-			Property{Name: "c", Value: &Entity{
-				Properties: []Property{
-					Property{Name: "A", Value: "c", NoIndex: true},
-				},
-			}, NoIndex: true},
-		},
-		"",
-		"",
-	},
-	{
-		"save and load struct with ptr to struct fields",
-		&PtrToStructField{
-			&Basic{
-				A: "b",
-			},
-			&Basic{
-				A: "c",
-			},
-			&Basic{
-				A: "anon",
-			},
-			[]*Basic{
-				&Basic{
-					A: "slice0",
-				},
-				&Basic{
-					A: "slice1",
-				},
-			},
-		},
-		&PtrToStructField{
-			&Basic{
-				A: "b",
-			},
-			&Basic{
-				A: "c",
-			},
-			&Basic{
-				A: "anon",
-			},
-			[]*Basic{
-				&Basic{
-					A: "slice0",
-				},
-				&Basic{
-					A: "slice1",
-				},
-			},
-		},
-		"",
-		"",
-	},
-	{
-		"save struct with pointer to int field",
-		&PtrToInt{
-			I: &two,
-		},
-		&PtrToInt{},
-		"unsupported struct field",
-		"",
-	},
-	{
-		"struct with nil ptr to struct fields",
-		&PtrToStructField{
-			nil,
-			nil,
-			nil,
-			nil,
-		},
-		new(PropertyList),
-		"",
-		"",
-	},
-	{
-		"nested load entity with key",
-		&WithNestedEntityWithKey{
-			N: EntityWithKey{
-				I: 12,
-				S: "abcd",
-				K: testKey0,
-			},
-		},
-		&PropertyList{
-			Property{Name: "N", Value: &Entity{
-				Key: testKey0,
-				Properties: []Property{
-					Property{Name: "I", Value: int64(12), NoIndex: false},
-					Property{Name: "S", Value: "abcd", NoIndex: false},
-				},
-			},
-				NoIndex: false},
-		},
-		"",
-		"",
-	},
-	{
-		"nested save entity with key",
-		&PropertyList{
-			Property{Name: "N", Value: &Entity{
-				Key: testKey0,
-				Properties: []Property{
-					Property{Name: "I", Value: int64(12), NoIndex: false},
-					Property{Name: "S", Value: "abcd", NoIndex: false},
-				},
-			}, NoIndex: false},
-		},
-
-		&WithNestedEntityWithKey{
-			N: EntityWithKey{
-				I: 12,
-				S: "abcd",
-				K: testKey0,
-			},
+			Property{Name: "Blue.I", Value: int64(0), NoIndex: false},
+			Property{Name: "Blue.Nonymous.I", Value: []interface{}{int64(0), int64(0), int64(0), int64(0)}, NoIndex: false},
+			Property{Name: "Blue.Nonymous.S", Value: []interface{}{"blu0", "blu1", "blu2", "blu3"}, NoIndex: false},
+			Property{Name: "Blue.Other", Value: "", NoIndex: false},
+			Property{Name: "Blue.S", Value: "bleu", NoIndex: false},
+			Property{Name: "green.I", Value: int64(0), NoIndex: false},
+			Property{Name: "green.Nonymous.I", Value: []interface{}{int64(0), int64(0), int64(0)}, NoIndex: false},
+			Property{Name: "green.Nonymous.S", Value: []interface{}{"verde0", "verde1", "verde2"}, NoIndex: false},
+			Property{Name: "green.Other", Value: "", NoIndex: false},
+			Property{Name: "green.S", Value: "vert", NoIndex: false},
+			Property{Name: "red.I", Value: int64(0), NoIndex: false},
+			Property{Name: "red.Nonymous.I", Value: []interface{}{int64(0), int64(0)}, NoIndex: false},
+			Property{Name: "red.Nonymous.S", Value: []interface{}{"rosso0", "rosso1"}, NoIndex: false},
+			Property{Name: "red.Other", Value: "", NoIndex: false},
+			Property{Name: "red.S", Value: "rouge", NoIndex: false},
 		},
 		"",
 		"",
@@ -1703,11 +1132,7 @@ var testCases = []testCase{
 			C3: C3{C: "s"},
 		},
 		&PropertyList{
-			Property{Name: "red", Value: &Entity{
-				Properties: []Property{
-					Property{Name: "C", Value: "s", NoIndex: false},
-				},
-			}, NoIndex: false},
+			Property{Name: "red.C", Value: "s", NoIndex: false},
 		},
 		"",
 		"",
@@ -1717,9 +1142,7 @@ var testCases = []testCase{
 		&N4{
 			c4: c4{C: "s"},
 		},
-		&PropertyList{
-			Property{Name: "C", Value: "s", NoIndex: false},
-		},
+		new(PropertyList),
 		"",
 		"",
 	},
@@ -1776,18 +1199,10 @@ var testCases = []testCase{
 			}
 		}{},
 		&PropertyList{
-			Property{Name: "A", Value: &Entity{
-				Properties: []Property{
-					Property{Name: "X", Value: "", NoIndex: true},
-					Property{Name: "Y", Value: "", NoIndex: true},
-				},
-			}, NoIndex: true},
-			Property{Name: "B", Value: &Entity{
-				Properties: []Property{
-					Property{Name: "X", Value: "", NoIndex: true},
-					Property{Name: "Y", Value: "", NoIndex: false},
-				},
-			}, NoIndex: false},
+			Property{Name: "A.X", Value: "", NoIndex: true},
+			Property{Name: "A.Y", Value: "", NoIndex: true},
+			Property{Name: "B.X", Value: "", NoIndex: true},
+			Property{Name: "B.Y", Value: "", NoIndex: false},
 		},
 		"",
 		"",
@@ -1798,12 +1213,8 @@ var testCases = []testCase{
 			Inner1 `datastore:"foo"`
 		}{},
 		&PropertyList{
-			Property{Name: "foo", Value: &Entity{
-				Properties: []Property{
-					Property{Name: "W", Value: int64(0), NoIndex: false},
-					Property{Name: "X", Value: "", NoIndex: false},
-				},
-			}, NoIndex: false},
+			Property{Name: "foo.W", Value: int64(0), NoIndex: false},
+			Property{Name: "foo.X", Value: "", NoIndex: false},
 		},
 		"",
 		"",
@@ -1818,15 +1229,15 @@ var testCases = []testCase{
 	{
 		"recursive struct",
 		&Recursive{},
-		&Recursive{},
-		"",
+		nil,
+		"recursive struct",
 		"",
 	},
 	{
 		"mutually recursive struct",
 		&MutuallyRecursive0{},
-		&MutuallyRecursive0{},
-		"",
+		nil,
+		"recursive struct",
 		"",
 	},
 	{
@@ -1913,7 +1324,7 @@ func TestRoundTrip(t *testing.T) {
 		}
 		if pl, ok := got.(*PropertyList); ok {
 			// Sort by name to make sure we have a deterministic order.
-			sortPL(*pl)
+			sort.Stable(byName(*pl))
 		}
 		equal := false
 		if gotT, ok := got.(*T); ok {
@@ -1925,6 +1336,7 @@ func TestRoundTrip(t *testing.T) {
 		}
 		if !equal {
 			t.Errorf("%s: compare:\ngot:  %#v\nwant: %#v", tc.desc, got, tc.want)
+			t.Logf("intermediate proto (%s):\n%s", tc.desc, proto.MarshalTextString(p))
 			continue
 		}
 	}
@@ -2138,8 +1550,8 @@ func TestPutMultiTypes(t *testing.T) {
 
 	// Use the same keys and expected entities for all tests.
 	keys := []*Key{
-		NameKey("testKind", "first", nil),
-		NameKey("testKind", "second", nil),
+		NewKey(ctx, "testKind", "first", 0, nil),
+		NewKey(ctx, "testKind", "second", 0, nil),
 	}
 	want := []*pb.Mutation{
 		{Operation: &pb.Mutation_Upsert{&pb.Entity{
@@ -2196,6 +1608,7 @@ func TestPutMultiTypes(t *testing.T) {
 func TestNoIndexOnSliceProperties(t *testing.T) {
 	// Check that ExcludeFromIndexes is set on the inner elements,
 	// rather than the top-level ArrayValue value.
+	ctx := context.Background()
 	pl := PropertyList{
 		Property{
 			Name: "repeated",
@@ -2208,7 +1621,7 @@ func TestNoIndexOnSliceProperties(t *testing.T) {
 			NoIndex: true,
 		},
 	}
-	key := NameKey("dummy", "dummy", nil)
+	key := NewKey(ctx, "dummy", "dummy", 0, nil)
 
 	entity, err := saveEntity(key, &pl)
 	if err != nil {
@@ -2233,25 +1646,6 @@ type byName PropertyList
 func (s byName) Len() int           { return len(s) }
 func (s byName) Less(i, j int) bool { return s[i].Name < s[j].Name }
 func (s byName) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
-
-// sortPL sorts the property list by property name, and
-// recursively sorts any nested property lists, or nested slices of
-// property lists.
-func sortPL(pl PropertyList) {
-	sort.Stable(byName(pl))
-	for _, p := range pl {
-		switch p.Value.(type) {
-		case *Entity:
-			sortPL(p.Value.(*Entity).Properties)
-		case []interface{}:
-			for _, p2 := range p.Value.([]interface{}) {
-				if nent, ok := p2.(*Entity); ok {
-					sortPL(nent.Properties)
-				}
-			}
-		}
-	}
-}
 
 func TestValidGeoPoint(t *testing.T) {
 	testCases := []struct {
@@ -2291,279 +1685,4 @@ func TestValidGeoPoint(t *testing.T) {
 			t.Errorf("%s: got %v, want %v", tc.desc, got, tc.want)
 		}
 	}
-}
-
-func TestPutInvalidEntity(t *testing.T) {
-	// Test that trying to put an invalid entity always returns the correct error
-	// type.
-
-	// Fake client that can pretend to start a transaction.
-	fakeClient := &fakeDatastoreClient{
-		beginTransaction: func(*pb.BeginTransactionRequest) (*pb.BeginTransactionResponse, error) {
-			return &pb.BeginTransactionResponse{
-				Transaction: []byte("deadbeef"),
-			}, nil
-		},
-	}
-	client := &Client{
-		client: fakeClient,
-	}
-
-	ctx := context.Background()
-	key := IncompleteKey("kind", nil)
-
-	_, err := client.Put(ctx, key, "invalid entity")
-	if err != ErrInvalidEntityType {
-		t.Errorf("client.Put returned err %v, want %v", err, ErrInvalidEntityType)
-	}
-
-	_, err = client.PutMulti(ctx, []*Key{key}, []interface{}{"invalid entity"})
-	if me, ok := err.(MultiError); !ok {
-		t.Errorf("client.PutMulti returned err %v, want MultiError type", err)
-	} else if len(me) != 1 || me[0] != ErrInvalidEntityType {
-		t.Errorf("client.PutMulti returned err %v, want MulitError{ErrInvalidEntityType}", err)
-	}
-
-	client.RunInTransaction(ctx, func(tx *Transaction) error {
-		_, err := tx.Put(key, "invalid entity")
-		if err != ErrInvalidEntityType {
-			t.Errorf("tx.Put returned err %v, want %v", err, ErrInvalidEntityType)
-		}
-
-		_, err = tx.PutMulti([]*Key{key}, []interface{}{"invalid entity"})
-		if me, ok := err.(MultiError); !ok {
-			t.Errorf("tx.PutMulti returned err %v, want MultiError type", err)
-		} else if len(me) != 1 || me[0] != ErrInvalidEntityType {
-			t.Errorf("tx.PutMulti returned err %v, want MulitError{ErrInvalidEntityType}", err)
-		}
-
-		return errors.New("bang!") // Return error: we don't actually want to commit.
-	})
-}
-
-func TestDeferred(t *testing.T) {
-	type Ent struct {
-		A int
-		B string
-	}
-
-	keys := []*Key{
-		NameKey("testKind", "first", nil),
-		NameKey("testKind", "second", nil),
-	}
-
-	entity1 := &pb.Entity{
-		Key: keyToProto(keys[0]),
-		Properties: map[string]*pb.Value{
-			"A": {ValueType: &pb.Value_IntegerValue{1}},
-			"B": {ValueType: &pb.Value_StringValue{"one"}},
-		},
-	}
-	entity2 := &pb.Entity{
-		Key: keyToProto(keys[1]),
-		Properties: map[string]*pb.Value{
-			"A": {ValueType: &pb.Value_IntegerValue{2}},
-			"B": {ValueType: &pb.Value_StringValue{"two"}},
-		},
-	}
-
-	// count keeps track of the number of times fakeClient.lookup has been
-	// called.
-	var count int
-	// Fake client that will return Deferred keys in resp on the first call.
-	fakeClient := &fakeDatastoreClient{
-		lookup: func(*pb.LookupRequest) (*pb.LookupResponse, error) {
-			count++
-			// On the first call, we return deferred keys.
-			if count == 1 {
-				return &pb.LookupResponse{
-					Found: []*pb.EntityResult{
-						{
-							Entity:  entity1,
-							Version: 1,
-						},
-					},
-					Deferred: []*pb.Key{
-						keyToProto(keys[1]),
-					},
-				}, nil
-			}
-
-			// On the second call, we do not return any more deferred keys.
-			return &pb.LookupResponse{
-				Found: []*pb.EntityResult{
-					{
-						Entity:  entity2,
-						Version: 1,
-					},
-				},
-			}, nil
-		},
-	}
-	client := &Client{
-		client: fakeClient,
-	}
-
-	ctx := context.Background()
-
-	dst := make([]Ent, len(keys))
-	err := client.GetMulti(ctx, keys, dst)
-	if err != nil {
-		t.Fatalf("client.Get: %v", err)
-	}
-
-	if count != 2 {
-		t.Fatalf("expected client.lookup to be called 2 times. Got %d", count)
-	}
-
-	if len(dst) != 2 {
-		t.Fatalf("expected 2 entities returned, got %d", len(dst))
-	}
-
-	for _, e := range dst {
-		if e.A == 1 {
-			if e.B != "one" {
-				t.Fatalf("unexpected entity %#v", e)
-			}
-		} else if e.A == 2 {
-			if e.B != "two" {
-				t.Fatalf("unexpected entity %#v", e)
-			}
-		} else {
-			t.Fatalf("unexpected entity %#v", e)
-		}
-	}
-
-}
-
-func TestDeferredMissing(t *testing.T) {
-	type Ent struct {
-		A int
-		B string
-	}
-
-	keys := []*Key{
-		NameKey("testKind", "first", nil),
-		NameKey("testKind", "second", nil),
-	}
-
-	entity1 := &pb.Entity{
-		Key: keyToProto(keys[0]),
-	}
-	entity2 := &pb.Entity{
-		Key: keyToProto(keys[1]),
-	}
-
-	var count int
-	fakeClient := &fakeDatastoreClient{
-		lookup: func(*pb.LookupRequest) (*pb.LookupResponse, error) {
-			count++
-
-			if count == 1 {
-				return &pb.LookupResponse{
-					Missing: []*pb.EntityResult{
-						{
-							Entity:  entity1,
-							Version: 1,
-						},
-					},
-					Deferred: []*pb.Key{
-						keyToProto(keys[1]),
-					},
-				}, nil
-			}
-
-			return &pb.LookupResponse{
-				Missing: []*pb.EntityResult{
-					{
-						Entity:  entity2,
-						Version: 1,
-					},
-				},
-			}, nil
-		},
-	}
-	client := &Client{
-		client: fakeClient,
-	}
-
-	ctx := context.Background()
-
-	dst := make([]Ent, len(keys))
-	err := client.GetMulti(ctx, keys, dst)
-	errs, ok := err.(MultiError)
-	if !ok {
-		t.Fatalf("expected error returns to be MultiError; got %v", err)
-	}
-	if len(errs) != 2 {
-		t.Fatalf("expected 2 errors returns, got %d", len(errs))
-	}
-	if errs[0] != ErrNoSuchEntity {
-		t.Fatalf("expected error to be ErrNoSuchEntity; got %v", errs[0])
-	}
-	if errs[1] != ErrNoSuchEntity {
-		t.Fatalf("expected error to be ErrNoSuchEntity; got %v", errs[1])
-	}
-
-	if count != 2 {
-		t.Fatalf("expected client.lookup to be called 2 times. Got %d", count)
-	}
-
-	if len(dst) != 2 {
-		t.Fatalf("expected 2 entities returned, got %d", len(dst))
-	}
-
-	for _, e := range dst {
-		if e.A != 0 || e.B != "" {
-			t.Fatalf("unexpected entity %#v", e)
-		}
-	}
-}
-
-type fakeDatastoreClient struct {
-	// Optional handlers for the datastore methods.
-	// Any handlers left undefined will return an error.
-	lookup           func(*pb.LookupRequest) (*pb.LookupResponse, error)
-	runQuery         func(*pb.RunQueryRequest) (*pb.RunQueryResponse, error)
-	beginTransaction func(*pb.BeginTransactionRequest) (*pb.BeginTransactionResponse, error)
-	commit           func(*pb.CommitRequest) (*pb.CommitResponse, error)
-	rollback         func(*pb.RollbackRequest) (*pb.RollbackResponse, error)
-	allocateIds      func(*pb.AllocateIdsRequest) (*pb.AllocateIdsResponse, error)
-}
-
-func (c *fakeDatastoreClient) Lookup(ctx context.Context, in *pb.LookupRequest, opts ...grpc.CallOption) (*pb.LookupResponse, error) {
-	if c.lookup == nil {
-		return nil, errors.New("no lookup handler defined")
-	}
-	return c.lookup(in)
-}
-func (c *fakeDatastoreClient) RunQuery(ctx context.Context, in *pb.RunQueryRequest, opts ...grpc.CallOption) (*pb.RunQueryResponse, error) {
-	if c.runQuery == nil {
-		return nil, errors.New("no runQuery handler defined")
-	}
-	return c.runQuery(in)
-}
-func (c *fakeDatastoreClient) BeginTransaction(ctx context.Context, in *pb.BeginTransactionRequest, opts ...grpc.CallOption) (*pb.BeginTransactionResponse, error) {
-	if c.beginTransaction == nil {
-		return nil, errors.New("no beginTransaction handler defined")
-	}
-	return c.beginTransaction(in)
-}
-func (c *fakeDatastoreClient) Commit(ctx context.Context, in *pb.CommitRequest, opts ...grpc.CallOption) (*pb.CommitResponse, error) {
-	if c.commit == nil {
-		return nil, errors.New("no commit handler defined")
-	}
-	return c.commit(in)
-}
-func (c *fakeDatastoreClient) Rollback(ctx context.Context, in *pb.RollbackRequest, opts ...grpc.CallOption) (*pb.RollbackResponse, error) {
-	if c.rollback == nil {
-		return nil, errors.New("no rollback handler defined")
-	}
-	return c.rollback(in)
-}
-func (c *fakeDatastoreClient) AllocateIds(ctx context.Context, in *pb.AllocateIdsRequest, opts ...grpc.CallOption) (*pb.AllocateIdsResponse, error) {
-	if c.allocateIds == nil {
-		return nil, errors.New("no allocateIds handler defined")
-	}
-	return c.allocateIds(in)
 }

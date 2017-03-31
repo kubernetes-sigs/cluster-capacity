@@ -1,7 +1,6 @@
 package tsm1
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"math"
@@ -86,7 +85,7 @@ func TestCache_CacheWriteMulti(t *testing.T) {
 	values := Values{v0, v1, v2}
 	valuesSize := uint64(v0.Size() + v1.Size() + v2.Size())
 
-	c := NewCache(30*valuesSize, "")
+	c := NewCache(3*valuesSize, "")
 
 	if err := c.WriteMulti(map[string][]Value{"foo": values, "bar": values}); err != nil {
 		t.Fatalf("failed to write key foo to cache: %s", err.Error())
@@ -97,49 +96,6 @@ func TestCache_CacheWriteMulti(t *testing.T) {
 
 	if exp, keys := []string{"bar", "foo"}, c.Keys(); !reflect.DeepEqual(keys, exp) {
 		t.Fatalf("cache keys incorrect after 2 writes, exp %v, got %v", exp, keys)
-	}
-}
-
-// Tests that the cache stats and size are correctly maintained during writes.
-func TestCache_WriteMulti_Stats(t *testing.T) {
-	limit := uint64(1)
-	c := NewCache(limit, "")
-	ms := NewTestStore()
-	c.store = ms
-
-	// Not enough room in the cache.
-	v := NewValue(1, 1.0)
-	values := map[string][]Value{"foo": []Value{v, v}}
-	if got, exp := c.WriteMulti(values), ErrCacheMemorySizeLimitExceeded(uint64(v.Size()*2), limit); !reflect.DeepEqual(got, exp) {
-		t.Fatalf("got %q, expected %q", got, exp)
-	}
-
-	// Fail one of the values in the write.
-	c = NewCache(50, "")
-	c.store = ms
-
-	ms.writef = func(key string, v Values) error {
-		if key == "foo" {
-			return errors.New("write failed")
-		}
-		return nil
-	}
-
-	values = map[string][]Value{"foo": []Value{v, v}, "bar": []Value{v}}
-	if got, exp := c.WriteMulti(values), errors.New("write failed"); !reflect.DeepEqual(got, exp) {
-		t.Fatalf("got %v, expected %v", got, exp)
-	}
-
-	// Cache size decreased correctly.
-	if got, exp := c.Size(), uint64(16); got != exp {
-		t.Fatalf("got %v, expected %v", got, exp)
-	}
-
-	// Write stats updated
-	if got, exp := c.stats.WriteDropped, int64(1); got != exp {
-		t.Fatalf("got %v, expected %v", got, exp)
-	} else if got, exp := c.stats.WriteErr, int64(1); got != exp {
-		t.Fatalf("got %v, expected %v", got, exp)
 	}
 }
 
@@ -172,7 +128,7 @@ func TestCache_Cache_DeleteRange(t *testing.T) {
 	values := Values{v0, v1, v2}
 	valuesSize := uint64(v0.Size() + v1.Size() + v2.Size())
 
-	c := NewCache(30*valuesSize, "")
+	c := NewCache(3*valuesSize, "")
 
 	if err := c.WriteMulti(map[string][]Value{"foo": values, "bar": values}); err != nil {
 		t.Fatalf("failed to write key foo to cache: %s", err.Error())
@@ -246,7 +202,7 @@ func TestCache_Cache_Delete(t *testing.T) {
 	values := Values{v0, v1, v2}
 	valuesSize := uint64(v0.Size() + v1.Size() + v2.Size())
 
-	c := NewCache(30*valuesSize, "")
+	c := NewCache(3*valuesSize, "")
 
 	if err := c.WriteMulti(map[string][]Value{"foo": values, "bar": values}); err != nil {
 		t.Fatalf("failed to write key foo to cache: %s", err.Error())
@@ -432,32 +388,6 @@ func TestCache_CacheSnapshot(t *testing.T) {
 	}
 }
 
-// Tests that Snapshot updates statistics correctly.
-func TestCache_Snapshot_Stats(t *testing.T) {
-	limit := uint64(16)
-	c := NewCache(limit, "")
-
-	values := map[string][]Value{"foo": []Value{NewValue(1, 1.0)}}
-	if err := c.WriteMulti(values); err != nil {
-		t.Fatal(err)
-	}
-
-	_, err := c.Snapshot()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Store size should have been reset.
-	if got, exp := c.Size(), uint64(0); got != exp {
-		t.Fatalf("got %v, expected %v", got, exp)
-	}
-
-	// Cached bytes should have been increased.
-	if got, exp := c.stats.CachedBytes, int64(16); got != exp {
-		t.Fatalf("got %v, expected %v", got, exp)
-	}
-}
-
 func TestCache_CacheEmptySnapshot(t *testing.T) {
 	c := NewCache(512, "")
 
@@ -495,7 +425,7 @@ func TestCache_CacheWriteMemoryExceeded(t *testing.T) {
 		t.Fatalf("cache keys incorrect after writes, exp %v, got %v", exp, keys)
 	}
 	if err := c.Write("bar", Values{v1}); err == nil || !strings.Contains(err.Error(), "cache-max-memory-size") {
-		t.Fatalf("wrong error writing key bar to cache: %v", err)
+		t.Fatalf("wrong error writing key bar to cache")
 	}
 
 	// Grab snapshot, write should still fail since we're still using the memory.
@@ -504,7 +434,7 @@ func TestCache_CacheWriteMemoryExceeded(t *testing.T) {
 		t.Fatalf("failed to snapshot cache: %v", err)
 	}
 	if err := c.Write("bar", Values{v1}); err == nil || !strings.Contains(err.Error(), "cache-max-memory-size") {
-		t.Fatalf("wrong error writing key bar to cache: %v", err)
+		t.Fatalf("wrong error writing key bar to cache")
 	}
 
 	// Clear the snapshot and the write should now succeed.
@@ -765,29 +695,6 @@ func mustMarshalEntry(entry WALEntry) (WalEntryType, []byte) {
 	return entry.Type(), snappy.Encode(b, b)
 }
 
-// TestStore implements the storer interface and can be used to mock out a
-// Cache's storer implememation.
-type TestStore struct {
-	entryf       func(key string) (*entry, bool)
-	writef       func(key string, values Values) error
-	addf         func(key string, entry *entry)
-	removef      func(key string)
-	keysf        func(sorted bool) []string
-	applyf       func(f func(string, *entry) error) error
-	applySerialf func(f func(string, *entry) error) error
-	resetf       func()
-}
-
-func NewTestStore() *TestStore                                      { return &TestStore{} }
-func (s *TestStore) entry(key string) (*entry, bool)                { return s.entryf(key) }
-func (s *TestStore) write(key string, values Values) error          { return s.writef(key, values) }
-func (s *TestStore) add(key string, entry *entry)                   { s.addf(key, entry) }
-func (s *TestStore) remove(key string)                              { s.removef(key) }
-func (s *TestStore) keys(sorted bool) []string                      { return s.keysf(sorted) }
-func (s *TestStore) apply(f func(string, *entry) error) error       { return s.applyf(f) }
-func (s *TestStore) applySerial(f func(string, *entry) error) error { return s.applySerialf(f) }
-func (s *TestStore) reset()                                         { s.resetf() }
-
 var fvSize = uint64(NewValue(1, float64(1)).Size())
 
 func BenchmarkCacheFloatEntries(b *testing.B) {
@@ -812,7 +719,7 @@ type points struct {
 
 func BenchmarkCacheParallelFloatEntries(b *testing.B) {
 	c := b.N * runtime.GOMAXPROCS(0)
-	cache := NewCache(uint64(c)*fvSize*10, "")
+	cache := NewCache(uint64(c)*fvSize, "")
 	vals := make([]points, c)
 	for i := 0; i < c; i++ {
 		v := make([]Value, 10)
@@ -830,33 +737,6 @@ func BenchmarkCacheParallelFloatEntries(b *testing.B) {
 			v := vals[j]
 			if err := cache.Write(v.key, v.vals); err != nil {
 				b.Fatal("err:", err, "j:", j, "N:", b.N)
-			}
-		}
-	})
-}
-
-func BenchmarkEntry_add(b *testing.B) {
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			b.StopTimer()
-			values := make([]Value, 10)
-			for i := 0; i < 10; i++ {
-				values[i] = NewValue(int64(i+1), float64(i))
-			}
-
-			otherValues := make([]Value, 10)
-			for i := 0; i < 10; i++ {
-				otherValues[i] = NewValue(1, float64(i))
-			}
-
-			entry, err := newEntryValues(values, 0) // Will use default allocation size.
-			if err != nil {
-				b.Fatal(err)
-			}
-
-			b.StartTimer()
-			if err := entry.add(otherValues); err != nil {
-				b.Fatal(err)
 			}
 		}
 	})

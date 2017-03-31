@@ -73,24 +73,24 @@ func (c *CloudFront) CreateCloudFrontOriginAccessIdentityRequest(input *CreateCl
 // API operation CreateCloudFrontOriginAccessIdentity for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeOriginAccessIdentityAlreadyExists "OriginAccessIdentityAlreadyExists"
+//   * OriginAccessIdentityAlreadyExists
 //   If the CallerReference is a value you already sent in a previous request
 //   to create an identity but the content of the CloudFrontOriginAccessIdentityConfig
 //   is different from the original request, CloudFront returns a CloudFrontOriginAccessIdentityAlreadyExists
 //   error.
 //
-//   * ErrCodeMissingBody "MissingBody"
+//   * MissingBody
 //   This operation requires a body. Ensure that the body is present and the Content-Type
 //   header is set.
 //
-//   * ErrCodeTooManyCloudFrontOriginAccessIdentities "TooManyCloudFrontOriginAccessIdentities"
+//   * TooManyCloudFrontOriginAccessIdentities
 //   Processing your request would cause you to exceed the maximum number of origin
 //   access identities allowed.
 //
-//   * ErrCodeInvalidArgument "InvalidArgument"
+//   * InvalidArgument
 //   The argument is invalid.
 //
-//   * ErrCodeInconsistentQuantities "InconsistentQuantities"
+//   * InconsistentQuantities
 //   The value of Quantity and the size of Items do not match.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cloudfront-2016-11-25/CreateCloudFrontOriginAccessIdentity
@@ -156,118 +156,132 @@ func (c *CloudFront) CreateDistributionRequest(input *CreateDistributionInput) (
 // API operation CreateDistribution for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeCNAMEAlreadyExists "CNAMEAlreadyExists"
+//   * CNAMEAlreadyExists
+
 //
-//   * ErrCodeDistributionAlreadyExists "DistributionAlreadyExists"
+//   * DistributionAlreadyExists
 //   The caller reference you attempted to create the distribution with is associated
 //   with another distribution.
 //
-//   * ErrCodeInvalidOrigin "InvalidOrigin"
+//   * InvalidOrigin
 //   The Amazon S3 origin server specified does not refer to a valid Amazon S3
 //   bucket.
 //
-//   * ErrCodeInvalidOriginAccessIdentity "InvalidOriginAccessIdentity"
+//   * InvalidOriginAccessIdentity
 //   The origin access identity is not valid or doesn't exist.
 //
-//   * ErrCodeAccessDenied "AccessDenied"
+//   * AccessDenied
 //   Access denied.
 //
-//   * ErrCodeTooManyTrustedSigners "TooManyTrustedSigners"
+//   * TooManyTrustedSigners
 //   Your request contains more trusted signers than are allowed per distribution.
 //
-//   * ErrCodeTrustedSignerDoesNotExist "TrustedSignerDoesNotExist"
+//   * TrustedSignerDoesNotExist
 //   One or more of your trusted signers do not exist.
 //
-//   * ErrCodeInvalidViewerCertificate "InvalidViewerCertificate"
+//   * InvalidViewerCertificate
+
 //
-//   * ErrCodeInvalidMinimumProtocolVersion "InvalidMinimumProtocolVersion"
+//   * InvalidMinimumProtocolVersion
+
 //
-//   * ErrCodeMissingBody "MissingBody"
+//   * MissingBody
 //   This operation requires a body. Ensure that the body is present and the Content-Type
 //   header is set.
 //
-//   * ErrCodeTooManyDistributionCNAMEs "TooManyDistributionCNAMEs"
+//   * TooManyDistributionCNAMEs
 //   Your request contains more CNAMEs than are allowed per distribution.
 //
-//   * ErrCodeTooManyDistributions "TooManyDistributions"
+//   * TooManyDistributions
 //   Processing your request would cause you to exceed the maximum number of distributions
 //   allowed.
 //
-//   * ErrCodeInvalidDefaultRootObject "InvalidDefaultRootObject"
+//   * InvalidDefaultRootObject
 //   The default root object file name is too big or contains an invalid character.
 //
-//   * ErrCodeInvalidRelativePath "InvalidRelativePath"
+//   * InvalidRelativePath
 //   The relative path is too big, is not URL-encoded, or does not begin with
 //   a slash (/).
 //
-//   * ErrCodeInvalidErrorCode "InvalidErrorCode"
+//   * InvalidErrorCode
+
 //
-//   * ErrCodeInvalidResponseCode "InvalidResponseCode"
+//   * InvalidResponseCode
+
 //
-//   * ErrCodeInvalidArgument "InvalidArgument"
+//   * InvalidArgument
 //   The argument is invalid.
 //
-//   * ErrCodeInvalidRequiredProtocol "InvalidRequiredProtocol"
+//   * InvalidRequiredProtocol
 //   This operation requires the HTTPS protocol. Ensure that you specify the HTTPS
 //   protocol in your request, or omit the RequiredProtocols element from your
 //   distribution configuration.
 //
-//   * ErrCodeNoSuchOrigin "NoSuchOrigin"
+//   * NoSuchOrigin
 //   No origin exists with the specified Origin Id.
 //
-//   * ErrCodeTooManyOrigins "TooManyOrigins"
+//   * TooManyOrigins
 //   You cannot create more origins for the distribution.
 //
-//   * ErrCodeTooManyCacheBehaviors "TooManyCacheBehaviors"
+//   * TooManyCacheBehaviors
 //   You cannot create more cache behaviors for the distribution.
 //
-//   * ErrCodeTooManyCookieNamesInWhiteList "TooManyCookieNamesInWhiteList"
+//   * TooManyCookieNamesInWhiteList
 //   Your request contains more cookie names in the whitelist than are allowed
 //   per cache behavior.
 //
-//   * ErrCodeInvalidForwardCookies "InvalidForwardCookies"
+//   * InvalidForwardCookies
 //   Your request contains forward cookies option which doesn't match with the
 //   expectation for the whitelisted list of cookie names. Either list of cookie
 //   names has been specified when not allowed or list of cookie names is missing
 //   when expected.
 //
-//   * ErrCodeTooManyHeadersInForwardedValues "TooManyHeadersInForwardedValues"
+//   * TooManyHeadersInForwardedValues
+
 //
-//   * ErrCodeInvalidHeadersForS3Origin "InvalidHeadersForS3Origin"
+//   * InvalidHeadersForS3Origin
+
 //
-//   * ErrCodeInconsistentQuantities "InconsistentQuantities"
+//   * InconsistentQuantities
 //   The value of Quantity and the size of Items do not match.
 //
-//   * ErrCodeTooManyCertificates "TooManyCertificates"
+//   * TooManyCertificates
 //   You cannot create anymore custom SSL/TLS certificates.
 //
-//   * ErrCodeInvalidLocationCode "InvalidLocationCode"
+//   * InvalidLocationCode
+
 //
-//   * ErrCodeInvalidGeoRestrictionParameter "InvalidGeoRestrictionParameter"
+//   * InvalidGeoRestrictionParameter
+
 //
-//   * ErrCodeInvalidProtocolSettings "InvalidProtocolSettings"
+//   * InvalidProtocolSettings
 //   You cannot specify SSLv3 as the minimum protocol version if you only want
 //   to support only clients that support Server Name Indication (SNI).
 //
-//   * ErrCodeInvalidTTLOrder "InvalidTTLOrder"
+//   * InvalidTTLOrder
+
 //
-//   * ErrCodeInvalidWebACLId "InvalidWebACLId"
+//   * InvalidWebACLId
+
 //
-//   * ErrCodeTooManyOriginCustomHeaders "TooManyOriginCustomHeaders"
+//   * TooManyOriginCustomHeaders
+
 //
-//   * ErrCodeTooManyQueryStringParameters "TooManyQueryStringParameters"
+//   * TooManyQueryStringParameters
+
 //
-//   * ErrCodeInvalidQueryStringParameters "InvalidQueryStringParameters"
+//   * InvalidQueryStringParameters
+
 //
-//   * ErrCodeTooManyDistributionsWithLambdaAssociations "TooManyDistributionsWithLambdaAssociations"
+//   * TooManyDistributionsWithLambdaAssociations
 //   Processing your request would cause the maximum number of distributions with
 //   Lambda function associations per owner to be exceeded.
 //
-//   * ErrCodeTooManyLambdaFunctionAssociations "TooManyLambdaFunctionAssociations"
+//   * TooManyLambdaFunctionAssociations
 //   Your request contains more Lambda function associations than are allowed
 //   per distribution.
 //
-//   * ErrCodeInvalidLambdaFunctionAssociation "InvalidLambdaFunctionAssociation"
+//   * InvalidLambdaFunctionAssociation
 //   The specified Lambda function association is invalid.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cloudfront-2016-11-25/CreateDistribution
@@ -332,120 +346,135 @@ func (c *CloudFront) CreateDistributionWithTagsRequest(input *CreateDistribution
 // API operation CreateDistributionWithTags for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeCNAMEAlreadyExists "CNAMEAlreadyExists"
+//   * CNAMEAlreadyExists
+
 //
-//   * ErrCodeDistributionAlreadyExists "DistributionAlreadyExists"
+//   * DistributionAlreadyExists
 //   The caller reference you attempted to create the distribution with is associated
 //   with another distribution.
 //
-//   * ErrCodeInvalidOrigin "InvalidOrigin"
+//   * InvalidOrigin
 //   The Amazon S3 origin server specified does not refer to a valid Amazon S3
 //   bucket.
 //
-//   * ErrCodeInvalidOriginAccessIdentity "InvalidOriginAccessIdentity"
+//   * InvalidOriginAccessIdentity
 //   The origin access identity is not valid or doesn't exist.
 //
-//   * ErrCodeAccessDenied "AccessDenied"
+//   * AccessDenied
 //   Access denied.
 //
-//   * ErrCodeTooManyTrustedSigners "TooManyTrustedSigners"
+//   * TooManyTrustedSigners
 //   Your request contains more trusted signers than are allowed per distribution.
 //
-//   * ErrCodeTrustedSignerDoesNotExist "TrustedSignerDoesNotExist"
+//   * TrustedSignerDoesNotExist
 //   One or more of your trusted signers do not exist.
 //
-//   * ErrCodeInvalidViewerCertificate "InvalidViewerCertificate"
+//   * InvalidViewerCertificate
+
 //
-//   * ErrCodeInvalidMinimumProtocolVersion "InvalidMinimumProtocolVersion"
+//   * InvalidMinimumProtocolVersion
+
 //
-//   * ErrCodeMissingBody "MissingBody"
+//   * MissingBody
 //   This operation requires a body. Ensure that the body is present and the Content-Type
 //   header is set.
 //
-//   * ErrCodeTooManyDistributionCNAMEs "TooManyDistributionCNAMEs"
+//   * TooManyDistributionCNAMEs
 //   Your request contains more CNAMEs than are allowed per distribution.
 //
-//   * ErrCodeTooManyDistributions "TooManyDistributions"
+//   * TooManyDistributions
 //   Processing your request would cause you to exceed the maximum number of distributions
 //   allowed.
 //
-//   * ErrCodeInvalidDefaultRootObject "InvalidDefaultRootObject"
+//   * InvalidDefaultRootObject
 //   The default root object file name is too big or contains an invalid character.
 //
-//   * ErrCodeInvalidRelativePath "InvalidRelativePath"
+//   * InvalidRelativePath
 //   The relative path is too big, is not URL-encoded, or does not begin with
 //   a slash (/).
 //
-//   * ErrCodeInvalidErrorCode "InvalidErrorCode"
+//   * InvalidErrorCode
+
 //
-//   * ErrCodeInvalidResponseCode "InvalidResponseCode"
+//   * InvalidResponseCode
+
 //
-//   * ErrCodeInvalidArgument "InvalidArgument"
+//   * InvalidArgument
 //   The argument is invalid.
 //
-//   * ErrCodeInvalidRequiredProtocol "InvalidRequiredProtocol"
+//   * InvalidRequiredProtocol
 //   This operation requires the HTTPS protocol. Ensure that you specify the HTTPS
 //   protocol in your request, or omit the RequiredProtocols element from your
 //   distribution configuration.
 //
-//   * ErrCodeNoSuchOrigin "NoSuchOrigin"
+//   * NoSuchOrigin
 //   No origin exists with the specified Origin Id.
 //
-//   * ErrCodeTooManyOrigins "TooManyOrigins"
+//   * TooManyOrigins
 //   You cannot create more origins for the distribution.
 //
-//   * ErrCodeTooManyCacheBehaviors "TooManyCacheBehaviors"
+//   * TooManyCacheBehaviors
 //   You cannot create more cache behaviors for the distribution.
 //
-//   * ErrCodeTooManyCookieNamesInWhiteList "TooManyCookieNamesInWhiteList"
+//   * TooManyCookieNamesInWhiteList
 //   Your request contains more cookie names in the whitelist than are allowed
 //   per cache behavior.
 //
-//   * ErrCodeInvalidForwardCookies "InvalidForwardCookies"
+//   * InvalidForwardCookies
 //   Your request contains forward cookies option which doesn't match with the
 //   expectation for the whitelisted list of cookie names. Either list of cookie
 //   names has been specified when not allowed or list of cookie names is missing
 //   when expected.
 //
-//   * ErrCodeTooManyHeadersInForwardedValues "TooManyHeadersInForwardedValues"
+//   * TooManyHeadersInForwardedValues
+
 //
-//   * ErrCodeInvalidHeadersForS3Origin "InvalidHeadersForS3Origin"
+//   * InvalidHeadersForS3Origin
+
 //
-//   * ErrCodeInconsistentQuantities "InconsistentQuantities"
+//   * InconsistentQuantities
 //   The value of Quantity and the size of Items do not match.
 //
-//   * ErrCodeTooManyCertificates "TooManyCertificates"
+//   * TooManyCertificates
 //   You cannot create anymore custom SSL/TLS certificates.
 //
-//   * ErrCodeInvalidLocationCode "InvalidLocationCode"
+//   * InvalidLocationCode
+
 //
-//   * ErrCodeInvalidGeoRestrictionParameter "InvalidGeoRestrictionParameter"
+//   * InvalidGeoRestrictionParameter
+
 //
-//   * ErrCodeInvalidProtocolSettings "InvalidProtocolSettings"
+//   * InvalidProtocolSettings
 //   You cannot specify SSLv3 as the minimum protocol version if you only want
 //   to support only clients that support Server Name Indication (SNI).
 //
-//   * ErrCodeInvalidTTLOrder "InvalidTTLOrder"
+//   * InvalidTTLOrder
+
 //
-//   * ErrCodeInvalidWebACLId "InvalidWebACLId"
+//   * InvalidWebACLId
+
 //
-//   * ErrCodeTooManyOriginCustomHeaders "TooManyOriginCustomHeaders"
+//   * TooManyOriginCustomHeaders
+
 //
-//   * ErrCodeInvalidTagging "InvalidTagging"
+//   * InvalidTagging
+
 //
-//   * ErrCodeTooManyQueryStringParameters "TooManyQueryStringParameters"
+//   * TooManyQueryStringParameters
+
 //
-//   * ErrCodeInvalidQueryStringParameters "InvalidQueryStringParameters"
+//   * InvalidQueryStringParameters
+
 //
-//   * ErrCodeTooManyDistributionsWithLambdaAssociations "TooManyDistributionsWithLambdaAssociations"
+//   * TooManyDistributionsWithLambdaAssociations
 //   Processing your request would cause the maximum number of distributions with
 //   Lambda function associations per owner to be exceeded.
 //
-//   * ErrCodeTooManyLambdaFunctionAssociations "TooManyLambdaFunctionAssociations"
+//   * TooManyLambdaFunctionAssociations
 //   Your request contains more Lambda function associations than are allowed
 //   per distribution.
 //
-//   * ErrCodeInvalidLambdaFunctionAssociation "InvalidLambdaFunctionAssociation"
+//   * InvalidLambdaFunctionAssociation
 //   The specified Lambda function association is invalid.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cloudfront-2016-11-25/CreateDistributionWithTags
@@ -510,26 +539,27 @@ func (c *CloudFront) CreateInvalidationRequest(input *CreateInvalidationInput) (
 // API operation CreateInvalidation for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeAccessDenied "AccessDenied"
+//   * AccessDenied
 //   Access denied.
 //
-//   * ErrCodeMissingBody "MissingBody"
+//   * MissingBody
 //   This operation requires a body. Ensure that the body is present and the Content-Type
 //   header is set.
 //
-//   * ErrCodeInvalidArgument "InvalidArgument"
+//   * InvalidArgument
 //   The argument is invalid.
 //
-//   * ErrCodeNoSuchDistribution "NoSuchDistribution"
+//   * NoSuchDistribution
 //   The specified distribution does not exist.
 //
-//   * ErrCodeBatchTooLarge "BatchTooLarge"
+//   * BatchTooLarge
+
 //
-//   * ErrCodeTooManyInvalidationsInProgress "TooManyInvalidationsInProgress"
+//   * TooManyInvalidationsInProgress
 //   You have exceeded the maximum number of allowable InProgress invalidation
 //   batch requests, or invalidation objects.
 //
-//   * ErrCodeInconsistentQuantities "InconsistentQuantities"
+//   * InconsistentQuantities
 //   The value of Quantity and the size of Items do not match.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cloudfront-2016-11-25/CreateInvalidation
@@ -621,40 +651,43 @@ func (c *CloudFront) CreateStreamingDistributionRequest(input *CreateStreamingDi
 // API operation CreateStreamingDistribution for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeCNAMEAlreadyExists "CNAMEAlreadyExists"
+//   * CNAMEAlreadyExists
+
 //
-//   * ErrCodeStreamingDistributionAlreadyExists "StreamingDistributionAlreadyExists"
+//   * StreamingDistributionAlreadyExists
+
 //
-//   * ErrCodeInvalidOrigin "InvalidOrigin"
+//   * InvalidOrigin
 //   The Amazon S3 origin server specified does not refer to a valid Amazon S3
 //   bucket.
 //
-//   * ErrCodeInvalidOriginAccessIdentity "InvalidOriginAccessIdentity"
+//   * InvalidOriginAccessIdentity
 //   The origin access identity is not valid or doesn't exist.
 //
-//   * ErrCodeAccessDenied "AccessDenied"
+//   * AccessDenied
 //   Access denied.
 //
-//   * ErrCodeTooManyTrustedSigners "TooManyTrustedSigners"
+//   * TooManyTrustedSigners
 //   Your request contains more trusted signers than are allowed per distribution.
 //
-//   * ErrCodeTrustedSignerDoesNotExist "TrustedSignerDoesNotExist"
+//   * TrustedSignerDoesNotExist
 //   One or more of your trusted signers do not exist.
 //
-//   * ErrCodeMissingBody "MissingBody"
+//   * MissingBody
 //   This operation requires a body. Ensure that the body is present and the Content-Type
 //   header is set.
 //
-//   * ErrCodeTooManyStreamingDistributionCNAMEs "TooManyStreamingDistributionCNAMEs"
+//   * TooManyStreamingDistributionCNAMEs
+
 //
-//   * ErrCodeTooManyStreamingDistributions "TooManyStreamingDistributions"
+//   * TooManyStreamingDistributions
 //   Processing your request would cause you to exceed the maximum number of streaming
 //   distributions allowed.
 //
-//   * ErrCodeInvalidArgument "InvalidArgument"
+//   * InvalidArgument
 //   The argument is invalid.
 //
-//   * ErrCodeInconsistentQuantities "InconsistentQuantities"
+//   * InconsistentQuantities
 //   The value of Quantity and the size of Items do not match.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cloudfront-2016-11-25/CreateStreamingDistribution
@@ -719,43 +752,47 @@ func (c *CloudFront) CreateStreamingDistributionWithTagsRequest(input *CreateStr
 // API operation CreateStreamingDistributionWithTags for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeCNAMEAlreadyExists "CNAMEAlreadyExists"
+//   * CNAMEAlreadyExists
+
 //
-//   * ErrCodeStreamingDistributionAlreadyExists "StreamingDistributionAlreadyExists"
+//   * StreamingDistributionAlreadyExists
+
 //
-//   * ErrCodeInvalidOrigin "InvalidOrigin"
+//   * InvalidOrigin
 //   The Amazon S3 origin server specified does not refer to a valid Amazon S3
 //   bucket.
 //
-//   * ErrCodeInvalidOriginAccessIdentity "InvalidOriginAccessIdentity"
+//   * InvalidOriginAccessIdentity
 //   The origin access identity is not valid or doesn't exist.
 //
-//   * ErrCodeAccessDenied "AccessDenied"
+//   * AccessDenied
 //   Access denied.
 //
-//   * ErrCodeTooManyTrustedSigners "TooManyTrustedSigners"
+//   * TooManyTrustedSigners
 //   Your request contains more trusted signers than are allowed per distribution.
 //
-//   * ErrCodeTrustedSignerDoesNotExist "TrustedSignerDoesNotExist"
+//   * TrustedSignerDoesNotExist
 //   One or more of your trusted signers do not exist.
 //
-//   * ErrCodeMissingBody "MissingBody"
+//   * MissingBody
 //   This operation requires a body. Ensure that the body is present and the Content-Type
 //   header is set.
 //
-//   * ErrCodeTooManyStreamingDistributionCNAMEs "TooManyStreamingDistributionCNAMEs"
+//   * TooManyStreamingDistributionCNAMEs
+
 //
-//   * ErrCodeTooManyStreamingDistributions "TooManyStreamingDistributions"
+//   * TooManyStreamingDistributions
 //   Processing your request would cause you to exceed the maximum number of streaming
 //   distributions allowed.
 //
-//   * ErrCodeInvalidArgument "InvalidArgument"
+//   * InvalidArgument
 //   The argument is invalid.
 //
-//   * ErrCodeInconsistentQuantities "InconsistentQuantities"
+//   * InconsistentQuantities
 //   The value of Quantity and the size of Items do not match.
 //
-//   * ErrCodeInvalidTagging "InvalidTagging"
+//   * InvalidTagging
+
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cloudfront-2016-11-25/CreateStreamingDistributionWithTags
 func (c *CloudFront) CreateStreamingDistributionWithTags(input *CreateStreamingDistributionWithTagsInput) (*CreateStreamingDistributionWithTagsOutput, error) {
@@ -821,20 +858,21 @@ func (c *CloudFront) DeleteCloudFrontOriginAccessIdentityRequest(input *DeleteCl
 // API operation DeleteCloudFrontOriginAccessIdentity for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeAccessDenied "AccessDenied"
+//   * AccessDenied
 //   Access denied.
 //
-//   * ErrCodeInvalidIfMatchVersion "InvalidIfMatchVersion"
+//   * InvalidIfMatchVersion
 //   The If-Match version is missing or not valid for the distribution.
 //
-//   * ErrCodeNoSuchCloudFrontOriginAccessIdentity "NoSuchCloudFrontOriginAccessIdentity"
+//   * NoSuchCloudFrontOriginAccessIdentity
 //   The specified origin access identity does not exist.
 //
-//   * ErrCodePreconditionFailed "PreconditionFailed"
+//   * PreconditionFailed
 //   The precondition given in one or more of the request-header fields evaluated
 //   to false.
 //
-//   * ErrCodeOriginAccessIdentityInUse "OriginAccessIdentityInUse"
+//   * OriginAccessIdentityInUse
+
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cloudfront-2016-11-25/DeleteCloudFrontOriginAccessIdentity
 func (c *CloudFront) DeleteCloudFrontOriginAccessIdentity(input *DeleteCloudFrontOriginAccessIdentityInput) (*DeleteCloudFrontOriginAccessIdentityOutput, error) {
@@ -900,18 +938,19 @@ func (c *CloudFront) DeleteDistributionRequest(input *DeleteDistributionInput) (
 // API operation DeleteDistribution for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeAccessDenied "AccessDenied"
+//   * AccessDenied
 //   Access denied.
 //
-//   * ErrCodeDistributionNotDisabled "DistributionNotDisabled"
+//   * DistributionNotDisabled
+
 //
-//   * ErrCodeInvalidIfMatchVersion "InvalidIfMatchVersion"
+//   * InvalidIfMatchVersion
 //   The If-Match version is missing or not valid for the distribution.
 //
-//   * ErrCodeNoSuchDistribution "NoSuchDistribution"
+//   * NoSuchDistribution
 //   The specified distribution does not exist.
 //
-//   * ErrCodePreconditionFailed "PreconditionFailed"
+//   * PreconditionFailed
 //   The precondition given in one or more of the request-header fields evaluated
 //   to false.
 //
@@ -1014,18 +1053,19 @@ func (c *CloudFront) DeleteStreamingDistributionRequest(input *DeleteStreamingDi
 // API operation DeleteStreamingDistribution for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeAccessDenied "AccessDenied"
+//   * AccessDenied
 //   Access denied.
 //
-//   * ErrCodeStreamingDistributionNotDisabled "StreamingDistributionNotDisabled"
+//   * StreamingDistributionNotDisabled
+
 //
-//   * ErrCodeInvalidIfMatchVersion "InvalidIfMatchVersion"
+//   * InvalidIfMatchVersion
 //   The If-Match version is missing or not valid for the distribution.
 //
-//   * ErrCodeNoSuchStreamingDistribution "NoSuchStreamingDistribution"
+//   * NoSuchStreamingDistribution
 //   The specified streaming distribution does not exist.
 //
-//   * ErrCodePreconditionFailed "PreconditionFailed"
+//   * PreconditionFailed
 //   The precondition given in one or more of the request-header fields evaluated
 //   to false.
 //
@@ -1091,10 +1131,10 @@ func (c *CloudFront) GetCloudFrontOriginAccessIdentityRequest(input *GetCloudFro
 // API operation GetCloudFrontOriginAccessIdentity for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeNoSuchCloudFrontOriginAccessIdentity "NoSuchCloudFrontOriginAccessIdentity"
+//   * NoSuchCloudFrontOriginAccessIdentity
 //   The specified origin access identity does not exist.
 //
-//   * ErrCodeAccessDenied "AccessDenied"
+//   * AccessDenied
 //   Access denied.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cloudfront-2016-11-25/GetCloudFrontOriginAccessIdentity
@@ -1159,10 +1199,10 @@ func (c *CloudFront) GetCloudFrontOriginAccessIdentityConfigRequest(input *GetCl
 // API operation GetCloudFrontOriginAccessIdentityConfig for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeNoSuchCloudFrontOriginAccessIdentity "NoSuchCloudFrontOriginAccessIdentity"
+//   * NoSuchCloudFrontOriginAccessIdentity
 //   The specified origin access identity does not exist.
 //
-//   * ErrCodeAccessDenied "AccessDenied"
+//   * AccessDenied
 //   Access denied.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cloudfront-2016-11-25/GetCloudFrontOriginAccessIdentityConfig
@@ -1227,10 +1267,10 @@ func (c *CloudFront) GetDistributionRequest(input *GetDistributionInput) (req *r
 // API operation GetDistribution for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeNoSuchDistribution "NoSuchDistribution"
+//   * NoSuchDistribution
 //   The specified distribution does not exist.
 //
-//   * ErrCodeAccessDenied "AccessDenied"
+//   * AccessDenied
 //   Access denied.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cloudfront-2016-11-25/GetDistribution
@@ -1295,10 +1335,10 @@ func (c *CloudFront) GetDistributionConfigRequest(input *GetDistributionConfigIn
 // API operation GetDistributionConfig for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeNoSuchDistribution "NoSuchDistribution"
+//   * NoSuchDistribution
 //   The specified distribution does not exist.
 //
-//   * ErrCodeAccessDenied "AccessDenied"
+//   * AccessDenied
 //   Access denied.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cloudfront-2016-11-25/GetDistributionConfig
@@ -1363,13 +1403,13 @@ func (c *CloudFront) GetInvalidationRequest(input *GetInvalidationInput) (req *r
 // API operation GetInvalidation for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeNoSuchInvalidation "NoSuchInvalidation"
+//   * NoSuchInvalidation
 //   The specified invalidation does not exist.
 //
-//   * ErrCodeNoSuchDistribution "NoSuchDistribution"
+//   * NoSuchDistribution
 //   The specified distribution does not exist.
 //
-//   * ErrCodeAccessDenied "AccessDenied"
+//   * AccessDenied
 //   Access denied.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cloudfront-2016-11-25/GetInvalidation
@@ -1435,10 +1475,10 @@ func (c *CloudFront) GetStreamingDistributionRequest(input *GetStreamingDistribu
 // API operation GetStreamingDistribution for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeNoSuchStreamingDistribution "NoSuchStreamingDistribution"
+//   * NoSuchStreamingDistribution
 //   The specified streaming distribution does not exist.
 //
-//   * ErrCodeAccessDenied "AccessDenied"
+//   * AccessDenied
 //   Access denied.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cloudfront-2016-11-25/GetStreamingDistribution
@@ -1503,10 +1543,10 @@ func (c *CloudFront) GetStreamingDistributionConfigRequest(input *GetStreamingDi
 // API operation GetStreamingDistributionConfig for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeNoSuchStreamingDistribution "NoSuchStreamingDistribution"
+//   * NoSuchStreamingDistribution
 //   The specified streaming distribution does not exist.
 //
-//   * ErrCodeAccessDenied "AccessDenied"
+//   * AccessDenied
 //   Access denied.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cloudfront-2016-11-25/GetStreamingDistributionConfig
@@ -1577,7 +1617,7 @@ func (c *CloudFront) ListCloudFrontOriginAccessIdentitiesRequest(input *ListClou
 // API operation ListCloudFrontOriginAccessIdentities for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidArgument "InvalidArgument"
+//   * InvalidArgument
 //   The argument is invalid.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cloudfront-2016-11-25/ListCloudFrontOriginAccessIdentities
@@ -1673,7 +1713,7 @@ func (c *CloudFront) ListDistributionsRequest(input *ListDistributionsInput) (re
 // API operation ListDistributions for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidArgument "InvalidArgument"
+//   * InvalidArgument
 //   The argument is invalid.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cloudfront-2016-11-25/ListDistributions
@@ -1763,10 +1803,11 @@ func (c *CloudFront) ListDistributionsByWebACLIdRequest(input *ListDistributions
 // API operation ListDistributionsByWebACLId for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidArgument "InvalidArgument"
+//   * InvalidArgument
 //   The argument is invalid.
 //
-//   * ErrCodeInvalidWebACLId "InvalidWebACLId"
+//   * InvalidWebACLId
+
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cloudfront-2016-11-25/ListDistributionsByWebACLId
 func (c *CloudFront) ListDistributionsByWebACLId(input *ListDistributionsByWebACLIdInput) (*ListDistributionsByWebACLIdOutput, error) {
@@ -1836,13 +1877,13 @@ func (c *CloudFront) ListInvalidationsRequest(input *ListInvalidationsInput) (re
 // API operation ListInvalidations for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidArgument "InvalidArgument"
+//   * InvalidArgument
 //   The argument is invalid.
 //
-//   * ErrCodeNoSuchDistribution "NoSuchDistribution"
+//   * NoSuchDistribution
 //   The specified distribution does not exist.
 //
-//   * ErrCodeAccessDenied "AccessDenied"
+//   * AccessDenied
 //   Access denied.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cloudfront-2016-11-25/ListInvalidations
@@ -1938,7 +1979,7 @@ func (c *CloudFront) ListStreamingDistributionsRequest(input *ListStreamingDistr
 // API operation ListStreamingDistributions for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidArgument "InvalidArgument"
+//   * InvalidArgument
 //   The argument is invalid.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cloudfront-2016-11-25/ListStreamingDistributions
@@ -2028,15 +2069,17 @@ func (c *CloudFront) ListTagsForResourceRequest(input *ListTagsForResourceInput)
 // API operation ListTagsForResource for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeAccessDenied "AccessDenied"
+//   * AccessDenied
 //   Access denied.
 //
-//   * ErrCodeInvalidArgument "InvalidArgument"
+//   * InvalidArgument
 //   The argument is invalid.
 //
-//   * ErrCodeInvalidTagging "InvalidTagging"
+//   * InvalidTagging
+
 //
-//   * ErrCodeNoSuchResource "NoSuchResource"
+//   * NoSuchResource
+
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cloudfront-2016-11-25/ListTagsForResource
 func (c *CloudFront) ListTagsForResource(input *ListTagsForResourceInput) (*ListTagsForResourceOutput, error) {
@@ -2102,15 +2145,17 @@ func (c *CloudFront) TagResourceRequest(input *TagResourceInput) (req *request.R
 // API operation TagResource for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeAccessDenied "AccessDenied"
+//   * AccessDenied
 //   Access denied.
 //
-//   * ErrCodeInvalidArgument "InvalidArgument"
+//   * InvalidArgument
 //   The argument is invalid.
 //
-//   * ErrCodeInvalidTagging "InvalidTagging"
+//   * InvalidTagging
+
 //
-//   * ErrCodeNoSuchResource "NoSuchResource"
+//   * NoSuchResource
+
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cloudfront-2016-11-25/TagResource
 func (c *CloudFront) TagResource(input *TagResourceInput) (*TagResourceOutput, error) {
@@ -2176,15 +2221,17 @@ func (c *CloudFront) UntagResourceRequest(input *UntagResourceInput) (req *reque
 // API operation UntagResource for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeAccessDenied "AccessDenied"
+//   * AccessDenied
 //   Access denied.
 //
-//   * ErrCodeInvalidArgument "InvalidArgument"
+//   * InvalidArgument
 //   The argument is invalid.
 //
-//   * ErrCodeInvalidTagging "InvalidTagging"
+//   * InvalidTagging
+
 //
-//   * ErrCodeNoSuchResource "NoSuchResource"
+//   * NoSuchResource
+
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cloudfront-2016-11-25/UntagResource
 func (c *CloudFront) UntagResource(input *UntagResourceInput) (*UntagResourceOutput, error) {
@@ -2248,30 +2295,30 @@ func (c *CloudFront) UpdateCloudFrontOriginAccessIdentityRequest(input *UpdateCl
 // API operation UpdateCloudFrontOriginAccessIdentity for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeAccessDenied "AccessDenied"
+//   * AccessDenied
 //   Access denied.
 //
-//   * ErrCodeIllegalUpdate "IllegalUpdate"
+//   * IllegalUpdate
 //   Origin and CallerReference cannot be updated.
 //
-//   * ErrCodeInvalidIfMatchVersion "InvalidIfMatchVersion"
+//   * InvalidIfMatchVersion
 //   The If-Match version is missing or not valid for the distribution.
 //
-//   * ErrCodeMissingBody "MissingBody"
+//   * MissingBody
 //   This operation requires a body. Ensure that the body is present and the Content-Type
 //   header is set.
 //
-//   * ErrCodeNoSuchCloudFrontOriginAccessIdentity "NoSuchCloudFrontOriginAccessIdentity"
+//   * NoSuchCloudFrontOriginAccessIdentity
 //   The specified origin access identity does not exist.
 //
-//   * ErrCodePreconditionFailed "PreconditionFailed"
+//   * PreconditionFailed
 //   The precondition given in one or more of the request-header fields evaluated
 //   to false.
 //
-//   * ErrCodeInvalidArgument "InvalidArgument"
+//   * InvalidArgument
 //   The argument is invalid.
 //
-//   * ErrCodeInconsistentQuantities "InconsistentQuantities"
+//   * InconsistentQuantities
 //   The value of Quantity and the size of Items do not match.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cloudfront-2016-11-25/UpdateCloudFrontOriginAccessIdentity
@@ -2336,115 +2383,129 @@ func (c *CloudFront) UpdateDistributionRequest(input *UpdateDistributionInput) (
 // API operation UpdateDistribution for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeAccessDenied "AccessDenied"
+//   * AccessDenied
 //   Access denied.
 //
-//   * ErrCodeCNAMEAlreadyExists "CNAMEAlreadyExists"
+//   * CNAMEAlreadyExists
+
 //
-//   * ErrCodeIllegalUpdate "IllegalUpdate"
+//   * IllegalUpdate
 //   Origin and CallerReference cannot be updated.
 //
-//   * ErrCodeInvalidIfMatchVersion "InvalidIfMatchVersion"
+//   * InvalidIfMatchVersion
 //   The If-Match version is missing or not valid for the distribution.
 //
-//   * ErrCodeMissingBody "MissingBody"
+//   * MissingBody
 //   This operation requires a body. Ensure that the body is present and the Content-Type
 //   header is set.
 //
-//   * ErrCodeNoSuchDistribution "NoSuchDistribution"
+//   * NoSuchDistribution
 //   The specified distribution does not exist.
 //
-//   * ErrCodePreconditionFailed "PreconditionFailed"
+//   * PreconditionFailed
 //   The precondition given in one or more of the request-header fields evaluated
 //   to false.
 //
-//   * ErrCodeTooManyDistributionCNAMEs "TooManyDistributionCNAMEs"
+//   * TooManyDistributionCNAMEs
 //   Your request contains more CNAMEs than are allowed per distribution.
 //
-//   * ErrCodeInvalidDefaultRootObject "InvalidDefaultRootObject"
+//   * InvalidDefaultRootObject
 //   The default root object file name is too big or contains an invalid character.
 //
-//   * ErrCodeInvalidRelativePath "InvalidRelativePath"
+//   * InvalidRelativePath
 //   The relative path is too big, is not URL-encoded, or does not begin with
 //   a slash (/).
 //
-//   * ErrCodeInvalidErrorCode "InvalidErrorCode"
+//   * InvalidErrorCode
+
 //
-//   * ErrCodeInvalidResponseCode "InvalidResponseCode"
+//   * InvalidResponseCode
+
 //
-//   * ErrCodeInvalidArgument "InvalidArgument"
+//   * InvalidArgument
 //   The argument is invalid.
 //
-//   * ErrCodeInvalidOriginAccessIdentity "InvalidOriginAccessIdentity"
+//   * InvalidOriginAccessIdentity
 //   The origin access identity is not valid or doesn't exist.
 //
-//   * ErrCodeTooManyTrustedSigners "TooManyTrustedSigners"
+//   * TooManyTrustedSigners
 //   Your request contains more trusted signers than are allowed per distribution.
 //
-//   * ErrCodeTrustedSignerDoesNotExist "TrustedSignerDoesNotExist"
+//   * TrustedSignerDoesNotExist
 //   One or more of your trusted signers do not exist.
 //
-//   * ErrCodeInvalidViewerCertificate "InvalidViewerCertificate"
+//   * InvalidViewerCertificate
+
 //
-//   * ErrCodeInvalidMinimumProtocolVersion "InvalidMinimumProtocolVersion"
+//   * InvalidMinimumProtocolVersion
+
 //
-//   * ErrCodeInvalidRequiredProtocol "InvalidRequiredProtocol"
+//   * InvalidRequiredProtocol
 //   This operation requires the HTTPS protocol. Ensure that you specify the HTTPS
 //   protocol in your request, or omit the RequiredProtocols element from your
 //   distribution configuration.
 //
-//   * ErrCodeNoSuchOrigin "NoSuchOrigin"
+//   * NoSuchOrigin
 //   No origin exists with the specified Origin Id.
 //
-//   * ErrCodeTooManyOrigins "TooManyOrigins"
+//   * TooManyOrigins
 //   You cannot create more origins for the distribution.
 //
-//   * ErrCodeTooManyCacheBehaviors "TooManyCacheBehaviors"
+//   * TooManyCacheBehaviors
 //   You cannot create more cache behaviors for the distribution.
 //
-//   * ErrCodeTooManyCookieNamesInWhiteList "TooManyCookieNamesInWhiteList"
+//   * TooManyCookieNamesInWhiteList
 //   Your request contains more cookie names in the whitelist than are allowed
 //   per cache behavior.
 //
-//   * ErrCodeInvalidForwardCookies "InvalidForwardCookies"
+//   * InvalidForwardCookies
 //   Your request contains forward cookies option which doesn't match with the
 //   expectation for the whitelisted list of cookie names. Either list of cookie
 //   names has been specified when not allowed or list of cookie names is missing
 //   when expected.
 //
-//   * ErrCodeTooManyHeadersInForwardedValues "TooManyHeadersInForwardedValues"
+//   * TooManyHeadersInForwardedValues
+
 //
-//   * ErrCodeInvalidHeadersForS3Origin "InvalidHeadersForS3Origin"
+//   * InvalidHeadersForS3Origin
+
 //
-//   * ErrCodeInconsistentQuantities "InconsistentQuantities"
+//   * InconsistentQuantities
 //   The value of Quantity and the size of Items do not match.
 //
-//   * ErrCodeTooManyCertificates "TooManyCertificates"
+//   * TooManyCertificates
 //   You cannot create anymore custom SSL/TLS certificates.
 //
-//   * ErrCodeInvalidLocationCode "InvalidLocationCode"
+//   * InvalidLocationCode
+
 //
-//   * ErrCodeInvalidGeoRestrictionParameter "InvalidGeoRestrictionParameter"
+//   * InvalidGeoRestrictionParameter
+
 //
-//   * ErrCodeInvalidTTLOrder "InvalidTTLOrder"
+//   * InvalidTTLOrder
+
 //
-//   * ErrCodeInvalidWebACLId "InvalidWebACLId"
+//   * InvalidWebACLId
+
 //
-//   * ErrCodeTooManyOriginCustomHeaders "TooManyOriginCustomHeaders"
+//   * TooManyOriginCustomHeaders
+
 //
-//   * ErrCodeTooManyQueryStringParameters "TooManyQueryStringParameters"
+//   * TooManyQueryStringParameters
+
 //
-//   * ErrCodeInvalidQueryStringParameters "InvalidQueryStringParameters"
+//   * InvalidQueryStringParameters
+
 //
-//   * ErrCodeTooManyDistributionsWithLambdaAssociations "TooManyDistributionsWithLambdaAssociations"
+//   * TooManyDistributionsWithLambdaAssociations
 //   Processing your request would cause the maximum number of distributions with
 //   Lambda function associations per owner to be exceeded.
 //
-//   * ErrCodeTooManyLambdaFunctionAssociations "TooManyLambdaFunctionAssociations"
+//   * TooManyLambdaFunctionAssociations
 //   Your request contains more Lambda function associations than are allowed
 //   per distribution.
 //
-//   * ErrCodeInvalidLambdaFunctionAssociation "InvalidLambdaFunctionAssociation"
+//   * InvalidLambdaFunctionAssociation
 //   The specified Lambda function association is invalid.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cloudfront-2016-11-25/UpdateDistribution
@@ -2509,43 +2570,45 @@ func (c *CloudFront) UpdateStreamingDistributionRequest(input *UpdateStreamingDi
 // API operation UpdateStreamingDistribution for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeAccessDenied "AccessDenied"
+//   * AccessDenied
 //   Access denied.
 //
-//   * ErrCodeCNAMEAlreadyExists "CNAMEAlreadyExists"
+//   * CNAMEAlreadyExists
+
 //
-//   * ErrCodeIllegalUpdate "IllegalUpdate"
+//   * IllegalUpdate
 //   Origin and CallerReference cannot be updated.
 //
-//   * ErrCodeInvalidIfMatchVersion "InvalidIfMatchVersion"
+//   * InvalidIfMatchVersion
 //   The If-Match version is missing or not valid for the distribution.
 //
-//   * ErrCodeMissingBody "MissingBody"
+//   * MissingBody
 //   This operation requires a body. Ensure that the body is present and the Content-Type
 //   header is set.
 //
-//   * ErrCodeNoSuchStreamingDistribution "NoSuchStreamingDistribution"
+//   * NoSuchStreamingDistribution
 //   The specified streaming distribution does not exist.
 //
-//   * ErrCodePreconditionFailed "PreconditionFailed"
+//   * PreconditionFailed
 //   The precondition given in one or more of the request-header fields evaluated
 //   to false.
 //
-//   * ErrCodeTooManyStreamingDistributionCNAMEs "TooManyStreamingDistributionCNAMEs"
+//   * TooManyStreamingDistributionCNAMEs
+
 //
-//   * ErrCodeInvalidArgument "InvalidArgument"
+//   * InvalidArgument
 //   The argument is invalid.
 //
-//   * ErrCodeInvalidOriginAccessIdentity "InvalidOriginAccessIdentity"
+//   * InvalidOriginAccessIdentity
 //   The origin access identity is not valid or doesn't exist.
 //
-//   * ErrCodeTooManyTrustedSigners "TooManyTrustedSigners"
+//   * TooManyTrustedSigners
 //   Your request contains more trusted signers than are allowed per distribution.
 //
-//   * ErrCodeTrustedSignerDoesNotExist "TrustedSignerDoesNotExist"
+//   * TrustedSignerDoesNotExist
 //   One or more of your trusted signers do not exist.
 //
-//   * ErrCodeInconsistentQuantities "InconsistentQuantities"
+//   * InconsistentQuantities
 //   The value of Quantity and the size of Items do not match.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/cloudfront-2016-11-25/UpdateStreamingDistribution

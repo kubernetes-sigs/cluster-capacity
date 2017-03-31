@@ -497,20 +497,6 @@ func (s *AboutFeatures) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-func (s *AboutFeatures) UnmarshalJSON(data []byte) error {
-	type noMethod AboutFeatures
-	var s1 struct {
-		FeatureRate gensupport.JSONFloat64 `json:"featureRate"`
-		*noMethod
-	}
-	s1.noMethod = (*noMethod)(s)
-	if err := json.Unmarshal(data, &s1); err != nil {
-		return err
-	}
-	s.FeatureRate = float64(s1.FeatureRate)
-	return nil
-}
-
 type AboutImportFormats struct {
 	// Source: The imported file's content type to convert from.
 	Source string `json:"source,omitempty"`
@@ -761,7 +747,7 @@ type AppList struct {
 	// Etag: The ETag of the list.
 	Etag string `json:"etag,omitempty"`
 
-	// Items: The list of apps.
+	// Items: The actual list of apps.
 	Items []*App `json:"items,omitempty"`
 
 	// Kind: This is always drive#appList.
@@ -853,9 +839,7 @@ type ChangeList struct {
 	// Etag: The ETag of the list.
 	Etag string `json:"etag,omitempty"`
 
-	// Items: The list of changes. If nextPageToken is populated, then this
-	// list may be incomplete and an additional page of results should be
-	// fetched.
+	// Items: The actual list of changes.
 	Items []*Change `json:"items,omitempty"`
 
 	// Kind: This is always drive#changeList.
@@ -867,10 +851,7 @@ type ChangeList struct {
 	// NextLink: A link to the next page of changes.
 	NextLink string `json:"nextLink,omitempty"`
 
-	// NextPageToken: The page token for the next page of changes. This will
-	// be absent if the end of the changes list has been reached. If the
-	// token is rejected for any reason, it should be discarded, and
-	// pagination should be restarted from the first page of results.
+	// NextPageToken: The page token for the next page of changes.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: A link back to this list.
@@ -974,9 +955,7 @@ type ChildList struct {
 	// Etag: The ETag of the list.
 	Etag string `json:"etag,omitempty"`
 
-	// Items: The list of children. If nextPageToken is populated, then this
-	// list may be incomplete and an additional page of results should be
-	// fetched.
+	// Items: The actual list of children.
 	Items []*ChildReference `json:"items,omitempty"`
 
 	// Kind: This is always drive#childList.
@@ -985,10 +964,7 @@ type ChildList struct {
 	// NextLink: A link to the next page of children.
 	NextLink string `json:"nextLink,omitempty"`
 
-	// NextPageToken: The page token for the next page of children. This
-	// will be absent if the end of the children list has been reached. If
-	// the token is rejected for any reason, it should be discarded, and
-	// pagination should be restarted from the first page of results.
+	// NextPageToken: The page token for the next page of children.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: A link back to this list.
@@ -1181,9 +1157,7 @@ func (s *CommentContext) MarshalJSON() ([]byte, error) {
 
 // CommentList: A list of comments on a file in Google Drive.
 type CommentList struct {
-	// Items: The list of comments. If nextPageToken is populated, then this
-	// list may be incomplete and an additional page of results should be
-	// fetched.
+	// Items: List of comments.
 	Items []*Comment `json:"items,omitempty"`
 
 	// Kind: This is always drive#commentList.
@@ -1192,10 +1166,7 @@ type CommentList struct {
 	// NextLink: A link to the next page of comments.
 	NextLink string `json:"nextLink,omitempty"`
 
-	// NextPageToken: The page token for the next page of comments. This
-	// will be absent if the end of the comments list has been reached. If
-	// the token is rejected for any reason, it should be discarded, and
-	// pagination should be restarted from the first page of results.
+	// NextPageToken: The token to use to request the next page of results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: A link back to this list.
@@ -1296,9 +1267,7 @@ func (s *CommentReply) MarshalJSON() ([]byte, error) {
 // CommentReplyList: A list of replies to a comment on a file in Google
 // Drive.
 type CommentReplyList struct {
-	// Items: The list of replies. If nextPageToken is populated, then this
-	// list may be incomplete and an additional page of results should be
-	// fetched.
+	// Items: List of reply.
 	Items []*CommentReply `json:"items,omitempty"`
 
 	// Kind: This is always drive#commentReplyList.
@@ -1307,10 +1276,7 @@ type CommentReplyList struct {
 	// NextLink: A link to the next page of replies.
 	NextLink string `json:"nextLink,omitempty"`
 
-	// NextPageToken: The page token for the next page of replies. This will
-	// be absent if the end of the replies list has been reached. If the
-	// token is rejected for any reason, it should be discarded, and
-	// pagination should be restarted from the first page of results.
+	// NextPageToken: The token to use to request the next page of results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: A link back to this list.
@@ -1417,9 +1383,6 @@ type File struct {
 	// This field is only populated for files with content stored in Drive;
 	// it is not populated for Google Docs or shortcut files.
 	FullFileExtension string `json:"fullFileExtension,omitempty"`
-
-	// HasThumbnail: Whether this file has a thumbnail.
-	HasThumbnail bool `json:"hasThumbnail,omitempty"`
 
 	// HeadRevisionId: The ID of the file's head revision. This field is
 	// only populated for files with content stored in Drive; it is not
@@ -1542,18 +1505,13 @@ type File struct {
 	// are 'drive', 'appDataFolder' and 'photos'.
 	Spaces []string `json:"spaces,omitempty"`
 
-	// Thumbnail: A thumbnail for the file. This will only be used if Drive
-	// cannot generate a standard thumbnail.
+	// Thumbnail: Thumbnail for the file. Only accepted on upload and for
+	// files that are not already thumbnailed by Google.
 	Thumbnail *FileThumbnail `json:"thumbnail,omitempty"`
 
 	// ThumbnailLink: A short-lived link to the file's thumbnail. Typically
-	// lasts on the order of hours. Only populated when the requesting app
-	// can access the file's content.
+	// lasts on the order of hours.
 	ThumbnailLink string `json:"thumbnailLink,omitempty"`
-
-	// ThumbnailVersion: The thumbnail version for use in thumbnail cache
-	// invalidation.
-	ThumbnailVersion int64 `json:"thumbnailVersion,omitempty,string"`
 
 	// Title: The title of this file.
 	Title string `json:"title,omitempty"`
@@ -1706,28 +1664,6 @@ func (s *FileImageMediaMetadata) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-func (s *FileImageMediaMetadata) UnmarshalJSON(data []byte) error {
-	type noMethod FileImageMediaMetadata
-	var s1 struct {
-		Aperture         gensupport.JSONFloat64 `json:"aperture"`
-		ExposureBias     gensupport.JSONFloat64 `json:"exposureBias"`
-		ExposureTime     gensupport.JSONFloat64 `json:"exposureTime"`
-		FocalLength      gensupport.JSONFloat64 `json:"focalLength"`
-		MaxApertureValue gensupport.JSONFloat64 `json:"maxApertureValue"`
-		*noMethod
-	}
-	s1.noMethod = (*noMethod)(s)
-	if err := json.Unmarshal(data, &s1); err != nil {
-		return err
-	}
-	s.Aperture = float64(s1.Aperture)
-	s.ExposureBias = float64(s1.ExposureBias)
-	s.ExposureTime = float64(s1.ExposureTime)
-	s.FocalLength = float64(s1.FocalLength)
-	s.MaxApertureValue = float64(s1.MaxApertureValue)
-	return nil
-}
-
 // FileImageMediaMetadataLocation: Geographic location information
 // stored in the image.
 type FileImageMediaMetadataLocation struct {
@@ -1761,24 +1697,6 @@ func (s *FileImageMediaMetadataLocation) MarshalJSON() ([]byte, error) {
 	type noMethod FileImageMediaMetadataLocation
 	raw := noMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
-}
-
-func (s *FileImageMediaMetadataLocation) UnmarshalJSON(data []byte) error {
-	type noMethod FileImageMediaMetadataLocation
-	var s1 struct {
-		Altitude  gensupport.JSONFloat64 `json:"altitude"`
-		Latitude  gensupport.JSONFloat64 `json:"latitude"`
-		Longitude gensupport.JSONFloat64 `json:"longitude"`
-		*noMethod
-	}
-	s1.noMethod = (*noMethod)(s)
-	if err := json.Unmarshal(data, &s1); err != nil {
-		return err
-	}
-	s.Altitude = float64(s1.Altitude)
-	s.Latitude = float64(s1.Latitude)
-	s.Longitude = float64(s1.Longitude)
-	return nil
 }
 
 // FileIndexableText: Indexable text attributes for the file (can only
@@ -1856,8 +1774,8 @@ func (s *FileLabels) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-// FileThumbnail: A thumbnail for the file. This will only be used if
-// Drive cannot generate a standard thumbnail.
+// FileThumbnail: Thumbnail for the file. Only accepted on upload and
+// for files that are not already thumbnailed by Google.
 type FileThumbnail struct {
 	// Image: The URL-safe Base64 encoded bytes of the thumbnail image. It
 	// should conform to RFC 4648 section 5.
@@ -1930,9 +1848,7 @@ type FileList struct {
 	// Etag: The ETag of the list.
 	Etag string `json:"etag,omitempty"`
 
-	// Items: The list of files. If nextPageToken is populated, then this
-	// list may be incomplete and an additional page of results should be
-	// fetched.
+	// Items: The actual list of files.
 	Items []*File `json:"items,omitempty"`
 
 	// Kind: This is always drive#fileList.
@@ -1941,10 +1857,7 @@ type FileList struct {
 	// NextLink: A link to the next page of files.
 	NextLink string `json:"nextLink,omitempty"`
 
-	// NextPageToken: The page token for the next page of files. This will
-	// be absent if the end of the files list has been reached. If the token
-	// is rejected for any reason, it should be discarded, and pagination
-	// should be restarted from the first page of results.
+	// NextPageToken: The page token for the next page of files.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: A link back to this list.
@@ -2022,7 +1935,7 @@ type ParentList struct {
 	// Etag: The ETag of the list.
 	Etag string `json:"etag,omitempty"`
 
-	// Items: The list of parents.
+	// Items: The actual list of parents.
 	Items []*ParentReference `json:"items,omitempty"`
 
 	// Kind: This is always drive#parentList.
@@ -2131,8 +2044,8 @@ type Permission struct {
 	// Id: The ID of the user this permission refers to, and identical to
 	// the permissionId in the About and Files resources. When making a
 	// drive.permissions.insert request, exactly one of the id or value
-	// fields must be specified unless the permission type is anyone, in
-	// which case both id and value are ignored.
+	// fields must be specified unless the permission type anyone, in which
+	// case both id and value are ignored.
 	Id string `json:"id,omitempty"`
 
 	// Kind: This is always drive#permission.
@@ -2163,8 +2076,8 @@ type Permission struct {
 	// Value: The email address or domain name for the entity. This is used
 	// during inserts and is not populated in responses. When making a
 	// drive.permissions.insert request, exactly one of the id or value
-	// fields must be specified unless the permission type is anyone, in
-	// which case both id and value are ignored.
+	// fields must be specified unless the permission type anyone, in which
+	// case both id and value are ignored.
 	Value string `json:"value,omitempty"`
 
 	// WithLink: Whether the link is required for this permission.
@@ -2238,7 +2151,7 @@ type PermissionList struct {
 	// Etag: The ETag of the list.
 	Etag string `json:"etag,omitempty"`
 
-	// Items: The list of permissions.
+	// Items: The actual list of permissions.
 	Items []*Permission `json:"items,omitempty"`
 
 	// Kind: This is always drive#permissionList.
@@ -2473,9 +2386,7 @@ type RevisionList struct {
 	// Etag: The ETag of the list.
 	Etag string `json:"etag,omitempty"`
 
-	// Items: The list of revisions. If nextPageToken is populated, then
-	// this list may be incomplete and an additional page of results should
-	// be fetched.
+	// Items: The actual list of revisions.
 	Items []*Revision `json:"items,omitempty"`
 
 	// Kind: This is always drive#revisionList.

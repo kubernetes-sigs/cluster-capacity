@@ -185,11 +185,6 @@ type SupplementalData struct {
 			Day         string `xml:"day,attr"`
 			Territories string `xml:"territories,attr"`
 		} `xml:"weekendEnd"`
-		WeekOfPreference []*struct {
-			Common
-			Locales  string `xml:"locales,attr"`
-			Ordering string `xml:"ordering,attr"`
-		} `xml:"weekOfPreference"`
 	} `xml:"weekData"`
 	TimeData *struct {
 		Common
@@ -736,7 +731,6 @@ type LDML struct {
 						Count string `xml:"count,attr"`
 					} `xml:"relativeTimePattern"`
 				} `xml:"relativeTime"`
-				RelativePeriod []*Common `xml:"relativePeriod"`
 			} `xml:"field"`
 		} `xml:"fields"`
 		TimeZoneNames *TimeZoneNames `xml:"timeZoneNames"`
@@ -807,14 +801,6 @@ type LDML struct {
 			Noexpr  []*Common `xml:"noexpr"`
 		} `xml:"messages"`
 	} `xml:"posix"`
-	CharacterLabels *struct {
-		Common
-		CharacterLabelPattern []*struct {
-			Common
-			Count string `xml:"count,attr"`
-		} `xml:"characterLabelPattern"`
-		CharacterLabel []*Common `xml:"characterLabel"`
-	} `xml:"characterLabels"`
 	Segmentations *struct {
 		Common
 		Segmentation []*struct {
@@ -1110,8 +1096,7 @@ type Calendar struct {
 			Common
 			DateFormatItem []*struct {
 				Common
-				Id    string `xml:"id,attr"`
-				Count string `xml:"count,attr"`
+				Id string `xml:"id,attr"`
 			} `xml:"dateFormatItem"`
 		} `xml:"availableFormats"`
 		AppendItems []*struct {
@@ -1150,7 +1135,6 @@ type Calendar struct {
 					Count string `xml:"count,attr"`
 				} `xml:"relativeTimePattern"`
 			} `xml:"relativeTime"`
-			RelativePeriod []*Common `xml:"relativePeriod"`
 		} `xml:"field"`
 	} `xml:"fields"`
 }
@@ -1453,4 +1437,4 @@ type Numbers struct {
 }
 
 // Version is the version of CLDR from which the XML definitions are generated.
-const Version = "30"
+const Version = "29"

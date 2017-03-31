@@ -100,22 +100,8 @@ func migrateCommandFunc(cmd *cobra.Command, args []string) {
 }
 
 func prepareBackend() backend.Backend {
-	var be backend.Backend
-
-	bch := make(chan struct{})
 	dbpath := path.Join(migrateDatadir, "member", "snap", "db")
-	go func() {
-		defer close(bch)
-		be = backend.New(dbpath, time.Second, 10000)
-
-	}()
-	select {
-	case <-bch:
-	case <-time.After(time.Second):
-		fmt.Fprintf(os.Stderr, "waiting for etcd to close and release its lock on %q\n", dbpath)
-		<-bch
-	}
-
+	be := backend.New(dbpath, time.Second, 10000)
 	tx := be.BatchTx()
 	tx.Lock()
 	tx.UnsafeCreateBucket([]byte("key"))

@@ -1,4 +1,3 @@
-// Package cmd is the root package of the various command-line utilities for InfluxDB.
 package cmd
 
 import "strings"

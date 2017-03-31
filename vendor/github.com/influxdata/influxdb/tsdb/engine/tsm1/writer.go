@@ -80,7 +80,6 @@ const (
 	// identify the file as a tsm1 formatted file
 	MagicNumber uint32 = 0x16D116D1
 
-	// Version indicates the version of the TSM file format.
 	Version byte = 1
 
 	// Size in bytes of an index entry
@@ -100,26 +99,19 @@ const (
 )
 
 var (
-	//ErrNoValues is returned when TSMWriter.WriteIndex is called and there are no values to write.
-	ErrNoValues = fmt.Errorf("no values written")
-
-	// ErrTSMClosed is returned when performing an operation against a closed TSM file.
-	ErrTSMClosed = fmt.Errorf("tsm file closed")
-
-	// ErrMaxKeyLengthExceeded is returned when attempting to write a key that is too long.
+	ErrNoValues             = fmt.Errorf("no values written")
+	ErrTSMClosed            = fmt.Errorf("tsm file closed")
 	ErrMaxKeyLengthExceeded = fmt.Errorf("max key length exceeded")
-
-	// ErrMaxBlocksExceeded is returned when attempting to write a block past the allowed number.
-	ErrMaxBlocksExceeded = fmt.Errorf("max blocks exceeded")
+	ErrMaxBlocksExceeded    = fmt.Errorf("max blocks exceeded")
 )
 
 // TSMWriter writes TSM formatted key and values.
 type TSMWriter interface {
 	// Write writes a new block for key containing and values.  Writes append
 	// blocks in the order that the Write function is called.  The caller is
-	// responsible for ensuring keys and blocks are sorted appropriately.
+	// responsible for ensuring keys and blocks or sorted appropriately.
 	// Values are encoded as a full block.  The caller is responsible for
-	// ensuring a fixed number of values are encoded in each block as well as
+	// ensuring a fixed number of values are encoded in each block as wells as
 	// ensuring the Values are sorted. The first and last timestamp values are
 	// used as the minimum and maximum values for the index entry.
 	Write(key string, values Values) error
@@ -134,14 +126,14 @@ type TSMWriter interface {
 	// WriteIndex finishes the TSM write streams and writes the index.
 	WriteIndex() error
 
-	// Close closes any underlying file resources.
+	// Closes any underlying file resources.
 	Close() error
 
-	// Size returns the current size in bytes of the file.
+	// Size returns the current size in bytes of the file
 	Size() uint32
 }
 
-// IndexWriter writes a TSMIndex.
+// IndexWriter writes a TSMIndex
 type IndexWriter interface {
 	// Add records a new block entry for a key in the index.
 	Add(key string, blockType byte, minTime, maxTime int64, offset int64, size uint32)
@@ -155,18 +147,19 @@ type IndexWriter interface {
 	// KeyCount returns the count of unique keys in the index.
 	KeyCount() int
 
-	// Size returns the size of a the current index in bytes.
+	// Size returns the size of a the current index in bytes
 	Size() uint32
 
 	// MarshalBinary returns a byte slice encoded version of the index.
 	MarshalBinary() ([]byte, error)
 
-	// WriteTo writes the index contents to a writer.
+	// WriteTo writes the index contents to a writer
 	WriteTo(w io.Writer) (int64, error)
 }
 
 // IndexEntry is the index information for a given block in a TSM file.
 type IndexEntry struct {
+
 	// The min and max time of all points stored in the block.
 	MinTime, MaxTime int64
 
@@ -177,7 +170,7 @@ type IndexEntry struct {
 	Size uint32
 }
 
-// UnmarshalBinary decodes an IndexEntry from a byte slice.
+// UnmarshalBinary decodes an IndexEntry from a byte slice
 func (e *IndexEntry) UnmarshalBinary(b []byte) error {
 	if len(b) != indexEntrySize {
 		return fmt.Errorf("unmarshalBinary: short buf: %v != %v", indexEntrySize, len(b))
@@ -189,8 +182,8 @@ func (e *IndexEntry) UnmarshalBinary(b []byte) error {
 	return nil
 }
 
-// AppendTo writes a binary-encoded version of IndexEntry to b, allocating
-// and returning a new slice, if necessary.
+// AppendTo will write a binary-encoded version of IndexEntry to b, allocating
+// and returning a new slice, if necessary
 func (e *IndexEntry) AppendTo(b []byte) []byte {
 	if len(b) < indexEntrySize {
 		if cap(b) < indexEntrySize {
@@ -208,24 +201,21 @@ func (e *IndexEntry) AppendTo(b []byte) []byte {
 	return b
 }
 
-// Contains returns true if this IndexEntry may contain values for the given time.
-// The min and max times are inclusive.
+// Returns true if this IndexEntry may contain values for the given time.  The min and max
+// times are inclusive.
 func (e *IndexEntry) Contains(t int64) bool {
 	return e.MinTime <= t && e.MaxTime >= t
 }
 
-// OverlapsTimeRange returns true if the given time ranges are completely within the entry's time bounds.
 func (e *IndexEntry) OverlapsTimeRange(min, max int64) bool {
 	return e.MinTime <= max && e.MaxTime >= min
 }
 
-// String returns a string representation of the entry.
 func (e *IndexEntry) String() string {
 	return fmt.Sprintf("min=%s max=%s ofs=%d siz=%d",
 		time.Unix(0, e.MinTime).UTC(), time.Unix(0, e.MaxTime).UTC(), e.Offset, e.Size)
 }
 
-// NewIndexWriter returns a new IndexWriter.
 func NewIndexWriter() IndexWriter {
 	return &directIndex{
 		blocks: map[string]*indexEntries{},
@@ -428,7 +418,6 @@ type tsmWriter struct {
 	n       int64
 }
 
-// NewTSMWriter returns a new TSMWriter writing to w.
 func NewTSMWriter(w io.Writer) (TSMWriter, error) {
 	index := &directIndex{
 		blocks: map[string]*indexEntries{},
@@ -450,7 +439,6 @@ func (t *tsmWriter) writeHeader() error {
 	return nil
 }
 
-// Write writes a new block containing key and values.
 func (t *tsmWriter) Write(key string, values Values) error {
 	// Nothing to write
 	if len(values) == 0 {
@@ -549,7 +537,7 @@ func (t *tsmWriter) WriteBlock(key string, minTime, maxTime int64, block []byte)
 }
 
 // WriteIndex writes the index section of the file.  If there are no index entries to write,
-// this returns ErrNoValues.
+// this returns ErrNoValues
 func (t *tsmWriter) WriteIndex() error {
 	indexPos := t.n
 
@@ -591,7 +579,7 @@ func (t *tsmWriter) Size() uint32 {
 	return uint32(t.n) + t.index.Size()
 }
 
-// verifyVersion verifies that the reader's bytes are a TSM byte
+// verifyVersion will verify that the reader's bytes are a TSM byte
 // stream of the correct version (1)
 func verifyVersion(r io.ReadSeeker) error {
 	_, err := r.Seek(0, 0)

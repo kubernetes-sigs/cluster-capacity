@@ -1,4 +1,3 @@
-// Package cli contains the logic of the influx command line client.
 package cli // import "github.com/influxdata/influxdb/cmd/influx/cli"
 
 import (
@@ -10,6 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -23,42 +23,50 @@ import (
 
 	"github.com/influxdata/influxdb/client"
 	"github.com/influxdata/influxdb/importer/v8"
-	"github.com/influxdata/influxdb/influxql"
 	"github.com/influxdata/influxdb/models"
 	"github.com/peterh/liner"
+)
+
+const (
+	noTokenMsg = "Visit https://enterprise.influxdata.com to register for updates, InfluxDB server management, and monitoring.\n"
 )
 
 // ErrBlankCommand is returned when a parsed command is empty.
 var ErrBlankCommand = errors.New("empty input")
 
-// CommandLine holds CLI configuration and state.
+// CommandLine holds CLI configuration and state
 type CommandLine struct {
-	Line            *liner.State
-	Host            string
-	Port            int
-	Database        string
-	Ssl             bool
-	RetentionPolicy string
-	ClientVersion   string
-	ServerVersion   string
-	Pretty          bool   // controls pretty print for json
-	Format          string // controls the output format.  Valid values are json, csv, or column
-	Execute         string
-	ShowVersion     bool
-	Import          bool
-	Chunked         bool
-	Quit            chan struct{}
-	IgnoreSignals   bool // Ignore signals normally caught by this process (used primarily for testing)
-	ForceTTY        bool // Force the CLI to act as if it were connected to a TTY
-	osSignals       chan os.Signal
-	historyFilePath string
-
-	Client         *client.Client
-	ClientConfig   client.Config // Client config options.
-	ImporterConfig v8.Config     // Importer configuration options.
+	Client           *client.Client
+	Line             *liner.State
+	Host             string
+	Port             int
+	Username         string
+	Password         string
+	Database         string
+	Ssl              bool
+	UnsafeSsl        bool
+	RetentionPolicy  string
+	ClientVersion    string
+	ServerVersion    string
+	Pretty           bool   // controls pretty print for json
+	Format           string // controls the output format.  Valid values are json, csv, or column
+	Precision        string
+	WriteConsistency string
+	Execute          string
+	ShowVersion      bool
+	Import           bool
+	PPS              int // Controls how many points per second the import will allow via throttling
+	Path             string
+	Compressed       bool
+	Chunked          bool
+	Quit             chan struct{}
+	IgnoreSignals    bool // Ignore signals normally caught by this process (used primarily for testing)
+	ForceTTY         bool // Force the CLI to act as if it were connected to a TTY
+	osSignals        chan os.Signal
+	historyFilePath  string
 }
 
-// New returns an instance of CommandLine with the specified client version.
+// New returns an instance of CommandLine
 func New(version string) *CommandLine {
 	return &CommandLine{
 		ClientVersion: version,
@@ -67,7 +75,7 @@ func New(version string) *CommandLine {
 	}
 }
 
-// Run executes the CLI.
+// Run executes the CLI
 func (c *CommandLine) Run() error {
 	hasTTY := c.ForceTTY || terminal.IsTerminal(int(os.Stdin.Fd()))
 
@@ -75,7 +83,7 @@ func (c *CommandLine) Run() error {
 	// determine if they set the password flag but provided no value
 	for _, v := range os.Args {
 		v = strings.ToLower(v)
-		if (strings.HasPrefix(v, "-password") || strings.HasPrefix(v, "--password")) && c.ClientConfig.Password == "" {
+		if (strings.HasPrefix(v, "-password") || strings.HasPrefix(v, "--password")) && c.Password == "" {
 			promptForPassword = true
 			break
 		}
@@ -87,8 +95,8 @@ func (c *CommandLine) Run() error {
 	}
 
 	// Read environment variables for username/password.
-	if c.ClientConfig.Username == "" {
-		c.ClientConfig.Username = os.Getenv("INFLUX_USERNAME")
+	if c.Username == "" {
+		c.Username = os.Getenv("INFLUX_USERNAME")
 	}
 	// If we are going to be prompted for a password, always use the entered password.
 	if promptForPassword {
@@ -101,36 +109,19 @@ func (c *CommandLine) Run() error {
 		if e != nil {
 			return errors.New("Unable to parse password")
 		}
-		c.ClientConfig.Password = p
-	} else if c.ClientConfig.Password == "" {
-		c.ClientConfig.Password = os.Getenv("INFLUX_PASSWORD")
+		c.Password = p
+	} else if c.Password == "" {
+		c.Password = os.Getenv("INFLUX_PASSWORD")
 	}
 
 	if err := c.Connect(""); err != nil {
-		msg := "Please check your connection settings and ensure 'influxd' is running."
-		if !c.Ssl && strings.Contains(err.Error(), "malformed HTTP response") {
-			// Attempt to connect with SSL and disable secure SSL for this test.
-			c.Ssl = true
-			unsafeSsl := c.ClientConfig.UnsafeSsl
-			c.ClientConfig.UnsafeSsl = true
-			if err := c.Connect(""); err == nil {
-				msg = "Please use the -ssl flag to connect using SSL."
-			}
-			c.Ssl = false
-			c.ClientConfig.UnsafeSsl = unsafeSsl
-		} else if c.Ssl && !c.ClientConfig.UnsafeSsl && strings.Contains(err.Error(), "certificate is valid for") {
-			// Attempt to connect with an insecure connection just to see if it works.
-			c.ClientConfig.UnsafeSsl = true
-			if err := c.Connect(""); err == nil {
-				msg = "You may use -unsafeSsl to connect anyway, but the SSL connection will not be secure."
-			}
-			c.ClientConfig.UnsafeSsl = false
-		}
-		return fmt.Errorf("Failed to connect to %s: %s\n%s", c.Client.Addr(), err.Error(), msg)
+		return fmt.Errorf(
+			"Failed to connect to %s\nPlease check your connection settings and ensure 'influxd' is running.",
+			c.Client.Addr())
 	}
 
 	// Modify precision.
-	c.SetPrecision(c.ClientConfig.Precision)
+	c.SetPrecision(c.Precision)
 
 	if c.Execute != "" {
 		// Make the non-interactive mode send everything through the CLI's parser
@@ -145,17 +136,23 @@ func (c *CommandLine) Run() error {
 	}
 
 	if c.Import {
-		addr := net.JoinHostPort(c.Host, strconv.Itoa(c.Port))
-		u, e := client.ParseConnectionString(addr, c.Ssl)
+		path := net.JoinHostPort(c.Host, strconv.Itoa(c.Port))
+		u, e := client.ParseConnectionString(path, c.Ssl)
 		if e != nil {
 			return e
 		}
 
-		// Copy the latest importer config and inject the latest client config
-		// into it.
-		config := c.ImporterConfig
-		config.Config = c.ClientConfig
+		config := v8.NewConfig()
+		config.Username = c.Username
+		config.Password = c.Password
+		config.Precision = "ns"
+		config.WriteConsistency = "any"
+		config.Path = c.Path
+		config.Version = c.ClientVersion
 		config.URL = u
+		config.Compressed = c.Compressed
+		config.PPS = c.PPS
+		config.Precision = c.Precision
 
 		i := v8.NewImporter(config)
 		if err := i.Import(); err != nil {
@@ -183,6 +180,13 @@ func (c *CommandLine) Run() error {
 
 	c.Line.SetMultiLineMode(true)
 
+	token, err := c.DatabaseToken()
+	if err != nil {
+		return fmt.Errorf("Failed to check token: %s", err.Error())
+	}
+	if token == "" {
+		fmt.Printf(noTokenMsg)
+	}
 	fmt.Printf("Connected to %s version %s\n", c.Client.Addr(), c.ServerVersion)
 
 	c.Version()
@@ -228,8 +232,7 @@ func (c *CommandLine) mainLoop() error {
 	}
 }
 
-// ParseCommand parses an instruction and calls the related method
-// or executes the command as a query against InfluxDB.
+// ParseCommand parses an instruction and calls related method, if any
 func (c *CommandLine) ParseCommand(cmd string) error {
 	lcmd := strings.TrimSpace(strings.ToLower(cmd))
 	tokens := strings.Fields(lcmd)
@@ -267,8 +270,6 @@ func (c *CommandLine) ParseCommand(cmd string) error {
 			c.use(cmd)
 		case "insert":
 			return c.Insert(cmd)
-		case "clear":
-			c.clear(cmd)
 		default:
 			return c.ExecuteQuery(cmd)
 		}
@@ -278,41 +279,47 @@ func (c *CommandLine) ParseCommand(cmd string) error {
 	return ErrBlankCommand
 }
 
-// Connect connects to a server.
+// Connect connects client to a server
 func (c *CommandLine) Connect(cmd string) error {
+	var cl *client.Client
+	var u url.URL
+
 	// Remove the "connect" keyword if it exists
-	addr := strings.TrimSpace(strings.Replace(cmd, "connect", "", -1))
-	if addr == "" {
-		// If they didn't provide a connection string, use the current settings
-		addr = net.JoinHostPort(c.Host, strconv.Itoa(c.Port))
+	path := strings.TrimSpace(strings.Replace(cmd, "connect", "", -1))
+
+	// If they didn't provide a connection string, use the current settings
+	if path == "" {
+		path = net.JoinHostPort(c.Host, strconv.Itoa(c.Port))
 	}
 
-	URL, err := client.ParseConnectionString(addr, c.Ssl)
-	if err != nil {
-		return err
+	var e error
+	u, e = client.ParseConnectionString(path, c.Ssl)
+	if e != nil {
+		return e
 	}
 
-	// Create copy of the current client config and create a new client.
-	ClientConfig := c.ClientConfig
-	ClientConfig.UserAgent = "InfluxDBShell/" + c.ClientVersion
-	ClientConfig.URL = URL
-
-	client, err := client.NewClient(ClientConfig)
+	config := client.NewConfig()
+	config.URL = u
+	config.Username = c.Username
+	config.Password = c.Password
+	config.UserAgent = "InfluxDBShell/" + c.ClientVersion
+	config.Precision = c.Precision
+	config.UnsafeSsl = c.UnsafeSsl
+	cl, err := client.NewClient(config)
 	if err != nil {
 		return fmt.Errorf("Could not create client %s", err)
 	}
-	c.Client = client
+	c.Client = cl
 
-	_, v, err := c.Client.Ping()
-	if err != nil {
-		return err
+	var v string
+	if _, v, e = c.Client.Ping(); e != nil {
+		return fmt.Errorf("Failed to connect to %s\n", c.Client.Addr())
 	}
 	c.ServerVersion = v
-
 	// Update the command with the current connection information
-	if host, port, err := net.SplitHostPort(ClientConfig.URL.Host); err == nil {
-		c.Host = host
-		if i, err := strconv.Atoi(port); err == nil {
+	if h, p, err := net.SplitHostPort(config.URL.Host); err == nil {
+		c.Host = h
+		if i, err := strconv.Atoi(p); err == nil {
 			c.Port = i
 		}
 	}
@@ -320,7 +327,7 @@ func (c *CommandLine) Connect(cmd string) error {
 	return nil
 }
 
-// SetAuth sets client authentication credentials.
+// SetAuth sets client authentication credentials
 func (c *CommandLine) SetAuth(cmd string) {
 	// If they pass in the entire command, we should parse it
 	// auth <username> <password>
@@ -332,53 +339,25 @@ func (c *CommandLine) SetAuth(cmd string) {
 	}
 
 	if len(args) == 2 {
-		c.ClientConfig.Username = args[0]
-		c.ClientConfig.Password = args[1]
+		c.Username = args[0]
+		c.Password = args[1]
 	} else {
 		u, e := c.Line.Prompt("username: ")
 		if e != nil {
 			fmt.Printf("Unable to process input: %s", e)
 			return
 		}
-		c.ClientConfig.Username = strings.TrimSpace(u)
+		c.Username = strings.TrimSpace(u)
 		p, e := c.Line.PasswordPrompt("password: ")
 		if e != nil {
 			fmt.Printf("Unable to process input: %s", e)
 			return
 		}
-		c.ClientConfig.Password = p
+		c.Password = p
 	}
 
 	// Update the client as well
-	c.Client.SetAuth(c.ClientConfig.Username, c.ClientConfig.Password)
-}
-
-func (c *CommandLine) clear(cmd string) {
-	args := strings.Split(strings.TrimSuffix(strings.TrimSpace(cmd), ";"), " ")
-	v := strings.ToLower(strings.Join(args[1:], " "))
-	switch v {
-	case "database", "db":
-		c.Database = ""
-		fmt.Println("database context cleared")
-		return
-	case "retention policy", "rp":
-		c.RetentionPolicy = ""
-		fmt.Println("retention policy context cleared")
-		return
-	default:
-		if len(args) > 1 {
-			fmt.Printf("invalid command %q.\n", v)
-		}
-		fmt.Println(`Possible commands for 'clear' are:
-    # Clear the database context
-    clear database
-    clear db
-
-    # Clear the retention policy context
-    clear retention policy
-    clear rp
-		`)
-	}
+	c.Client.SetAuth(c.Username, c.Password)
 }
 
 func (c *CommandLine) use(cmd string) {
@@ -387,40 +366,17 @@ func (c *CommandLine) use(cmd string) {
 		fmt.Printf("Could not parse database name from %q.\n", cmd)
 		return
 	}
+	d := args[1]
 
-	stmt := args[1]
-	db, rp, err := parseDatabaseAndRetentionPolicy([]byte(stmt))
-	if err != nil {
-		fmt.Printf("Unable to parse database or retention policy from %s", stmt)
-		return
-	}
-
-	if !c.databaseExists(db) {
-		return
-	}
-
-	c.Database = db
-	fmt.Printf("Using database %s\n", db)
-
-	if rp != "" {
-		if !c.retentionPolicyExists(db, rp) {
-			return
-		}
-		c.RetentionPolicy = rp
-		fmt.Printf("Using retention policy %s\n", rp)
-	}
-}
-
-func (c *CommandLine) databaseExists(db string) bool {
 	// Validate if specified database exists
 	response, err := c.Client.Query(client.Query{Command: "SHOW DATABASES"})
 	if err != nil {
 		fmt.Printf("ERR: %s\n", err)
-		return false
+		return
 	} else if err := response.Error(); err != nil {
-		if c.ClientConfig.Username == "" {
+		if c.Username == "" {
 			fmt.Printf("ERR: %s\n", err)
-			return false
+			return
 		}
 		// TODO(jsternberg): Fix SHOW DATABASES to be user-aware #6397.
 		// If we are unable to run SHOW DATABASES, display a warning and use the
@@ -435,7 +391,7 @@ func (c *CommandLine) databaseExists(db string) bool {
 					if row.Name == "databases" {
 						for _, values := range row.Values {
 							for _, database := range values {
-								if database == db {
+								if database == d {
 									return true
 								}
 							}
@@ -445,72 +401,35 @@ func (c *CommandLine) databaseExists(db string) bool {
 			}
 			return false
 		}(); !databaseExists {
-			fmt.Printf("ERR: Database %s doesn't exist. Run SHOW DATABASES for a list of existing databases.\n", db)
-			return false
+			fmt.Printf("ERR: Database %s doesn't exist. Run SHOW DATABASES for a list of existing databases.\n", d)
+			return
 		}
 	}
-	return true
+
+	c.Database = d
+	fmt.Printf("Using database %s\n", d)
 }
 
-func (c *CommandLine) retentionPolicyExists(db, rp string) bool {
-	// Validate if specified database exists
-	response, err := c.Client.Query(client.Query{Command: fmt.Sprintf("SHOW RETENTION POLICIES ON %q", db)})
-	if err != nil {
-		fmt.Printf("ERR: %s\n", err)
-		return false
-	} else if err := response.Error(); err != nil {
-		if c.ClientConfig.Username == "" {
-			fmt.Printf("ERR: %s\n", err)
-			return false
-		}
-		fmt.Printf("WARN: %s\n", err)
-	} else {
-		// Verify the provided database exists
-		if retentionPolicyExists := func() bool {
-			for _, result := range response.Results {
-				for _, row := range result.Series {
-					for _, values := range row.Values {
-						for i, v := range values {
-							if i != 0 {
-								continue
-							}
-							if v == rp {
-								return true
-							}
-						}
-					}
-				}
-			}
-			return false
-		}(); !retentionPolicyExists {
-			fmt.Printf("ERR: RETENTION POLICY %s doesn't exist. Run SHOW RETENTION POLICIES ON %q for a list of existing retention polices.\n", rp, db)
-			return false
-		}
-	}
-	return true
-}
-
-// SetPrecision sets client precision.
+// SetPrecision sets client precision
 func (c *CommandLine) SetPrecision(cmd string) {
+	// Remove the "precision" keyword if it exists
+	cmd = strings.TrimSpace(strings.Replace(cmd, "precision", "", -1))
 	// normalize cmd
 	cmd = strings.ToLower(cmd)
 
-	// Remove the "precision" keyword if it exists
-	cmd = strings.TrimSpace(strings.Replace(cmd, "precision", "", -1))
-
 	switch cmd {
 	case "h", "m", "s", "ms", "u", "ns":
-		c.ClientConfig.Precision = cmd
-		c.Client.SetPrecision(c.ClientConfig.Precision)
+		c.Precision = cmd
+		c.Client.SetPrecision(c.Precision)
 	case "rfc3339":
-		c.ClientConfig.Precision = ""
-		c.Client.SetPrecision(c.ClientConfig.Precision)
+		c.Precision = ""
+		c.Client.SetPrecision(c.Precision)
 	default:
 		fmt.Printf("Unknown precision %q. Please use rfc3339, h, m, s, ms, u or ns.\n", cmd)
 	}
 }
 
-// SetFormat sets output format.
+// SetFormat sets output format
 func (c *CommandLine) SetFormat(cmd string) {
 	// Remove the "format" keyword if it exists
 	cmd = strings.TrimSpace(strings.Replace(cmd, "format", "", -1))
@@ -525,7 +444,7 @@ func (c *CommandLine) SetFormat(cmd string) {
 	}
 }
 
-// SetWriteConsistency sets write consistency level.
+// SetWriteConsistency sets cluster consistency level
 func (c *CommandLine) SetWriteConsistency(cmd string) {
 	// Remove the "consistency" keyword if it exists
 	cmd = strings.TrimSpace(strings.Replace(cmd, "consistency", "", -1))
@@ -537,7 +456,7 @@ func (c *CommandLine) SetWriteConsistency(cmd string) {
 		fmt.Printf("Unknown consistency level %q. Please use any, one, quorum, or all.\n", cmd)
 		return
 	}
-	c.ClientConfig.WriteConsistency = cmd
+	c.WriteConsistency = cmd
 }
 
 // isWhitespace returns true if the rune is a space, tab, or newline.
@@ -595,102 +514,64 @@ func parseNextIdentifier(stmt string) (ident, remainder string) {
 	return "", stmt
 }
 
-func (c *CommandLine) parseInto(stmt string) *client.BatchPoints {
+func (c *CommandLine) parseInto(stmt string) string {
 	ident, stmt := parseNextIdentifier(stmt)
-	db, rp := c.Database, c.RetentionPolicy
 	if strings.HasPrefix(stmt, ".") {
-		db = ident
+		c.Database = ident
+		fmt.Printf("Using database %s\n", c.Database)
 		ident, stmt = parseNextIdentifier(stmt[1:])
 	}
 	if strings.HasPrefix(stmt, " ") {
-		rp = ident
-		stmt = stmt[1:]
+		c.RetentionPolicy = ident
+		fmt.Printf("Using retention policy %s\n", c.RetentionPolicy)
+		return stmt[1:]
 	}
-
-	return &client.BatchPoints{
-		Points: []client.Point{
-			client.Point{Raw: stmt},
-		},
-		Database:         db,
-		RetentionPolicy:  rp,
-		Precision:        c.ClientConfig.Precision,
-		WriteConsistency: c.ClientConfig.WriteConsistency,
-	}
+	return stmt
 }
 
-func (c *CommandLine) parseInsert(stmt string) (*client.BatchPoints, error) {
+// Insert runs an INSERT statement
+func (c *CommandLine) Insert(stmt string) error {
 	i, point := parseNextIdentifier(stmt)
 	if !strings.EqualFold(i, "insert") {
-		return nil, fmt.Errorf("found %s, expected INSERT\n", i)
+		fmt.Printf("ERR: found %s, expected INSERT\n", i)
+		return nil
 	}
 	if i, r := parseNextIdentifier(point); strings.EqualFold(i, "into") {
-		bp := c.parseInto(r)
-		return bp, nil
+		point = c.parseInto(r)
 	}
-	return &client.BatchPoints{
+	_, err := c.Client.Write(client.BatchPoints{
 		Points: []client.Point{
 			client.Point{Raw: point},
 		},
 		Database:         c.Database,
 		RetentionPolicy:  c.RetentionPolicy,
-		Precision:        c.ClientConfig.Precision,
-		WriteConsistency: c.ClientConfig.WriteConsistency,
-	}, nil
-}
-
-// Insert runs an INSERT statement.
-func (c *CommandLine) Insert(stmt string) error {
-	bp, err := c.parseInsert(stmt)
+		Precision:        c.Precision,
+		WriteConsistency: c.WriteConsistency,
+	})
 	if err != nil {
-		fmt.Printf("ERR: %s\n", err)
-		return nil
-	}
-	if _, err := c.Client.Write(*bp); err != nil {
 		fmt.Printf("ERR: %s\n", err)
 		if c.Database == "" {
 			fmt.Println("Note: error may be due to not setting a database or retention policy.")
 			fmt.Println(`Please set a database with the command "use <database>" or`)
 			fmt.Println("INSERT INTO <database>.<retention-policy> <point>")
 		}
+		return err
 	}
 	return nil
 }
 
 // query creates a query struct to be used with the client.
-func (c *CommandLine) query(query string) client.Query {
+func (c *CommandLine) query(query string, database string) client.Query {
 	return client.Query{
 		Command:  query,
-		Database: c.Database,
+		Database: database,
 		Chunked:  true,
 	}
 }
 
-// ExecuteQuery runs any query statement.
+// ExecuteQuery runs any query statement
 func (c *CommandLine) ExecuteQuery(query string) error {
-	// If we have a retention policy, we need to rewrite the statement sources
-	if c.RetentionPolicy != "" {
-		pq, err := influxql.NewParser(strings.NewReader(query)).ParseQuery()
-		if err != nil {
-			fmt.Printf("ERR: %s\n", err)
-			return err
-		}
-		for _, stmt := range pq.Statements {
-			if selectStatement, ok := stmt.(*influxql.SelectStatement); ok {
-				influxql.WalkFunc(selectStatement.Sources, func(n influxql.Node) {
-					if t, ok := n.(*influxql.Measurement); ok {
-						if t.Database == "" && c.Database != "" {
-							t.Database = c.Database
-						}
-						if t.RetentionPolicy == "" && c.RetentionPolicy != "" {
-							t.RetentionPolicy = c.RetentionPolicy
-						}
-					}
-				})
-			}
-		}
-		query = pq.String()
-	}
-	response, err := c.Client.Query(c.query(query))
+	response, err := c.Client.Query(c.query(query, c.Database))
 	if err != nil {
 		fmt.Printf("ERR: %s\n", err)
 		return err
@@ -707,7 +588,27 @@ func (c *CommandLine) ExecuteQuery(query string) error {
 	return nil
 }
 
-// FormatResponse formats output to the previously chosen format.
+// DatabaseToken retrieves database token
+func (c *CommandLine) DatabaseToken() (string, error) {
+	response, err := c.Client.Query(c.query("SHOW DIAGNOSTICS for 'registration'", ""))
+	if err != nil {
+		return "", err
+	}
+
+	if response.Error() != nil || len(response.Results) == 0 || len(response.Results[0].Series) == 0 {
+		return "", nil
+	}
+
+	// Look for position of "token" column.
+	for i, s := range (*response).Results[0].Series[0].Columns {
+		if s == "token" {
+			return (*response).Results[0].Series[0].Values[0][i].(string), nil
+		}
+	}
+	return "", nil
+}
+
+// FormatResponse formats output to previsouly chosen format
 func (c *CommandLine) FormatResponse(response *client.Response, w io.Writer) {
 	switch c.Format {
 	case "json":
@@ -751,7 +652,7 @@ func (c *CommandLine) writeCSV(response *client.Response, w io.Writer) {
 func (c *CommandLine) writeColumns(response *client.Response, w io.Writer) {
 	// Create a tabbed writer for each result as they won't always line up
 	writer := new(tabwriter.Writer)
-	writer.Init(w, 0, 8, 1, ' ', 0)
+	writer.Init(w, 0, 8, 1, '\t', 0)
 
 	for _, result := range response.Results {
 		// Print out all messages first
@@ -791,7 +692,9 @@ func (c *CommandLine) formatResults(result client.Result, separator string) []st
 			}
 		}
 
-		columnNames = append(columnNames, row.Columns...)
+		for _, column := range row.Columns {
+			columnNames = append(columnNames, column)
+		}
 
 		// Output a line separator if we have more than one set or results and format is column
 		if i > 0 && c.Format == "column" {
@@ -860,23 +763,20 @@ func interfaceToString(v interface{}) string {
 	}
 }
 
-// Settings prints current settings.
+// Settings prints current settings
 func (c *CommandLine) Settings() {
 	w := new(tabwriter.Writer)
-	w.Init(os.Stdout, 0, 1, 1, ' ', 0)
-	fmt.Fprintln(w, "Setting\tValue")
-	fmt.Fprintln(w, "--------\t--------")
+	w.Init(os.Stdout, 0, 1, 1, '\t', 0)
 	if c.Port > 0 {
 		fmt.Fprintf(w, "Host\t%s:%d\n", c.Host, c.Port)
 	} else {
 		fmt.Fprintf(w, "Host\t%s\n", c.Host)
 	}
-	fmt.Fprintf(w, "Username\t%s\n", c.ClientConfig.Username)
+	fmt.Fprintf(w, "Username\t%s\n", c.Username)
 	fmt.Fprintf(w, "Database\t%s\n", c.Database)
-	fmt.Fprintf(w, "RetentionPolicy\t%s\n", c.RetentionPolicy)
 	fmt.Fprintf(w, "Pretty\t%v\n", c.Pretty)
 	fmt.Fprintf(w, "Format\t%s\n", c.Format)
-	fmt.Fprintf(w, "Write Consistency\t%s\n", c.ClientConfig.WriteConsistency)
+	fmt.Fprintf(w, "Write Consistency\t%s\n", c.WriteConsistency)
 	fmt.Fprintln(w)
 	w.Flush()
 }
@@ -892,7 +792,6 @@ func (c *CommandLine) help() {
         consistency <level>   sets write consistency level: any, one, quorum, or all
         history               displays command history
         settings              outputs the current settings for the shell
-        clear                 clears settings such as database or retention policy.  run 'clear' for help
         exit/quit/ctrl+d      quits the influx shell
 
         show databases        show database names
@@ -978,7 +877,7 @@ func (c *CommandLine) gopher() {
 `)
 }
 
-// Version prints the CLI version.
+// Version prints CLI version
 func (c *CommandLine) Version() {
 	fmt.Println("InfluxDB shell version:", c.ClientVersion)
 }

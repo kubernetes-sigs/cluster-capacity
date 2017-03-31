@@ -7,14 +7,16 @@
 //go:generate go run maketables.go -cldr=23 -unicode=6.2.0
 
 // Package collate contains types for comparing and sorting Unicode strings
-// according to a given collation order.
+// according to a given collation order.  Package locale provides a high-level
+// interface to collation. Users should typically use that package instead.
 package collate // import "golang.org/x/text/collate"
 
 import (
 	"bytes"
 	"strings"
 
-	"golang.org/x/text/internal/colltab"
+	"golang.org/x/text/collate/colltab"
+	newcolltab "golang.org/x/text/internal/colltab"
 	"golang.org/x/text/language"
 )
 
@@ -54,8 +56,8 @@ var tags []language.Tag
 
 // New returns a new Collator initialized for the given locale.
 func New(t language.Tag, o ...Option) *Collator {
-	index := colltab.MatchLang(t, tags)
-	c := newCollator(getTable(locales[index]))
+	index := newcolltab.MatchLang(t, tags)
+	c := newCollator(colltab.Init(locales[index]))
 
 	// Set options from the user-supplied tag.
 	c.setFromTag(t)
@@ -234,7 +236,7 @@ func (c *Collator) getColElemsString(str string) []colltab.Elem {
 type iter struct {
 	wa [512]colltab.Elem
 
-	colltab.Iter
+	newcolltab.Iter
 	pce int
 }
 

@@ -17,7 +17,6 @@ package command
 import (
 	"fmt"
 
-	"github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
 	"github.com/spf13/cobra"
 )
 
@@ -49,21 +48,7 @@ func authEnableCommandFunc(cmd *cobra.Command, args []string) {
 	}
 
 	ctx, cancel := commandCtx(cmd)
-	cli := mustClientFromCmd(cmd)
-	var err error
-	for err == nil {
-		if _, err = cli.AuthEnable(ctx); err == nil {
-			break
-		}
-		if err == rpctypes.ErrRootRoleNotExist {
-			if _, err = cli.RoleAdd(ctx, "root"); err != nil {
-				break
-			}
-			if _, err = cli.UserGrantRole(ctx, "root", "root"); err != nil {
-				break
-			}
-		}
-	}
+	_, err := mustClientFromCmd(cmd).Auth.AuthEnable(ctx)
 	cancel()
 	if err != nil {
 		ExitWithError(ExitError, err)

@@ -1,4 +1,3 @@
-// Package verify verifies integrity of TSM files.
 package verify
 
 import (
@@ -107,7 +106,7 @@ func (cmd *Command) Run(args ...string) error {
 
 // printUsage prints the usage message to STDERR.
 func (cmd *Command) printUsage() {
-	usage := fmt.Sprintf(`Verifies the integrity of TSM files.
+	usage := fmt.Sprintf(`Verifies the the checksum of shards.
 
 Usage: influx_inspect verify [flags]
 

@@ -42,7 +42,7 @@ func NewMemberCommand() *cobra.Command {
 // NewMemberAddCommand returns the cobra command for "member add".
 func NewMemberAddCommand() *cobra.Command {
 	cc := &cobra.Command{
-		Use:   "add <memberName> [options]",
+		Use:   "add <memberName>",
 		Short: "Adds a member into the cluster",
 
 		Run: memberAddCommandFunc,
@@ -68,7 +68,7 @@ func NewMemberRemoveCommand() *cobra.Command {
 // NewMemberUpdateCommand returns the cobra command for "member update".
 func NewMemberUpdateCommand() *cobra.Command {
 	cc := &cobra.Command{
-		Use:   "update <memberID> [options]",
+		Use:   "update <memberID>",
 		Short: "Updates a member in the cluster",
 
 		Run: memberUpdateCommandFunc,
@@ -99,7 +99,6 @@ func memberAddCommandFunc(cmd *cobra.Command, args []string) {
 	if len(args) != 1 {
 		ExitWithError(ExitBadArgs, fmt.Errorf("member name not provided."))
 	}
-	newMemberName := args[0]
 
 	if len(memberPeerURLs) == 0 {
 		ExitWithError(ExitBadArgs, fmt.Errorf("member peer urls not provided."))
@@ -112,35 +111,8 @@ func memberAddCommandFunc(cmd *cobra.Command, args []string) {
 	if err != nil {
 		ExitWithError(ExitError, err)
 	}
-	newID := resp.Member.ID
 
-	display.MemberAdd(*resp)
-
-	if _, ok := (display).(*simplePrinter); ok {
-		ctx, cancel = commandCtx(cmd)
-		listResp, err := mustClientFromCmd(cmd).MemberList(ctx)
-		cancel()
-
-		if err != nil {
-			ExitWithError(ExitError, err)
-		}
-
-		conf := []string{}
-		for _, memb := range listResp.Members {
-			for _, u := range memb.PeerURLs {
-				n := memb.Name
-				if memb.ID == newID {
-					n = newMemberName
-				}
-				conf = append(conf, fmt.Sprintf("%s=%s", n, u))
-			}
-		}
-
-		fmt.Print("\n")
-		fmt.Printf("ETCD_NAME=%q\n", newMemberName)
-		fmt.Printf("ETCD_INITIAL_CLUSTER=%q\n", strings.Join(conf, ","))
-		fmt.Printf("ETCD_INITIAL_CLUSTER_STATE=\"existing\"\n")
-	}
+	fmt.Printf("Member %16x added to cluster %16x\n", resp.Member.ID, resp.Header.ClusterId)
 }
 
 // memberRemoveCommandFunc executes the "member remove" command.
@@ -160,7 +132,8 @@ func memberRemoveCommandFunc(cmd *cobra.Command, args []string) {
 	if err != nil {
 		ExitWithError(ExitError, err)
 	}
-	display.MemberRemove(id, *resp)
+
+	fmt.Printf("Member %16x removed from cluster %16x\n", id, resp.Header.ClusterId)
 }
 
 // memberUpdateCommandFunc executes the "member update" command.
@@ -187,7 +160,7 @@ func memberUpdateCommandFunc(cmd *cobra.Command, args []string) {
 		ExitWithError(ExitError, err)
 	}
 
-	display.MemberUpdate(id, *resp)
+	fmt.Printf("Member %16x updated in cluster %16x\n", id, resp.Header.ClusterId)
 }
 
 // memberListCommandFunc executes the "member list" command.

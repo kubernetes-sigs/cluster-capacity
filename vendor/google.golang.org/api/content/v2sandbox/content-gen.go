@@ -350,7 +350,8 @@ type OrderCustomer struct {
 	// explicitly chose to opt in or out of providing marketing rights to
 	// the merchant. If unset, this indicates the user has already made this
 	// choice in a previous purchase, and was thus not shown the marketing
-	// right opt in/out checkbox during the checkout flow.
+	// right opt in/out checkbox during the Purchases on Google checkout
+	// flow.
 	ExplicitMarketingPreference bool `json:"explicitMarketingPreference,omitempty"`
 
 	// FullName: Full name of the customer.
@@ -2250,7 +2251,8 @@ type TestOrderCustomer struct {
 	// explicitly chose to opt in or out of providing marketing rights to
 	// the merchant. If unset, this indicates the user has already made this
 	// choice in a previous purchase, and was thus not shown the marketing
-	// right opt in/out checkbox during the checkout flow. Optional.
+	// right opt in/out checkbox during the Purchases on Google checkout
+	// flow. Optional.
 	ExplicitMarketingPreference bool `json:"explicitMarketingPreference,omitempty"`
 
 	// FullName: Full name of the customer.
@@ -2437,8 +2439,7 @@ type OrdersAcknowledgeCall struct {
 	header_                  http.Header
 }
 
-// Acknowledge: Marks an order as acknowledged. This method can only be
-// called for non-multi-client accounts.
+// Acknowledge: Marks an order as acknowledged.
 func (r *OrdersService) Acknowledge(merchantId uint64, orderId string, ordersacknowledgerequest *OrdersAcknowledgeRequest) *OrdersAcknowledgeCall {
 	c := &OrdersAcknowledgeCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.merchantId = merchantId
@@ -2534,7 +2535,7 @@ func (c *OrdersAcknowledgeCall) Do(opts ...googleapi.CallOption) (*OrdersAcknowl
 	}
 	return ret, nil
 	// {
-	//   "description": "Marks an order as acknowledged. This method can only be called for non-multi-client accounts.",
+	//   "description": "Marks an order as acknowledged.",
 	//   "httpMethod": "POST",
 	//   "id": "content.orders.acknowledge",
 	//   "parameterOrder": [
@@ -2582,8 +2583,7 @@ type OrdersAdvancetestorderCall struct {
 }
 
 // Advancetestorder: Sandbox only. Moves a test order from state
-// "inProgress" to state "pendingShipment". This method can only be
-// called for non-multi-client accounts.
+// "inProgress" to state "pendingShipment".
 func (r *OrdersService) Advancetestorder(merchantId uint64, orderId string) *OrdersAdvancetestorderCall {
 	c := &OrdersAdvancetestorderCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.merchantId = merchantId
@@ -2673,7 +2673,7 @@ func (c *OrdersAdvancetestorderCall) Do(opts ...googleapi.CallOption) (*OrdersAd
 	}
 	return ret, nil
 	// {
-	//   "description": "Sandbox only. Moves a test order from state \"inProgress\" to state \"pendingShipment\". This method can only be called for non-multi-client accounts.",
+	//   "description": "Sandbox only. Moves a test order from state \"inProgress\" to state \"pendingShipment\".",
 	//   "httpMethod": "POST",
 	//   "id": "content.orders.advancetestorder",
 	//   "parameterOrder": [
@@ -2718,8 +2718,7 @@ type OrdersCancelCall struct {
 	header_             http.Header
 }
 
-// Cancel: Cancels all line items in an order. This method can only be
-// called for non-multi-client accounts.
+// Cancel: Cancels all line items in an order.
 func (r *OrdersService) Cancel(merchantId uint64, orderId string, orderscancelrequest *OrdersCancelRequest) *OrdersCancelCall {
 	c := &OrdersCancelCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.merchantId = merchantId
@@ -2815,7 +2814,7 @@ func (c *OrdersCancelCall) Do(opts ...googleapi.CallOption) (*OrdersCancelRespon
 	}
 	return ret, nil
 	// {
-	//   "description": "Cancels all line items in an order. This method can only be called for non-multi-client accounts.",
+	//   "description": "Cancels all line items in an order.",
 	//   "httpMethod": "POST",
 	//   "id": "content.orders.cancel",
 	//   "parameterOrder": [
@@ -2863,8 +2862,7 @@ type OrdersCancellineitemCall struct {
 	header_                     http.Header
 }
 
-// Cancellineitem: Cancels a line item. This method can only be called
-// for non-multi-client accounts.
+// Cancellineitem: Cancels a line item.
 func (r *OrdersService) Cancellineitem(merchantId uint64, orderId string, orderscancellineitemrequest *OrdersCancelLineItemRequest) *OrdersCancellineitemCall {
 	c := &OrdersCancellineitemCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.merchantId = merchantId
@@ -2960,7 +2958,7 @@ func (c *OrdersCancellineitemCall) Do(opts ...googleapi.CallOption) (*OrdersCanc
 	}
 	return ret, nil
 	// {
-	//   "description": "Cancels a line item. This method can only be called for non-multi-client accounts.",
+	//   "description": "Cancels a line item.",
 	//   "httpMethod": "POST",
 	//   "id": "content.orders.cancellineitem",
 	//   "parameterOrder": [
@@ -3007,8 +3005,7 @@ type OrdersCreatetestorderCall struct {
 	header_                      http.Header
 }
 
-// Createtestorder: Sandbox only. Creates a test order. This method can
-// only be called for non-multi-client accounts.
+// Createtestorder: Sandbox only. Creates a test order.
 func (r *OrdersService) Createtestorder(merchantId uint64, orderscreatetestorderrequest *OrdersCreateTestOrderRequest) *OrdersCreatetestorderCall {
 	c := &OrdersCreatetestorderCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.merchantId = merchantId
@@ -3102,7 +3099,7 @@ func (c *OrdersCreatetestorderCall) Do(opts ...googleapi.CallOption) (*OrdersCre
 	}
 	return ret, nil
 	// {
-	//   "description": "Sandbox only. Creates a test order. This method can only be called for non-multi-client accounts.",
+	//   "description": "Sandbox only. Creates a test order.",
 	//   "httpMethod": "POST",
 	//   "id": "content.orders.createtestorder",
 	//   "parameterOrder": [
@@ -3142,8 +3139,7 @@ type OrdersCustombatchCall struct {
 }
 
 // Custombatch: Retrieves or modifies multiple orders in a single
-// request. This method can only be called for non-multi-client
-// accounts.
+// request.
 func (r *OrdersService) Custombatch(orderscustombatchrequest *OrdersCustomBatchRequest) *OrdersCustombatchCall {
 	c := &OrdersCustombatchCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.orderscustombatchrequest = orderscustombatchrequest
@@ -3233,7 +3229,7 @@ func (c *OrdersCustombatchCall) Do(opts ...googleapi.CallOption) (*OrdersCustomB
 	}
 	return ret, nil
 	// {
-	//   "description": "Retrieves or modifies multiple orders in a single request. This method can only be called for non-multi-client accounts.",
+	//   "description": "Retrieves or modifies multiple orders in a single request.",
 	//   "httpMethod": "POST",
 	//   "id": "content.orders.custombatch",
 	//   "path": "orders/batch",
@@ -3262,8 +3258,7 @@ type OrdersGetCall struct {
 	header_      http.Header
 }
 
-// Get: Retrieves an order from your Merchant Center account. This
-// method can only be called for non-multi-client accounts.
+// Get: Retrieves an order from your Merchant Center account.
 func (r *OrdersService) Get(merchantId uint64, orderId string) *OrdersGetCall {
 	c := &OrdersGetCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.merchantId = merchantId
@@ -3366,7 +3361,7 @@ func (c *OrdersGetCall) Do(opts ...googleapi.CallOption) (*Order, error) {
 	}
 	return ret, nil
 	// {
-	//   "description": "Retrieves an order from your Merchant Center account. This method can only be called for non-multi-client accounts.",
+	//   "description": "Retrieves an order from your Merchant Center account.",
 	//   "httpMethod": "GET",
 	//   "id": "content.orders.get",
 	//   "parameterOrder": [
@@ -3412,7 +3407,6 @@ type OrdersGetbymerchantorderidCall struct {
 }
 
 // Getbymerchantorderid: Retrieves an order using merchant order id.
-// This method can only be called for non-multi-client accounts.
 func (r *OrdersService) Getbymerchantorderid(merchantId uint64, merchantOrderId string) *OrdersGetbymerchantorderidCall {
 	c := &OrdersGetbymerchantorderidCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.merchantId = merchantId
@@ -3516,7 +3510,7 @@ func (c *OrdersGetbymerchantorderidCall) Do(opts ...googleapi.CallOption) (*Orde
 	}
 	return ret, nil
 	// {
-	//   "description": "Retrieves an order using merchant order id. This method can only be called for non-multi-client accounts.",
+	//   "description": "Retrieves an order using merchant order id.",
 	//   "httpMethod": "GET",
 	//   "id": "content.orders.getbymerchantorderid",
 	//   "parameterOrder": [
@@ -3562,8 +3556,7 @@ type OrdersGettestordertemplateCall struct {
 }
 
 // Gettestordertemplate: Sandbox only. Retrieves an order template that
-// can be used to quickly create a new order in sandbox. This method can
-// only be called for non-multi-client accounts.
+// can be used to quickly create a new order in sandbox.
 func (r *OrdersService) Gettestordertemplate(merchantId uint64, templateName string) *OrdersGettestordertemplateCall {
 	c := &OrdersGettestordertemplateCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.merchantId = merchantId
@@ -3667,7 +3660,7 @@ func (c *OrdersGettestordertemplateCall) Do(opts ...googleapi.CallOption) (*Orde
 	}
 	return ret, nil
 	// {
-	//   "description": "Sandbox only. Retrieves an order template that can be used to quickly create a new order in sandbox. This method can only be called for non-multi-client accounts.",
+	//   "description": "Sandbox only. Retrieves an order template that can be used to quickly create a new order in sandbox.",
 	//   "httpMethod": "GET",
 	//   "id": "content.orders.gettestordertemplate",
 	//   "parameterOrder": [
@@ -3723,8 +3716,7 @@ type OrdersListCall struct {
 	header_      http.Header
 }
 
-// List: Lists the orders in your Merchant Center account. This method
-// can only be called for non-multi-client accounts.
+// List: Lists the orders in your Merchant Center account.
 func (r *OrdersService) List(merchantId uint64) *OrdersListCall {
 	c := &OrdersListCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.merchantId = merchantId
@@ -3909,7 +3901,7 @@ func (c *OrdersListCall) Do(opts ...googleapi.CallOption) (*OrdersListResponse, 
 	}
 	return ret, nil
 	// {
-	//   "description": "Lists the orders in your Merchant Center account. This method can only be called for non-multi-client accounts.",
+	//   "description": "Lists the orders in your Merchant Center account.",
 	//   "httpMethod": "GET",
 	//   "id": "content.orders.list",
 	//   "parameterOrder": [
@@ -4040,7 +4032,6 @@ type OrdersRefundCall struct {
 }
 
 // Refund: Refund a portion of the order, up to the full amount paid.
-// This method can only be called for non-multi-client accounts.
 func (r *OrdersService) Refund(merchantId uint64, orderId string, ordersrefundrequest *OrdersRefundRequest) *OrdersRefundCall {
 	c := &OrdersRefundCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.merchantId = merchantId
@@ -4136,7 +4127,7 @@ func (c *OrdersRefundCall) Do(opts ...googleapi.CallOption) (*OrdersRefundRespon
 	}
 	return ret, nil
 	// {
-	//   "description": "Refund a portion of the order, up to the full amount paid. This method can only be called for non-multi-client accounts.",
+	//   "description": "Refund a portion of the order, up to the full amount paid.",
 	//   "httpMethod": "POST",
 	//   "id": "content.orders.refund",
 	//   "parameterOrder": [
@@ -4184,8 +4175,7 @@ type OrdersReturnlineitemCall struct {
 	header_                     http.Header
 }
 
-// Returnlineitem: Returns a line item. This method can only be called
-// for non-multi-client accounts.
+// Returnlineitem: Returns a line item.
 func (r *OrdersService) Returnlineitem(merchantId uint64, orderId string, ordersreturnlineitemrequest *OrdersReturnLineItemRequest) *OrdersReturnlineitemCall {
 	c := &OrdersReturnlineitemCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.merchantId = merchantId
@@ -4281,7 +4271,7 @@ func (c *OrdersReturnlineitemCall) Do(opts ...googleapi.CallOption) (*OrdersRetu
 	}
 	return ret, nil
 	// {
-	//   "description": "Returns a line item. This method can only be called for non-multi-client accounts.",
+	//   "description": "Returns a line item.",
 	//   "httpMethod": "POST",
 	//   "id": "content.orders.returnlineitem",
 	//   "parameterOrder": [
@@ -4329,8 +4319,7 @@ type OrdersShiplineitemsCall struct {
 	header_                    http.Header
 }
 
-// Shiplineitems: Marks line item(s) as shipped. This method can only be
-// called for non-multi-client accounts.
+// Shiplineitems: Marks line item(s) as shipped.
 func (r *OrdersService) Shiplineitems(merchantId uint64, orderId string, ordersshiplineitemsrequest *OrdersShipLineItemsRequest) *OrdersShiplineitemsCall {
 	c := &OrdersShiplineitemsCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.merchantId = merchantId
@@ -4426,7 +4415,7 @@ func (c *OrdersShiplineitemsCall) Do(opts ...googleapi.CallOption) (*OrdersShipL
 	}
 	return ret, nil
 	// {
-	//   "description": "Marks line item(s) as shipped. This method can only be called for non-multi-client accounts.",
+	//   "description": "Marks line item(s) as shipped.",
 	//   "httpMethod": "POST",
 	//   "id": "content.orders.shiplineitems",
 	//   "parameterOrder": [
@@ -4475,7 +4464,7 @@ type OrdersUpdatemerchantorderidCall struct {
 }
 
 // Updatemerchantorderid: Updates the merchant order ID for a given
-// order. This method can only be called for non-multi-client accounts.
+// order.
 func (r *OrdersService) Updatemerchantorderid(merchantId uint64, orderId string, ordersupdatemerchantorderidrequest *OrdersUpdateMerchantOrderIdRequest) *OrdersUpdatemerchantorderidCall {
 	c := &OrdersUpdatemerchantorderidCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.merchantId = merchantId
@@ -4572,7 +4561,7 @@ func (c *OrdersUpdatemerchantorderidCall) Do(opts ...googleapi.CallOption) (*Ord
 	}
 	return ret, nil
 	// {
-	//   "description": "Updates the merchant order ID for a given order. This method can only be called for non-multi-client accounts.",
+	//   "description": "Updates the merchant order ID for a given order.",
 	//   "httpMethod": "POST",
 	//   "id": "content.orders.updatemerchantorderid",
 	//   "parameterOrder": [
@@ -4621,7 +4610,7 @@ type OrdersUpdateshipmentCall struct {
 }
 
 // Updateshipment: Updates a shipment's status, carrier, and/or tracking
-// ID. This method can only be called for non-multi-client accounts.
+// ID.
 func (r *OrdersService) Updateshipment(merchantId uint64, orderId string, ordersupdateshipmentrequest *OrdersUpdateShipmentRequest) *OrdersUpdateshipmentCall {
 	c := &OrdersUpdateshipmentCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.merchantId = merchantId
@@ -4717,7 +4706,7 @@ func (c *OrdersUpdateshipmentCall) Do(opts ...googleapi.CallOption) (*OrdersUpda
 	}
 	return ret, nil
 	// {
-	//   "description": "Updates a shipment's status, carrier, and/or tracking ID. This method can only be called for non-multi-client accounts.",
+	//   "description": "Updates a shipment's status, carrier, and/or tracking ID.",
 	//   "httpMethod": "POST",
 	//   "id": "content.orders.updateshipment",
 	//   "parameterOrder": [

@@ -28,9 +28,6 @@ var (
 
 type WatchID int64
 
-// FilterFunc returns true if the given event should be filtered out.
-type FilterFunc func(e mvccpb.Event) bool
-
 type WatchStream interface {
 	// Watch creates a watcher. The watcher watches the events happening or
 	// happened on the given key or range [key, end) from the given startRev.
@@ -41,7 +38,7 @@ type WatchStream interface {
 	// The returned `id` is the ID of this watcher. It appears as WatchID
 	// in events that are sent to the created watcher through stream channel.
 	//
-	Watch(key, end []byte, startRev int64, fcs ...FilterFunc) WatchID
+	Watch(key, end []byte, startRev int64) WatchID
 
 	// Chan returns a chan. All watch response will be sent to the returned chan.
 	Chan() <-chan WatchResponse
@@ -99,7 +96,7 @@ type watchStream struct {
 
 // Watch creates a new watcher in the stream and returns its WatchID.
 // TODO: return error if ws is closed?
-func (ws *watchStream) Watch(key, end []byte, startRev int64, fcs ...FilterFunc) WatchID {
+func (ws *watchStream) Watch(key, end []byte, startRev int64) WatchID {
 	// prevent wrong range where key >= end lexicographically
 	// watch request with 'WithFromKey' has empty-byte range end
 	if len(end) != 0 && bytes.Compare(key, end) != -1 {
@@ -115,7 +112,7 @@ func (ws *watchStream) Watch(key, end []byte, startRev int64, fcs ...FilterFunc)
 	id := ws.nextID
 	ws.nextID++
 
-	w, c := ws.watchable.watch(key, end, startRev, id, ws.ch, fcs...)
+	w, c := ws.watchable.watch(key, end, startRev, id, ws.ch)
 
 	ws.cancels[id] = c
 	ws.watchers[id] = w

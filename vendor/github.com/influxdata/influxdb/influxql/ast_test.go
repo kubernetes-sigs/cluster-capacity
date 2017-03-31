@@ -407,12 +407,6 @@ func TestSelectStatement_RewriteFields(t *testing.T) {
 			stmt:    `SELECT mean(/1/) FROM cpu`,
 			rewrite: `SELECT mean(value1::float) AS mean_value1 FROM cpu`,
 		},
-
-		// Rewrite subquery
-		{
-			stmt:    `SELECT * FROM (SELECT mean(value1) FROM cpu GROUP BY host) GROUP BY *`,
-			rewrite: `SELECT mean::float FROM (SELECT mean(value1::float) FROM cpu GROUP BY host) GROUP BY host`,
-		},
 	}
 
 	for i, tt := range tests {
@@ -423,8 +417,9 @@ func TestSelectStatement_RewriteFields(t *testing.T) {
 		}
 
 		var ic IteratorCreator
-		ic.FieldDimensionsFn = func(m *influxql.Measurement) (fields map[string]influxql.DataType, dimensions map[string]struct{}, err error) {
-			switch m.Name {
+		ic.FieldDimensionsFn = func(sources influxql.Sources) (fields map[string]influxql.DataType, dimensions map[string]struct{}, err error) {
+			source := sources[0].(*influxql.Measurement)
+			switch source.Name {
 			case "cpu":
 				fields = map[string]influxql.DataType{
 					"value1": influxql.Float,
@@ -1076,90 +1071,6 @@ func TestEval(t *testing.T) {
 	}
 }
 
-type EvalFixture map[string]map[string]influxql.DataType
-
-func (e EvalFixture) MapType(measurement *influxql.Measurement, field string) influxql.DataType {
-	m := e[measurement.Name]
-	if m == nil {
-		return influxql.Unknown
-	}
-	return m[field]
-}
-
-func TestEvalType(t *testing.T) {
-	for i, tt := range []struct {
-		name string
-		in   string
-		typ  influxql.DataType
-		data EvalFixture
-	}{
-		{
-			name: `a single data type`,
-			in:   `min(value)`,
-			typ:  influxql.Integer,
-			data: EvalFixture{
-				"cpu": map[string]influxql.DataType{
-					"value": influxql.Integer,
-				},
-			},
-		},
-		{
-			name: `multiple data types`,
-			in:   `min(value)`,
-			typ:  influxql.Integer,
-			data: EvalFixture{
-				"cpu": map[string]influxql.DataType{
-					"value": influxql.Integer,
-				},
-				"mem": map[string]influxql.DataType{
-					"value": influxql.String,
-				},
-			},
-		},
-		{
-			name: `count() with a float`,
-			in:   `count(value)`,
-			typ:  influxql.Integer,
-			data: EvalFixture{
-				"cpu": map[string]influxql.DataType{
-					"value": influxql.Float,
-				},
-			},
-		},
-		{
-			name: `mean() with an integer`,
-			in:   `mean(value)`,
-			typ:  influxql.Float,
-			data: EvalFixture{
-				"cpu": map[string]influxql.DataType{
-					"value": influxql.Integer,
-				},
-			},
-		},
-		{
-			name: `value inside a parenthesis`,
-			in:   `(value)`,
-			typ:  influxql.Float,
-			data: EvalFixture{
-				"cpu": map[string]influxql.DataType{
-					"value": influxql.Float,
-				},
-			},
-		},
-	} {
-		sources := make([]influxql.Source, 0, len(tt.data))
-		for src := range tt.data {
-			sources = append(sources, &influxql.Measurement{Name: src})
-		}
-
-		expr := influxql.MustParseExpr(tt.in)
-		typ := influxql.EvalType(expr, sources, tt.data)
-		if typ != tt.typ {
-			t.Errorf("%d. %s: unexpected type:\n\nexp=%#v\n\ngot=%#v\n\n", i, tt.name, tt.typ, typ)
-		}
-	}
-}
-
 // Ensure an expression can be reduced.
 func TestReduce(t *testing.T) {
 	now := mustParseTime("2000-01-01T00:00:00Z")
@@ -1409,39 +1320,6 @@ func TestSelect_Privileges(t *testing.T) {
 		Sources: []influxql.Source{
 			&influxql.Measurement{Database: "db0"},
 			&influxql.Measurement{Database: "db1"},
-		},
-	}
-
-	exp := influxql.ExecutionPrivileges{
-		influxql.ExecutionPrivilege{Name: "db0", Privilege: influxql.ReadPrivilege},
-		influxql.ExecutionPrivilege{Name: "db1", Privilege: influxql.ReadPrivilege},
-		influxql.ExecutionPrivilege{Name: "db2", Privilege: influxql.WritePrivilege},
-	}
-
-	got, err := stmt.RequiredPrivileges()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !reflect.DeepEqual(exp, got) {
-		t.Errorf("exp: %v, got: %v", exp, got)
-	}
-}
-
-func TestSelect_SubqueryPrivileges(t *testing.T) {
-	stmt := &influxql.SelectStatement{
-		Target: &influxql.Target{
-			Measurement: &influxql.Measurement{Database: "db2"},
-		},
-		Sources: []influxql.Source{
-			&influxql.Measurement{Database: "db0"},
-			&influxql.SubQuery{
-				Statement: &influxql.SelectStatement{
-					Sources: []influxql.Source{
-						&influxql.Measurement{Database: "db1"},
-					},
-				},
-			},
 		},
 	}
 

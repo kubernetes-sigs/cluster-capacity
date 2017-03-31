@@ -87,14 +87,8 @@ type Shape struct {
 	ErrorInfo ErrorInfo `json:"error"`
 }
 
-// ErrorCodeName will return the error shape's name formated for
-// error code const.
-func (s *Shape) ErrorCodeName() string {
-	return "ErrCode" + s.ShapeName
-}
-
 // ErrorName will return the shape's name or error code if available based
-// on the API's protocol. This is the error code string returned by the service.
+// on the API's protocol.
 func (s *Shape) ErrorName() string {
 	name := s.ShapeName
 	switch s.API.Metadata.Protocol {

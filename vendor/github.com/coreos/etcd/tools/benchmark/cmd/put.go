@@ -17,17 +17,13 @@ package cmd
 import (
 	"encoding/binary"
 	"fmt"
-	"math"
 	"math/rand"
 	"os"
 	"time"
 
 	v3 "github.com/coreos/etcd/clientv3"
-	"github.com/coreos/etcd/pkg/report"
-
 	"github.com/spf13/cobra"
 	"golang.org/x/net/context"
-	"golang.org/x/time/rate"
 	"gopkg.in/cheggaaa/pb.v1"
 )
 
@@ -44,7 +40,6 @@ var (
 	valSize int
 
 	putTotal int
-	putRate  int
 
 	keySpaceSize int
 	seqKeys      bool
@@ -57,8 +52,6 @@ func init() {
 	RootCmd.AddCommand(putCmd)
 	putCmd.Flags().IntVar(&keySize, "key-size", 8, "Key size of put request")
 	putCmd.Flags().IntVar(&valSize, "val-size", 8, "Value size of put request")
-	putCmd.Flags().IntVar(&putRate, "rate", 0, "Maximum puts per second (0 is no limit)")
-
 	putCmd.Flags().IntVar(&putTotal, "total", 10000, "Total number of put requests")
 	putCmd.Flags().IntVar(&keySpaceSize, "key-space-size", 1, "Maximum possible keys")
 	putCmd.Flags().BoolVar(&seqKeys, "sequential-keys", false, "Use sequential keys")
@@ -72,33 +65,23 @@ func putFunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	results = make(chan result)
 	requests := make(chan v3.Op, totalClients)
-	if putRate == 0 {
-		putRate = math.MaxInt32
-	}
-	limit := rate.NewLimiter(rate.Limit(putRate), 1)
-	clients := mustCreateClients(totalClients, totalConns)
+	bar = pb.New(putTotal)
+
 	k, v := make([]byte, keySize), string(mustRandBytes(valSize))
 
-	bar = pb.New(putTotal)
+	clients := mustCreateClients(totalClients, totalConns)
+
 	bar.Format("Bom !")
 	bar.Start()
 
-	r := newReport()
 	for i := range clients {
 		wg.Add(1)
-		go func(c *v3.Client) {
-			defer wg.Done()
-			for op := range requests {
-				limit.Wait(context.Background())
-
-				st := time.Now()
-				_, err := c.Do(context.Background(), op)
-				r.Results() <- report.Result{Err: err, Start: st, End: time.Now()}
-				bar.Increment()
-			}
-		}(clients[i])
+		go doPut(context.Background(), clients[i], requests)
 	}
+
+	pdoneC := printReport(results)
 
 	go func() {
 		for i := 0; i < putTotal; i++ {
@@ -121,11 +104,28 @@ func putFunc(cmd *cobra.Command, args []string) {
 		}()
 	}
 
-	rc := r.Run()
 	wg.Wait()
-	close(r.Results())
+
 	bar.Finish()
-	fmt.Println(<-rc)
+
+	close(results)
+	<-pdoneC
+}
+
+func doPut(ctx context.Context, client v3.KV, requests <-chan v3.Op) {
+	defer wg.Done()
+
+	for op := range requests {
+		st := time.Now()
+		_, err := client.Do(ctx, op)
+
+		var errStr string
+		if err != nil {
+			errStr = err.Error()
+		}
+		results <- result{errStr: errStr, duration: time.Since(st), happened: time.Now()}
+		bar.Increment()
+	}
 }
 
 func compactKV(clients []*v3.Client) {

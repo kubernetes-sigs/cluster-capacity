@@ -15,47 +15,54 @@
 package pubsub
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 
 	"golang.org/x/net/context"
-
-	"google.golang.org/api/iterator"
 )
+
+type subListCall struct {
+	inTok, outTok string
+	subs          []string
+	err           error
+}
 
 type subListService struct {
 	service
-	subs []string
-	err  error
+	calls []subListCall
 
 	t *testing.T // for error logging.
 }
 
-func (s *subListService) newNextStringFunc() nextStringFunc {
-	return func() (string, error) {
-		if len(s.subs) == 0 {
-			return "", iterator.Done
-		}
-		sn := s.subs[0]
-		s.subs = s.subs[1:]
-		return sn, s.err
+func (s *subListService) listSubs(pageTok string) (*stringsPage, error) {
+	if len(s.calls) == 0 {
+		s.t.Errorf("unexpected call: pageTok: %q", pageTok)
+		return nil, errors.New("bang")
 	}
+
+	call := s.calls[0]
+	s.calls = s.calls[1:]
+	if call.inTok != pageTok {
+		s.t.Errorf("page token: got: %v, want: %v", pageTok, call.inTok)
+	}
+	return &stringsPage{call.subs, call.outTok}, call.err
 }
 
-func (s *subListService) listProjectSubscriptions(ctx context.Context, projName string) nextStringFunc {
+func (s *subListService) listProjectSubscriptions(ctx context.Context, projName, pageTok string) (*stringsPage, error) {
 	if projName != "projects/projid" {
-		s.t.Fatalf("unexpected call: projName: %q", projName)
-		return nil
+		s.t.Errorf("unexpected call: projName: %q, pageTok: %q", projName, pageTok)
+		return nil, errors.New("bang")
 	}
-	return s.newNextStringFunc()
+	return s.listSubs(pageTok)
 }
 
-func (s *subListService) listTopicSubscriptions(ctx context.Context, topicName string) nextStringFunc {
+func (s *subListService) listTopicSubscriptions(ctx context.Context, topicName, pageTok string) (*stringsPage, error) {
 	if topicName != "projects/projid/topics/topic" {
-		s.t.Fatalf("unexpected call: topicName: %q", topicName)
-		return nil
+		s.t.Errorf("unexpected call: topicName: %q, pageTok: %q", topicName, pageTok)
+		return nil, errors.New("bang")
 	}
-	return s.newNextStringFunc()
+	return s.listSubs(pageTok)
 }
 
 // All returns the remaining subscriptions from this iterator.
@@ -65,7 +72,7 @@ func slurpSubs(it *SubscriptionIterator) ([]*Subscription, error) {
 		switch sub, err := it.Next(); err {
 		case nil:
 			subs = append(subs, sub)
-		case iterator.Done:
+		case Done:
 			return subs, nil
 		default:
 			return nil, err
@@ -73,70 +80,59 @@ func slurpSubs(it *SubscriptionIterator) ([]*Subscription, error) {
 	}
 }
 
-func TestSubscriptionID(t *testing.T) {
-	const id = "id"
-	serv := &subListService{
-		subs: []string{"projects/projid/subscriptions/s1", "projects/projid/subscriptions/s2"},
-		t:    t,
-	}
-	c := &Client{projectID: "projid", s: serv}
-	s := c.Subscription(id)
-	if got, want := s.ID(), id; got != want {
-		t.Errorf("Subscription.ID() = %q; want %q", got, want)
-	}
-	want := []string{"s1", "s2"}
-	subs, err := slurpSubs(c.Subscriptions(context.Background()))
-	if err != nil {
-		t.Errorf("error listing subscriptions: %v", err)
-	}
-	for i, s := range subs {
-		if got, want := s.ID(), want[i]; got != want {
-			t.Errorf("Subscription.ID() = %q; want %q", got, want)
-		}
-	}
-}
-
 func TestListProjectSubscriptions(t *testing.T) {
-	snames := []string{"projects/projid/subscriptions/s1", "projects/projid/subscriptions/s2",
-		"projects/projid/subscriptions/s3"}
-	s := &subListService{subs: snames, t: t}
+	calls := []subListCall{
+		{
+			subs:   []string{"s1", "s2"},
+			outTok: "a",
+		},
+		{
+			inTok:  "a",
+			subs:   []string{"s3"},
+			outTok: "",
+		},
+	}
+	s := &subListService{calls: calls, t: t}
 	c := &Client{projectID: "projid", s: s}
 	subs, err := slurpSubs(c.Subscriptions(context.Background()))
 	if err != nil {
 		t.Errorf("error listing subscriptions: %v", err)
 	}
 	got := subNames(subs)
-	want := []string{
-		"projects/projid/subscriptions/s1",
-		"projects/projid/subscriptions/s2",
-		"projects/projid/subscriptions/s3"}
+	want := []string{"s1", "s2", "s3"}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("sub list: got: %v, want: %v", got, want)
 	}
-	if len(s.subs) != 0 {
-		t.Errorf("outstanding subs: %v", s.subs)
+	if len(s.calls) != 0 {
+		t.Errorf("outstanding calls: %v", s.calls)
 	}
 }
 
 func TestListTopicSubscriptions(t *testing.T) {
-	snames := []string{"projects/projid/subscriptions/s1", "projects/projid/subscriptions/s2",
-		"projects/projid/subscriptions/s3"}
-	s := &subListService{subs: snames, t: t}
+	calls := []subListCall{
+		{
+			subs:   []string{"s1", "s2"},
+			outTok: "a",
+		},
+		{
+			inTok:  "a",
+			subs:   []string{"s3"},
+			outTok: "",
+		},
+	}
+	s := &subListService{calls: calls, t: t}
 	c := &Client{projectID: "projid", s: s}
 	subs, err := slurpSubs(c.Topic("topic").Subscriptions(context.Background()))
 	if err != nil {
 		t.Errorf("error listing subscriptions: %v", err)
 	}
 	got := subNames(subs)
-	want := []string{
-		"projects/projid/subscriptions/s1",
-		"projects/projid/subscriptions/s2",
-		"projects/projid/subscriptions/s3"}
+	want := []string{"s1", "s2", "s3"}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("sub list: got: %v, want: %v", got, want)
 	}
-	if len(s.subs) != 0 {
-		t.Errorf("outstanding subs: %v", s.subs)
+	if len(s.calls) != 0 {
+		t.Errorf("outstanding calls: %v", s.calls)
 	}
 }
 

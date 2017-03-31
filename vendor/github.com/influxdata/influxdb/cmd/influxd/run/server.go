@@ -31,7 +31,6 @@ import (
 	"github.com/influxdata/influxdb/tcp"
 	"github.com/influxdata/influxdb/tsdb"
 	client "github.com/influxdata/usage-client/v1"
-	"go.uber.org/zap"
 	// Initialize the engine packages
 	_ "github.com/influxdata/influxdb/tsdb/engine"
 )
@@ -62,7 +61,7 @@ type Server struct {
 	BindAddress string
 	Listener    net.Listener
 
-	Logger zap.Logger
+	Logger *log.Logger
 
 	MetaClient *meta.Client
 
@@ -95,6 +94,10 @@ type Server struct {
 	tcpAddr string
 
 	config *Config
+
+	// logOutput is the writer to which all services should be configured to
+	// write logs to after appension.
+	logOutput io.Writer
 }
 
 // NewServer returns a new instance of Server built from a config.
@@ -140,10 +143,7 @@ func NewServer(c *Config, buildInfo *BuildInfo) (*Server, error) {
 
 		BindAddress: bind,
 
-		Logger: zap.New(
-			zap.NewTextEncoder(),
-			zap.Output(os.Stderr),
-		),
+		Logger: log.New(os.Stderr, "", log.LstdFlags),
 
 		MetaClient: meta.NewClient(c.Meta),
 
@@ -153,7 +153,8 @@ func NewServer(c *Config, buildInfo *BuildInfo) (*Server, error) {
 		httpUseTLS:  c.HTTPD.HTTPSEnabled,
 		tcpAddr:     bind,
 
-		config: c,
+		config:    c,
+		logOutput: os.Stderr,
 	}
 	s.Monitor = monitor.New(s, c.Monitor)
 
@@ -179,13 +180,9 @@ func NewServer(c *Config, buildInfo *BuildInfo) (*Server, error) {
 	// Initialize query executor.
 	s.QueryExecutor = influxql.NewQueryExecutor()
 	s.QueryExecutor.StatementExecutor = &coordinator.StatementExecutor{
-		MetaClient:  s.MetaClient,
-		TaskManager: s.QueryExecutor.TaskManager,
-		TSDBStore:   coordinator.LocalTSDBStore{Store: s.TSDBStore},
-		ShardMapper: &coordinator.LocalShardMapper{
-			MetaClient: s.MetaClient,
-			TSDBStore:  coordinator.LocalTSDBStore{Store: s.TSDBStore},
-		},
+		MetaClient:        s.MetaClient,
+		TaskManager:       s.QueryExecutor.TaskManager,
+		TSDBStore:         coordinator.LocalTSDBStore{Store: s.TSDBStore},
 		Monitor:           s.Monitor,
 		PointsWriter:      s.PointsWriter,
 		MaxSelectPointN:   c.Coordinator.MaxSelectPointN,
@@ -205,7 +202,6 @@ func NewServer(c *Config, buildInfo *BuildInfo) (*Server, error) {
 	return s, nil
 }
 
-// Statistics returns statistics for the services running in the Server.
 func (s *Server) Statistics(tags map[string]string) []models.Statistic {
 	var statistics []models.Statistic
 	statistics = append(statistics, s.QueryExecutor.Statistics(tags)...)
@@ -231,7 +227,8 @@ func (s *Server) appendSnapshotterService() {
 // SetLogOutput sets the logger used for all messages. It must not be called
 // after the Open method has been called.
 func (s *Server) SetLogOutput(w io.Writer) {
-	s.Logger = zap.New(zap.NewTextEncoder(), zap.Output(zap.AddSync(w)))
+	s.Logger = log.New(os.Stderr, "", log.LstdFlags)
+	s.logOutput = w
 }
 
 func (s *Server) appendMonitorService() {
@@ -399,20 +396,21 @@ func (s *Server) Open() error {
 	s.SnapshotterService.Listener = mux.Listen(snapshotter.MuxHeader)
 
 	// Configure logging for all services and clients.
+	w := s.logOutput
 	if s.config.Meta.LoggingEnabled {
-		s.MetaClient.WithLogger(s.Logger)
+		s.MetaClient.SetLogOutput(w)
 	}
-	s.TSDBStore.WithLogger(s.Logger)
+	s.TSDBStore.SetLogOutput(w)
 	if s.config.Data.QueryLogEnabled {
-		s.QueryExecutor.WithLogger(s.Logger)
+		s.QueryExecutor.SetLogOutput(w)
 	}
-	s.PointsWriter.WithLogger(s.Logger)
-	s.Subscriber.WithLogger(s.Logger)
+	s.PointsWriter.SetLogOutput(w)
+	s.Subscriber.SetLogOutput(w)
 	for _, svc := range s.Services {
-		svc.WithLogger(s.Logger)
+		svc.SetLogOutput(w)
 	}
-	s.SnapshotterService.WithLogger(s.Logger)
-	s.Monitor.WithLogger(s.Logger)
+	s.SnapshotterService.SetLogOutput(w)
+	s.Monitor.SetLogOutput(w)
 
 	// Open TSDB store.
 	if err := s.TSDBStore.Open(); err != nil {
@@ -541,14 +539,29 @@ func (s *Server) reportServer() {
 		},
 	}
 
-	s.Logger.Info("Sending usage statistics to usage.influxdata.com")
+	s.Logger.Printf("Sending usage statistics to usage.influxdata.com")
 
 	go cl.Save(usage)
 }
 
+// monitorErrorChan reads an error channel and resends it through the server.
+func (s *Server) monitorErrorChan(ch <-chan error) {
+	for {
+		select {
+		case err, ok := <-ch:
+			if !ok {
+				return
+			}
+			s.err <- err
+		case <-s.closing:
+			return
+		}
+	}
+}
+
 // Service represents a service attached to the server.
 type Service interface {
-	WithLogger(log zap.Logger)
+	SetLogOutput(w io.Writer)
 	Open() error
 	Close() error
 }
@@ -596,6 +609,11 @@ func stopProfile() {
 		log.Println("mem profile stopped")
 	}
 }
+
+type tcpaddr struct{ host string }
+
+func (a *tcpaddr) Network() string { return "tcp" }
+func (a *tcpaddr) String() string  { return a.host }
 
 // monitorPointsWriter is a wrapper around `coordinator.PointsWriter` that helps
 // to prevent a circular dependency between the `cluster` and `monitor` packages.

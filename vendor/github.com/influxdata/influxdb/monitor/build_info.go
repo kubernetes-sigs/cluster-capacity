@@ -2,7 +2,7 @@ package monitor
 
 import "github.com/influxdata/influxdb/monitor/diagnostics"
 
-// build holds information of the build of the current executable.
+// system captures build diagnostics
 type build struct {
 	Version string
 	Commit  string

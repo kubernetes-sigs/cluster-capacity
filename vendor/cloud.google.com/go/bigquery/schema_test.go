@@ -20,9 +20,6 @@ import (
 	"testing"
 	"time"
 
-	"cloud.google.com/go/civil"
-	"cloud.google.com/go/internal/pretty"
-
 	bq "google.golang.org/api/bigquery/v2"
 )
 
@@ -143,21 +140,6 @@ func TestSchemaConversion(t *testing.T) {
 			},
 		},
 		{
-			// civil times
-			bqSchema: &bq.TableSchema{
-				Fields: []*bq.TableFieldSchema{
-					bqTableFieldSchema("desc", "f1", "TIME", ""),
-					bqTableFieldSchema("desc", "f2", "DATE", ""),
-					bqTableFieldSchema("desc", "f3", "DATETIME", ""),
-				},
-			},
-			schema: Schema{
-				fieldSchema("desc", "f1", "TIME", false, false),
-				fieldSchema("desc", "f2", "DATE", false, false),
-				fieldSchema("desc", "f3", "DATETIME", false, false),
-			},
-		},
-		{
 			// nested
 			bqSchema: &bq.TableSchema{
 				Fields: []*bq.TableFieldSchema{
@@ -193,8 +175,7 @@ func TestSchemaConversion(t *testing.T) {
 	for _, tc := range testCases {
 		bqSchema := tc.schema.asTableSchema()
 		if !reflect.DeepEqual(bqSchema, tc.bqSchema) {
-			t.Errorf("converting to TableSchema: got:\n%v\nwant:\n%v",
-				pretty.Value(bqSchema), pretty.Value(tc.bqSchema))
+			t.Errorf("converting to TableSchema: got:\n%v\nwant:\n%v", bqSchema, tc.bqSchema)
 		}
 		schema := convertTableSchema(tc.bqSchema)
 		if !reflect.DeepEqual(schema, tc.schema) {
@@ -217,9 +198,12 @@ type allSignedIntegers struct {
 }
 
 type allUnsignedIntegers struct {
-	Uint32 uint32
-	Uint16 uint16
-	Uint8  uint8
+	Uint64  uint64
+	Uint32  uint32
+	Uint16  uint16
+	Uint8   uint8
+	Uintptr uintptr
+	Uint    uint
 }
 
 type allFloat struct {
@@ -233,18 +217,7 @@ type allBoolean struct {
 }
 
 type allTime struct {
-	Timestamp time.Time
-	Time      civil.Time
-	Date      civil.Date
-	DateTime  civil.DateTime
-}
-
-func reqField(name, typ string) *FieldSchema {
-	return &FieldSchema{
-		Name:     name,
-		Type:     FieldType(typ),
-		Required: true,
-	}
+	Time time.Time
 }
 
 func TestSimpleInference(t *testing.T) {
@@ -255,54 +228,48 @@ func TestSimpleInference(t *testing.T) {
 		{
 			in: allSignedIntegers{},
 			want: Schema{
-				reqField("Int64", "INTEGER"),
-				reqField("Int32", "INTEGER"),
-				reqField("Int16", "INTEGER"),
-				reqField("Int8", "INTEGER"),
-				reqField("Int", "INTEGER"),
+				fieldSchema("", "Int64", "INTEGER", false, true),
+				fieldSchema("", "Int32", "INTEGER", false, true),
+				fieldSchema("", "Int16", "INTEGER", false, true),
+				fieldSchema("", "Int8", "INTEGER", false, true),
+				fieldSchema("", "Int", "INTEGER", false, true),
 			},
 		},
 		{
 			in: allUnsignedIntegers{},
 			want: Schema{
-				reqField("Uint32", "INTEGER"),
-				reqField("Uint16", "INTEGER"),
-				reqField("Uint8", "INTEGER"),
+				fieldSchema("", "Uint64", "INTEGER", false, true),
+				fieldSchema("", "Uint32", "INTEGER", false, true),
+				fieldSchema("", "Uint16", "INTEGER", false, true),
+				fieldSchema("", "Uint8", "INTEGER", false, true),
+				fieldSchema("", "Uintptr", "INTEGER", false, true),
+				fieldSchema("", "Uint", "INTEGER", false, true),
 			},
 		},
 		{
 			in: allFloat{},
 			want: Schema{
-				reqField("Float64", "FLOAT"),
-				reqField("Float32", "FLOAT"),
+				fieldSchema("", "Float64", "FLOAT", false, true),
+				fieldSchema("", "Float32", "FLOAT", false, true),
 			},
 		},
 		{
 			in: allBoolean{},
 			want: Schema{
-				reqField("Bool", "BOOLEAN"),
-			},
-		},
-		{
-			in: &allBoolean{},
-			want: Schema{
-				reqField("Bool", "BOOLEAN"),
+				fieldSchema("", "Bool", "BOOLEAN", false, true),
 			},
 		},
 		{
 			in: allTime{},
 			want: Schema{
-				reqField("Timestamp", "TIMESTAMP"),
-				reqField("Time", "TIME"),
-				reqField("Date", "DATE"),
-				reqField("DateTime", "DATETIME"),
+				fieldSchema("", "Time", "TIMESTAMP", false, true),
 			},
 		},
 		{
 			in: allStrings{},
 			want: Schema{
-				reqField("String", "STRING"),
-				reqField("ByteSlice", "BYTES"),
+				fieldSchema("", "String", "STRING", false, true),
+				fieldSchema("", "ByteSlice", "STRING", false, true),
 			},
 		},
 	}
@@ -312,8 +279,7 @@ func TestSimpleInference(t *testing.T) {
 			t.Fatalf("%d: error inferring TableSchema: %v", i, err)
 		}
 		if !reflect.DeepEqual(got, tc.want) {
-			t.Errorf("%d: inferring TableSchema: got:\n%#v\nwant:\n%#v", i,
-				pretty.Value(got), pretty.Value(tc.want))
+			t.Errorf("%d: inferring TableSchema: got:\n%#v\nwant:\n%#v", i, got, tc.want)
 		}
 	}
 }
@@ -335,10 +301,6 @@ type containsDoubleNested struct {
 	}
 }
 
-type ptrNested struct {
-	Ptr *struct{ Inside int }
-}
-
 func TestNestedInference(t *testing.T) {
 	testCases := []struct {
 		in   interface{}
@@ -347,42 +309,43 @@ func TestNestedInference(t *testing.T) {
 		{
 			in: containsNested{},
 			want: Schema{
-				reqField("NotNested", "INTEGER"),
+				fieldSchema("", "NotNested", "INTEGER", false, true),
 				&FieldSchema{
 					Name:     "Nested",
 					Required: true,
 					Type:     "RECORD",
-					Schema:   Schema{reqField("Inside", "INTEGER")},
-				},
-			},
-		},
-		{
-			in: containsDoubleNested{},
-			want: Schema{
-				reqField("NotNested", "INTEGER"),
-				&FieldSchema{
-					Name:     "Nested",
-					Required: true,
-					Type:     "RECORD",
-					Schema: Schema{
+					Schema: []*FieldSchema{
 						{
-							Name:     "InsideNested",
+							Name:     "Inside",
+							Type:     "INTEGER",
 							Required: true,
-							Type:     "RECORD",
-							Schema:   Schema{reqField("Inside", "INTEGER")},
 						},
 					},
 				},
 			},
 		},
 		{
-			in: ptrNested{},
+			in: containsDoubleNested{},
 			want: Schema{
+				fieldSchema("", "NotNested", "INTEGER", false, true),
 				&FieldSchema{
-					Name:     "Ptr",
+					Name:     "Nested",
 					Required: true,
 					Type:     "RECORD",
-					Schema:   Schema{reqField("Inside", "INTEGER")},
+					Schema: []*FieldSchema{
+						{
+							Name:     "InsideNested",
+							Required: true,
+							Type:     "RECORD",
+							Schema: []*FieldSchema{
+								{
+									Name:     "Inside",
+									Type:     "INTEGER",
+									Required: true,
+								},
+							},
+						},
+					},
 				},
 			},
 		},
@@ -394,32 +357,21 @@ func TestNestedInference(t *testing.T) {
 			t.Fatalf("%d: error inferring TableSchema: %v", i, err)
 		}
 		if !reflect.DeepEqual(got, tc.want) {
-			t.Errorf("%d: inferring TableSchema: got:\n%#v\nwant:\n%#v", i,
-				pretty.Value(got), pretty.Value(tc.want))
+			t.Errorf("%d: inferring TableSchema: got:\n%#v\nwant:\n%#v", i, got, tc.want)
 		}
 	}
 }
 
-type repeated struct {
+type simpleRepeated struct {
 	NotRepeated       []byte
 	RepeatedByteSlice [][]byte
-	Slice             []int
-	Array             [5]bool
+	Repeated          []int
 }
 
-type nestedRepeated struct {
+type simpleNestedRepeated struct {
 	NotRepeated int
 	Repeated    []struct {
 		Inside int
-	}
-	RepeatedPtr []*struct{ Inside int }
-}
-
-func repField(name, typ string) *FieldSchema {
-	return &FieldSchema{
-		Name:     name,
-		Type:     FieldType(typ),
-		Repeated: true,
 	}
 }
 
@@ -429,29 +381,28 @@ func TestRepeatedInference(t *testing.T) {
 		want Schema
 	}{
 		{
-			in: repeated{},
+			in: simpleRepeated{},
 			want: Schema{
-				reqField("NotRepeated", "BYTES"),
-				repField("RepeatedByteSlice", "BYTES"),
-				repField("Slice", "INTEGER"),
-				repField("Array", "BOOLEAN"),
+				fieldSchema("", "NotRepeated", "STRING", false, true),
+				fieldSchema("", "RepeatedByteSlice", "STRING", true, false),
+				fieldSchema("", "Repeated", "INTEGER", true, false),
 			},
 		},
 		{
-			in: nestedRepeated{},
+			in: simpleNestedRepeated{},
 			want: Schema{
-				reqField("NotRepeated", "INTEGER"),
-				{
+				fieldSchema("", "NotRepeated", "INTEGER", false, true),
+				&FieldSchema{
 					Name:     "Repeated",
 					Repeated: true,
 					Type:     "RECORD",
-					Schema:   Schema{reqField("Inside", "INTEGER")},
-				},
-				{
-					Name:     "RepeatedPtr",
-					Repeated: true,
-					Type:     "RECORD",
-					Schema:   Schema{reqField("Inside", "INTEGER")},
+					Schema: []*FieldSchema{
+						{
+							Name:     "Inside",
+							Type:     "INTEGER",
+							Required: true,
+						},
+					},
 				},
 			},
 		},
@@ -463,8 +414,7 @@ func TestRepeatedInference(t *testing.T) {
 			t.Fatalf("%d: error inferring TableSchema: %v", i, err)
 		}
 		if !reflect.DeepEqual(got, tc.want) {
-			t.Errorf("%d: inferring TableSchema: got:\n%#v\nwant:\n%#v", i,
-				pretty.Value(got), pretty.Value(tc.want))
+			t.Errorf("%d: inferring TableSchema: got:\n%#v\nwant:\n%#v", i, got, tc.want)
 		}
 	}
 }
@@ -473,191 +423,8 @@ type Embedded struct {
 	Embedded int
 }
 
-type embedded struct {
-	Embedded2 int
-}
-
 type nestedEmbedded struct {
 	Embedded
-	embedded
-}
-
-func TestEmbeddedInference(t *testing.T) {
-	got, err := InferSchema(nestedEmbedded{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := Schema{
-		reqField("Embedded", "INTEGER"),
-		reqField("Embedded2", "INTEGER"),
-	}
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("got %v, want %v", pretty.Value(got), pretty.Value(want))
-	}
-}
-
-func TestRecursiveInference(t *testing.T) {
-	type List struct {
-		Val  int
-		Next *List
-	}
-
-	_, err := InferSchema(List{})
-	if err == nil {
-		t.Fatal("got nil, want error")
-	}
-}
-
-type withTags struct {
-	NoTag         int
-	ExcludeTag    int `bigquery:"-"`
-	SimpleTag     int `bigquery:"simple_tag"`
-	UnderscoreTag int `bigquery:"_id"`
-	MixedCase     int `bigquery:"MIXEDcase"`
-}
-
-type withTagsNested struct {
-	Nested          withTags `bigquery:"nested"`
-	NestedAnonymous struct {
-		ExcludeTag int `bigquery:"-"`
-		Inside     int `bigquery:"inside"`
-	} `bigquery:"anon"`
-}
-
-type withTagsRepeated struct {
-	Repeated          []withTags `bigquery:"repeated"`
-	RepeatedAnonymous []struct {
-		ExcludeTag int `bigquery:"-"`
-		Inside     int `bigquery:"inside"`
-	} `bigquery:"anon"`
-}
-
-type withTagsEmbedded struct {
-	withTags
-}
-
-var withTagsSchema = Schema{
-	reqField("NoTag", "INTEGER"),
-	reqField("simple_tag", "INTEGER"),
-	reqField("_id", "INTEGER"),
-	reqField("MIXEDcase", "INTEGER"),
-}
-
-func TestTagInference(t *testing.T) {
-	testCases := []struct {
-		in   interface{}
-		want Schema
-	}{
-		{
-			in:   withTags{},
-			want: withTagsSchema,
-		},
-		{
-			in: withTagsNested{},
-			want: Schema{
-				&FieldSchema{
-					Name:     "nested",
-					Required: true,
-					Type:     "RECORD",
-					Schema:   withTagsSchema,
-				},
-				&FieldSchema{
-					Name:     "anon",
-					Required: true,
-					Type:     "RECORD",
-					Schema:   Schema{reqField("inside", "INTEGER")},
-				},
-			},
-		},
-		{
-			in: withTagsRepeated{},
-			want: Schema{
-				&FieldSchema{
-					Name:     "repeated",
-					Repeated: true,
-					Type:     "RECORD",
-					Schema:   withTagsSchema,
-				},
-				&FieldSchema{
-					Name:     "anon",
-					Repeated: true,
-					Type:     "RECORD",
-					Schema:   Schema{reqField("inside", "INTEGER")},
-				},
-			},
-		},
-		{
-			in:   withTagsEmbedded{},
-			want: withTagsSchema,
-		},
-	}
-	for i, tc := range testCases {
-		got, err := InferSchema(tc.in)
-		if err != nil {
-			t.Fatalf("%d: error inferring TableSchema: %v", i, err)
-		}
-		if !reflect.DeepEqual(got, tc.want) {
-			t.Errorf("%d: inferring TableSchema: got:\n%#v\nwant:\n%#v", i,
-				pretty.Value(got), pretty.Value(tc.want))
-		}
-	}
-}
-
-func TestTagInferenceErrors(t *testing.T) {
-	testCases := []struct {
-		in  interface{}
-		err error
-	}{
-		{
-			in: struct {
-				LongTag int `bigquery:"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxy"`
-			}{},
-			err: errInvalidFieldName,
-		},
-		{
-			in: struct {
-				UnsupporedStartChar int `bigquery:"øab"`
-			}{},
-			err: errInvalidFieldName,
-		},
-		{
-			in: struct {
-				UnsupportedEndChar int `bigquery:"abø"`
-			}{},
-			err: errInvalidFieldName,
-		},
-		{
-			in: struct {
-				UnsupportedMiddleChar int `bigquery:"aøb"`
-			}{},
-			err: errInvalidFieldName,
-		},
-		{
-			in: struct {
-				StartInt int `bigquery:"1abc"`
-			}{},
-			err: errInvalidFieldName,
-		},
-		{
-			in: struct {
-				Hyphens int `bigquery:"a-b"`
-			}{},
-			err: errInvalidFieldName,
-		},
-		{
-			in: struct {
-				OmitEmpty int `bigquery:"abc,omitempty"`
-			}{},
-			err: errInvalidFieldName,
-		},
-	}
-	for i, tc := range testCases {
-		want := tc.err
-		_, got := InferSchema(tc.in)
-		if !reflect.DeepEqual(got, want) {
-			t.Errorf("%d: inferring TableSchema: got:\n%#v\nwant:\n%#v", i, got, want)
-		}
-	}
 }
 
 func TestSchemaErrors(t *testing.T) {
@@ -674,16 +441,8 @@ func TestSchemaErrors(t *testing.T) {
 			err: errNoStruct,
 		},
 		{
-			in:  struct{ Uint uint }{},
-			err: errUnsupportedFieldType,
-		},
-		{
-			in:  struct{ Uint64 uint64 }{},
-			err: errUnsupportedFieldType,
-		},
-		{
-			in:  struct{ Uintptr uintptr }{},
-			err: errUnsupportedFieldType,
+			in:  new(allStrings),
+			err: errNoStruct,
 		},
 		{
 			in:  struct{ Complex complex64 }{},
@@ -699,7 +458,7 @@ func TestSchemaErrors(t *testing.T) {
 		},
 		{
 			in:  struct{ Ptr *int }{},
-			err: errNoStruct,
+			err: errUnsupportedFieldType,
 		},
 		{
 			in:  struct{ Interface interface{} }{},
@@ -721,12 +480,16 @@ func TestSchemaErrors(t *testing.T) {
 			in:  struct{ NestedChan struct{ Chan []chan bool } }{},
 			err: errUnsupportedFieldType,
 		},
+		{
+			in:  nestedEmbedded{},
+			err: errUnsupportedFieldType,
+		},
 	}
-	for _, tc := range testCases {
+	for i, tc := range testCases {
 		want := tc.err
 		_, got := InferSchema(tc.in)
 		if !reflect.DeepEqual(got, want) {
-			t.Errorf("%#v: got:\n%#v\nwant:\n%#v", tc.in, got, want)
+			t.Errorf("%d: inferring TableSchema: got:\n%#v\nwant:\n%#v", i, got, want)
 		}
 	}
 }

@@ -2,7 +2,9 @@ package tsm1
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
+	"log"
 	"math"
 	"os"
 	"path/filepath"
@@ -14,16 +16,14 @@ import (
 	"time"
 
 	"github.com/influxdata/influxdb/models"
-	"go.uber.org/zap"
 )
 
-// TSMFile represents an on-disk TSM file.
 type TSMFile interface {
 	// Path returns the underlying file path for the TSMFile.  If the file
 	// has not be written or loaded from disk, the zero value is returned.
 	Path() string
 
-	// Read returns all the values in the block where time t resides.
+	// Read returns all the values in the block where time t resides
 	Read(key string, t int64) ([]Value, error)
 
 	// ReadAt returns all the values in the block identified by entry.
@@ -38,7 +38,7 @@ type TSMFile interface {
 	ReadEntries(key string, entries *[]IndexEntry)
 
 	// Returns true if the TSMFile may contain a value with the specified
-	// key and time.
+	// key and time
 	ContainsValue(key string, t int64) bool
 
 	// Contains returns true if the file contains any values for the given
@@ -54,10 +54,10 @@ type TSMFile interface {
 	// KeyRange returns the min and max keys in the file.
 	KeyRange() (string, string)
 
-	// KeyCount returns the number of distinct keys in the file.
+	// KeyCount returns the number of distict keys in the file.
 	KeyCount() int
 
-	// KeyAt returns the key located at index position idx.
+	// KeyAt returns the key located at index position idx
 	KeyAt(idx int) ([]byte, byte)
 
 	// Type returns the block type of the values stored for the key.  Returns one of
@@ -68,7 +68,7 @@ type TSMFile interface {
 	// Delete removes the keys from the set of keys available in this file.
 	Delete(keys []string) error
 
-	// DeleteRange removes the values for keys between timestamps min and max.
+	// DeleteRange removes the values for keys between min and max.
 	DeleteRange(keys []string, min, max int64) error
 
 	// HasTombstones returns true if file contains values that have been deleted.
@@ -78,7 +78,7 @@ type TSMFile interface {
 	// written for this file.
 	TombstoneFiles() []FileStat
 
-	// Close closes the underlying file resources.
+	// Close the underlying file resources
 	Close() error
 
 	// Size returns the size of the file on disk in bytes.
@@ -88,23 +88,23 @@ type TSMFile interface {
 	// file name.  Index and Reader state are not re-initialized.
 	Rename(path string) error
 
-	// Remove deletes the file from the filesystem.
+	// Remove deletes the file from the filesystem
 	Remove() error
 
-	// InUse returns true if the file is currently in use by queries.
+	// Returns true if the file is currently in use by queries
 	InUse() bool
 
-	// Ref records that this file is actively in use.
+	// Ref records that this file is actively in use
 	Ref()
 
-	// Unref records that this file is no longer in use.
+	// Unref records that this file is no longer in user
 	Unref()
 
 	// Stats returns summary information about the TSM file.
 	Stats() FileStat
 
 	// BlockIterator returns an iterator pointing to the first block in the file and
-	// allows sequential iteration to each and every block.
+	// allows sequential iteration to each every block.
 	BlockIterator() *BlockIterator
 
 	// Removes mmap references held by another object.
@@ -121,7 +121,6 @@ const (
 	statFileStoreCount = "numFiles"
 )
 
-// FileStore is an abstraction around multiple TSM files.
 type FileStore struct {
 	mu           sync.RWMutex
 	lastModified time.Time
@@ -134,8 +133,9 @@ type FileStore struct {
 
 	files []TSMFile
 
-	logger       zap.Logger // Logger to be used for important messages
-	traceLogger  zap.Logger // Logger to be used when trace-logging is on.
+	logger       *log.Logger // Logger to be used for important messages
+	traceLogger  *log.Logger // Logger to be used when trace-logging is on.
+	logOutput    io.Writer   // Writer to be logger and traceLogger if active.
 	traceLogging bool
 
 	stats  *FileStoreStatistics
@@ -146,7 +146,6 @@ type FileStore struct {
 	dereferencer dereferencer
 }
 
-// FileStat holds information about a TSM file on disk.
 type FileStat struct {
 	Path             string
 	HasTombstone     bool
@@ -156,29 +155,26 @@ type FileStat struct {
 	MinKey, MaxKey   string
 }
 
-// OverlapsTimeRange returns true if the time range of the file intersect min and max.
 func (f FileStat) OverlapsTimeRange(min, max int64) bool {
 	return f.MinTime <= max && f.MaxTime >= min
 }
 
-// OverlapsKeyRange returns true if the min and max keys of the file overlap the arguments min and max.
 func (f FileStat) OverlapsKeyRange(min, max string) bool {
 	return min != "" && max != "" && f.MinKey <= max && f.MaxKey >= min
 }
 
-// ContainsKey returns true if the min and max keys of the file overlap the arguments min and max.
 func (f FileStat) ContainsKey(key string) bool {
 	return f.MinKey >= key || key <= f.MaxKey
 }
 
-// NewFileStore returns a new instance of FileStore based on the given directory.
 func NewFileStore(dir string) *FileStore {
-	logger := zap.New(zap.NullEncoder())
+	logger := log.New(os.Stderr, "[filestore] ", log.LstdFlags)
 	fs := &FileStore{
 		dir:          dir,
-		lastModified: time.Time{},
+		lastModified: time.Now(),
 		logger:       logger,
-		traceLogger:  logger,
+		traceLogger:  log.New(ioutil.Discard, "[filestore] ", log.LstdFlags),
+		logOutput:    os.Stderr,
 		stats:        &FileStoreStatistics{},
 		purger: &purger{
 			files:  map[string]TSMFile{},
@@ -193,18 +189,23 @@ func NewFileStore(dir string) *FileStore {
 func (f *FileStore) enableTraceLogging(enabled bool) {
 	f.traceLogging = enabled
 	if enabled {
-		f.traceLogger = f.logger
+		f.traceLogger.SetOutput(f.logOutput)
 	}
 }
 
-// WithLogger sets the logger on the file store.
-func (f *FileStore) WithLogger(log zap.Logger) {
-	f.logger = log.With(zap.String("service", "filestore"))
-	f.purger.logger = f.logger
+// SetLogOutput sets the logger used for all messages. It is safe for concurrent
+// use.
+func (f *FileStore) SetLogOutput(w io.Writer) {
+	f.logger.SetOutput(w)
 
+	// Set the trace logger's output only if trace logging is enabled.
 	if f.traceLogging {
-		f.traceLogger = f.logger
+		f.traceLogger.SetOutput(w)
 	}
+
+	f.mu.Lock()
+	f.logOutput = w
+	f.mu.Unlock()
 }
 
 // FileStoreStatistics keeps statistics about the file store.
@@ -225,28 +226,28 @@ func (f *FileStore) Statistics(tags map[string]string) []models.Statistic {
 	}}
 }
 
-// Count returns the number of TSM files currently loaded.
+// Returns the number of TSM files currently loaded
 func (f *FileStore) Count() int {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 	return len(f.files)
 }
 
-// Files returns the slice of TSM files currently loaded.
+// Files returns TSM files currently loaded.
 func (f *FileStore) Files() []TSMFile {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 	return f.files
 }
 
-// CurrentGeneration returns the current generation of the TSM files.
+// CurrentGeneration returns the current generation of the TSM files
 func (f *FileStore) CurrentGeneration() int {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 	return f.currentGeneration
 }
 
-// NextGeneration increments the max file ID and returns the new value.
+// NextGeneration returns the max file ID + 1
 func (f *FileStore) NextGeneration() int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -254,7 +255,6 @@ func (f *FileStore) NextGeneration() int {
 	return f.currentGeneration
 }
 
-// Add adds the given files to the file store's list of files.
 func (f *FileStore) Add(files ...TSMFile) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -312,7 +312,7 @@ func (f *FileStore) WalkKeys(fn func(key []byte, typ byte) error) error {
 	return nil
 }
 
-// Keys returns all keys and types for all files in the file store.
+// Keys returns all keys and types for all files
 func (f *FileStore) Keys() map[string]byte {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
@@ -328,7 +328,6 @@ func (f *FileStore) Keys() map[string]byte {
 	return uniqueKeys
 }
 
-// Type returns the type of values store at the block for key.
 func (f *FileStore) Type(key string) (byte, error) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
@@ -341,15 +340,14 @@ func (f *FileStore) Type(key string) (byte, error) {
 	return 0, fmt.Errorf("unknown type for %v", key)
 }
 
-// Delete removes the keys from the set of keys available in this file.
 func (f *FileStore) Delete(keys []string) error {
 	return f.DeleteRange(keys, math.MinInt64, math.MaxInt64)
 }
 
-// DeleteRange removes the values for keys between timestamps min and max.
+// DeleteRange removes the values for keys between min and max.
 func (f *FileStore) DeleteRange(keys []string, min, max int64) error {
 	f.mu.Lock()
-	f.lastModified = time.Now().UTC()
+	f.lastModified = time.Now()
 	f.mu.Unlock()
 
 	return f.walkFiles(func(tsm TSMFile) error {
@@ -357,7 +355,6 @@ func (f *FileStore) DeleteRange(keys []string, min, max int64) error {
 	})
 }
 
-// Open loads all the TSM files in the configured directory.
 func (f *FileStore) Open() error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -414,18 +411,14 @@ func (f *FileStore) Open() error {
 		}
 
 		// Accumulate file store size stat
-		fi, err := file.Stat()
-		if err == nil {
+		if fi, err := file.Stat(); err == nil {
 			atomic.AddInt64(&f.stats.DiskBytes, fi.Size())
-			if fi.ModTime().UTC().After(f.lastModified) {
-				f.lastModified = fi.ModTime().UTC()
-			}
 		}
 
 		go func(idx int, file *os.File) {
 			start := time.Now()
 			df, err := NewTSMReader(file)
-			f.logger.Info(fmt.Sprintf("%s (#%d) opened in %v", file.Name(), idx, time.Since(start)))
+			f.logger.Printf("%s (#%d) opened in %v", file.Name(), idx, time.Now().Sub(start))
 
 			if err != nil {
 				readerC <- &res{r: df, err: fmt.Errorf("error opening memory map for file %s: %v", file.Name(), err)}
@@ -450,7 +443,6 @@ func (f *FileStore) Open() error {
 	return nil
 }
 
-// Close closes the file store.
 func (f *FileStore) Close() error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -468,8 +460,6 @@ func (f *FileStore) Close() error {
 	return nil
 }
 
-// Read returns the slice of values for the given key and the given timestamp,
-// if any file matches those constraints.
 func (f *FileStore) Read(key string, t int64) ([]Value, error) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
@@ -493,14 +483,12 @@ func (f *FileStore) Read(key string, t int64) ([]Value, error) {
 	return nil, nil
 }
 
-// KeyCursor returns a KeyCursor for key and t across the files in the FileStore.
 func (f *FileStore) KeyCursor(key string, t int64, ascending bool) *KeyCursor {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 	return newKeyCursor(f, key, t, ascending)
 }
 
-// Stats returns the stats of the underlying files, preferring the cached version if it is still valid.
 func (f *FileStore) Stats() []FileStat {
 	f.mu.RLock()
 	if len(f.lastFileStats) > 0 {
@@ -526,23 +514,20 @@ func (f *FileStore) Stats() []FileStat {
 	return f.lastFileStats
 }
 
-// Replace replaces oldFiles with newFiles.
 func (f *FileStore) Replace(oldFiles, newFiles []string) error {
-	if len(oldFiles) == 0 && len(newFiles) == 0 {
-		return nil
-	}
-
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	maxTime := f.lastModified
+	f.lastModified = time.Now()
 
 	// Copy the current set of active files while we rename
 	// and load the new files.  We copy the pointers here to minimize
 	// the time that locks are held as well as to ensure that the replacement
 	// is atomic.©
-	updated := make([]TSMFile, len(f.files))
-	copy(updated, f.files)
+	var updated []TSMFile
+	for _, t := range f.files {
+		updated = append(updated, t)
+	}
 
 	// Rename all the new files to make them live on restart
 	for _, file := range newFiles {
@@ -558,13 +543,6 @@ func (f *FileStore) Replace(oldFiles, newFiles []string) error {
 		fd, err := os.Open(newName)
 		if err != nil {
 			return err
-		}
-
-		// Keep track of the new mod time
-		if stat, err := fd.Stat(); err == nil {
-			if stat.ModTime().UTC().After(maxTime) {
-				maxTime = stat.ModTime().UTC()
-			}
 		}
 
 		tsm, err := NewTSMReader(fd)
@@ -640,15 +618,6 @@ func (f *FileStore) Replace(oldFiles, newFiles []string) error {
 	// Tell the purger about our in-use files we need to remove
 	f.purger.add(inuse)
 
-	// If times didn't change (which can happen since file mod times are second level),
-	// then add a ns to the time to ensure that lastModified changes since files on disk
-	// actually did change
-	if maxTime.Equal(f.lastModified) {
-		maxTime = maxTime.UTC().Add(1)
-	}
-
-	f.lastModified = maxTime.UTC()
-
 	f.lastFileStats = nil
 	f.files = active
 	sort.Sort(tsmReaders(f.files))
@@ -665,7 +634,7 @@ func (f *FileStore) Replace(oldFiles, newFiles []string) error {
 }
 
 // LastModified returns the last time the file store was updated with new
-// TSM files or a delete.
+// TSM files or a delete
 func (f *FileStore) LastModified() time.Time {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
@@ -700,7 +669,7 @@ func (f *FileStore) BlockCount(path string, idx int) int {
 	return 0
 }
 
-// walkFiles calls fn for each file in filestore in parallel.
+// walkFiles calls fn for every files in filestore in parallel
 func (f *FileStore) walkFiles(fn func(f TSMFile) error) error {
 	// Copy the current TSM files to prevent a slow walker from
 	// blocking other operations.
@@ -806,10 +775,10 @@ func (f *FileStore) locations(key string, t int64, ascending bool) []*location {
 	return locations
 }
 
-// CreateSnapshot creates hardlinks for all tsm and tombstone files
-// in the path provided.
+// CreateSnapshot will create hardlinks for all tsm and tombstone files
+// in the path provided
 func (f *FileStore) CreateSnapshot() (string, error) {
-	f.traceLogger.Info(fmt.Sprintf("Creating snapshot in %s", f.dir))
+	f.traceLogger.Printf("Creating snapshot in %s", f.dir)
 	files := f.Files()
 
 	f.mu.Lock()
@@ -859,19 +828,11 @@ func ParseTSMFileName(name string) (int, int, error) {
 	}
 
 	generation, err := strconv.ParseUint(id[:idx], 10, 32)
-	if err != nil {
-		return 0, 0, fmt.Errorf("file %s is named incorrectly", name)
-	}
-
 	sequence, err := strconv.ParseUint(id[idx+1:], 10, 32)
-	if err != nil {
-		return 0, 0, fmt.Errorf("file %s is named incorrectly", name)
-	}
 
-	return int(generation), int(sequence), nil
+	return int(generation), int(sequence), err
 }
 
-// KeyCursor allows iteration through keys in a set of files within a FileStore.
 type KeyCursor struct {
 	key string
 	fs  *FileStore
@@ -1175,7 +1136,7 @@ type purger struct {
 	files     map[string]TSMFile
 	running   bool
 
-	logger zap.Logger
+	logger *log.Logger
 }
 
 func (p *purger) add(files []TSMFile) {
@@ -1207,12 +1168,12 @@ func (p *purger) purge() {
 					}
 
 					if err := v.Close(); err != nil {
-						p.logger.Info(fmt.Sprintf("purge: close file: %v", err))
+						p.logger.Printf("purge: close file: %v", err)
 						continue
 					}
 
 					if err := v.Remove(); err != nil {
-						p.logger.Info(fmt.Sprintf("purge: remove file: %v", err))
+						p.logger.Printf("purge: remove file: %v", err)
 						continue
 					}
 					delete(p.files, k)

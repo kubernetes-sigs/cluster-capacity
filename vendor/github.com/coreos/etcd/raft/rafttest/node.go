@@ -16,7 +16,6 @@ package rafttest
 
 import (
 	"log"
-	"sync"
 	"time"
 
 	"github.com/coreos/etcd/raft"
@@ -33,9 +32,7 @@ type node struct {
 
 	// stable
 	storage *raft.MemoryStorage
-
-	mu    sync.Mutex // guards state
-	state raftpb.HardState
+	state   raftpb.HardState
 }
 
 func startNode(id uint64, peers []raft.Peer, iface iface) *node {
@@ -71,9 +68,7 @@ func (n *node) start() {
 				n.Tick()
 			case rd := <-n.Ready():
 				if !raft.IsEmptyHardState(rd.HardState) {
-					n.mu.Lock()
 					n.state = rd.HardState
-					n.mu.Unlock()
 					n.storage.SetHardState(n.state)
 				}
 				n.storage.Append(rd.Entries)
@@ -84,7 +79,7 @@ func (n *node) start() {
 				}
 				n.Advance()
 			case m := <-n.iface.recv():
-				go n.Step(context.TODO(), m)
+				n.Step(context.TODO(), m)
 			case <-n.stopc:
 				n.Stop()
 				log.Printf("raft.%d: stop", n.id)

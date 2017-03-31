@@ -27,9 +27,10 @@ import (
 
 	"github.com/emicklei/go-restful"
 
+	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/api/validation"
-	"k8s.io/kubernetes/pkg/util/yaml"
 
 	"github.com/kubernetes-incubator/cluster-capacity/cmd/cluster-capacity/app/options"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework"
@@ -223,7 +224,7 @@ func (r *RestResource) getPod(request *restful.Request, response *restful.Respon
 
 func (r *RestResource) putPod(request *restful.Request, response *restful.Response) {
 	if r.cconf.Pod != nil {
-		r.cconf.Pod = &api.Pod{}
+		r.cconf.Pod = &v1.Pod{}
 	}
 	decoder := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 4096)
 	err := decoder.Decode(r.cconf.Pod)
@@ -234,7 +235,15 @@ func (r *RestResource) putPod(request *restful.Request, response *restful.Respon
 		return
 	}
 
-	if errs := validation.ValidatePod(r.cconf.Pod); len(errs) > 0 {
+	// TODO disabled validation of pod client side
+	internalPod := &api.Pod{}
+	if err := v1.Convert_v1_Pod_To_api_Pod(r.cconf.Pod, internalPod, nil); err != nil {
+		response.AddHeader("Content-Type", "text/plain")
+		msg := fmt.Sprintf("Failed to convert pod: %v\n", err)
+		response.WriteErrorString(http.StatusInternalServerError, msg)
+		return
+	}
+	if errs := validation.ValidatePod(internalPod); len(errs) > 0 {
 		var errStrs []string
 		for _, err := range errs {
 			errStrs = append(errStrs, fmt.Sprintf("%v: %v", err.Type, err.Field))

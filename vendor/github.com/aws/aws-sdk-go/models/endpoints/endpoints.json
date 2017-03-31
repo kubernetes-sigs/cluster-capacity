@@ -85,7 +85,6 @@
             "ap-southeast-2": {},
             "eu-central-1": {},
             "eu-west-1": {},
-            "eu-west-2": {},
             "us-east-1": {},
             "us-east-2": {},
             "us-west-1": {},
@@ -118,6 +117,12 @@
             "us-east-2": {},
             "us-west-1": {},
             "us-west-2": {}
+          }
+        },
+        "appstream": {
+          "endpoints": {
+            "ap-northeast-1": {},
+            "us-east-1": {}
           }
         },
         "appstream2": {
@@ -160,11 +165,6 @@
             "us-west-2": {}
           }
         },
-        "batch": {
-          "endpoints": {
-            "us-east-1": {}
-          }
-        },
         "budgets": {
           "endpoints": {
             "aws-global": {
@@ -176,16 +176,6 @@
           },
           "isRegionalized": false,
           "partitionEndpoint": "aws-global"
-        },
-        "clouddirectory": {
-          "endpoints": {
-            "ap-southeast-1": {},
-            "ap-southeast-2": {},
-            "eu-west-1": {},
-            "us-east-1": {},
-            "us-east-2": {},
-            "us-west-2": {}
-          }
         },
         "cloudformation": {
           "endpoints": {
@@ -271,7 +261,6 @@
           "endpoints": {
             "eu-west-1": {},
             "us-east-1": {},
-            "us-east-2": {},
             "us-west-2": {}
           }
         },
@@ -366,11 +355,6 @@
             "us-east-2": {},
             "us-west-1": {},
             "us-west-2": {}
-          }
-        },
-        "cur": {
-          "endpoints": {
-            "us-east-1": {}
           }
         },
         "data.iot": {
@@ -687,7 +671,6 @@
             "ap-southeast-2": {},
             "eu-central-1": {},
             "eu-west-1": {},
-            "eu-west-2": {},
             "sa-east-1": {},
             "us-east-1": {},
             "us-east-2": {},
@@ -851,7 +834,6 @@
             "ap-southeast-2": {},
             "eu-central-1": {},
             "eu-west-1": {},
-            "eu-west-2": {},
             "us-east-1": {},
             "us-east-2": {},
             "us-west-1": {},
@@ -893,20 +875,12 @@
           }
         },
         "metering.marketplace": {
-          "defaults": {
-            "credentialScope": {
-              "service": "aws-marketplace"
-            }
-          },
           "endpoints": {
             "ap-northeast-1": {},
-            "ap-northeast-2": {},
-            "ap-south-1": {},
             "ap-southeast-1": {},
             "ap-southeast-2": {},
             "eu-central-1": {},
             "eu-west-1": {},
-            "sa-east-1": {},
             "us-east-1": {},
             "us-west-1": {},
             "us-west-2": {}
@@ -1041,16 +1015,6 @@
           "partitionEndpoint": "aws-global"
         },
         "route53domains": {
-          "endpoints": {
-            "us-east-1": {}
-          }
-        },
-        "runtime.lex": {
-          "defaults": {
-            "credentialScope": {
-              "service": "lex"
-            }
-          },
           "endpoints": {
             "us-east-1": {}
           }

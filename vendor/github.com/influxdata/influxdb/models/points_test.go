@@ -26,8 +26,6 @@ var (
 	}
 	maxFloat64 = strconv.FormatFloat(math.MaxFloat64, 'f', 1, 64)
 	minFloat64 = strconv.FormatFloat(-math.MaxFloat64, 'f', 1, 64)
-
-	sink interface{}
 )
 
 func TestMarshal(t *testing.T) {
@@ -85,38 +83,6 @@ func testPoint_cube(t *testing.T, f func(p models.Point)) {
 
 				f(p)
 			}
-		}
-	}
-}
-
-func TestTag_Clone(t *testing.T) {
-	tag := models.Tag{Key: []byte("key"), Value: []byte("value")}
-
-	c := tag.Clone()
-
-	if &c.Key == &tag.Key || !bytes.Equal(c.Key, tag.Key) {
-		t.Fatalf("key %s should have been a clone of %s", c.Key, tag.Key)
-	}
-
-	if &c.Value == &tag.Value || !bytes.Equal(c.Value, tag.Value) {
-		t.Fatalf("value %s should have been a clone of %s", c.Value, tag.Value)
-	}
-}
-
-func TestTags_Clone(t *testing.T) {
-	tags := models.NewTags(map[string]string{"k1": "v1", "k2": "v2", "k3": "v3"})
-
-	clone := tags.Clone()
-
-	for i := range tags {
-		tag := tags[i]
-		c := clone[i]
-		if &c.Key == &tag.Key || !bytes.Equal(c.Key, tag.Key) {
-			t.Fatalf("key %s should have been a clone of %s", c.Key, tag.Key)
-		}
-
-		if &c.Value == &tag.Value || !bytes.Equal(c.Value, tag.Value) {
-			t.Fatalf("value %s should have been a clone of %s", c.Value, tag.Value)
 		}
 	}
 }
@@ -278,11 +244,7 @@ func test(t *testing.T, line string, point TestPoint) {
 	}
 
 	for name, value := range point.RawFields {
-		fields, err := pts[0].Fields()
-		if err != nil {
-			t.Fatal(err)
-		}
-		val := fields[name]
+		val := pts[0].Fields()[name]
 		expfval, ok := val.(float64)
 
 		if ok && math.IsNaN(expfval) {
@@ -290,9 +252,8 @@ func test(t *testing.T, line string, point TestPoint) {
 			if ok && !math.IsNaN(gotfval) {
 				t.Errorf(`ParsePoints("%s") field '%s' mismatch. exp NaN`, line, name)
 			}
-		}
-		if !reflect.DeepEqual(val, value) {
-			t.Errorf(`ParsePoints("%s") field '%s' mismatch. got %[3]v (%[3]T), exp %[4]v (%[4]T)`, line, name, val, value)
+		} else if !reflect.DeepEqual(pts[0].Fields()[name], value) {
+			t.Errorf(`ParsePoints("%s") field '%s' mismatch. got %[3]v (%[3]T), exp %[4]v (%[4]T)`, line, name, pts[0].Fields()[name], value)
 		}
 	}
 
@@ -514,11 +475,7 @@ func TestParsePointMaxInt64(t *testing.T) {
 	if err != nil {
 		t.Fatalf(`ParsePoints("%s") mismatch. got %v, exp nil`, `cpu,host=serverA,region=us-west value=9223372036854775807i`, err)
 	}
-	fields, err := p[0].Fields()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if exp, got := int64(9223372036854775807), fields["value"].(int64); exp != got {
+	if exp, got := int64(9223372036854775807), p[0].Fields()["value"].(int64); exp != got {
 		t.Fatalf("ParsePoints Value mismatch. \nexp: %v\ngot: %v", exp, got)
 	}
 
@@ -656,11 +613,7 @@ func TestParsePointFloatScientific(t *testing.T) {
 		t.Errorf(`ParsePoints("%s") mismatch. got %v, exp nil`, `cpu,host=serverA,region=us-west value=1.0e4`, err)
 	}
 
-	fields, err := pts[0].Fields()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if fields["value"] != 1e4 {
+	if pts[0].Fields()["value"] != 1e4 {
 		t.Errorf(`ParsePoints("%s") mismatch. got %v, exp nil`, `cpu,host=serverA,region=us-west value=1e4`, err)
 	}
 }
@@ -676,11 +629,7 @@ func TestParsePointFloatScientificUpper(t *testing.T) {
 		t.Errorf(`ParsePoints("%s") mismatch. got %v, exp nil`, `cpu,host=serverA,region=us-west value=1.0E4`, err)
 	}
 
-	fields, err := pts[0].Fields()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if fields["value"] != 1e4 {
+	if pts[0].Fields()["value"] != 1e4 {
 		t.Errorf(`ParsePoints("%s") mismatch. got %v, exp nil`, `cpu,host=serverA,region=us-west value=1E4`, err)
 	}
 }
@@ -745,19 +694,11 @@ func TestParsePointWhitespace(t *testing.T) {
 			t.Fatalf("[Example %d] got %v measurement, expected %v", i, got, exp)
 		}
 
-		fields, err := pts[0].Fields()
-		if err != nil {
-			t.Fatal(err)
-		}
-		eFields, err := expPoint.Fields()
-		if err != nil {
-			t.Fatal(err)
-		}
-		if got, exp := len(fields), len(eFields); got != exp {
+		if got, exp := len(pts[0].Fields()), len(expPoint.Fields()); got != exp {
 			t.Fatalf("[Example %d] got %d fields, expected %d", i, got, exp)
 		}
 
-		if got, exp := fields["value"], eFields["value"]; got != exp {
+		if got, exp := pts[0].Fields()["value"], expPoint.Fields()["value"]; got != exp {
 			t.Fatalf(`[Example %d] got %v for field "value", expected %v`, i, got, exp)
 		}
 
@@ -1506,20 +1447,16 @@ func TestParsePointIntsFloats(t *testing.T) {
 	}
 	pt := pts[0]
 
-	fields, err := pt.Fields()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, ok := fields["int"].(int64); !ok {
-		t.Errorf("ParsePoint() int field mismatch: got %T, exp %T", fields["int"], int64(10))
+	if _, ok := pt.Fields()["int"].(int64); !ok {
+		t.Errorf("ParsePoint() int field mismatch: got %T, exp %T", pt.Fields()["int"], int64(10))
 	}
 
-	if _, ok := fields["float"].(float64); !ok {
-		t.Errorf("ParsePoint() float field mismatch: got %T, exp %T", fields["float64"], float64(11.0))
+	if _, ok := pt.Fields()["float"].(float64); !ok {
+		t.Errorf("ParsePoint() float field mismatch: got %T, exp %T", pt.Fields()["float64"], float64(11.0))
 	}
 
-	if _, ok := fields["float2"].(float64); !ok {
-		t.Errorf("ParsePoint() float field mismatch: got %T, exp %T", fields["float64"], float64(12.1))
+	if _, ok := pt.Fields()["float2"].(float64); !ok {
+		t.Errorf("ParsePoint() float field mismatch: got %T, exp %T", pt.Fields()["float64"], float64(12.1))
 	}
 }
 
@@ -1791,11 +1728,7 @@ func TestNewPointUnhandledType(t *testing.T) {
 		t.Errorf("NewPoint().String() mismatch.\ngot %v\nexp %v", pt.String(), exp)
 	}
 
-	fields, err := pt.Fields()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if exp := "1970-01-01 00:00:00 +0000 UTC"; fields["value"] != exp {
+	if exp := "1970-01-01 00:00:00 +0000 UTC"; pt.Fields()["value"] != exp {
 		t.Errorf("NewPoint().String() mismatch.\ngot %v\nexp %v", pt.String(), exp)
 	}
 }
@@ -1961,11 +1894,8 @@ cpu value=2 1`
 		t.Fatalf("failed to write points: %s", err.Error())
 	}
 
-	fields, err := points[0].Fields()
-	if err != nil {
-		t.Fatal(err)
-	}
-	value, ok := fields["\"a"]
+	pointFields := points[0].Fields()
+	value, ok := pointFields["\"a"]
 	if !ok {
 		t.Fatalf("expected to parse field '\"a'")
 	}
@@ -2044,12 +1974,6 @@ func TestParseKeyEmpty(t *testing.T) {
 	}
 }
 
-func TestParseKeyMissingValue(t *testing.T) {
-	if _, _, err := models.ParseKey([]byte("cpu,foo ")); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
 func TestPoint_FieldIterator_Simple(t *testing.T) {
 
 	p, err := models.ParsePoints([]byte(`m v=42i,f=42 36`))
@@ -2071,12 +1995,8 @@ func TestPoint_FieldIterator_Simple(t *testing.T) {
 		t.Fatalf("'42i' should be an Integer, got %v", fi.Type())
 	}
 
-	iv, err := fi.IntegerValue()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if exp, got := int64(42), iv; exp != got {
-		t.Fatalf("'42i' should be %d, got %d", exp, got)
+	if fi.IntegerValue() != 42 {
+		t.Fatalf("'42i' should be 42, got %d", fi.IntegerValue())
 	}
 
 	if !fi.Next() {
@@ -2087,12 +2007,8 @@ func TestPoint_FieldIterator_Simple(t *testing.T) {
 		t.Fatalf("'42' should be a Float, got %v", fi.Type())
 	}
 
-	fv, err := fi.FloatValue()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if exp, got := 42.0, fv; exp != got {
-		t.Fatalf("'42' should be %f, got %f", exp, got)
+	if fi.FloatValue() != 42.0 {
+		t.Fatalf("'42' should be %f, got %f", 42.0, fi.FloatValue())
 	}
 
 	if fi.Next() {
@@ -2104,23 +2020,19 @@ func toFields(fi models.FieldIterator) models.Fields {
 	m := make(models.Fields)
 	for fi.Next() {
 		var v interface{}
-		var err error
 		switch fi.Type() {
 		case models.Float:
-			v, err = fi.FloatValue()
+			v = fi.FloatValue()
 		case models.Integer:
-			v, err = fi.IntegerValue()
+			v = fi.IntegerValue()
 		case models.String:
 			v = fi.StringValue()
 		case models.Boolean:
-			v, err = fi.BooleanValue()
+			v = fi.BooleanValue()
 		case models.Empty:
 			v = nil
 		default:
 			panic("unknown type")
-		}
-		if err != nil {
-			panic(err)
 		}
 		m[string(fi.FieldKey())] = v
 	}
@@ -2144,10 +2056,7 @@ m a=2i,b=3i,c=true,d="stuff",e=-0.23,f=123.456
 	}
 
 	for _, p := range points {
-		exp, err := p.Fields()
-		if err != nil {
-			t.Fatal(err)
-		}
+		exp := p.Fields()
 		got := toFields(p.FieldIterator())
 
 		if !reflect.DeepEqual(got, exp) {
@@ -2257,63 +2166,5 @@ func TestPoint_FieldIterator_Delete_Twice(t *testing.T) {
 
 	if !reflect.DeepEqual(got, exp) {
 		t.Fatalf("Delete failed, got %#v, exp %#v", got, exp)
-	}
-}
-
-func TestEscapeStringField(t *testing.T) {
-	cases := []struct {
-		in     string
-		expOut string
-	}{
-		{in: "abcdefg", expOut: "abcdefg"},
-		{in: `one double quote " .`, expOut: `one double quote \" .`},
-		{in: `quote " then backslash \ .`, expOut: `quote \" then backslash \\ .`},
-		{in: `backslash \ then quote " .`, expOut: `backslash \\ then quote \" .`},
-	}
-
-	for _, c := range cases {
-		// Unescapes as expected.
-		got := models.EscapeStringField(c.in)
-		if got != c.expOut {
-			t.Errorf("unexpected result from EscapeStringField(%s)\ngot [%s]\nexp [%s]\n", c.in, got, c.expOut)
-			continue
-		}
-
-		pointLine := fmt.Sprintf(`t s="%s"`, got)
-		test(t, pointLine, NewTestPoint(
-			"t",
-			models.NewTags(nil),
-			models.Fields{"s": c.in},
-			time.Unix(0, 0),
-		))
-	}
-}
-
-func BenchmarkEscapeStringField_Plain(b *testing.B) {
-	s := "nothing special"
-	for i := 0; i < b.N; i++ {
-		sink = models.EscapeStringField(s)
-	}
-}
-
-func BenchmarkEscapeString_Quotes(b *testing.B) {
-	s := `Hello, "world"`
-	for i := 0; i < b.N; i++ {
-		sink = models.EscapeStringField(s)
-	}
-}
-
-func BenchmarkEscapeString_Backslashes(b *testing.B) {
-	s := `C:\windows\system32`
-	for i := 0; i < b.N; i++ {
-		sink = models.EscapeStringField(s)
-	}
-}
-
-func BenchmarkEscapeString_QuotesAndBackslashes(b *testing.B) {
-	s1 := `a quote " then backslash \ .`
-	s2 := `a backslash \ then quote " .`
-	for i := 0; i < b.N; i++ {
-		sink = [...]string{models.EscapeStringField(s1), models.EscapeStringField(s2)}
 	}
 }

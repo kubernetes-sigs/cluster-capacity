@@ -155,10 +155,10 @@ func TestInflightFreeTo(t *testing.T) {
 	in.freeTo(14)
 
 	wantIn4 := &inflights{
-		start: 0,
+		start: 5,
 		count: 0,
 		size:  10,
-		//               ↓
+		//                                   ↓
 		buffer: []uint64{10, 11, 12, 13, 14, 5, 6, 7, 8, 9},
 	}
 

@@ -22,8 +22,6 @@ import (
 	"time"
 
 	"github.com/coreos/etcd/lease"
-	"github.com/coreos/etcd/pkg/report"
-
 	"github.com/spf13/cobra"
 )
 
@@ -102,12 +100,14 @@ func mvccPutFunc(cmd *cobra.Command, args []string) {
 	keys := createBytesSlice(storageKeySize, totalNrKeys)
 	vals := createBytesSlice(valueSize, totalNrKeys)
 
-	r := newReport()
-	rrc := r.Results()
+	latencies := make([]time.Duration, totalNrKeys)
 
-	rc := r.Run()
+	minLat := time.Duration(1<<63 - 1)
+	maxLat := time.Duration(0)
+
 	for i := 0; i < totalNrKeys; i++ {
-		st := time.Now()
+		begin := time.Now()
+
 		if txn {
 			id := s.TxnBegin()
 			if _, err := s.TxnPut(id, keys[i], vals[i], lease.NoLease); err != nil {
@@ -118,9 +118,33 @@ func mvccPutFunc(cmd *cobra.Command, args []string) {
 		} else {
 			s.Put(keys[i], vals[i], lease.NoLease)
 		}
-		rrc <- report.Result{Start: st, End: time.Now()}
+
+		end := time.Now()
+
+		lat := end.Sub(begin)
+		latencies[i] = lat
+		if maxLat < lat {
+			maxLat = lat
+		}
+		if lat < minLat {
+			minLat = lat
+		}
 	}
 
-	close(r.Results())
-	fmt.Printf("%s", <-rc)
+	total := time.Duration(0)
+
+	for _, lat := range latencies {
+		total += lat
+	}
+
+	fmt.Printf("total: %v\n", total)
+	fmt.Printf("average: %v\n", total/time.Duration(totalNrKeys))
+	fmt.Printf("rate: %4.4f\n", float64(totalNrKeys)/total.Seconds())
+	fmt.Printf("minimum latency: %v\n", minLat)
+	fmt.Printf("maximum latency: %v\n", maxLat)
+
+	// TODO: Currently this benchmark doesn't use the common histogram infrastructure.
+	// This is because an accuracy of the infrastructure isn't suitable for measuring
+	// performance of kv storage:
+	// https://github.com/coreos/etcd/pull/4070#issuecomment-167954149
 }

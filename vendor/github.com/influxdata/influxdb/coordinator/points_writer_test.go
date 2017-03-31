@@ -312,6 +312,13 @@ func TestPointsWriter_WritePoints(t *testing.T) {
 		// Local coordinator.Node ShardWriter
 		// lock on the write increment since these functions get called in parallel
 		var mu sync.Mutex
+		sw := &fakeShardWriter{
+			ShardWriteFn: func(shardID, nodeID uint64, points []models.Point) error {
+				mu.Lock()
+				defer mu.Unlock()
+				return theTest.err[int(nodeID)-1]
+			},
+		}
 
 		store := &fakeStore{
 			WriteFn: func(shardID uint64, points []models.Point) error {
@@ -334,6 +341,7 @@ func TestPointsWriter_WritePoints(t *testing.T) {
 
 		c := coordinator.NewPointsWriter()
 		c.MetaClient = ms
+		c.ShardWriter = sw
 		c.TSDBStore = store
 		c.Subscriber = sub
 		c.Node = &influxdb.Node{ID: 1}
@@ -484,6 +492,14 @@ func TestBufferedPointsWriter(t *testing.T) {
 }
 
 var shardID uint64
+
+type fakeShardWriter struct {
+	ShardWriteFn func(shardID, nodeID uint64, points []models.Point) error
+}
+
+func (f *fakeShardWriter) WriteShard(shardID, nodeID uint64, points []models.Point) error {
+	return f.ShardWriteFn(shardID, nodeID, points)
+}
 
 type fakeStore struct {
 	WriteFn       func(shardID uint64, points []models.Point) error

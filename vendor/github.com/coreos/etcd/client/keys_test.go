@@ -407,15 +407,6 @@ func TestSetAction(t *testing.T) {
 			wantURL:  "http://example.com/foo?dir=true",
 			wantBody: "",
 		},
-		// NoValueOnSuccess is set
-		{
-			act: setAction{
-				Key:              "foo",
-				NoValueOnSuccess: true,
-			},
-			wantURL:  "http://example.com/foo?noValueOnSuccess=true",
-			wantBody: "value=",
-		},
 	}
 
 	for i, tt := range tests {
@@ -673,24 +664,23 @@ func TestUnmarshalSuccessfulResponse(t *testing.T) {
 	expiration.UnmarshalText([]byte("2015-04-07T04:40:23.044979686Z"))
 
 	tests := []struct {
-		indexHdr     string
-		clusterIDHdr string
-		body         string
-		wantRes      *Response
-		wantErr      bool
+		hdr     string
+		body    string
+		wantRes *Response
+		wantErr bool
 	}{
 		// Neither PrevNode or Node
 		{
-			indexHdr: "1",
-			body:     `{"action":"delete"}`,
-			wantRes:  &Response{Action: "delete", Index: 1},
-			wantErr:  false,
+			hdr:     "1",
+			body:    `{"action":"delete"}`,
+			wantRes: &Response{Action: "delete", Index: 1},
+			wantErr: false,
 		},
 
 		// PrevNode
 		{
-			indexHdr: "15",
-			body:     `{"action":"delete", "prevNode": {"key": "/foo", "value": "bar", "modifiedIndex": 12, "createdIndex": 10}}`,
+			hdr:  "15",
+			body: `{"action":"delete", "prevNode": {"key": "/foo", "value": "bar", "modifiedIndex": 12, "createdIndex": 10}}`,
 			wantRes: &Response{
 				Action: "delete",
 				Index:  15,
@@ -707,8 +697,8 @@ func TestUnmarshalSuccessfulResponse(t *testing.T) {
 
 		// Node
 		{
-			indexHdr: "15",
-			body:     `{"action":"get", "node": {"key": "/foo", "value": "bar", "modifiedIndex": 12, "createdIndex": 10, "ttl": 10, "expiration": "2015-04-07T04:40:23.044979686Z"}}`,
+			hdr:  "15",
+			body: `{"action":"get", "node": {"key": "/foo", "value": "bar", "modifiedIndex": 12, "createdIndex": 10, "ttl": 10, "expiration": "2015-04-07T04:40:23.044979686Z"}}`,
 			wantRes: &Response{
 				Action: "get",
 				Index:  15,
@@ -727,9 +717,8 @@ func TestUnmarshalSuccessfulResponse(t *testing.T) {
 
 		// Node Dir
 		{
-			indexHdr:     "15",
-			clusterIDHdr: "abcdef",
-			body:         `{"action":"get", "node": {"key": "/foo", "dir": true, "modifiedIndex": 12, "createdIndex": 10}}`,
+			hdr:  "15",
+			body: `{"action":"get", "node": {"key": "/foo", "dir": true, "modifiedIndex": 12, "createdIndex": 10}}`,
 			wantRes: &Response{
 				Action: "get",
 				Index:  15,
@@ -739,16 +728,15 @@ func TestUnmarshalSuccessfulResponse(t *testing.T) {
 					ModifiedIndex: 12,
 					CreatedIndex:  10,
 				},
-				PrevNode:  nil,
-				ClusterID: "abcdef",
+				PrevNode: nil,
 			},
 			wantErr: false,
 		},
 
 		// PrevNode and Node
 		{
-			indexHdr: "15",
-			body:     `{"action":"update", "prevNode": {"key": "/foo", "value": "baz", "modifiedIndex": 10, "createdIndex": 10}, "node": {"key": "/foo", "value": "bar", "modifiedIndex": 12, "createdIndex": 10}}`,
+			hdr:  "15",
+			body: `{"action":"update", "prevNode": {"key": "/foo", "value": "baz", "modifiedIndex": 10, "createdIndex": 10}, "node": {"key": "/foo", "value": "bar", "modifiedIndex": 12, "createdIndex": 10}}`,
 			wantRes: &Response{
 				Action: "update",
 				Index:  15,
@@ -770,24 +758,24 @@ func TestUnmarshalSuccessfulResponse(t *testing.T) {
 
 		// Garbage in body
 		{
-			indexHdr: "",
-			body:     `garbage`,
-			wantRes:  nil,
-			wantErr:  true,
+			hdr:     "",
+			body:    `garbage`,
+			wantRes: nil,
+			wantErr: true,
 		},
 
 		// non-integer index
 		{
-			indexHdr: "poo",
-			body:     `{}`,
-			wantRes:  nil,
-			wantErr:  true,
+			hdr:     "poo",
+			body:    `{}`,
+			wantRes: nil,
+			wantErr: true,
 		},
 	}
 
 	for i, tt := range tests {
 		h := make(http.Header)
-		h.Add("X-Etcd-Index", tt.indexHdr)
+		h.Add("X-Etcd-Index", tt.hdr)
 		res, err := unmarshalSuccessfulKeysResponse(h, []byte(tt.body))
 		if tt.wantErr != (err != nil) {
 			t.Errorf("#%d: wantErr=%t, err=%v", i, tt.wantErr, err)

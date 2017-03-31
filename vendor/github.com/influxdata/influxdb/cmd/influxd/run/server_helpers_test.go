@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"net/url"
 	"os"
@@ -20,6 +21,8 @@ import (
 	"github.com/influxdata/influxdb/services/meta"
 	"github.com/influxdata/influxdb/toml"
 )
+
+const emptyResults = `{"results":[{}]}`
 
 // Server represents a test wrapper for run.Server.
 type Server struct {
@@ -75,7 +78,10 @@ func OpenServerWithVersion(c *run.Config, version string) *Server {
 // OpenDefaultServer opens a test server with a default database & retention policy.
 func OpenDefaultServer(c *run.Config) *Server {
 	s := OpenServer(c)
-	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0), true); err != nil {
+	if err := s.CreateDatabaseAndRetentionPolicy("db0", newRetentionPolicySpec("rp0", 1, 0)); err != nil {
+		panic(err)
+	}
+	if err := s.MetaClient.SetDefaultRetentionPolicy("db0", "rp0"); err != nil {
 		panic(err)
 	}
 	return s
@@ -105,10 +111,10 @@ func (s *Server) URL() string {
 }
 
 // CreateDatabaseAndRetentionPolicy will create the database and retention policy.
-func (s *Server) CreateDatabaseAndRetentionPolicy(db string, rp *meta.RetentionPolicySpec, makeDefault bool) error {
+func (s *Server) CreateDatabaseAndRetentionPolicy(db string, rp *meta.RetentionPolicySpec) error {
 	if _, err := s.MetaClient.CreateDatabase(db); err != nil {
 		return err
-	} else if _, err := s.MetaClient.CreateRetentionPolicy(db, rp, makeDefault); err != nil {
+	} else if _, err := s.MetaClient.CreateRetentionPolicy(db, rp); err != nil {
 		return err
 	}
 	return nil
@@ -190,23 +196,6 @@ func (s *Server) HTTPPost(url string, content []byte) (results string, err error
 	}
 }
 
-type WriteError struct {
-	body       string
-	statusCode int
-}
-
-func (wr WriteError) StatusCode() int {
-	return wr.statusCode
-}
-
-func (wr WriteError) Body() string {
-	return wr.body
-}
-
-func (wr WriteError) Error() string {
-	return fmt.Sprintf("invalid status code: code=%d, body=%s", wr.statusCode, wr.body)
-}
-
 // Write executes a write against the server and returns the results.
 func (s *Server) Write(db, rp, body string, params url.Values) (results string, err error) {
 	if params == nil {
@@ -222,7 +211,7 @@ func (s *Server) Write(db, rp, body string, params url.Values) (results string, 
 	if err != nil {
 		return "", err
 	} else if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
-		return "", WriteError{statusCode: resp.StatusCode, body: string(MustReadAll(resp.Body))}
+		return "", fmt.Errorf("invalid status code: code=%d, body=%s", resp.StatusCode, MustReadAll(resp.Body))
 	}
 	return string(MustReadAll(resp.Body)), nil
 }
@@ -262,6 +251,11 @@ func NewConfig() *run.Config {
 
 func newRetentionPolicySpec(name string, rf int, duration time.Duration) *meta.RetentionPolicySpec {
 	return &meta.RetentionPolicySpec{Name: name, ReplicaN: &rf, Duration: &duration}
+}
+
+func maxFloat64() string {
+	maxFloat64, _ := json.Marshal(math.MaxFloat64)
+	return string(maxFloat64)
 }
 
 func maxInt64() string {
@@ -461,9 +455,13 @@ func writeTestData(s *Server, t *Test) error {
 			w.rp = t.retentionPolicy()
 		}
 
-		if err := s.CreateDatabaseAndRetentionPolicy(w.db, newRetentionPolicySpec(w.rp, 1, 0), true); err != nil {
+		if err := s.CreateDatabaseAndRetentionPolicy(w.db, newRetentionPolicySpec(w.rp, 1, 0)); err != nil {
 			return err
 		}
+		if err := s.MetaClient.SetDefaultRetentionPolicy(w.db, w.rp); err != nil {
+			return err
+		}
+
 		if res, err := s.Write(w.db, w.rp, w.data, t.params); err != nil {
 			return fmt.Errorf("write #%d: %s", i, err)
 		} else if t.exp != res {

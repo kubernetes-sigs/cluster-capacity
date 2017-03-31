@@ -83,7 +83,7 @@ influx_inspect export --compress
 
 Export specific retention policy:
 ```
-influx_inspect export --database mydb --retention autogen
+influx_inspect export --db mydb --rp autogen
 ```
 
 ##### Sample Data

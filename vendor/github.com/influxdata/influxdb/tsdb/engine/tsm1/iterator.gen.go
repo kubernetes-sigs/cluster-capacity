@@ -271,22 +271,24 @@ func (itr *floatLimitIterator) Stats() influxql.IteratorStats { return itr.input
 func (itr *floatLimitIterator) Close() error                  { return itr.input.Close() }
 
 func (itr *floatLimitIterator) Next() (*influxql.FloatPoint, error) {
-	// Check if we are beyond the limit.
-	if (itr.n - itr.opt.Offset) > itr.opt.Limit {
-		return nil, nil
+	for {
+		// Check if we are beyond the limit.
+		if (itr.n - itr.opt.Offset) > itr.opt.Limit {
+			return nil, nil
+		}
+
+		// Read the next point.
+		p, err := itr.input.Next()
+		if p == nil || err != nil {
+			return nil, err
+		}
+
+		// Increment counter.
+		itr.n++
+
+		// Offsets are handled by a higher level iterator so return all points.
+		return p, nil
 	}
-
-	// Read the next point.
-	p, err := itr.input.Next()
-	if p == nil || err != nil {
-		return nil, err
-	}
-
-	// Increment counter.
-	itr.n++
-
-	// Offsets are handled by a higher level iterator so return all points.
-	return p, nil
 }
 
 // floatCursor represents an object for iterating over a single float field.
@@ -341,7 +343,7 @@ func (c *floatAscendingCursor) peekCache() (t int64, v float64) {
 	}
 
 	item := c.cache.values[c.cache.pos]
-	return item.UnixNano(), item.(FloatValue).value
+	return item.UnixNano(), item.(*FloatValue).value
 }
 
 // peekTSM returns the current time/value from tsm.
@@ -461,7 +463,7 @@ func (c *floatDescendingCursor) peekCache() (t int64, v float64) {
 	}
 
 	item := c.cache.values[c.cache.pos]
-	return item.UnixNano(), item.(FloatValue).value
+	return item.UnixNano(), item.(*FloatValue).value
 }
 
 // peekTSM returns the current time/value from tsm.
@@ -712,22 +714,24 @@ func (itr *integerLimitIterator) Stats() influxql.IteratorStats { return itr.inp
 func (itr *integerLimitIterator) Close() error                  { return itr.input.Close() }
 
 func (itr *integerLimitIterator) Next() (*influxql.IntegerPoint, error) {
-	// Check if we are beyond the limit.
-	if (itr.n - itr.opt.Offset) > itr.opt.Limit {
-		return nil, nil
+	for {
+		// Check if we are beyond the limit.
+		if (itr.n - itr.opt.Offset) > itr.opt.Limit {
+			return nil, nil
+		}
+
+		// Read the next point.
+		p, err := itr.input.Next()
+		if p == nil || err != nil {
+			return nil, err
+		}
+
+		// Increment counter.
+		itr.n++
+
+		// Offsets are handled by a higher level iterator so return all points.
+		return p, nil
 	}
-
-	// Read the next point.
-	p, err := itr.input.Next()
-	if p == nil || err != nil {
-		return nil, err
-	}
-
-	// Increment counter.
-	itr.n++
-
-	// Offsets are handled by a higher level iterator so return all points.
-	return p, nil
 }
 
 // integerCursor represents an object for iterating over a single integer field.
@@ -782,7 +786,7 @@ func (c *integerAscendingCursor) peekCache() (t int64, v int64) {
 	}
 
 	item := c.cache.values[c.cache.pos]
-	return item.UnixNano(), item.(IntegerValue).value
+	return item.UnixNano(), item.(*IntegerValue).value
 }
 
 // peekTSM returns the current time/value from tsm.
@@ -902,7 +906,7 @@ func (c *integerDescendingCursor) peekCache() (t int64, v int64) {
 	}
 
 	item := c.cache.values[c.cache.pos]
-	return item.UnixNano(), item.(IntegerValue).value
+	return item.UnixNano(), item.(*IntegerValue).value
 }
 
 // peekTSM returns the current time/value from tsm.
@@ -1153,22 +1157,24 @@ func (itr *stringLimitIterator) Stats() influxql.IteratorStats { return itr.inpu
 func (itr *stringLimitIterator) Close() error                  { return itr.input.Close() }
 
 func (itr *stringLimitIterator) Next() (*influxql.StringPoint, error) {
-	// Check if we are beyond the limit.
-	if (itr.n - itr.opt.Offset) > itr.opt.Limit {
-		return nil, nil
+	for {
+		// Check if we are beyond the limit.
+		if (itr.n - itr.opt.Offset) > itr.opt.Limit {
+			return nil, nil
+		}
+
+		// Read the next point.
+		p, err := itr.input.Next()
+		if p == nil || err != nil {
+			return nil, err
+		}
+
+		// Increment counter.
+		itr.n++
+
+		// Offsets are handled by a higher level iterator so return all points.
+		return p, nil
 	}
-
-	// Read the next point.
-	p, err := itr.input.Next()
-	if p == nil || err != nil {
-		return nil, err
-	}
-
-	// Increment counter.
-	itr.n++
-
-	// Offsets are handled by a higher level iterator so return all points.
-	return p, nil
 }
 
 // stringCursor represents an object for iterating over a single string field.
@@ -1223,7 +1229,7 @@ func (c *stringAscendingCursor) peekCache() (t int64, v string) {
 	}
 
 	item := c.cache.values[c.cache.pos]
-	return item.UnixNano(), item.(StringValue).value
+	return item.UnixNano(), item.(*StringValue).value
 }
 
 // peekTSM returns the current time/value from tsm.
@@ -1343,7 +1349,7 @@ func (c *stringDescendingCursor) peekCache() (t int64, v string) {
 	}
 
 	item := c.cache.values[c.cache.pos]
-	return item.UnixNano(), item.(StringValue).value
+	return item.UnixNano(), item.(*StringValue).value
 }
 
 // peekTSM returns the current time/value from tsm.
@@ -1594,22 +1600,24 @@ func (itr *booleanLimitIterator) Stats() influxql.IteratorStats { return itr.inp
 func (itr *booleanLimitIterator) Close() error                  { return itr.input.Close() }
 
 func (itr *booleanLimitIterator) Next() (*influxql.BooleanPoint, error) {
-	// Check if we are beyond the limit.
-	if (itr.n - itr.opt.Offset) > itr.opt.Limit {
-		return nil, nil
+	for {
+		// Check if we are beyond the limit.
+		if (itr.n - itr.opt.Offset) > itr.opt.Limit {
+			return nil, nil
+		}
+
+		// Read the next point.
+		p, err := itr.input.Next()
+		if p == nil || err != nil {
+			return nil, err
+		}
+
+		// Increment counter.
+		itr.n++
+
+		// Offsets are handled by a higher level iterator so return all points.
+		return p, nil
 	}
-
-	// Read the next point.
-	p, err := itr.input.Next()
-	if p == nil || err != nil {
-		return nil, err
-	}
-
-	// Increment counter.
-	itr.n++
-
-	// Offsets are handled by a higher level iterator so return all points.
-	return p, nil
 }
 
 // booleanCursor represents an object for iterating over a single boolean field.
@@ -1664,7 +1672,7 @@ func (c *booleanAscendingCursor) peekCache() (t int64, v bool) {
 	}
 
 	item := c.cache.values[c.cache.pos]
-	return item.UnixNano(), item.(BooleanValue).value
+	return item.UnixNano(), item.(*BooleanValue).value
 }
 
 // peekTSM returns the current time/value from tsm.
@@ -1784,7 +1792,7 @@ func (c *booleanDescendingCursor) peekCache() (t int64, v bool) {
 	}
 
 	item := c.cache.values[c.cache.pos]
-	return item.UnixNano(), item.(BooleanValue).value
+	return item.UnixNano(), item.(*BooleanValue).value
 }
 
 // peekTSM returns the current time/value from tsm.

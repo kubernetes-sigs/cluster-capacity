@@ -6795,7 +6795,6 @@ func ExampleEC2_RequestSpotFleet() {
 					Placement: &ec2.SpotPlacement{
 						AvailabilityZone: aws.String("String"),
 						GroupName:        aws.String("String"),
-						Tenancy:          aws.String("Tenancy"),
 					},
 					RamdiskId: aws.String("String"),
 					SecurityGroups: []*ec2.GroupIdentifier{
@@ -6818,7 +6817,6 @@ func ExampleEC2_RequestSpotFleet() {
 			ClientToken:                      aws.String("String"),
 			ExcessCapacityTerminationPolicy:  aws.String("ExcessCapacityTerminationPolicy"),
 			FulfilledCapacity:                aws.Float64(1.0),
-			ReplaceUnhealthyInstances:        aws.Bool(true),
 			TerminateInstancesWithExpiration: aws.Bool(true),
 			Type:       aws.String("FleetType"),
 			ValidFrom:  aws.Time(time.Now()),
@@ -6920,7 +6918,6 @@ func ExampleEC2_RequestSpotInstances() {
 			Placement: &ec2.SpotPlacement{
 				AvailabilityZone: aws.String("String"),
 				GroupName:        aws.String("String"),
-				Tenancy:          aws.String("Tenancy"),
 			},
 			RamdiskId: aws.String("String"),
 			SecurityGroupIds: []*string{

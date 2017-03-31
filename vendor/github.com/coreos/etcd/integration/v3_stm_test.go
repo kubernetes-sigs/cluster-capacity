@@ -63,8 +63,7 @@ func TestSTMConflict(t *testing.T) {
 			return nil
 		}
 		go func() {
-			iso := concurrency.WithIsolation(concurrency.RepeatableReads)
-			_, err := concurrency.NewSTM(curEtcdc, applyf, iso)
+			_, err := concurrency.NewSTMRepeatable(context.TODO(), curEtcdc, applyf)
 			errc <- err
 		}()
 	}
@@ -101,9 +100,7 @@ func TestSTMPutNewKey(t *testing.T) {
 		stm.Put("foo", "bar")
 		return nil
 	}
-
-	iso := concurrency.WithIsolation(concurrency.RepeatableReads)
-	if _, err := concurrency.NewSTM(etcdc, applyf, iso); err != nil {
+	if _, err := concurrency.NewSTMRepeatable(context.TODO(), etcdc, applyf); err != nil {
 		t.Fatalf("error on stm txn (%v)", err)
 	}
 
@@ -129,10 +126,7 @@ func TestSTMAbort(t *testing.T) {
 		stm.Put("foo", "bap")
 		return nil
 	}
-
-	iso := concurrency.WithIsolation(concurrency.RepeatableReads)
-	sctx := concurrency.WithAbortContext(ctx)
-	if _, err := concurrency.NewSTM(etcdc, applyf, iso, sctx); err == nil {
+	if _, err := concurrency.NewSTMRepeatable(ctx, etcdc, applyf); err == nil {
 		t.Fatalf("no error on stm txn")
 	}
 
@@ -192,8 +186,7 @@ func TestSTMSerialize(t *testing.T) {
 			return nil
 		}
 		go func() {
-			iso := concurrency.WithIsolation(concurrency.Serializable)
-			_, err := concurrency.NewSTM(curEtcdc, applyf, iso)
+			_, err := concurrency.NewSTMSerializable(context.TODO(), curEtcdc, applyf)
 			errc <- err
 		}()
 	}
@@ -202,54 +195,5 @@ func TestSTMSerialize(t *testing.T) {
 		if err := <-errc; err != nil {
 			t.Error(err)
 		}
-	}
-}
-
-// TestSTMApplyOnConcurrentDeletion ensures that concurrent key deletion
-// fails the first GET revision comparison within STM; trigger retry.
-func TestSTMApplyOnConcurrentDeletion(t *testing.T) {
-	clus := NewClusterV3(t, &ClusterConfig{Size: 1})
-	defer clus.Terminate(t)
-
-	etcdc := clus.RandClient()
-	if _, err := etcdc.Put(context.TODO(), "foo", "bar"); err != nil {
-		t.Fatal(err)
-	}
-	donec, readyc := make(chan struct{}), make(chan struct{})
-	go func() {
-		<-readyc
-		if _, err := etcdc.Delete(context.TODO(), "foo"); err != nil {
-			t.Fatal(err)
-		}
-		close(donec)
-	}()
-
-	try := 0
-	applyf := func(stm concurrency.STM) error {
-		try++
-		stm.Get("foo")
-		if try == 1 {
-			// trigger delete to make GET rev comparison outdated
-			close(readyc)
-			<-donec
-		}
-		stm.Put("foo2", "bar2")
-		return nil
-	}
-
-	iso := concurrency.WithIsolation(concurrency.RepeatableReads)
-	if _, err := concurrency.NewSTM(etcdc, applyf, iso); err != nil {
-		t.Fatalf("error on stm txn (%v)", err)
-	}
-	if try != 2 {
-		t.Fatalf("STM apply expected to run twice, got %d", try)
-	}
-
-	resp, err := etcdc.Get(context.TODO(), "foo2")
-	if err != nil {
-		t.Fatalf("error fetching key (%v)", err)
-	}
-	if string(resp.Kvs[0].Value) != "bar2" {
-		t.Fatalf("bad value. got %+v, expected 'bar2' value", resp)
 	}
 }

@@ -61,16 +61,16 @@ const (
 	password = "bumblebeetuna"
 )
 
-
 func main() {
-	// Create a new HTTPClient
+	// Make client
 	c, err := client.NewHTTPClient(client.HTTPConfig{
-		Addr:     "http://localhost:8086",
+		Addr: "http://localhost:8086",
 		Username: username,
 		Password: password,
 	})
+
 	if err != nil {
-		log.Fatal(err)
+	    log.Fatalln("Error: ", err)
 	}
 
 	// Create a new point batch
@@ -78,8 +78,9 @@ func main() {
 		Database:  MyDB,
 		Precision: "s",
 	})
+
 	if err != nil {
-		log.Fatal(err)
+	    log.Fatalln("Error: ", err)
 	}
 
 	// Create a point and add to batch
@@ -89,17 +90,16 @@ func main() {
 		"system": 53.3,
 		"user":   46.6,
 	}
-
 	pt, err := client.NewPoint("cpu_usage", tags, fields, time.Now())
+
 	if err != nil {
-		log.Fatal(err)
+	    log.Fatalln("Error: ", err)
 	}
+
 	bp.AddPoint(pt)
 
 	// Write the batch
-	if err := c.Write(bp); err != nil {
-		log.Fatal(err)
-	}
+	c.Write(bp)
 }
 
 ```
@@ -119,19 +119,15 @@ NOTE: You can specify a RetentionPolicy as part of the batch points. If not
 provided InfluxDB will use the database _default_ retention policy.
 
 ```go
-
 func writePoints(clnt client.Client) {
 	sampleSize := 1000
+	rand.Seed(42)
 
-	bp, err := client.NewBatchPoints(client.BatchPointsConfig{
+	bp, _ := client.NewBatchPoints(client.BatchPointsConfig{
 		Database:  "systemstats",
 		Precision: "us",
 	})
-	if err != nil {
-		log.Fatal(err)
-	}
 
-    rand.Seed(time.Now().UnixNano())
 	for i := 0; i < sampleSize; i++ {
 		regions := []string{"us-west1", "us-west2", "us-west3", "us-east1"}
 		tags := map[string]string{
@@ -146,23 +142,21 @@ func writePoints(clnt client.Client) {
 			"busy": 100.0 - idle,
 		}
 
-		pt, err := client.NewPoint(
+		bp.AddPoint(client.NewPoint(
 			"cpu_usage",
 			tags,
 			fields,
 			time.Now(),
-		)
-		if err != nil {
-			log.Fatal(err)
-		}
-		bp.AddPoint(pt)
+		))
 	}
 
-	if err := clnt.Write(bp); err != nil {
+	err := clnt.Write(bp)
+	if err != nil {
 		log.Fatal(err)
 	}
 }
 ```
+
 
 ### Querying Data
 
@@ -236,11 +230,8 @@ The **InfluxDB** client also supports writing over UDP.
 ```go
 func WriteUDP() {
 	// Make client
-	c, err := client.NewUDPClient("localhost:8089")
-	if err != nil {
-		panic(err.Error())
-	}
-	
+	c := client.NewUDPClient("localhost:8089")
+
 	// Create a new point batch
 	bp, _ := client.NewBatchPoints(client.BatchPointsConfig{
 		Precision: "s",

@@ -57,11 +57,7 @@ func TestWritePoint(t *testing.T) {
 	if statementID != got {
 		t.Errorf("expected: %v\ngot: %v\n", statementID, got)
 	}
-	fields, err := pt.Fields()
-	if err != nil {
-		t.Fatal(err)
-	}
-	got2 := int(fields["status_code"].(int64))
+	got2 := int(pt.Fields()["status_code"].(int64))
 	if responseCode != got2 {
 		t.Errorf("expected: %v\ngot: %v\n", responseCode, got2)
 	}
@@ -84,11 +80,7 @@ func TestQueryPoint(t *testing.T) {
 	if statementID != got {
 		t.Errorf("expected: %v\ngot: %v\n", statementID, got)
 	}
-	fields, err := pt.Fields()
-	if err != nil {
-		t.Fatal(err)
-	}
-	got2 := int(fields["status_code"].(int64))
+	got2 := int(pt.Fields()["status_code"].(int64))
 	if responseCode != got2 {
 		t.Errorf("expected: %v\ngot: %v\n", responseCode, got2)
 	}

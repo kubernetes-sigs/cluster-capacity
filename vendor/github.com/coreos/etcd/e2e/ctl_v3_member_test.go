@@ -24,10 +24,8 @@ import (
 	"github.com/coreos/etcd/etcdserver/etcdserverpb"
 )
 
-func TestCtlV3MemberList(t *testing.T) { testCtl(t, memberListTest) }
-func TestCtlV3MemberRemove(t *testing.T) {
-	testCtl(t, memberRemoveTest, withQuorum(), withNoStrictReconfig())
-}
+func TestCtlV3MemberList(t *testing.T)   { testCtl(t, memberListTest) }
+func TestCtlV3MemberRemove(t *testing.T) { testCtl(t, memberRemoveTest, withQuorum()) }
 func TestCtlV3MemberAdd(t *testing.T)    { testCtl(t, memberAddTest) }
 func TestCtlV3MemberUpdate(t *testing.T) { testCtl(t, memberUpdateTest) }
 
@@ -84,11 +82,20 @@ func memberRemoveTest(cx ctlCtx) {
 	}
 
 	var (
+		n2            = n1 - 1
 		memIDToRemove = fmt.Sprintf("%x", resp.Header.MemberId)
 		cluserID      = fmt.Sprintf("%x", resp.Header.ClusterId)
 	)
 	if err = ctlV3MemberRemove(cx, memIDToRemove, cluserID); err != nil {
 		cx.t.Fatal(err)
+	}
+
+	resp, err = getMemberList(cx)
+	if err != nil {
+		cx.t.Fatal(err)
+	}
+	if n2 != len(resp.Members) {
+		cx.t.Fatalf("expected %d, got %d", n2, len(resp.Members))
 	}
 }
 
@@ -98,14 +105,32 @@ func ctlV3MemberRemove(cx ctlCtx, memberID, clusterID string) error {
 }
 
 func memberAddTest(cx ctlCtx) {
-	if err := ctlV3MemberAdd(cx, fmt.Sprintf("http://localhost:%d", etcdProcessBasePort+11)); err != nil {
+	peerURL := fmt.Sprintf("http://localhost:%d", etcdProcessBasePort+11)
+	cmdArgs := append(cx.PrefixArgs(), "member", "add", "newmember", fmt.Sprintf("--peer-urls=%s", peerURL))
+	if err := spawnWithExpect(cmdArgs, " added to cluster "); err != nil {
 		cx.t.Fatal(err)
 	}
-}
 
-func ctlV3MemberAdd(cx ctlCtx, peerURL string) error {
-	cmdArgs := append(cx.PrefixArgs(), "member", "add", "newmember", fmt.Sprintf("--peer-urls=%s", peerURL))
-	return spawnWithExpect(cmdArgs, " added to cluster ")
+	mresp, err := getMemberList(cx)
+	if err != nil {
+		cx.t.Fatal(err)
+	}
+	if len(mresp.Members) != 2 {
+		cx.t.Fatalf("expected 2, got %d", len(mresp.Members))
+	}
+
+	found := false
+	for _, mem := range mresp.Members {
+		for _, v := range mem.PeerURLs {
+			if v == peerURL {
+				found = true
+				break
+			}
+		}
+	}
+	if !found {
+		cx.t.Fatalf("expected %s in PeerURLs, got %+v", peerURL, mresp.Members)
+	}
 }
 
 func memberUpdateTest(cx ctlCtx) {
@@ -115,13 +140,20 @@ func memberUpdateTest(cx ctlCtx) {
 	}
 
 	peerURL := fmt.Sprintf("http://localhost:%d", etcdProcessBasePort+11)
-	memberID := fmt.Sprintf("%x", mr.Members[0].ID)
-	if err = ctlV3MemberUpdate(cx, memberID, peerURL); err != nil {
+	cmdArgs := append(cx.PrefixArgs(), "member", "update", fmt.Sprintf("%x", mr.Members[0].ID), fmt.Sprintf("--peer-urls=%s", peerURL))
+	if err = spawnWithExpect(cmdArgs, " updated in cluster "); err != nil {
 		cx.t.Fatal(err)
 	}
-}
 
-func ctlV3MemberUpdate(cx ctlCtx, memberID, peerURL string) error {
-	cmdArgs := append(cx.PrefixArgs(), "member", "update", memberID, fmt.Sprintf("--peer-urls=%s", peerURL))
-	return spawnWithExpect(cmdArgs, " updated in cluster ")
+	mresp, err := getMemberList(cx)
+	if err != nil {
+		cx.t.Fatal(err)
+	}
+	if len(mresp.Members) != 1 {
+		cx.t.Fatalf("expected 1, got %d", len(mresp.Members))
+	}
+
+	if mresp.Members[0].PeerURLs[0] != peerURL {
+		cx.t.Fatalf("expected %s in PeerURLs, got %+v", peerURL, mresp.Members)
+	}
 }

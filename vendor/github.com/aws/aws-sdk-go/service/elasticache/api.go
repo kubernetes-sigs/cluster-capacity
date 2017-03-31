@@ -77,18 +77,18 @@ func (c *ElastiCache) AddTagsToResourceRequest(input *AddTagsToResourceInput) (r
 // API operation AddTagsToResource for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeCacheClusterNotFoundFault "CacheClusterNotFound"
+//   * CacheClusterNotFound
 //   The requested cache cluster ID does not refer to an existing cache cluster.
 //
-//   * ErrCodeSnapshotNotFoundFault "SnapshotNotFoundFault"
+//   * SnapshotNotFoundFault
 //   The requested snapshot name does not refer to an existing snapshot.
 //
-//   * ErrCodeTagQuotaPerResourceExceeded "TagQuotaPerResourceExceeded"
+//   * TagQuotaPerResourceExceeded
 //   The request cannot be processed because it would cause the resource to have
 //   more than the allowed number of tags. The maximum number of tags permitted
 //   on a resource is 10.
 //
-//   * ErrCodeInvalidARNFault "InvalidARN"
+//   * InvalidARN
 //   The requested Amazon Resource Name (ARN) does not refer to an existing resource.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticache-2015-02-02/AddTagsToResource
@@ -158,21 +158,21 @@ func (c *ElastiCache) AuthorizeCacheSecurityGroupIngressRequest(input *Authorize
 // API operation AuthorizeCacheSecurityGroupIngress for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeCacheSecurityGroupNotFoundFault "CacheSecurityGroupNotFound"
+//   * CacheSecurityGroupNotFound
 //   The requested cache security group name does not refer to an existing cache
 //   security group.
 //
-//   * ErrCodeInvalidCacheSecurityGroupStateFault "InvalidCacheSecurityGroupState"
+//   * InvalidCacheSecurityGroupState
 //   The current state of the cache security group does not allow deletion.
 //
-//   * ErrCodeAuthorizationAlreadyExistsFault "AuthorizationAlreadyExists"
+//   * AuthorizationAlreadyExists
 //   The specified Amazon EC2 security group is already authorized for the specified
 //   cache security group.
 //
-//   * ErrCodeInvalidParameterValueException "InvalidParameterValue"
+//   * InvalidParameterValue
 //   The value for a parameter is invalid.
 //
-//   * ErrCodeInvalidParameterCombinationException "InvalidParameterCombination"
+//   * InvalidParameterCombination
 //   Two or more incompatible parameters were specified.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticache-2015-02-02/AuthorizeCacheSecurityGroupIngress
@@ -301,24 +301,24 @@ func (c *ElastiCache) CopySnapshotRequest(input *CopySnapshotInput) (req *reques
 // API operation CopySnapshot for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeSnapshotAlreadyExistsFault "SnapshotAlreadyExistsFault"
+//   * SnapshotAlreadyExistsFault
 //   You already have a snapshot with the given name.
 //
-//   * ErrCodeSnapshotNotFoundFault "SnapshotNotFoundFault"
+//   * SnapshotNotFoundFault
 //   The requested snapshot name does not refer to an existing snapshot.
 //
-//   * ErrCodeSnapshotQuotaExceededFault "SnapshotQuotaExceededFault"
+//   * SnapshotQuotaExceededFault
 //   The request cannot be processed because it would exceed the maximum number
 //   of snapshots.
 //
-//   * ErrCodeInvalidSnapshotStateFault "InvalidSnapshotState"
+//   * InvalidSnapshotState
 //   The current state of the snapshot does not allow the requested operation
 //   to occur.
 //
-//   * ErrCodeInvalidParameterValueException "InvalidParameterValue"
+//   * InvalidParameterValue
 //   The value for a parameter is invalid.
 //
-//   * ErrCodeInvalidParameterCombinationException "InvalidParameterCombination"
+//   * InvalidParameterCombination
 //   Two or more incompatible parameters were specified.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticache-2015-02-02/CopySnapshot
@@ -388,55 +388,55 @@ func (c *ElastiCache) CreateCacheClusterRequest(input *CreateCacheClusterInput) 
 // API operation CreateCacheCluster for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeReplicationGroupNotFoundFault "ReplicationGroupNotFoundFault"
+//   * ReplicationGroupNotFoundFault
 //   The specified replication group does not exist.
 //
-//   * ErrCodeInvalidReplicationGroupStateFault "InvalidReplicationGroupState"
+//   * InvalidReplicationGroupState
 //   The requested replication group is not in the available state.
 //
-//   * ErrCodeCacheClusterAlreadyExistsFault "CacheClusterAlreadyExists"
+//   * CacheClusterAlreadyExists
 //   You already have a cache cluster with the given identifier.
 //
-//   * ErrCodeInsufficientCacheClusterCapacityFault "InsufficientCacheClusterCapacity"
+//   * InsufficientCacheClusterCapacity
 //   The requested cache node type is not available in the specified Availability
 //   Zone.
 //
-//   * ErrCodeCacheSecurityGroupNotFoundFault "CacheSecurityGroupNotFound"
+//   * CacheSecurityGroupNotFound
 //   The requested cache security group name does not refer to an existing cache
 //   security group.
 //
-//   * ErrCodeCacheSubnetGroupNotFoundFault "CacheSubnetGroupNotFoundFault"
+//   * CacheSubnetGroupNotFoundFault
 //   The requested cache subnet group name does not refer to an existing cache
 //   subnet group.
 //
-//   * ErrCodeClusterQuotaForCustomerExceededFault "ClusterQuotaForCustomerExceeded"
+//   * ClusterQuotaForCustomerExceeded
 //   The request cannot be processed because it would exceed the allowed number
 //   of cache clusters per customer.
 //
-//   * ErrCodeNodeQuotaForClusterExceededFault "NodeQuotaForClusterExceeded"
+//   * NodeQuotaForClusterExceeded
 //   The request cannot be processed because it would exceed the allowed number
 //   of cache nodes in a single cache cluster.
 //
-//   * ErrCodeNodeQuotaForCustomerExceededFault "NodeQuotaForCustomerExceeded"
+//   * NodeQuotaForCustomerExceeded
 //   The request cannot be processed because it would exceed the allowed number
 //   of cache nodes per customer.
 //
-//   * ErrCodeCacheParameterGroupNotFoundFault "CacheParameterGroupNotFound"
+//   * CacheParameterGroupNotFound
 //   The requested cache parameter group name does not refer to an existing cache
 //   parameter group.
 //
-//   * ErrCodeInvalidVPCNetworkStateFault "InvalidVPCNetworkStateFault"
+//   * InvalidVPCNetworkStateFault
 //   The VPC network is in an invalid state.
 //
-//   * ErrCodeTagQuotaPerResourceExceeded "TagQuotaPerResourceExceeded"
+//   * TagQuotaPerResourceExceeded
 //   The request cannot be processed because it would cause the resource to have
 //   more than the allowed number of tags. The maximum number of tags permitted
 //   on a resource is 10.
 //
-//   * ErrCodeInvalidParameterValueException "InvalidParameterValue"
+//   * InvalidParameterValue
 //   The value for a parameter is invalid.
 //
-//   * ErrCodeInvalidParameterCombinationException "InvalidParameterCombination"
+//   * InvalidParameterCombination
 //   Two or more incompatible parameters were specified.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticache-2015-02-02/CreateCacheCluster
@@ -502,21 +502,21 @@ func (c *ElastiCache) CreateCacheParameterGroupRequest(input *CreateCacheParamet
 // API operation CreateCacheParameterGroup for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeCacheParameterGroupQuotaExceededFault "CacheParameterGroupQuotaExceeded"
+//   * CacheParameterGroupQuotaExceeded
 //   The request cannot be processed because it would exceed the maximum number
 //   of cache security groups.
 //
-//   * ErrCodeCacheParameterGroupAlreadyExistsFault "CacheParameterGroupAlreadyExists"
+//   * CacheParameterGroupAlreadyExists
 //   A cache parameter group with the requested name already exists.
 //
-//   * ErrCodeInvalidCacheParameterGroupStateFault "InvalidCacheParameterGroupState"
+//   * InvalidCacheParameterGroupState
 //   The current state of the cache parameter group does not allow the requested
 //   operation to occur.
 //
-//   * ErrCodeInvalidParameterValueException "InvalidParameterValue"
+//   * InvalidParameterValue
 //   The value for a parameter is invalid.
 //
-//   * ErrCodeInvalidParameterCombinationException "InvalidParameterCombination"
+//   * InvalidParameterCombination
 //   Two or more incompatible parameters were specified.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticache-2015-02-02/CreateCacheParameterGroup
@@ -587,17 +587,17 @@ func (c *ElastiCache) CreateCacheSecurityGroupRequest(input *CreateCacheSecurity
 // API operation CreateCacheSecurityGroup for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeCacheSecurityGroupAlreadyExistsFault "CacheSecurityGroupAlreadyExists"
+//   * CacheSecurityGroupAlreadyExists
 //   A cache security group with the specified name already exists.
 //
-//   * ErrCodeCacheSecurityGroupQuotaExceededFault "QuotaExceeded.CacheSecurityGroup"
+//   * QuotaExceeded.CacheSecurityGroup
 //   The request cannot be processed because it would exceed the allowed number
 //   of cache security groups.
 //
-//   * ErrCodeInvalidParameterValueException "InvalidParameterValue"
+//   * InvalidParameterValue
 //   The value for a parameter is invalid.
 //
-//   * ErrCodeInvalidParameterCombinationException "InvalidParameterCombination"
+//   * InvalidParameterCombination
 //   Two or more incompatible parameters were specified.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticache-2015-02-02/CreateCacheSecurityGroup
@@ -665,19 +665,19 @@ func (c *ElastiCache) CreateCacheSubnetGroupRequest(input *CreateCacheSubnetGrou
 // API operation CreateCacheSubnetGroup for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeCacheSubnetGroupAlreadyExistsFault "CacheSubnetGroupAlreadyExists"
+//   * CacheSubnetGroupAlreadyExists
 //   The requested cache subnet group name is already in use by an existing cache
 //   subnet group.
 //
-//   * ErrCodeCacheSubnetGroupQuotaExceededFault "CacheSubnetGroupQuotaExceeded"
+//   * CacheSubnetGroupQuotaExceeded
 //   The request cannot be processed because it would exceed the allowed number
 //   of cache subnet groups.
 //
-//   * ErrCodeCacheSubnetQuotaExceededFault "CacheSubnetQuotaExceededFault"
+//   * CacheSubnetQuotaExceededFault
 //   The request cannot be processed because it would exceed the allowed number
 //   of subnets in a cache subnet group.
 //
-//   * ErrCodeInvalidSubnet "InvalidSubnet"
+//   * InvalidSubnet
 //   An invalid subnet identifier was specified.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticache-2015-02-02/CreateCacheSubnetGroup
@@ -761,59 +761,59 @@ func (c *ElastiCache) CreateReplicationGroupRequest(input *CreateReplicationGrou
 // API operation CreateReplicationGroup for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeCacheClusterNotFoundFault "CacheClusterNotFound"
+//   * CacheClusterNotFound
 //   The requested cache cluster ID does not refer to an existing cache cluster.
 //
-//   * ErrCodeInvalidCacheClusterStateFault "InvalidCacheClusterState"
+//   * InvalidCacheClusterState
 //   The requested cache cluster is not in the available state.
 //
-//   * ErrCodeReplicationGroupAlreadyExistsFault "ReplicationGroupAlreadyExists"
+//   * ReplicationGroupAlreadyExists
 //   The specified replication group already exists.
 //
-//   * ErrCodeInsufficientCacheClusterCapacityFault "InsufficientCacheClusterCapacity"
+//   * InsufficientCacheClusterCapacity
 //   The requested cache node type is not available in the specified Availability
 //   Zone.
 //
-//   * ErrCodeCacheSecurityGroupNotFoundFault "CacheSecurityGroupNotFound"
+//   * CacheSecurityGroupNotFound
 //   The requested cache security group name does not refer to an existing cache
 //   security group.
 //
-//   * ErrCodeCacheSubnetGroupNotFoundFault "CacheSubnetGroupNotFoundFault"
+//   * CacheSubnetGroupNotFoundFault
 //   The requested cache subnet group name does not refer to an existing cache
 //   subnet group.
 //
-//   * ErrCodeClusterQuotaForCustomerExceededFault "ClusterQuotaForCustomerExceeded"
+//   * ClusterQuotaForCustomerExceeded
 //   The request cannot be processed because it would exceed the allowed number
 //   of cache clusters per customer.
 //
-//   * ErrCodeNodeQuotaForClusterExceededFault "NodeQuotaForClusterExceeded"
+//   * NodeQuotaForClusterExceeded
 //   The request cannot be processed because it would exceed the allowed number
 //   of cache nodes in a single cache cluster.
 //
-//   * ErrCodeNodeQuotaForCustomerExceededFault "NodeQuotaForCustomerExceeded"
+//   * NodeQuotaForCustomerExceeded
 //   The request cannot be processed because it would exceed the allowed number
 //   of cache nodes per customer.
 //
-//   * ErrCodeCacheParameterGroupNotFoundFault "CacheParameterGroupNotFound"
+//   * CacheParameterGroupNotFound
 //   The requested cache parameter group name does not refer to an existing cache
 //   parameter group.
 //
-//   * ErrCodeInvalidVPCNetworkStateFault "InvalidVPCNetworkStateFault"
+//   * InvalidVPCNetworkStateFault
 //   The VPC network is in an invalid state.
 //
-//   * ErrCodeTagQuotaPerResourceExceeded "TagQuotaPerResourceExceeded"
+//   * TagQuotaPerResourceExceeded
 //   The request cannot be processed because it would cause the resource to have
 //   more than the allowed number of tags. The maximum number of tags permitted
 //   on a resource is 10.
 //
-//   * ErrCodeNodeGroupsPerReplicationGroupQuotaExceededFault "NodeGroupsPerReplicationGroupQuotaExceeded"
+//   * NodeGroupsPerReplicationGroupQuotaExceeded
 //   The request cannot be processed because it would exceed the maximum of 15
 //   node groups (shards) in a single replication group.
 //
-//   * ErrCodeInvalidParameterValueException "InvalidParameterValue"
+//   * InvalidParameterValue
 //   The value for a parameter is invalid.
 //
-//   * ErrCodeInvalidParameterCombinationException "InvalidParameterCombination"
+//   * InvalidParameterCombination
 //   Two or more incompatible parameters were specified.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticache-2015-02-02/CreateReplicationGroup
@@ -881,26 +881,26 @@ func (c *ElastiCache) CreateSnapshotRequest(input *CreateSnapshotInput) (req *re
 // API operation CreateSnapshot for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeSnapshotAlreadyExistsFault "SnapshotAlreadyExistsFault"
+//   * SnapshotAlreadyExistsFault
 //   You already have a snapshot with the given name.
 //
-//   * ErrCodeCacheClusterNotFoundFault "CacheClusterNotFound"
+//   * CacheClusterNotFound
 //   The requested cache cluster ID does not refer to an existing cache cluster.
 //
-//   * ErrCodeReplicationGroupNotFoundFault "ReplicationGroupNotFoundFault"
+//   * ReplicationGroupNotFoundFault
 //   The specified replication group does not exist.
 //
-//   * ErrCodeInvalidCacheClusterStateFault "InvalidCacheClusterState"
+//   * InvalidCacheClusterState
 //   The requested cache cluster is not in the available state.
 //
-//   * ErrCodeInvalidReplicationGroupStateFault "InvalidReplicationGroupState"
+//   * InvalidReplicationGroupState
 //   The requested replication group is not in the available state.
 //
-//   * ErrCodeSnapshotQuotaExceededFault "SnapshotQuotaExceededFault"
+//   * SnapshotQuotaExceededFault
 //   The request cannot be processed because it would exceed the maximum number
 //   of snapshots.
 //
-//   * ErrCodeSnapshotFeatureNotSupportedFault "SnapshotFeatureNotSupportedFault"
+//   * SnapshotFeatureNotSupportedFault
 //   You attempted one of the following operations:
 //
 //      * Creating a snapshot of a Redis cache cluster running on a cache.t1.micro
@@ -911,10 +911,10 @@ func (c *ElastiCache) CreateSnapshotRequest(input *CreateSnapshotInput) (req *re
 //
 //   Neither of these are supported by ElastiCache.
 //
-//   * ErrCodeInvalidParameterCombinationException "InvalidParameterCombination"
+//   * InvalidParameterCombination
 //   Two or more incompatible parameters were specified.
 //
-//   * ErrCodeInvalidParameterValueException "InvalidParameterValue"
+//   * InvalidParameterValue
 //   The value for a parameter is invalid.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticache-2015-02-02/CreateSnapshot
@@ -992,16 +992,16 @@ func (c *ElastiCache) DeleteCacheClusterRequest(input *DeleteCacheClusterInput) 
 // API operation DeleteCacheCluster for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeCacheClusterNotFoundFault "CacheClusterNotFound"
+//   * CacheClusterNotFound
 //   The requested cache cluster ID does not refer to an existing cache cluster.
 //
-//   * ErrCodeInvalidCacheClusterStateFault "InvalidCacheClusterState"
+//   * InvalidCacheClusterState
 //   The requested cache cluster is not in the available state.
 //
-//   * ErrCodeSnapshotAlreadyExistsFault "SnapshotAlreadyExistsFault"
+//   * SnapshotAlreadyExistsFault
 //   You already have a snapshot with the given name.
 //
-//   * ErrCodeSnapshotFeatureNotSupportedFault "SnapshotFeatureNotSupportedFault"
+//   * SnapshotFeatureNotSupportedFault
 //   You attempted one of the following operations:
 //
 //      * Creating a snapshot of a Redis cache cluster running on a cache.t1.micro
@@ -1012,14 +1012,14 @@ func (c *ElastiCache) DeleteCacheClusterRequest(input *DeleteCacheClusterInput) 
 //
 //   Neither of these are supported by ElastiCache.
 //
-//   * ErrCodeSnapshotQuotaExceededFault "SnapshotQuotaExceededFault"
+//   * SnapshotQuotaExceededFault
 //   The request cannot be processed because it would exceed the maximum number
 //   of snapshots.
 //
-//   * ErrCodeInvalidParameterValueException "InvalidParameterValue"
+//   * InvalidParameterValue
 //   The value for a parameter is invalid.
 //
-//   * ErrCodeInvalidParameterCombinationException "InvalidParameterCombination"
+//   * InvalidParameterCombination
 //   Two or more incompatible parameters were specified.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticache-2015-02-02/DeleteCacheCluster
@@ -1087,18 +1087,18 @@ func (c *ElastiCache) DeleteCacheParameterGroupRequest(input *DeleteCacheParamet
 // API operation DeleteCacheParameterGroup for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidCacheParameterGroupStateFault "InvalidCacheParameterGroupState"
+//   * InvalidCacheParameterGroupState
 //   The current state of the cache parameter group does not allow the requested
 //   operation to occur.
 //
-//   * ErrCodeCacheParameterGroupNotFoundFault "CacheParameterGroupNotFound"
+//   * CacheParameterGroupNotFound
 //   The requested cache parameter group name does not refer to an existing cache
 //   parameter group.
 //
-//   * ErrCodeInvalidParameterValueException "InvalidParameterValue"
+//   * InvalidParameterValue
 //   The value for a parameter is invalid.
 //
-//   * ErrCodeInvalidParameterCombinationException "InvalidParameterCombination"
+//   * InvalidParameterCombination
 //   Two or more incompatible parameters were specified.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticache-2015-02-02/DeleteCacheParameterGroup
@@ -1168,17 +1168,17 @@ func (c *ElastiCache) DeleteCacheSecurityGroupRequest(input *DeleteCacheSecurity
 // API operation DeleteCacheSecurityGroup for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidCacheSecurityGroupStateFault "InvalidCacheSecurityGroupState"
+//   * InvalidCacheSecurityGroupState
 //   The current state of the cache security group does not allow deletion.
 //
-//   * ErrCodeCacheSecurityGroupNotFoundFault "CacheSecurityGroupNotFound"
+//   * CacheSecurityGroupNotFound
 //   The requested cache security group name does not refer to an existing cache
 //   security group.
 //
-//   * ErrCodeInvalidParameterValueException "InvalidParameterValue"
+//   * InvalidParameterValue
 //   The value for a parameter is invalid.
 //
-//   * ErrCodeInvalidParameterCombinationException "InvalidParameterCombination"
+//   * InvalidParameterCombination
 //   Two or more incompatible parameters were specified.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticache-2015-02-02/DeleteCacheSecurityGroup
@@ -1248,10 +1248,10 @@ func (c *ElastiCache) DeleteCacheSubnetGroupRequest(input *DeleteCacheSubnetGrou
 // API operation DeleteCacheSubnetGroup for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeCacheSubnetGroupInUse "CacheSubnetGroupInUse"
+//   * CacheSubnetGroupInUse
 //   The requested cache subnet group is currently in use.
 //
-//   * ErrCodeCacheSubnetGroupNotFoundFault "CacheSubnetGroupNotFoundFault"
+//   * CacheSubnetGroupNotFoundFault
 //   The requested cache subnet group name does not refer to an existing cache
 //   subnet group.
 //
@@ -1327,16 +1327,16 @@ func (c *ElastiCache) DeleteReplicationGroupRequest(input *DeleteReplicationGrou
 // API operation DeleteReplicationGroup for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeReplicationGroupNotFoundFault "ReplicationGroupNotFoundFault"
+//   * ReplicationGroupNotFoundFault
 //   The specified replication group does not exist.
 //
-//   * ErrCodeInvalidReplicationGroupStateFault "InvalidReplicationGroupState"
+//   * InvalidReplicationGroupState
 //   The requested replication group is not in the available state.
 //
-//   * ErrCodeSnapshotAlreadyExistsFault "SnapshotAlreadyExistsFault"
+//   * SnapshotAlreadyExistsFault
 //   You already have a snapshot with the given name.
 //
-//   * ErrCodeSnapshotFeatureNotSupportedFault "SnapshotFeatureNotSupportedFault"
+//   * SnapshotFeatureNotSupportedFault
 //   You attempted one of the following operations:
 //
 //      * Creating a snapshot of a Redis cache cluster running on a cache.t1.micro
@@ -1347,14 +1347,14 @@ func (c *ElastiCache) DeleteReplicationGroupRequest(input *DeleteReplicationGrou
 //
 //   Neither of these are supported by ElastiCache.
 //
-//   * ErrCodeSnapshotQuotaExceededFault "SnapshotQuotaExceededFault"
+//   * SnapshotQuotaExceededFault
 //   The request cannot be processed because it would exceed the maximum number
 //   of snapshots.
 //
-//   * ErrCodeInvalidParameterValueException "InvalidParameterValue"
+//   * InvalidParameterValue
 //   The value for a parameter is invalid.
 //
-//   * ErrCodeInvalidParameterCombinationException "InvalidParameterCombination"
+//   * InvalidParameterCombination
 //   Two or more incompatible parameters were specified.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticache-2015-02-02/DeleteReplicationGroup
@@ -1423,17 +1423,17 @@ func (c *ElastiCache) DeleteSnapshotRequest(input *DeleteSnapshotInput) (req *re
 // API operation DeleteSnapshot for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeSnapshotNotFoundFault "SnapshotNotFoundFault"
+//   * SnapshotNotFoundFault
 //   The requested snapshot name does not refer to an existing snapshot.
 //
-//   * ErrCodeInvalidSnapshotStateFault "InvalidSnapshotState"
+//   * InvalidSnapshotState
 //   The current state of the snapshot does not allow the requested operation
 //   to occur.
 //
-//   * ErrCodeInvalidParameterValueException "InvalidParameterValue"
+//   * InvalidParameterValue
 //   The value for a parameter is invalid.
 //
-//   * ErrCodeInvalidParameterCombinationException "InvalidParameterCombination"
+//   * InvalidParameterCombination
 //   Two or more incompatible parameters were specified.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticache-2015-02-02/DeleteSnapshot
@@ -1525,13 +1525,13 @@ func (c *ElastiCache) DescribeCacheClustersRequest(input *DescribeCacheClustersI
 // API operation DescribeCacheClusters for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeCacheClusterNotFoundFault "CacheClusterNotFound"
+//   * CacheClusterNotFound
 //   The requested cache cluster ID does not refer to an existing cache cluster.
 //
-//   * ErrCodeInvalidParameterValueException "InvalidParameterValue"
+//   * InvalidParameterValue
 //   The value for a parameter is invalid.
 //
-//   * ErrCodeInvalidParameterCombinationException "InvalidParameterCombination"
+//   * InvalidParameterCombination
 //   Two or more incompatible parameters were specified.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticache-2015-02-02/DescribeCacheClusters
@@ -1720,14 +1720,14 @@ func (c *ElastiCache) DescribeCacheParameterGroupsRequest(input *DescribeCachePa
 // API operation DescribeCacheParameterGroups for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeCacheParameterGroupNotFoundFault "CacheParameterGroupNotFound"
+//   * CacheParameterGroupNotFound
 //   The requested cache parameter group name does not refer to an existing cache
 //   parameter group.
 //
-//   * ErrCodeInvalidParameterValueException "InvalidParameterValue"
+//   * InvalidParameterValue
 //   The value for a parameter is invalid.
 //
-//   * ErrCodeInvalidParameterCombinationException "InvalidParameterCombination"
+//   * InvalidParameterCombination
 //   Two or more incompatible parameters were specified.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticache-2015-02-02/DescribeCacheParameterGroups
@@ -1823,14 +1823,14 @@ func (c *ElastiCache) DescribeCacheParametersRequest(input *DescribeCacheParamet
 // API operation DescribeCacheParameters for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeCacheParameterGroupNotFoundFault "CacheParameterGroupNotFound"
+//   * CacheParameterGroupNotFound
 //   The requested cache parameter group name does not refer to an existing cache
 //   parameter group.
 //
-//   * ErrCodeInvalidParameterValueException "InvalidParameterValue"
+//   * InvalidParameterValue
 //   The value for a parameter is invalid.
 //
-//   * ErrCodeInvalidParameterCombinationException "InvalidParameterCombination"
+//   * InvalidParameterCombination
 //   Two or more incompatible parameters were specified.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticache-2015-02-02/DescribeCacheParameters
@@ -1927,14 +1927,14 @@ func (c *ElastiCache) DescribeCacheSecurityGroupsRequest(input *DescribeCacheSec
 // API operation DescribeCacheSecurityGroups for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeCacheSecurityGroupNotFoundFault "CacheSecurityGroupNotFound"
+//   * CacheSecurityGroupNotFound
 //   The requested cache security group name does not refer to an existing cache
 //   security group.
 //
-//   * ErrCodeInvalidParameterValueException "InvalidParameterValue"
+//   * InvalidParameterValue
 //   The value for a parameter is invalid.
 //
-//   * ErrCodeInvalidParameterCombinationException "InvalidParameterCombination"
+//   * InvalidParameterCombination
 //   Two or more incompatible parameters were specified.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticache-2015-02-02/DescribeCacheSecurityGroups
@@ -2031,7 +2031,7 @@ func (c *ElastiCache) DescribeCacheSubnetGroupsRequest(input *DescribeCacheSubne
 // API operation DescribeCacheSubnetGroups for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeCacheSubnetGroupNotFoundFault "CacheSubnetGroupNotFoundFault"
+//   * CacheSubnetGroupNotFoundFault
 //   The requested cache subnet group name does not refer to an existing cache
 //   subnet group.
 //
@@ -2129,10 +2129,10 @@ func (c *ElastiCache) DescribeEngineDefaultParametersRequest(input *DescribeEngi
 // API operation DescribeEngineDefaultParameters for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidParameterValueException "InvalidParameterValue"
+//   * InvalidParameterValue
 //   The value for a parameter is invalid.
 //
-//   * ErrCodeInvalidParameterCombinationException "InvalidParameterCombination"
+//   * InvalidParameterCombination
 //   Two or more incompatible parameters were specified.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticache-2015-02-02/DescribeEngineDefaultParameters
@@ -2234,10 +2234,10 @@ func (c *ElastiCache) DescribeEventsRequest(input *DescribeEventsInput) (req *re
 // API operation DescribeEvents for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidParameterValueException "InvalidParameterValue"
+//   * InvalidParameterValue
 //   The value for a parameter is invalid.
 //
-//   * ErrCodeInvalidParameterCombinationException "InvalidParameterCombination"
+//   * InvalidParameterCombination
 //   Two or more incompatible parameters were specified.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticache-2015-02-02/DescribeEvents
@@ -2337,13 +2337,13 @@ func (c *ElastiCache) DescribeReplicationGroupsRequest(input *DescribeReplicatio
 // API operation DescribeReplicationGroups for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeReplicationGroupNotFoundFault "ReplicationGroupNotFoundFault"
+//   * ReplicationGroupNotFoundFault
 //   The specified replication group does not exist.
 //
-//   * ErrCodeInvalidParameterValueException "InvalidParameterValue"
+//   * InvalidParameterValue
 //   The value for a parameter is invalid.
 //
-//   * ErrCodeInvalidParameterCombinationException "InvalidParameterCombination"
+//   * InvalidParameterCombination
 //   Two or more incompatible parameters were specified.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticache-2015-02-02/DescribeReplicationGroups
@@ -2440,13 +2440,13 @@ func (c *ElastiCache) DescribeReservedCacheNodesRequest(input *DescribeReservedC
 // API operation DescribeReservedCacheNodes for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeReservedCacheNodeNotFoundFault "ReservedCacheNodeNotFound"
+//   * ReservedCacheNodeNotFound
 //   The requested reserved cache node was not found.
 //
-//   * ErrCodeInvalidParameterValueException "InvalidParameterValue"
+//   * InvalidParameterValue
 //   The value for a parameter is invalid.
 //
-//   * ErrCodeInvalidParameterCombinationException "InvalidParameterCombination"
+//   * InvalidParameterCombination
 //   Two or more incompatible parameters were specified.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticache-2015-02-02/DescribeReservedCacheNodes
@@ -2542,13 +2542,13 @@ func (c *ElastiCache) DescribeReservedCacheNodesOfferingsRequest(input *Describe
 // API operation DescribeReservedCacheNodesOfferings for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeReservedCacheNodesOfferingNotFoundFault "ReservedCacheNodesOfferingNotFound"
+//   * ReservedCacheNodesOfferingNotFound
 //   The requested cache node offering does not exist.
 //
-//   * ErrCodeInvalidParameterValueException "InvalidParameterValue"
+//   * InvalidParameterValue
 //   The value for a parameter is invalid.
 //
-//   * ErrCodeInvalidParameterCombinationException "InvalidParameterCombination"
+//   * InvalidParameterCombination
 //   Two or more incompatible parameters were specified.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticache-2015-02-02/DescribeReservedCacheNodesOfferings
@@ -2649,16 +2649,16 @@ func (c *ElastiCache) DescribeSnapshotsRequest(input *DescribeSnapshotsInput) (r
 // API operation DescribeSnapshots for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeCacheClusterNotFoundFault "CacheClusterNotFound"
+//   * CacheClusterNotFound
 //   The requested cache cluster ID does not refer to an existing cache cluster.
 //
-//   * ErrCodeSnapshotNotFoundFault "SnapshotNotFoundFault"
+//   * SnapshotNotFoundFault
 //   The requested snapshot name does not refer to an existing snapshot.
 //
-//   * ErrCodeInvalidParameterValueException "InvalidParameterValue"
+//   * InvalidParameterValue
 //   The value for a parameter is invalid.
 //
-//   * ErrCodeInvalidParameterCombinationException "InvalidParameterCombination"
+//   * InvalidParameterCombination
 //   Two or more incompatible parameters were specified.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticache-2015-02-02/DescribeSnapshots
@@ -2753,16 +2753,16 @@ func (c *ElastiCache) ListAllowedNodeTypeModificationsRequest(input *ListAllowed
 // API operation ListAllowedNodeTypeModifications for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeCacheClusterNotFoundFault "CacheClusterNotFound"
+//   * CacheClusterNotFound
 //   The requested cache cluster ID does not refer to an existing cache cluster.
 //
-//   * ErrCodeReplicationGroupNotFoundFault "ReplicationGroupNotFoundFault"
+//   * ReplicationGroupNotFoundFault
 //   The specified replication group does not exist.
 //
-//   * ErrCodeInvalidParameterCombinationException "InvalidParameterCombination"
+//   * InvalidParameterCombination
 //   Two or more incompatible parameters were specified.
 //
-//   * ErrCodeInvalidParameterValueException "InvalidParameterValue"
+//   * InvalidParameterValue
 //   The value for a parameter is invalid.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticache-2015-02-02/ListAllowedNodeTypeModifications
@@ -2834,13 +2834,13 @@ func (c *ElastiCache) ListTagsForResourceRequest(input *ListTagsForResourceInput
 // API operation ListTagsForResource for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeCacheClusterNotFoundFault "CacheClusterNotFound"
+//   * CacheClusterNotFound
 //   The requested cache cluster ID does not refer to an existing cache cluster.
 //
-//   * ErrCodeSnapshotNotFoundFault "SnapshotNotFoundFault"
+//   * SnapshotNotFoundFault
 //   The requested snapshot name does not refer to an existing snapshot.
 //
-//   * ErrCodeInvalidARNFault "InvalidARN"
+//   * InvalidARN
 //   The requested Amazon Resource Name (ARN) does not refer to an existing resource.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticache-2015-02-02/ListTagsForResource
@@ -2907,42 +2907,42 @@ func (c *ElastiCache) ModifyCacheClusterRequest(input *ModifyCacheClusterInput) 
 // API operation ModifyCacheCluster for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidCacheClusterStateFault "InvalidCacheClusterState"
+//   * InvalidCacheClusterState
 //   The requested cache cluster is not in the available state.
 //
-//   * ErrCodeInvalidCacheSecurityGroupStateFault "InvalidCacheSecurityGroupState"
+//   * InvalidCacheSecurityGroupState
 //   The current state of the cache security group does not allow deletion.
 //
-//   * ErrCodeInsufficientCacheClusterCapacityFault "InsufficientCacheClusterCapacity"
+//   * InsufficientCacheClusterCapacity
 //   The requested cache node type is not available in the specified Availability
 //   Zone.
 //
-//   * ErrCodeCacheClusterNotFoundFault "CacheClusterNotFound"
+//   * CacheClusterNotFound
 //   The requested cache cluster ID does not refer to an existing cache cluster.
 //
-//   * ErrCodeNodeQuotaForClusterExceededFault "NodeQuotaForClusterExceeded"
+//   * NodeQuotaForClusterExceeded
 //   The request cannot be processed because it would exceed the allowed number
 //   of cache nodes in a single cache cluster.
 //
-//   * ErrCodeNodeQuotaForCustomerExceededFault "NodeQuotaForCustomerExceeded"
+//   * NodeQuotaForCustomerExceeded
 //   The request cannot be processed because it would exceed the allowed number
 //   of cache nodes per customer.
 //
-//   * ErrCodeCacheSecurityGroupNotFoundFault "CacheSecurityGroupNotFound"
+//   * CacheSecurityGroupNotFound
 //   The requested cache security group name does not refer to an existing cache
 //   security group.
 //
-//   * ErrCodeCacheParameterGroupNotFoundFault "CacheParameterGroupNotFound"
+//   * CacheParameterGroupNotFound
 //   The requested cache parameter group name does not refer to an existing cache
 //   parameter group.
 //
-//   * ErrCodeInvalidVPCNetworkStateFault "InvalidVPCNetworkStateFault"
+//   * InvalidVPCNetworkStateFault
 //   The VPC network is in an invalid state.
 //
-//   * ErrCodeInvalidParameterValueException "InvalidParameterValue"
+//   * InvalidParameterValue
 //   The value for a parameter is invalid.
 //
-//   * ErrCodeInvalidParameterCombinationException "InvalidParameterCombination"
+//   * InvalidParameterCombination
 //   Two or more incompatible parameters were specified.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticache-2015-02-02/ModifyCacheCluster
@@ -3009,18 +3009,18 @@ func (c *ElastiCache) ModifyCacheParameterGroupRequest(input *ModifyCacheParamet
 // API operation ModifyCacheParameterGroup for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeCacheParameterGroupNotFoundFault "CacheParameterGroupNotFound"
+//   * CacheParameterGroupNotFound
 //   The requested cache parameter group name does not refer to an existing cache
 //   parameter group.
 //
-//   * ErrCodeInvalidCacheParameterGroupStateFault "InvalidCacheParameterGroupState"
+//   * InvalidCacheParameterGroupState
 //   The current state of the cache parameter group does not allow the requested
 //   operation to occur.
 //
-//   * ErrCodeInvalidParameterValueException "InvalidParameterValue"
+//   * InvalidParameterValue
 //   The value for a parameter is invalid.
 //
-//   * ErrCodeInvalidParameterCombinationException "InvalidParameterCombination"
+//   * InvalidParameterCombination
 //   Two or more incompatible parameters were specified.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticache-2015-02-02/ModifyCacheParameterGroup
@@ -3085,18 +3085,18 @@ func (c *ElastiCache) ModifyCacheSubnetGroupRequest(input *ModifyCacheSubnetGrou
 // API operation ModifyCacheSubnetGroup for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeCacheSubnetGroupNotFoundFault "CacheSubnetGroupNotFoundFault"
+//   * CacheSubnetGroupNotFoundFault
 //   The requested cache subnet group name does not refer to an existing cache
 //   subnet group.
 //
-//   * ErrCodeCacheSubnetQuotaExceededFault "CacheSubnetQuotaExceededFault"
+//   * CacheSubnetQuotaExceededFault
 //   The request cannot be processed because it would exceed the allowed number
 //   of subnets in a cache subnet group.
 //
-//   * ErrCodeSubnetInUse "SubnetInUse"
+//   * SubnetInUse
 //   The requested subnet is being used by another cache subnet group.
 //
-//   * ErrCodeInvalidSubnet "InvalidSubnet"
+//   * InvalidSubnet
 //   An invalid subnet identifier was specified.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticache-2015-02-02/ModifyCacheSubnetGroup
@@ -3167,48 +3167,48 @@ func (c *ElastiCache) ModifyReplicationGroupRequest(input *ModifyReplicationGrou
 // API operation ModifyReplicationGroup for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeReplicationGroupNotFoundFault "ReplicationGroupNotFoundFault"
+//   * ReplicationGroupNotFoundFault
 //   The specified replication group does not exist.
 //
-//   * ErrCodeInvalidReplicationGroupStateFault "InvalidReplicationGroupState"
+//   * InvalidReplicationGroupState
 //   The requested replication group is not in the available state.
 //
-//   * ErrCodeInvalidCacheClusterStateFault "InvalidCacheClusterState"
+//   * InvalidCacheClusterState
 //   The requested cache cluster is not in the available state.
 //
-//   * ErrCodeInvalidCacheSecurityGroupStateFault "InvalidCacheSecurityGroupState"
+//   * InvalidCacheSecurityGroupState
 //   The current state of the cache security group does not allow deletion.
 //
-//   * ErrCodeInsufficientCacheClusterCapacityFault "InsufficientCacheClusterCapacity"
+//   * InsufficientCacheClusterCapacity
 //   The requested cache node type is not available in the specified Availability
 //   Zone.
 //
-//   * ErrCodeCacheClusterNotFoundFault "CacheClusterNotFound"
+//   * CacheClusterNotFound
 //   The requested cache cluster ID does not refer to an existing cache cluster.
 //
-//   * ErrCodeNodeQuotaForClusterExceededFault "NodeQuotaForClusterExceeded"
+//   * NodeQuotaForClusterExceeded
 //   The request cannot be processed because it would exceed the allowed number
 //   of cache nodes in a single cache cluster.
 //
-//   * ErrCodeNodeQuotaForCustomerExceededFault "NodeQuotaForCustomerExceeded"
+//   * NodeQuotaForCustomerExceeded
 //   The request cannot be processed because it would exceed the allowed number
 //   of cache nodes per customer.
 //
-//   * ErrCodeCacheSecurityGroupNotFoundFault "CacheSecurityGroupNotFound"
+//   * CacheSecurityGroupNotFound
 //   The requested cache security group name does not refer to an existing cache
 //   security group.
 //
-//   * ErrCodeCacheParameterGroupNotFoundFault "CacheParameterGroupNotFound"
+//   * CacheParameterGroupNotFound
 //   The requested cache parameter group name does not refer to an existing cache
 //   parameter group.
 //
-//   * ErrCodeInvalidVPCNetworkStateFault "InvalidVPCNetworkStateFault"
+//   * InvalidVPCNetworkStateFault
 //   The VPC network is in an invalid state.
 //
-//   * ErrCodeInvalidParameterValueException "InvalidParameterValue"
+//   * InvalidParameterValue
 //   The value for a parameter is invalid.
 //
-//   * ErrCodeInvalidParameterCombinationException "InvalidParameterCombination"
+//   * InvalidParameterCombination
 //   Two or more incompatible parameters were specified.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticache-2015-02-02/ModifyReplicationGroup
@@ -3273,20 +3273,20 @@ func (c *ElastiCache) PurchaseReservedCacheNodesOfferingRequest(input *PurchaseR
 // API operation PurchaseReservedCacheNodesOffering for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeReservedCacheNodesOfferingNotFoundFault "ReservedCacheNodesOfferingNotFound"
+//   * ReservedCacheNodesOfferingNotFound
 //   The requested cache node offering does not exist.
 //
-//   * ErrCodeReservedCacheNodeAlreadyExistsFault "ReservedCacheNodeAlreadyExists"
+//   * ReservedCacheNodeAlreadyExists
 //   You already have a reservation with the given identifier.
 //
-//   * ErrCodeReservedCacheNodeQuotaExceededFault "ReservedCacheNodeQuotaExceeded"
+//   * ReservedCacheNodeQuotaExceeded
 //   The request cannot be processed because it would exceed the user's cache
 //   node quota.
 //
-//   * ErrCodeInvalidParameterValueException "InvalidParameterValue"
+//   * InvalidParameterValue
 //   The value for a parameter is invalid.
 //
-//   * ErrCodeInvalidParameterCombinationException "InvalidParameterCombination"
+//   * InvalidParameterCombination
 //   Two or more incompatible parameters were specified.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticache-2015-02-02/PurchaseReservedCacheNodesOffering
@@ -3360,10 +3360,10 @@ func (c *ElastiCache) RebootCacheClusterRequest(input *RebootCacheClusterInput) 
 // API operation RebootCacheCluster for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidCacheClusterStateFault "InvalidCacheClusterState"
+//   * InvalidCacheClusterState
 //   The requested cache cluster is not in the available state.
 //
-//   * ErrCodeCacheClusterNotFoundFault "CacheClusterNotFound"
+//   * CacheClusterNotFound
 //   The requested cache cluster ID does not refer to an existing cache cluster.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticache-2015-02-02/RebootCacheCluster
@@ -3428,16 +3428,16 @@ func (c *ElastiCache) RemoveTagsFromResourceRequest(input *RemoveTagsFromResourc
 // API operation RemoveTagsFromResource for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeCacheClusterNotFoundFault "CacheClusterNotFound"
+//   * CacheClusterNotFound
 //   The requested cache cluster ID does not refer to an existing cache cluster.
 //
-//   * ErrCodeSnapshotNotFoundFault "SnapshotNotFoundFault"
+//   * SnapshotNotFoundFault
 //   The requested snapshot name does not refer to an existing snapshot.
 //
-//   * ErrCodeInvalidARNFault "InvalidARN"
+//   * InvalidARN
 //   The requested Amazon Resource Name (ARN) does not refer to an existing resource.
 //
-//   * ErrCodeTagNotFoundFault "TagNotFound"
+//   * TagNotFound
 //   The requested tag was not found on this resource.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticache-2015-02-02/RemoveTagsFromResource
@@ -3505,18 +3505,18 @@ func (c *ElastiCache) ResetCacheParameterGroupRequest(input *ResetCacheParameter
 // API operation ResetCacheParameterGroup for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidCacheParameterGroupStateFault "InvalidCacheParameterGroupState"
+//   * InvalidCacheParameterGroupState
 //   The current state of the cache parameter group does not allow the requested
 //   operation to occur.
 //
-//   * ErrCodeCacheParameterGroupNotFoundFault "CacheParameterGroupNotFound"
+//   * CacheParameterGroupNotFound
 //   The requested cache parameter group name does not refer to an existing cache
 //   parameter group.
 //
-//   * ErrCodeInvalidParameterValueException "InvalidParameterValue"
+//   * InvalidParameterValue
 //   The value for a parameter is invalid.
 //
-//   * ErrCodeInvalidParameterCombinationException "InvalidParameterCombination"
+//   * InvalidParameterCombination
 //   Two or more incompatible parameters were specified.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticache-2015-02-02/ResetCacheParameterGroup
@@ -3582,21 +3582,21 @@ func (c *ElastiCache) RevokeCacheSecurityGroupIngressRequest(input *RevokeCacheS
 // API operation RevokeCacheSecurityGroupIngress for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeCacheSecurityGroupNotFoundFault "CacheSecurityGroupNotFound"
+//   * CacheSecurityGroupNotFound
 //   The requested cache security group name does not refer to an existing cache
 //   security group.
 //
-//   * ErrCodeAuthorizationNotFoundFault "AuthorizationNotFound"
+//   * AuthorizationNotFound
 //   The specified Amazon EC2 security group is not authorized for the specified
 //   cache security group.
 //
-//   * ErrCodeInvalidCacheSecurityGroupStateFault "InvalidCacheSecurityGroupState"
+//   * InvalidCacheSecurityGroupState
 //   The current state of the cache security group does not allow deletion.
 //
-//   * ErrCodeInvalidParameterValueException "InvalidParameterValue"
+//   * InvalidParameterValue
 //   The value for a parameter is invalid.
 //
-//   * ErrCodeInvalidParameterCombinationException "InvalidParameterCombination"
+//   * InvalidParameterCombination
 //   Two or more incompatible parameters were specified.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/elasticache-2015-02-02/RevokeCacheSecurityGroupIngress
@@ -4794,7 +4794,7 @@ type CreateCacheClusterInput struct {
 	// assumes single-az mode.
 	AZMode *string `type:"string" enum:"AZMode"`
 
-	// Reserved parameter. The password used to access a password protected server.
+	// The password used to access a password protected server.
 	//
 	// Password constraints:
 	//
@@ -5515,7 +5515,7 @@ func (s *CreateCacheSubnetGroupOutput) SetCacheSubnetGroup(v *CacheSubnetGroup) 
 type CreateReplicationGroupInput struct {
 	_ struct{} `type:"structure"`
 
-	// Reserved parameter. The password used to access a password protected server.
+	// The password used to access a password protected server.
 	//
 	// Password constraints:
 	//

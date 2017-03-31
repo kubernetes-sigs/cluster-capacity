@@ -3100,20 +3100,6 @@ func (s *Conversion) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-func (s *Conversion) UnmarshalJSON(data []byte) error {
-	type noMethod Conversion
-	var s1 struct {
-		Value gensupport.JSONFloat64 `json:"value"`
-		*noMethod
-	}
-	s1.noMethod = (*noMethod)(s)
-	if err := json.Unmarshal(data, &s1); err != nil {
-		return err
-	}
-	s.Value = float64(s1.Value)
-	return nil
-}
-
 // ConversionError: The error code and description for a conversion that
 // failed to insert or update.
 type ConversionError struct {
@@ -3846,20 +3832,6 @@ func (s *Creative) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-func (s *Creative) UnmarshalJSON(data []byte) error {
-	type noMethod Creative
-	var s1 struct {
-		VideoDuration gensupport.JSONFloat64 `json:"videoDuration"`
-		*noMethod
-	}
-	s1.noMethod = (*noMethod)(s)
-	if err := json.Unmarshal(data, &s1); err != nil {
-		return err
-	}
-	s.VideoDuration = float64(s1.VideoDuration)
-	return nil
-}
-
 // CreativeAsset: Creative Asset.
 type CreativeAsset struct {
 	// ActionScript3: Whether ActionScript3 is enabled for the flash asset.
@@ -4256,22 +4228,6 @@ func (s *CreativeAsset) MarshalJSON() ([]byte, error) {
 	type noMethod CreativeAsset
 	raw := noMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
-}
-
-func (s *CreativeAsset) UnmarshalJSON(data []byte) error {
-	type noMethod CreativeAsset
-	var s1 struct {
-		PushdownDuration gensupport.JSONFloat64 `json:"pushdownDuration"`
-		VideoDuration    gensupport.JSONFloat64 `json:"videoDuration"`
-		*noMethod
-	}
-	s1.noMethod = (*noMethod)(s)
-	if err := json.Unmarshal(data, &s1); err != nil {
-		return err
-	}
-	s.PushdownDuration = float64(s1.PushdownDuration)
-	s.VideoDuration = float64(s1.VideoDuration)
-	return nil
 }
 
 // CreativeAssetId: Creative Asset ID.
@@ -26591,27 +26547,6 @@ func (c *DimensionValuesQueryCall) Do(opts ...googleapi.CallOption) (*DimensionV
 	//   ]
 	// }
 
-}
-
-// Pages invokes f for each page of results.
-// A non-nil error returned from f will halt the iteration.
-// The provided context supersedes any context provided to the Context method.
-func (c *DimensionValuesQueryCall) Pages(ctx context.Context, f func(*DimensionValueList) error) error {
-	c.ctx_ = ctx
-	defer c.PageToken(c.urlParams_.Get("pageToken")) // reset paging to original point
-	for {
-		x, err := c.Do()
-		if err != nil {
-			return err
-		}
-		if err := f(x); err != nil {
-			return err
-		}
-		if x.NextPageToken == "" {
-			return nil
-		}
-		c.PageToken(x.NextPageToken)
-	}
 }
 
 // method id "dfareporting.directorySiteContacts.get":

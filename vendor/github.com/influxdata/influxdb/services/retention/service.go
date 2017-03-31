@@ -1,13 +1,13 @@
-// Package retention provides the retention policy enforcement service.
 package retention // import "github.com/influxdata/influxdb/services/retention"
 
 import (
-	"fmt"
+	"io"
+	"log"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/influxdata/influxdb/services/meta"
-	"go.uber.org/zap"
 )
 
 // Service represents the retention policy enforcement service.
@@ -15,18 +15,18 @@ type Service struct {
 	MetaClient interface {
 		Databases() []meta.DatabaseInfo
 		DeleteShardGroup(database, policy string, id uint64) error
-		PruneShardGroups() error
 	}
 	TSDBStore interface {
 		ShardIDs() []uint64
 		DeleteShard(shardID uint64) error
 	}
 
+	enabled       bool
 	checkInterval time.Duration
 	wg            sync.WaitGroup
 	done          chan struct{}
 
-	logger zap.Logger
+	logger *log.Logger
 }
 
 // NewService returns a configured retention policy enforcement service.
@@ -34,13 +34,13 @@ func NewService(c Config) *Service {
 	return &Service{
 		checkInterval: time.Duration(c.CheckInterval),
 		done:          make(chan struct{}),
-		logger:        zap.New(zap.NullEncoder()),
+		logger:        log.New(os.Stderr, "[retention] ", log.LstdFlags),
 	}
 }
 
 // Open starts retention policy enforcement.
 func (s *Service) Open() error {
-	s.logger.Info(fmt.Sprint("Starting retention policy enforcement service with check interval of ", s.checkInterval))
+	s.logger.Println("Starting retention policy enforcement service with check interval of", s.checkInterval)
 	s.wg.Add(2)
 	go s.deleteShardGroups()
 	go s.deleteShards()
@@ -49,15 +49,16 @@ func (s *Service) Open() error {
 
 // Close stops retention policy enforcement.
 func (s *Service) Close() error {
-	s.logger.Info("retention policy enforcement terminating")
+	s.logger.Println("retention policy enforcement terminating")
 	close(s.done)
 	s.wg.Wait()
 	return nil
 }
 
-// WithLogger sets the logger on the service.
-func (s *Service) WithLogger(log zap.Logger) {
-	s.logger = log.With(zap.String("service", "retention"))
+// SetLogOutput sets the writer to which all logs are written. It must not be
+// called after Open is called.
+func (s *Service) SetLogOutput(w io.Writer) {
+	s.logger = log.New(w, "[retention] ", log.LstdFlags)
 }
 
 func (s *Service) deleteShardGroups() {
@@ -76,11 +77,11 @@ func (s *Service) deleteShardGroups() {
 				for _, r := range d.RetentionPolicies {
 					for _, g := range r.ExpiredShardGroups(time.Now().UTC()) {
 						if err := s.MetaClient.DeleteShardGroup(d.Name, r.Name, g.ID); err != nil {
-							s.logger.Info(fmt.Sprintf("failed to delete shard group %d from database %s, retention policy %s: %s",
-								g.ID, d.Name, r.Name, err.Error()))
+							s.logger.Printf("failed to delete shard group %d from database %s, retention policy %s: %s",
+								g.ID, d.Name, r.Name, err.Error())
 						} else {
-							s.logger.Info(fmt.Sprintf("deleted shard group %d from database %s, retention policy %s",
-								g.ID, d.Name, r.Name))
+							s.logger.Printf("deleted shard group %d from database %s, retention policy %s",
+								g.ID, d.Name, r.Name)
 						}
 					}
 				}
@@ -100,7 +101,7 @@ func (s *Service) deleteShards() {
 			return
 
 		case <-ticker.C:
-			s.logger.Info("retention policy shard deletion check commencing")
+			s.logger.Println("retention policy shard deletion check commencing")
 
 			type deletionInfo struct {
 				db string
@@ -121,16 +122,13 @@ func (s *Service) deleteShards() {
 			for _, id := range s.TSDBStore.ShardIDs() {
 				if di, ok := deletedShardIDs[id]; ok {
 					if err := s.TSDBStore.DeleteShard(id); err != nil {
-						s.logger.Info(fmt.Sprintf("failed to delete shard ID %d from database %s, retention policy %s: %s",
-							id, di.db, di.rp, err.Error()))
+						s.logger.Printf("failed to delete shard ID %d from database %s, retention policy %s: %s",
+							id, di.db, di.rp, err.Error())
 						continue
 					}
-					s.logger.Info(fmt.Sprintf("shard ID %d from database %s, retention policy %s, deleted",
-						id, di.db, di.rp))
+					s.logger.Printf("shard ID %d from database %s, retention policy %s, deleted",
+						id, di.db, di.rp)
 				}
-			}
-			if err := s.MetaClient.PruneShardGroups(); err != nil {
-				s.logger.Info(fmt.Sprintf("error pruning shard groups: %s", err))
 			}
 		}
 	}

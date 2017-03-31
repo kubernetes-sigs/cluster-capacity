@@ -1,10 +1,10 @@
-// Copyright 2016, Google Inc. All rights reserved.
+// Copyright 2016 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,8 +17,6 @@
 package speech_test
 
 import (
-	"io"
-
 	"cloud.google.com/go/speech/apiv1beta1"
 	"golang.org/x/net/context"
 	speechpb "google.golang.org/genproto/googleapis/cloud/speech/v1beta1"
@@ -62,49 +60,10 @@ func ExampleClient_AsyncRecognize() {
 	req := &speechpb.AsyncRecognizeRequest{
 	// TODO: Fill request struct fields.
 	}
-	op, err := c.AsyncRecognize(ctx, req)
-	if err != nil {
-		// TODO: Handle error.
-	}
-
-	resp, err := op.Wait(ctx)
+	resp, err := c.AsyncRecognize(ctx, req)
 	if err != nil {
 		// TODO: Handle error.
 	}
 	// TODO: Use resp.
 	_ = resp
-}
-
-func ExampleClient_StreamingRecognize() {
-	ctx := context.Background()
-	c, err := speech.NewClient(ctx)
-	if err != nil {
-		// TODO: Handle error.
-	}
-	stream, err := c.StreamingRecognize(ctx)
-	if err != nil {
-		// TODO: Handle error.
-	}
-	go func() {
-		reqs := []*speechpb.StreamingRecognizeRequest{
-		// TODO: Create requests.
-		}
-		for _, req := range reqs {
-			if err := stream.Send(req); err != nil {
-				// TODO: Handle error.
-			}
-		}
-		stream.CloseSend()
-	}()
-	for {
-		resp, err := stream.Recv()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			// TODO: handle error.
-		}
-		// TODO: Use resp.
-		_ = resp
-	}
 }

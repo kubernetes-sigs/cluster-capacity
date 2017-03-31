@@ -1,4 +1,3 @@
-// Package tcp provides a simple multiplexer over TCP.
 package tcp // import "github.com/influxdata/influxdb/tcp"
 
 import (
@@ -54,7 +53,7 @@ func (rc *replayConn) Read(b []byte) (int, error) {
 	return 1, nil
 }
 
-// NewMux returns a new instance of Mux.
+// NewMux returns a new instance of Mux for ln.
 func NewMux() *Mux {
 	return &Mux{
 		m:       make(map[byte]*listener),
@@ -63,7 +62,7 @@ func NewMux() *Mux {
 	}
 }
 
-// Serve handles connections from ln and multiplexes then across registered listeners.
+// Serve handles connections from ln and multiplexes then across registered listener.
 func (mux *Mux) Serve(ln net.Listener) error {
 	mux.mu.Lock()
 	mux.ln = ln
@@ -169,13 +168,13 @@ func (mux *Mux) Listen(header byte) net.Listener {
 	return ln
 }
 
-// DefaultListener will return a net.Listener that will pass-through any
+// DefaultListener() will return a net.Listener that will pass-through any
 // connections with non-registered values for the first byte of the connection.
 // The connections returned from this listener's Accept() method will replay the
 // first byte of the connection as a short first Read().
 //
 // This can be used to pass to an HTTP server, so long as there are no conflicts
-// with registered listener bytes and the first character of the HTTP request:
+// with registsered listener bytes and the first character of the HTTP request:
 // 71 ('G') for GET, etc.
 func (mux *Mux) DefaultListener() net.Listener {
 	if mux.defaultListener == nil {

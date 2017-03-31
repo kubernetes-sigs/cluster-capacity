@@ -75,26 +75,26 @@ func (c *DirectoryService) AddIpRoutesRequest(input *AddIpRoutesInput) (req *req
 // API operation AddIpRoutes for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeEntityDoesNotExistException "EntityDoesNotExistException"
+//   * EntityDoesNotExistException
 //   The specified entity could not be found.
 //
-//   * ErrCodeEntityAlreadyExistsException "EntityAlreadyExistsException"
+//   * EntityAlreadyExistsException
 //   The specified entity already exists.
 //
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   One or more parameters are not valid.
 //
-//   * ErrCodeDirectoryUnavailableException "DirectoryUnavailableException"
+//   * DirectoryUnavailableException
 //   The specified directory is unavailable or could not be found.
 //
-//   * ErrCodeIpRouteLimitExceededException "IpRouteLimitExceededException"
+//   * IpRouteLimitExceededException
 //   The maximum allowed number of IP addresses was exceeded. The default limit
 //   is 100 IP address blocks.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/AddIpRoutes
@@ -161,19 +161,19 @@ func (c *DirectoryService) AddTagsToResourceRequest(input *AddTagsToResourceInpu
 // API operation AddTagsToResource for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeEntityDoesNotExistException "EntityDoesNotExistException"
+//   * EntityDoesNotExistException
 //   The specified entity could not be found.
 //
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   One or more parameters are not valid.
 //
-//   * ErrCodeTagLimitExceededException "TagLimitExceededException"
+//   * TagLimitExceededException
 //   The maximum allowed number of tags was exceeded.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/AddTagsToResource
@@ -241,13 +241,13 @@ func (c *DirectoryService) CancelSchemaExtensionRequest(input *CancelSchemaExten
 // API operation CancelSchemaExtension for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeEntityDoesNotExistException "EntityDoesNotExistException"
+//   * EntityDoesNotExistException
 //   The specified entity could not be found.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/CancelSchemaExtension
@@ -317,18 +317,18 @@ func (c *DirectoryService) ConnectDirectoryRequest(input *ConnectDirectoryInput)
 // API operation ConnectDirectory for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeDirectoryLimitExceededException "DirectoryLimitExceededException"
+//   * DirectoryLimitExceededException
 //   The maximum number of directories in the region has been reached. You can
 //   use the GetDirectoryLimits operation to determine your directory limits in
 //   the region.
 //
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   One or more parameters are not valid.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/ConnectDirectory
@@ -398,19 +398,19 @@ func (c *DirectoryService) CreateAliasRequest(input *CreateAliasInput) (req *req
 // API operation CreateAlias for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeEntityAlreadyExistsException "EntityAlreadyExistsException"
+//   * EntityAlreadyExistsException
 //   The specified entity already exists.
 //
-//   * ErrCodeEntityDoesNotExistException "EntityDoesNotExistException"
+//   * EntityDoesNotExistException
 //   The specified entity could not be found.
 //
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   One or more parameters are not valid.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/CreateAlias
@@ -476,28 +476,28 @@ func (c *DirectoryService) CreateComputerRequest(input *CreateComputerInput) (re
 // API operation CreateComputer for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeAuthenticationFailedException "AuthenticationFailedException"
+//   * AuthenticationFailedException
 //   An authentication error occurred.
 //
-//   * ErrCodeDirectoryUnavailableException "DirectoryUnavailableException"
+//   * DirectoryUnavailableException
 //   The specified directory is unavailable or could not be found.
 //
-//   * ErrCodeEntityAlreadyExistsException "EntityAlreadyExistsException"
+//   * EntityAlreadyExistsException
 //   The specified entity already exists.
 //
-//   * ErrCodeEntityDoesNotExistException "EntityDoesNotExistException"
+//   * EntityDoesNotExistException
 //   The specified entity could not be found.
 //
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   One or more parameters are not valid.
 //
-//   * ErrCodeUnsupportedOperationException "UnsupportedOperationException"
+//   * UnsupportedOperationException
 //   The operation is not supported.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/CreateComputer
@@ -564,25 +564,25 @@ func (c *DirectoryService) CreateConditionalForwarderRequest(input *CreateCondit
 // API operation CreateConditionalForwarder for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeEntityAlreadyExistsException "EntityAlreadyExistsException"
+//   * EntityAlreadyExistsException
 //   The specified entity already exists.
 //
-//   * ErrCodeEntityDoesNotExistException "EntityDoesNotExistException"
+//   * EntityDoesNotExistException
 //   The specified entity could not be found.
 //
-//   * ErrCodeDirectoryUnavailableException "DirectoryUnavailableException"
+//   * DirectoryUnavailableException
 //   The specified directory is unavailable or could not be found.
 //
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   One or more parameters are not valid.
 //
-//   * ErrCodeUnsupportedOperationException "UnsupportedOperationException"
+//   * UnsupportedOperationException
 //   The operation is not supported.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/CreateConditionalForwarder
@@ -652,18 +652,18 @@ func (c *DirectoryService) CreateDirectoryRequest(input *CreateDirectoryInput) (
 // API operation CreateDirectory for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeDirectoryLimitExceededException "DirectoryLimitExceededException"
+//   * DirectoryLimitExceededException
 //   The maximum number of directories in the region has been reached. You can
 //   use the GetDirectoryLimits operation to determine your directory limits in
 //   the region.
 //
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   One or more parameters are not valid.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/CreateDirectory
@@ -733,21 +733,21 @@ func (c *DirectoryService) CreateMicrosoftADRequest(input *CreateMicrosoftADInpu
 // API operation CreateMicrosoftAD for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeDirectoryLimitExceededException "DirectoryLimitExceededException"
+//   * DirectoryLimitExceededException
 //   The maximum number of directories in the region has been reached. You can
 //   use the GetDirectoryLimits operation to determine your directory limits in
 //   the region.
 //
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   One or more parameters are not valid.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
-//   * ErrCodeUnsupportedOperationException "UnsupportedOperationException"
+//   * UnsupportedOperationException
 //   The operation is not supported.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/CreateMicrosoftAD
@@ -814,21 +814,21 @@ func (c *DirectoryService) CreateSnapshotRequest(input *CreateSnapshotInput) (re
 // API operation CreateSnapshot for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeEntityDoesNotExistException "EntityDoesNotExistException"
+//   * EntityDoesNotExistException
 //   The specified entity could not be found.
 //
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   One or more parameters are not valid.
 //
-//   * ErrCodeSnapshotLimitExceededException "SnapshotLimitExceededException"
+//   * SnapshotLimitExceededException
 //   The maximum number of manual snapshots for the directory has been reached.
 //   You can use the GetSnapshotLimits operation to determine the snapshot limits
 //   for a directory.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/CreateSnapshot
@@ -900,22 +900,22 @@ func (c *DirectoryService) CreateTrustRequest(input *CreateTrustInput) (req *req
 // API operation CreateTrust for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeEntityAlreadyExistsException "EntityAlreadyExistsException"
+//   * EntityAlreadyExistsException
 //   The specified entity already exists.
 //
-//   * ErrCodeEntityDoesNotExistException "EntityDoesNotExistException"
+//   * EntityDoesNotExistException
 //   The specified entity could not be found.
 //
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   One or more parameters are not valid.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
-//   * ErrCodeUnsupportedOperationException "UnsupportedOperationException"
+//   * UnsupportedOperationException
 //   The operation is not supported.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/CreateTrust
@@ -980,22 +980,22 @@ func (c *DirectoryService) DeleteConditionalForwarderRequest(input *DeleteCondit
 // API operation DeleteConditionalForwarder for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeEntityDoesNotExistException "EntityDoesNotExistException"
+//   * EntityDoesNotExistException
 //   The specified entity could not be found.
 //
-//   * ErrCodeDirectoryUnavailableException "DirectoryUnavailableException"
+//   * DirectoryUnavailableException
 //   The specified directory is unavailable or could not be found.
 //
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   One or more parameters are not valid.
 //
-//   * ErrCodeUnsupportedOperationException "UnsupportedOperationException"
+//   * UnsupportedOperationException
 //   The operation is not supported.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/DeleteConditionalForwarder
@@ -1065,13 +1065,13 @@ func (c *DirectoryService) DeleteDirectoryRequest(input *DeleteDirectoryInput) (
 // API operation DeleteDirectory for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeEntityDoesNotExistException "EntityDoesNotExistException"
+//   * EntityDoesNotExistException
 //   The specified entity could not be found.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/DeleteDirectory
@@ -1136,16 +1136,16 @@ func (c *DirectoryService) DeleteSnapshotRequest(input *DeleteSnapshotInput) (re
 // API operation DeleteSnapshot for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeEntityDoesNotExistException "EntityDoesNotExistException"
+//   * EntityDoesNotExistException
 //   The specified entity could not be found.
 //
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   One or more parameters are not valid.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/DeleteSnapshot
@@ -1211,19 +1211,19 @@ func (c *DirectoryService) DeleteTrustRequest(input *DeleteTrustInput) (req *req
 // API operation DeleteTrust for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeEntityDoesNotExistException "EntityDoesNotExistException"
+//   * EntityDoesNotExistException
 //   The specified entity could not be found.
 //
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   One or more parameters are not valid.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
-//   * ErrCodeUnsupportedOperationException "UnsupportedOperationException"
+//   * UnsupportedOperationException
 //   The operation is not supported.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/DeleteTrust
@@ -1288,16 +1288,16 @@ func (c *DirectoryService) DeregisterEventTopicRequest(input *DeregisterEventTop
 // API operation DeregisterEventTopic for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeEntityDoesNotExistException "EntityDoesNotExistException"
+//   * EntityDoesNotExistException
 //   The specified entity could not be found.
 //
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   One or more parameters are not valid.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/DeregisterEventTopic
@@ -1365,22 +1365,22 @@ func (c *DirectoryService) DescribeConditionalForwardersRequest(input *DescribeC
 // API operation DescribeConditionalForwarders for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeEntityDoesNotExistException "EntityDoesNotExistException"
+//   * EntityDoesNotExistException
 //   The specified entity could not be found.
 //
-//   * ErrCodeDirectoryUnavailableException "DirectoryUnavailableException"
+//   * DirectoryUnavailableException
 //   The specified directory is unavailable or could not be found.
 //
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   One or more parameters are not valid.
 //
-//   * ErrCodeUnsupportedOperationException "UnsupportedOperationException"
+//   * UnsupportedOperationException
 //   The operation is not supported.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/DescribeConditionalForwarders
@@ -1456,19 +1456,19 @@ func (c *DirectoryService) DescribeDirectoriesRequest(input *DescribeDirectories
 // API operation DescribeDirectories for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeEntityDoesNotExistException "EntityDoesNotExistException"
+//   * EntityDoesNotExistException
 //   The specified entity could not be found.
 //
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   One or more parameters are not valid.
 //
-//   * ErrCodeInvalidNextTokenException "InvalidNextTokenException"
+//   * InvalidNextTokenException
 //   The NextToken value is not valid.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/DescribeDirectories
@@ -1537,16 +1537,16 @@ func (c *DirectoryService) DescribeEventTopicsRequest(input *DescribeEventTopics
 // API operation DescribeEventTopics for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeEntityDoesNotExistException "EntityDoesNotExistException"
+//   * EntityDoesNotExistException
 //   The specified entity could not be found.
 //
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   One or more parameters are not valid.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/DescribeEventTopics
@@ -1618,19 +1618,19 @@ func (c *DirectoryService) DescribeSnapshotsRequest(input *DescribeSnapshotsInpu
 // API operation DescribeSnapshots for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeEntityDoesNotExistException "EntityDoesNotExistException"
+//   * EntityDoesNotExistException
 //   The specified entity could not be found.
 //
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   One or more parameters are not valid.
 //
-//   * ErrCodeInvalidNextTokenException "InvalidNextTokenException"
+//   * InvalidNextTokenException
 //   The NextToken value is not valid.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/DescribeSnapshots
@@ -1698,22 +1698,22 @@ func (c *DirectoryService) DescribeTrustsRequest(input *DescribeTrustsInput) (re
 // API operation DescribeTrusts for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeEntityDoesNotExistException "EntityDoesNotExistException"
+//   * EntityDoesNotExistException
 //   The specified entity could not be found.
 //
-//   * ErrCodeInvalidNextTokenException "InvalidNextTokenException"
+//   * InvalidNextTokenException
 //   The NextToken value is not valid.
 //
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   One or more parameters are not valid.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
-//   * ErrCodeUnsupportedOperationException "UnsupportedOperationException"
+//   * UnsupportedOperationException
 //   The operation is not supported.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/DescribeTrusts
@@ -1779,13 +1779,13 @@ func (c *DirectoryService) DisableRadiusRequest(input *DisableRadiusInput) (req 
 // API operation DisableRadius for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeEntityDoesNotExistException "EntityDoesNotExistException"
+//   * EntityDoesNotExistException
 //   The specified entity could not be found.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/DisableRadius
@@ -1850,19 +1850,19 @@ func (c *DirectoryService) DisableSsoRequest(input *DisableSsoInput) (req *reque
 // API operation DisableSso for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeEntityDoesNotExistException "EntityDoesNotExistException"
+//   * EntityDoesNotExistException
 //   The specified entity could not be found.
 //
-//   * ErrCodeInsufficientPermissionsException "InsufficientPermissionsException"
+//   * InsufficientPermissionsException
 //   The account does not have sufficient permission to perform the operation.
 //
-//   * ErrCodeAuthenticationFailedException "AuthenticationFailedException"
+//   * AuthenticationFailedException
 //   An authentication error occurred.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/DisableSso
@@ -1928,19 +1928,19 @@ func (c *DirectoryService) EnableRadiusRequest(input *EnableRadiusInput) (req *r
 // API operation EnableRadius for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   One or more parameters are not valid.
 //
-//   * ErrCodeEntityAlreadyExistsException "EntityAlreadyExistsException"
+//   * EntityAlreadyExistsException
 //   The specified entity already exists.
 //
-//   * ErrCodeEntityDoesNotExistException "EntityDoesNotExistException"
+//   * EntityDoesNotExistException
 //   The specified entity could not be found.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/EnableRadius
@@ -2005,19 +2005,19 @@ func (c *DirectoryService) EnableSsoRequest(input *EnableSsoInput) (req *request
 // API operation EnableSso for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeEntityDoesNotExistException "EntityDoesNotExistException"
+//   * EntityDoesNotExistException
 //   The specified entity could not be found.
 //
-//   * ErrCodeInsufficientPermissionsException "InsufficientPermissionsException"
+//   * InsufficientPermissionsException
 //   The account does not have sufficient permission to perform the operation.
 //
-//   * ErrCodeAuthenticationFailedException "AuthenticationFailedException"
+//   * AuthenticationFailedException
 //   An authentication error occurred.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/EnableSso
@@ -2082,13 +2082,13 @@ func (c *DirectoryService) GetDirectoryLimitsRequest(input *GetDirectoryLimitsIn
 // API operation GetDirectoryLimits for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeEntityDoesNotExistException "EntityDoesNotExistException"
+//   * EntityDoesNotExistException
 //   The specified entity could not be found.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/GetDirectoryLimits
@@ -2153,13 +2153,13 @@ func (c *DirectoryService) GetSnapshotLimitsRequest(input *GetSnapshotLimitsInpu
 // API operation GetSnapshotLimits for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeEntityDoesNotExistException "EntityDoesNotExistException"
+//   * EntityDoesNotExistException
 //   The specified entity could not be found.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/GetSnapshotLimits
@@ -2224,19 +2224,19 @@ func (c *DirectoryService) ListIpRoutesRequest(input *ListIpRoutesInput) (req *r
 // API operation ListIpRoutes for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeEntityDoesNotExistException "EntityDoesNotExistException"
+//   * EntityDoesNotExistException
 //   The specified entity could not be found.
 //
-//   * ErrCodeInvalidNextTokenException "InvalidNextTokenException"
+//   * InvalidNextTokenException
 //   The NextToken value is not valid.
 //
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   One or more parameters are not valid.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/ListIpRoutes
@@ -2301,16 +2301,16 @@ func (c *DirectoryService) ListSchemaExtensionsRequest(input *ListSchemaExtensio
 // API operation ListSchemaExtensions for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidNextTokenException "InvalidNextTokenException"
+//   * InvalidNextTokenException
 //   The NextToken value is not valid.
 //
-//   * ErrCodeEntityDoesNotExistException "EntityDoesNotExistException"
+//   * EntityDoesNotExistException
 //   The specified entity could not be found.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/ListSchemaExtensions
@@ -2375,19 +2375,19 @@ func (c *DirectoryService) ListTagsForResourceRequest(input *ListTagsForResource
 // API operation ListTagsForResource for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeEntityDoesNotExistException "EntityDoesNotExistException"
+//   * EntityDoesNotExistException
 //   The specified entity could not be found.
 //
-//   * ErrCodeInvalidNextTokenException "InvalidNextTokenException"
+//   * InvalidNextTokenException
 //   The NextToken value is not valid.
 //
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   One or more parameters are not valid.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/ListTagsForResource
@@ -2457,16 +2457,16 @@ func (c *DirectoryService) RegisterEventTopicRequest(input *RegisterEventTopicIn
 // API operation RegisterEventTopic for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeEntityDoesNotExistException "EntityDoesNotExistException"
+//   * EntityDoesNotExistException
 //   The specified entity could not be found.
 //
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   One or more parameters are not valid.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/RegisterEventTopic
@@ -2531,19 +2531,19 @@ func (c *DirectoryService) RemoveIpRoutesRequest(input *RemoveIpRoutesInput) (re
 // API operation RemoveIpRoutes for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeEntityDoesNotExistException "EntityDoesNotExistException"
+//   * EntityDoesNotExistException
 //   The specified entity could not be found.
 //
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   One or more parameters are not valid.
 //
-//   * ErrCodeDirectoryUnavailableException "DirectoryUnavailableException"
+//   * DirectoryUnavailableException
 //   The specified directory is unavailable or could not be found.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/RemoveIpRoutes
@@ -2608,16 +2608,16 @@ func (c *DirectoryService) RemoveTagsFromResourceRequest(input *RemoveTagsFromRe
 // API operation RemoveTagsFromResource for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeEntityDoesNotExistException "EntityDoesNotExistException"
+//   * EntityDoesNotExistException
 //   The specified entity could not be found.
 //
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   One or more parameters are not valid.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/RemoveTagsFromResource
@@ -2690,16 +2690,16 @@ func (c *DirectoryService) RestoreFromSnapshotRequest(input *RestoreFromSnapshot
 // API operation RestoreFromSnapshot for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeEntityDoesNotExistException "EntityDoesNotExistException"
+//   * EntityDoesNotExistException
 //   The specified entity could not be found.
 //
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   One or more parameters are not valid.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/RestoreFromSnapshot
@@ -2764,24 +2764,24 @@ func (c *DirectoryService) StartSchemaExtensionRequest(input *StartSchemaExtensi
 // API operation StartSchemaExtension for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeDirectoryUnavailableException "DirectoryUnavailableException"
+//   * DirectoryUnavailableException
 //   The specified directory is unavailable or could not be found.
 //
-//   * ErrCodeEntityDoesNotExistException "EntityDoesNotExistException"
+//   * EntityDoesNotExistException
 //   The specified entity could not be found.
 //
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   One or more parameters are not valid.
 //
-//   * ErrCodeSnapshotLimitExceededException "SnapshotLimitExceededException"
+//   * SnapshotLimitExceededException
 //   The maximum number of manual snapshots for the directory has been reached.
 //   You can use the GetSnapshotLimits operation to determine the snapshot limits
 //   for a directory.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/StartSchemaExtension
@@ -2846,22 +2846,22 @@ func (c *DirectoryService) UpdateConditionalForwarderRequest(input *UpdateCondit
 // API operation UpdateConditionalForwarder for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeEntityDoesNotExistException "EntityDoesNotExistException"
+//   * EntityDoesNotExistException
 //   The specified entity could not be found.
 //
-//   * ErrCodeDirectoryUnavailableException "DirectoryUnavailableException"
+//   * DirectoryUnavailableException
 //   The specified directory is unavailable or could not be found.
 //
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   One or more parameters are not valid.
 //
-//   * ErrCodeUnsupportedOperationException "UnsupportedOperationException"
+//   * UnsupportedOperationException
 //   The operation is not supported.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/UpdateConditionalForwarder
@@ -2927,16 +2927,16 @@ func (c *DirectoryService) UpdateRadiusRequest(input *UpdateRadiusInput) (req *r
 // API operation UpdateRadius for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   One or more parameters are not valid.
 //
-//   * ErrCodeEntityDoesNotExistException "EntityDoesNotExistException"
+//   * EntityDoesNotExistException
 //   The specified entity could not be found.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/UpdateRadius
@@ -3005,19 +3005,19 @@ func (c *DirectoryService) VerifyTrustRequest(input *VerifyTrustInput) (req *req
 // API operation VerifyTrust for usage and error information.
 //
 // Returned Error Codes:
-//   * ErrCodeEntityDoesNotExistException "EntityDoesNotExistException"
+//   * EntityDoesNotExistException
 //   The specified entity could not be found.
 //
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   * InvalidParameterException
 //   One or more parameters are not valid.
 //
-//   * ErrCodeClientException "ClientException"
+//   * ClientException
 //   A client exception has occurred.
 //
-//   * ErrCodeServiceException "ServiceException"
+//   * ServiceException
 //   An exception has occurred in AWS Directory Service.
 //
-//   * ErrCodeUnsupportedOperationException "UnsupportedOperationException"
+//   * UnsupportedOperationException
 //   The operation is not supported.
 //
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ds-2015-04-16/VerifyTrust

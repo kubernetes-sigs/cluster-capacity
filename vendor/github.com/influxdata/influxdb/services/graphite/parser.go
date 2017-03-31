@@ -13,10 +13,7 @@ import (
 
 // Minimum and maximum supported dates for timestamps.
 var (
-	// The minimum graphite timestamp allowed.
 	MinDate = time.Date(1901, 12, 13, 0, 0, 0, 0, time.UTC)
-
-	// The maximum graphite timestamp allowed.
 	MaxDate = time.Date(2038, 1, 19, 0, 0, 0, 0, time.UTC)
 )
 
@@ -36,14 +33,14 @@ type Parser struct {
 	tags    models.Tags
 }
 
-// Options are configurable values that can be provided to a Parser.
+// Options are configurable values that can be provided to a Parser
 type Options struct {
 	Separator   string
 	Templates   []string
 	DefaultTags models.Tags
 }
 
-// NewParserWithOptions returns a graphite parser using the given options.
+// NewParserWithOptions returns a graphite parser using the given options
 func NewParserWithOptions(options Options) (*Parser, error) {
 
 	matcher := newMatcher()
@@ -182,7 +179,7 @@ func (p *Parser) ApplyTemplate(line string) (string, map[string]string, string, 
 	return name, tags, field, err
 }
 
-// template represents a pattern and tags to map a graphite metric string to a influxdb Point.
+// template represents a pattern and tags to map a graphite metric string to a influxdb Point
 type template struct {
 	tags              []string
 	defaultTags       models.Tags
@@ -214,7 +211,7 @@ func NewTemplate(pattern string, defaultTags models.Tags, separator string) (*te
 }
 
 // Apply extracts the template fields from the given line and returns the measurement
-// name and tags.
+// name and tags
 func (t *template) Apply(line string) (string, map[string]string, string, error) {
 	fields := strings.Split(line, ".")
 	var (
@@ -287,7 +284,7 @@ func newMatcher() *matcher {
 	}
 }
 
-// Add inserts the template in the filter tree based the given filter.
+// Add inserts the template in the filter tree based the given filter
 func (m *matcher) Add(filter string, template *template) {
 	if filter == "" {
 		m.AddDefaultTemplate(template)
@@ -300,7 +297,7 @@ func (m *matcher) AddDefaultTemplate(template *template) {
 	m.defaultTemplate = template
 }
 
-// Match returns the template that matches the given graphite line.
+// Match returns the template that matches the given graphite line
 func (m *matcher) Match(line string) *template {
 	tmpl := m.root.Search(line)
 	if tmpl != nil {

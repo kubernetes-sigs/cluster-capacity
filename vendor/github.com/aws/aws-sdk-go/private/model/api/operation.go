@@ -125,10 +125,10 @@ func (c *{{ .API.StructName }}) {{ .ExportedName }}Request(` +
 //
 // Returned Error Codes:
 {{ range $_, $err := .ErrorRefs -}}
-//   * {{ $err.Shape.ErrorCodeName }} "{{ $err.Shape.ErrorName}}"
-{{ if $err.Docstring -}}
-{{ $err.IndentedDocstring }}
-{{ end -}}
+	{{ $errDoc := $err.IndentedDocstring -}}
+//   * {{ $err.Shape.ErrorName }}
+{{ if $errDoc -}}
+{{ $errDoc }}{{ end }}
 //
 {{ end -}}
 {{ end -}}

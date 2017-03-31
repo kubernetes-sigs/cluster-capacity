@@ -22,9 +22,8 @@ import (
 )
 
 var (
-	delPrefix  bool
-	delPrevKV  bool
-	delFromKey bool
+	delPrefix bool
+	delPrevKV bool
 )
 
 // NewDelCommand returns the cobra command for "del".
@@ -37,7 +36,6 @@ func NewDelCommand() *cobra.Command {
 
 	cmd.Flags().BoolVar(&delPrefix, "prefix", false, "delete keys with matching prefix")
 	cmd.Flags().BoolVar(&delPrevKV, "prev-kv", false, "return deleted key-value pairs")
-	cmd.Flags().BoolVar(&delFromKey, "from-key", false, "delete keys that are greater than or equal to the given key using byte compare")
 	return cmd
 }
 
@@ -57,37 +55,20 @@ func getDelOp(cmd *cobra.Command, args []string) (string, []clientv3.OpOption) {
 	if len(args) == 0 || len(args) > 2 {
 		ExitWithError(ExitBadArgs, fmt.Errorf("del command needs one argument as key and an optional argument as range_end."))
 	}
-
-	if delPrefix && delFromKey {
-		ExitWithError(ExitBadArgs, fmt.Errorf("`--prefix` and `--from-key` cannot be set at the same time, choose one."))
-	}
-
 	opts := []clientv3.OpOption{}
 	key := args[0]
 	if len(args) > 1 {
-		if delPrefix || delFromKey {
-			ExitWithError(ExitBadArgs, fmt.Errorf("too many arguments, only accept one argument when `--prefix` or `--from-key` is set."))
+		if delPrefix {
+			ExitWithError(ExitBadArgs, fmt.Errorf("too many arguments, only accept one arguement when `--prefix` is set."))
 		}
 		opts = append(opts, clientv3.WithRange(args[1]))
 	}
 
 	if delPrefix {
-		if len(key) == 0 {
-			key = "\x00"
-			opts = append(opts, clientv3.WithFromKey())
-		} else {
-			opts = append(opts, clientv3.WithPrefix())
-		}
+		opts = append(opts, clientv3.WithPrefix())
 	}
 	if delPrevKV {
 		opts = append(opts, clientv3.WithPrevKV())
-	}
-
-	if delFromKey {
-		if len(key) == 0 {
-			key = "\x00"
-		}
-		opts = append(opts, clientv3.WithFromKey())
 	}
 
 	return key, opts

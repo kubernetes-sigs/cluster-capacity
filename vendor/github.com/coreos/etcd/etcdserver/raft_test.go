@@ -159,7 +159,7 @@ func TestStopRaftWhenWaitingForApplyDone(t *testing.T) {
 		raftStorage: raft.NewMemoryStorage(),
 		transport:   rafthttp.NewNopTransporter(),
 	}}
-	srv.r.start(nil)
+	srv.r.start(srv)
 	n.readyc <- raft.Ready{}
 	select {
 	case <-srv.r.applyc:

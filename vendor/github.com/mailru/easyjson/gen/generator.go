@@ -8,14 +8,12 @@ import (
 	"path"
 	"reflect"
 	"sort"
-	"strconv"
 	"strings"
 	"unicode"
 )
 
 const pkgWriter = "github.com/mailru/easyjson/jwriter"
 const pkgLexer = "github.com/mailru/easyjson/jlexer"
-const pkgEasyJSON = "github.com/mailru/easyjson"
 
 // FieldNamer defines a policy for generating names for struct fields.
 type FieldNamer interface {
@@ -60,7 +58,6 @@ func NewGenerator(filename string) *Generator {
 		imports: map[string]string{
 			pkgWriter:       "jwriter",
 			pkgLexer:        "jlexer",
-			pkgEasyJSON:     "easyjson",
 			"encoding/json": "json",
 		},
 		fieldNamer:    DefaultFieldNamer{},
@@ -161,10 +158,9 @@ func (g *Generator) printHeader() {
 	fmt.Println("")
 	fmt.Println("// suppress unused package warning")
 	fmt.Println("var (")
-	fmt.Println("   _ *json.RawMessage")
-	fmt.Println("   _ *jlexer.Lexer")
-	fmt.Println("   _ *jwriter.Writer")
-	fmt.Println("   _ easyjson.Marshaler")
+	fmt.Println("   _ = json.RawMessage{}")
+	fmt.Println("   _ = jlexer.Lexer{}")
+	fmt.Println("   _ = jwriter.Writer{}")
 	fmt.Println(")")
 
 	fmt.Println()
@@ -202,18 +198,8 @@ func (g *Generator) Run(out io.Writer) error {
 	return err
 }
 
-// fixes vendored paths
-func fixPkgPathVendoring(pkgPath string) string {
-	const vendor = "/vendor/"
-	if i := strings.LastIndex(pkgPath, vendor); i != -1 {
-		return pkgPath[i+len(vendor):]
-	}
-	return pkgPath
-}
-
 // pkgAlias creates and returns and import alias for a given package.
 func (g *Generator) pkgAlias(pkgPath string) string {
-	pkgPath = fixPkgPathVendoring(pkgPath)
 	if alias := g.imports[pkgPath]; alias != "" {
 		return alias
 	}
@@ -247,47 +233,18 @@ func (g *Generator) getType(t reflect.Type) string {
 			return "*" + g.getType(t.Elem())
 		case reflect.Slice:
 			return "[]" + g.getType(t.Elem())
-		case reflect.Array:
-			return "[" + strconv.Itoa(t.Len()) + "]" + g.getType(t.Elem())
 		case reflect.Map:
 			return "map[" + g.getType(t.Key()) + "]" + g.getType(t.Elem())
 		}
 	}
 
 	if t.Name() == "" || t.PkgPath() == "" {
-		if t.Kind() == reflect.Struct {
-			// the fields of an anonymous struct can have named types,
-			// and t.String() will not be sufficient because it does not
-			// remove the package name when it matches g.pkgPath.
-			// so we convert by hand
-			nf := t.NumField()
-			lines := make([]string, 0, nf)
-			for i := 0; i < nf; i++ {
-				f := t.Field(i)
-				line := f.Name + " " + g.getType(f.Type)
-				t := f.Tag
-				if t != "" {
-					line += " " + escapeTag(t)
-				}
-				lines = append(lines, line)
-			}
-			return strings.Join([]string{"struct { ", strings.Join(lines, "; "), " }"}, "")
-		}
 		return t.String()
 	} else if t.PkgPath() == g.pkgPath {
 		return t.Name()
 	}
+	// TODO: unnamed structs.
 	return g.pkgAlias(t.PkgPath()) + "." + t.Name()
-}
-
-// escape a struct field tag string back to source code
-func escapeTag(tag reflect.StructTag) string {
-	t := string(tag)
-	if strings.ContainsRune(t, '`') {
-		// there are ` in the string; we can't use ` to enclose the string
-		return strconv.Quote(t)
-	}
-	return "`" + t + "`"
 }
 
 // uniqueVarName returns a file-unique name that can be used for generated variables.

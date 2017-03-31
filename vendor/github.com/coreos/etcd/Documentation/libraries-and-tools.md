@@ -14,7 +14,6 @@
 - [etcdtool](https://github.com/mickep76/etcdtool) - Export/Import/Edit etcd directory as JSON/YAML/TOML and Validate directory using JSON schema
 - [etcd-rest](https://github.com/mickep76/etcd-rest) - Create generic REST API in Go using etcd as a backend with validation using JSON schema
 - [etcdsh](https://github.com/kamilhark/etcdsh) - A command line client with support of command history and tab completion. Supports v2
-- [etcdloadtest](https://github.com/sinsharat/etcdloadtest) - A command line load test client for etcd version 3.0 and above.
 
 **Go libraries**
 
@@ -24,7 +23,6 @@
 
 **Java libraries**
 
-- [coreos/jetcd](https://github.com/coreos/jetcd) - Supports v3
 - [boonproject/etcd](https://github.com/boonproject/boon/blob/master/etcd/README.md) - Supports v2, Async/Sync and waits
 - [justinsb/jetcd](https://github.com/justinsb/jetcd)
 - [diwakergupta/jetcd](https://github.com/diwakergupta/jetcd) - Supports v2
@@ -35,11 +33,9 @@
 **Scala libraries**
 
 - [maciej/etcd-client](https://github.com/maciej/etcd-client) - Supports v2. Akka HTTP-based fully async client
-- [eiipii/etcdhttpclient](https://bitbucket.org/eiipii/etcdhttpclient) - Supports v2. Async HTTP client based on Netty and Scala Futures.
 
 **Python libraries**
 
-- [kragniz/python-etcd3](https://github.com/kragniz/python-etcd3) - Work in progress client for v3
 - [jplana/python-etcd](https://github.com/jplana/python-etcd) - Supports v2
 - [russellhaering/txetcd](https://github.com/russellhaering/txetcd) - a Twisted Python library
 - [cholcombe973/autodock](https://github.com/cholcombe973/autodock) - A docker deployment automation tool
@@ -59,15 +55,12 @@
 
 **C libraries**
 
-- [apache/celix/etcdlib](https://github.com/apache/celix/tree/develop/etcdlib) - Supports v2
 - [jdarcy/etcd-api](https://github.com/jdarcy/etcd-api) - Supports v2
 - [shafreeck/cetcd](https://github.com/shafreeck/cetcd) - Supports v2
 
 **C++ libraries**
 - [edwardcapriolo/etcdcpp](https://github.com/edwardcapriolo/etcdcpp) - Supports v2
 - [suryanathan/etcdcpp](https://github.com/suryanathan/etcdcpp) - Supports v2 (with waits)
-- [nokia/etcd-cpp-api](https://github.com/nokia/etcd-cpp-api) - Supports v2
-- [nokia/etcd-cpp-apiv3](https://github.com/nokia/etcd-cpp-apiv3) - Supports v3
 
 **Clojure libraries**
 
@@ -87,7 +80,6 @@
 **PHP Libraries**
 
 - [linkorb/etcd-php](https://github.com/linkorb/etcd-php)
-- [activecollab/etcd](https://github.com/activecollab/etcd) 
 
 **Haskell libraries**
 
@@ -97,17 +89,9 @@
 
 - [ropensci/etseed](https://github.com/ropensci/etseed)
 
-**Nim libraries**
-
-- [etcd_client](https://github.com/FedericoCeratto/nim-etcd-client)
-
 **Tcl libraries**
 
 - [efrecon/etcd-tcl](https://github.com/efrecon/etcd-tcl) - Supports v2, except wait.
-
-**Rust libraries**
-
-- [jimmycuadra/rust-etcd](https://github.com/jimmycuadra/rust-etcd) - Supports v2
 
 **Gradle Plugins**
 
@@ -128,11 +112,8 @@
 
 **Projects using etcd**
 
-- [apache/celix](https://github.com/apache/celix) - an implementation of the OSGi specification adapted to C and C++
 - [binocarlos/yoda](https://github.com/binocarlos/yoda) - etcd + ZeroMQ
-- [blox/blox](https://github.com/blox/blox) - a collection of open source projects for container management and orchestration with AWS ECS
 - [calavera/active-proxy](https://github.com/calavera/active-proxy) - HTTP Proxy configured with etcd
-- [chain/chain](https://github.com/chain/chain) - software designed to operate and connect to highly scalable permissioned blockchain networks 
 - [derekchiang/etcdplus](https://github.com/derekchiang/etcdplus) - A set of distributed synchronization primitives built upon etcd
 - [go-discover](https://github.com/flynn/go-discover) - service discovery in Go
 - [gleicon/goreman](https://github.com/gleicon/goreman/tree/etcd) - Branch of the Go Foreman clone with etcd support
@@ -141,6 +122,7 @@
 - [mattn/etcdenv](https://github.com/mattn/etcdenv) - "env" shebang with etcd integration
 - [kelseyhightower/confd](https://github.com/kelseyhightower/confd) - Manage local app config files using templates and data from etcd
 - [configdb](https://git.autistici.org/ai/configdb/tree/master) - A REST relational abstraction on top of arbitrary database backends, aimed at storing configs and inventories.
+- [scrz](https://github.com/scrz/scrz) - Container manager, stores configuration in etcd.
 - [fleet](https://github.com/coreos/fleet) - Distributed init system
 - [kubernetes/kubernetes](https://github.com/kubernetes/kubernetes) - Container cluster manager introduced by Google.
 - [mailgun/vulcand](https://github.com/mailgun/vulcand) - HTTP proxy that uses etcd as a configuration backend.

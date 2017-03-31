@@ -1,5 +1,3 @@
-// Package coordinator contains abstractions for writing points, executing statements,
-// and accessing meta data.
 package coordinator
 
 import (
@@ -26,7 +24,7 @@ const (
 	DefaultMaxSelectSeriesN = 0
 )
 
-// Config represents the configuration for the coordinator service.
+// Config represents the configuration for the clustering service.
 type Config struct {
 	WriteTimeout         toml.Duration `toml:"write-timeout"`
 	MaxConcurrentQueries int           `toml:"max-concurrent-queries"`

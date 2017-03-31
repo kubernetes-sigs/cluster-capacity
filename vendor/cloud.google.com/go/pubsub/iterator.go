@@ -20,10 +20,12 @@ import (
 
 	"golang.org/x/net/context"
 	"google.golang.org/api/iterator"
-	"google.golang.org/api/support/bundler"
 )
 
-type MessageIterator struct {
+// Done is returned when an iteration is complete.
+var Done = iterator.Done
+
+type Iterator struct {
 	// kaTicker controls how often we send an ack deadline extension request.
 	kaTicker *time.Ticker
 	// ackTicker controls how often we acknowledge a batch of messages.
@@ -31,7 +33,6 @@ type MessageIterator struct {
 
 	ka     *keepAlive
 	acker  *acker
-	nacker *bundler.Bundler
 	puller *puller
 
 	// mu ensures that cleanup only happens once, and concurrent Stop
@@ -42,11 +43,11 @@ type MessageIterator struct {
 	closed chan struct{}
 }
 
-// newMessageIterator starts a new MessageIterator.  Stop must be called on the MessageIterator
+// newIterator starts a new Iterator.  Stop must be called on the Iterator
 // when it is no longer needed.
 // subName is the full name of the subscription to pull messages from.
 // ctx is the context to use for acking messages and extending message deadlines.
-func newMessageIterator(ctx context.Context, s service, subName string, po *pullOptions) *MessageIterator {
+func newIterator(ctx context.Context, s service, subName string, po *pullOptions) *Iterator {
 	// TODO: make kaTicker frequency more configurable.
 	// (ackDeadline - 5s) is a reasonable default for now, because the minimum ack period is 10s.  This gives us 5s grace.
 	keepAlivePeriod := po.ackDeadline - 5*time.Second
@@ -74,28 +75,15 @@ func newMessageIterator(ctx context.Context, s service, subName string, po *pull
 		Notify:  ka.Remove,
 	}
 
-	nacker := bundler.NewBundler("", func(ackIDs interface{}) {
-		// NACK by setting the ack deadline to zero, to make the message
-		// immediately available for redelivery.
-		//
-		// If the RPC fails, nothing we can do about it. In the worst case, the
-		// deadline for these messages will expire and they will still get
-		// redelivered.
-		_ = s.modifyAckDeadline(ctx, subName, 0, ackIDs.([]string))
-	})
-	nacker.DelayThreshold = keepAlivePeriod / 10 // nack promptly
-	nacker.BundleCountThreshold = 10
-
-	pull := newPuller(s, subName, ctx, po.maxPrefetch, ka.Add, ka.Remove)
+	pull := newPuller(s, subName, ctx, int64(po.maxPrefetch), ka.Add, ka.Remove)
 
 	ka.Start()
 	ack.Start()
-	return &MessageIterator{
+	return &Iterator{
 		kaTicker:  kaTicker,
 		ackTicker: ackTicker,
 		ka:        ka,
 		acker:     ack,
-		nacker:    nacker,
 		puller:    pull,
 		closed:    make(chan struct{}),
 	}
@@ -103,8 +91,8 @@ func newMessageIterator(ctx context.Context, s service, subName string, po *pull
 
 // Next returns the next Message to be processed.  The caller must call
 // Message.Done when finished with it.
-// Once Stop has been called, calls to Next will return iterator.Done.
-func (it *MessageIterator) Next() (*Message, error) {
+// Once Stop has been called, calls to Next will return Done.
+func (it *Iterator) Next() (*Message, error) {
 	m, err := it.puller.Next()
 
 	if err == nil {
@@ -115,19 +103,19 @@ func (it *MessageIterator) Next() (*Message, error) {
 	select {
 	// If Stop has been called, we return Done regardless the value of err.
 	case <-it.closed:
-		return nil, iterator.Done
+		return nil, Done
 	default:
 		return nil, err
 	}
 }
 
-// Client code must call Stop on a MessageIterator when finished with it.
+// Client code must call Stop on an Iterator when finished with it.
 // Stop will block until Done has been called on all Messages that have been
-// returned by Next, or until the context with which the MessageIterator was created
+// returned by Next, or until the context with which the Iterator was created
 // is cancelled or exceeds its deadline.
 // Stop need only be called once, but may be called multiple times from
 // multiple goroutines.
-func (it *MessageIterator) Stop() {
+func (it *Iterator) Stop() {
 	it.mu.Lock()
 	defer it.mu.Unlock()
 
@@ -139,7 +127,7 @@ func (it *MessageIterator) Stop() {
 	}
 
 	// We close this channel before calling it.puller.Stop to ensure that we
-	// reliably return iterator.Done from Next.
+	// reliably return Done from Next.
 	close(it.closed)
 
 	// Stop the puller. Once this completes, no more messages will be added
@@ -158,18 +146,20 @@ func (it *MessageIterator) Stop() {
 
 	// There are no more live messages, so kill off the acker.
 	it.acker.Stop()
-	it.nacker.Stop()
+
 	it.kaTicker.Stop()
 	it.ackTicker.Stop()
 }
 
-func (it *MessageIterator) done(ackID string, ack bool) {
+func (it *Iterator) done(ackID string, ack bool) {
 	if ack {
 		it.acker.Ack(ackID)
 		// There's no need to call it.ka.Remove here, as acker will
 		// call it via its Notify function.
 	} else {
+		// TODO: explicitly NACK the message by sending an
+		// ModifyAckDeadline request with 0s deadline, to make the
+		// message immediately available for redelivery.
 		it.ka.Remove(ackID)
-		_ = it.nacker.Add(ackID, len(ackID)) // ignore error; this is just an optimization
 	}
 }

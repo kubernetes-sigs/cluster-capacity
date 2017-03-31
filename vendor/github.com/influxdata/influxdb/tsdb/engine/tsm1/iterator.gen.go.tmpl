@@ -267,22 +267,24 @@ func (itr *{{.name}}LimitIterator) Stats() influxql.IteratorStats { return itr.i
 func (itr *{{.name}}LimitIterator) Close() error                  { return itr.input.Close() }
 
 func (itr *{{.name}}LimitIterator) Next() (*influxql.{{.Name}}Point, error) {
-	// Check if we are beyond the limit.
-	if (itr.n-itr.opt.Offset) > itr.opt.Limit {
-		return nil, nil
+	for {
+		// Check if we are beyond the limit.
+		if (itr.n-itr.opt.Offset) > itr.opt.Limit {
+			return nil, nil
+		}
+
+		// Read the next point.
+		p, err := itr.input.Next()
+		if p == nil || err != nil {
+			return nil, err
+		}
+
+		// Increment counter.
+		itr.n++
+
+		// Offsets are handled by a higher level iterator so return all points.
+		return p, nil
 	}
-
-	// Read the next point.
-	p, err := itr.input.Next()
-	if p == nil || err != nil {
-		return nil, err
-	}
-
-	// Increment counter.
-	itr.n++
-
-	// Offsets are handled by a higher level iterator so return all points.
-	return p, nil
 }
 
 // {{.name}}Cursor represents an object for iterating over a single {{.name}} field.

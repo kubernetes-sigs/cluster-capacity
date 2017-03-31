@@ -67,7 +67,6 @@ func New(client *http.Client) (*Service, error) {
 		return nil, errors.New("client is nil")
 	}
 	s := &Service{client: client, BasePath: basePath}
-	s.Categories = NewCategoriesService(s)
 	s.Projects = NewProjectsService(s)
 	return s, nil
 }
@@ -76,8 +75,6 @@ type Service struct {
 	client    *http.Client
 	BasePath  string // API endpoint base URL
 	UserAgent string // optional additional User-Agent fragment
-
-	Categories *CategoriesService
 
 	Projects *ProjectsService
 }
@@ -89,30 +86,8 @@ func (s *Service) userAgent() string {
 	return googleapi.UserAgent + " " + s.UserAgent
 }
 
-func NewCategoriesService(s *Service) *CategoriesService {
-	rs := &CategoriesService{s: s}
-	rs.MetricAssociations = NewCategoriesMetricAssociationsService(s)
-	return rs
-}
-
-type CategoriesService struct {
-	s *Service
-
-	MetricAssociations *CategoriesMetricAssociationsService
-}
-
-func NewCategoriesMetricAssociationsService(s *Service) *CategoriesMetricAssociationsService {
-	rs := &CategoriesMetricAssociationsService{s: s}
-	return rs
-}
-
-type CategoriesMetricAssociationsService struct {
-	s *Service
-}
-
 func NewProjectsService(s *Service) *ProjectsService {
 	rs := &ProjectsService{s: s}
-	rs.Categories = NewProjectsCategoriesService(s)
 	rs.CollectdTimeSeries = NewProjectsCollectdTimeSeriesService(s)
 	rs.Groups = NewProjectsGroupsService(s)
 	rs.MetricDescriptors = NewProjectsMetricDescriptorsService(s)
@@ -124,8 +99,6 @@ func NewProjectsService(s *Service) *ProjectsService {
 type ProjectsService struct {
 	s *Service
 
-	Categories *ProjectsCategoriesService
-
 	CollectdTimeSeries *ProjectsCollectdTimeSeriesService
 
 	Groups *ProjectsGroupsService
@@ -135,27 +108,6 @@ type ProjectsService struct {
 	MonitoredResourceDescriptors *ProjectsMonitoredResourceDescriptorsService
 
 	TimeSeries *ProjectsTimeSeriesService
-}
-
-func NewProjectsCategoriesService(s *Service) *ProjectsCategoriesService {
-	rs := &ProjectsCategoriesService{s: s}
-	rs.MetricAssociations = NewProjectsCategoriesMetricAssociationsService(s)
-	return rs
-}
-
-type ProjectsCategoriesService struct {
-	s *Service
-
-	MetricAssociations *ProjectsCategoriesMetricAssociationsService
-}
-
-func NewProjectsCategoriesMetricAssociationsService(s *Service) *ProjectsCategoriesMetricAssociationsService {
-	rs := &ProjectsCategoriesMetricAssociationsService{s: s}
-	return rs
-}
-
-type ProjectsCategoriesMetricAssociationsService struct {
-	s *Service
 }
 
 func NewProjectsCollectdTimeSeriesService(s *Service) *ProjectsCollectdTimeSeriesService {
@@ -225,7 +177,7 @@ type ProjectsTimeSeriesService struct {
 // lower bound.The sequence of N buckets for a Distribution consists of
 // an underflow bucket (number 0), zero or more finite buckets (number 1
 // through N - 2) and an overflow bucket (number N - 1). The buckets are
-// contiguous: the lower bound of bucket i (i > 0) is the same as the
+// contiguous: the lower bound of bucket i (i &gt; 0) is the same as the
 // upper bound of bucket i - 1. The buckets span the whole range of
 // finite values: lower bound of the underflow bucket is -infinity and
 // the upper bound of the overflow bucket is +infinity. The finite
@@ -268,55 +220,6 @@ func (s *BucketOptions) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-// Category: A Vital Signs Category.
-type Category struct {
-	// Description: A human-readable description for the category. The
-	// description can be longer and contain more details.
-	Description string `json:"description,omitempty"`
-
-	// DisplayName: A human-readable name for the category.
-	DisplayName string `json:"displayName,omitempty"`
-
-	// IsDefault: A flag to indicate whether this category is part of
-	// Stackdriver's default taxonomy.
-	IsDefault bool `json:"isDefault,omitempty"`
-
-	// Name: Resource name for the category. e.g.
-	// projects/91091/categories/latency or
-	// projects/91091/categories/custom:goodness
-	Name string `json:"name,omitempty"`
-
-	// ShortName: Unique usually one-word name for this category. e.g.
-	// latency or custom:goodness
-	ShortName string `json:"shortName,omitempty"`
-
-	// ServerResponse contains the HTTP response code and headers from the
-	// server.
-	googleapi.ServerResponse `json:"-"`
-
-	// ForceSendFields is a list of field names (e.g. "Description") to
-	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
-	ForceSendFields []string `json:"-"`
-
-	// NullFields is a list of field names (e.g. "Description") to include
-	// in API requests with the JSON null value. By default, fields with
-	// empty values are omitted from API requests. However, any field with
-	// an empty value appearing in NullFields will be sent to the server as
-	// null. It is an error if a field in this list has a non-empty value.
-	// This may be used to include null fields in Patch requests.
-	NullFields []string `json:"-"`
-}
-
-func (s *Category) MarshalJSON() ([]byte, error) {
-	type noMethod Category
-	raw := noMethod(*s)
-	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
-}
-
 // CollectdPayload: A collection of data points sent from a
 // collectd-based plugin. See the collectd documentation for more
 // information.
@@ -324,22 +227,25 @@ type CollectdPayload struct {
 	// EndTime: The end time of the interval.
 	EndTime string `json:"endTime,omitempty"`
 
-	// Metadata: The measurement metadata. Example: "process_id" -> 12345
+	// Metadata: The measurement metadata. Example: &quot;process_id&quot;
+	// -&gt; 12345
 	Metadata map[string]TypedValue `json:"metadata,omitempty"`
 
-	// Plugin: The name of the plugin. Example: "disk".
+	// Plugin: The name of the plugin. Example: &quot;disk&quot;.
 	Plugin string `json:"plugin,omitempty"`
 
-	// PluginInstance: The instance name of the plugin Example: "hdcl".
+	// PluginInstance: The instance name of the plugin Example:
+	// &quot;hdcl&quot;.
 	PluginInstance string `json:"pluginInstance,omitempty"`
 
 	// StartTime: The start time of the interval.
 	StartTime string `json:"startTime,omitempty"`
 
-	// Type: The measurement type. Example: "memory".
+	// Type: The measurement type. Example: &quot;memory&quot;.
 	Type string `json:"type,omitempty"`
 
-	// TypeInstance: The measurement type instance. Example: "used".
+	// TypeInstance: The measurement type instance. Example:
+	// &quot;used&quot;.
 	TypeInstance string `json:"typeInstance,omitempty"`
 
 	// Values: The measured values during this time interval. Each value
@@ -372,7 +278,8 @@ func (s *CollectdPayload) MarshalJSON() ([]byte, error) {
 // CollectdValue: A single data point from a collectd-based plugin.
 type CollectdValue struct {
 	// DataSourceName: The data source for the collectd value. For example
-	// there are two data sources for network measurements: "rx" and "tx".
+	// there are two data sources for network measurements: &quot;rx&quot;
+	// and &quot;tx&quot;.
 	DataSourceName string `json:"dataSourceName,omitempty"`
 
 	// DataSourceType: The type of measurement.
@@ -428,7 +335,7 @@ type CreateCollectdTimeSeriesRequest struct {
 	CollectdPayloads []*CollectdPayload `json:"collectdPayloads,omitempty"`
 
 	// CollectdVersion: The version of collectd that collected the data.
-	// Example: "5.3.0-192.el6".
+	// Example: &quot;5.3.0-192.el6&quot;.
 	CollectdVersion string `json:"collectdVersion,omitempty"`
 
 	// Resource: The monitored resource associated with the time series.
@@ -562,22 +469,6 @@ func (s *Distribution) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-func (s *Distribution) UnmarshalJSON(data []byte) error {
-	type noMethod Distribution
-	var s1 struct {
-		Mean                  gensupport.JSONFloat64 `json:"mean"`
-		SumOfSquaredDeviation gensupport.JSONFloat64 `json:"sumOfSquaredDeviation"`
-		*noMethod
-	}
-	s1.noMethod = (*noMethod)(s)
-	if err := json.Unmarshal(data, &s1); err != nil {
-		return err
-	}
-	s.Mean = float64(s1.Mean)
-	s.SumOfSquaredDeviation = float64(s1.SumOfSquaredDeviation)
-	return nil
-}
-
 // Empty: A generic empty message that you can re-use to avoid defining
 // duplicated empty messages in your APIs. A typical example is to use
 // it as the request or the response type of an API method. For
@@ -595,10 +486,10 @@ type Empty struct {
 
 // Explicit: A set of buckets with arbitrary widths.Defines size(bounds)
 // + 1 (= N) buckets with these boundaries for bucket i:Upper bound (0
-// <= i < N-1): boundsi  Lower bound (1 <= i < N); boundsi - 1There must
-// be at least one element in bounds. If bounds has only one element,
-// there are no finite buckets, and that single element is the common
-// boundary of the overflow and underflow buckets.
+// &lt;= i &lt; N-1): boundsi  Lower bound (1 &lt;= i &lt; N); boundsi -
+// 1There must be at least one element in bounds. If bounds has only one
+// element, there are no finite buckets, and that single element is the
+// common boundary of the overflow and underflow buckets.
 type Explicit struct {
 	// Bounds: The values must be monotonically increasing.
 	Bounds []float64 `json:"bounds,omitempty"`
@@ -630,8 +521,8 @@ func (s *Explicit) MarshalJSON() ([]byte, error) {
 // proportional to the value of the lower bound. Each bucket represents
 // a constant relative uncertainty on a specific value in the
 // bucket.Defines num_finite_buckets + 2 (= N) buckets with these
-// boundaries for bucket i:Upper bound (0 <= i < N-1): scale *
-// (growth_factor ^ i).  Lower bound (1 <= i < N): scale *
+// boundaries for bucket i:Upper bound (0 &lt;= i &lt; N-1): scale *
+// (growth_factor ^ i).  Lower bound (1 &lt;= i &lt; N): scale *
 // (growth_factor ^ (i - 1)).
 type Exponential struct {
 	// GrowthFactor: Must be greater than 1.
@@ -664,22 +555,6 @@ func (s *Exponential) MarshalJSON() ([]byte, error) {
 	type noMethod Exponential
 	raw := noMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
-}
-
-func (s *Exponential) UnmarshalJSON(data []byte) error {
-	type noMethod Exponential
-	var s1 struct {
-		GrowthFactor gensupport.JSONFloat64 `json:"growthFactor"`
-		Scale        gensupport.JSONFloat64 `json:"scale"`
-		*noMethod
-	}
-	s1.noMethod = (*noMethod)(s)
-	if err := json.Unmarshal(data, &s1); err != nil {
-		return err
-	}
-	s.GrowthFactor = float64(s1.GrowthFactor)
-	s.Scale = float64(s1.Scale)
-	return nil
 }
 
 // Field: A single field of a message type.
@@ -744,7 +619,7 @@ type Field struct {
 
 	// TypeUrl: The field type URL, without the scheme, for message or
 	// enumeration types. Example:
-	// "type.googleapis.com/google.protobuf.Timestamp".
+	// &quot;type.googleapis.com/google.protobuf.Timestamp&quot;.
 	TypeUrl string `json:"typeUrl,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Cardinality") to
@@ -784,15 +659,16 @@ func (s *Field) MarshalJSON() ([]byte, error) {
 // resources that match its filter and the filters of all the group's
 // ancestors. A group without a parent can contain any monitored
 // resource.For example, consider an infrastructure running a set of
-// instances with two user-defined tags: "environment" and "role". A
-// parent group has a filter, environment="production". A child of that
-// parent group has a filter, role="transcoder". The parent group
-// contains all instances in the production environment, regardless of
-// their roles. The child group contains instances that have the
-// transcoder role and are in the production environment.The monitored
-// resources contained in a group can change at any moment, depending on
-// what resources exist and what filters are associated with the group
-// and its ancestors.
+// instances with two user-defined tags: &quot;environment&quot; and
+// &quot;role&quot;. A parent group has a filter,
+// environment=&quot;production&quot;. A child of that parent group has
+// a filter, role=&quot;transcoder&quot;. The parent group contains all
+// instances in the production environment, regardless of their roles.
+// The child group contains instances that have the transcoder role and
+// are in the production environment.The monitored resources contained
+// in a group can change at any moment, depending on what resources
+// exist and what filters are associated with the group and its
+// ancestors.
 type Group struct {
 	// DisplayName: A user-assigned name for this group, used only for
 	// display purposes.
@@ -808,15 +684,15 @@ type Group struct {
 	IsCluster bool `json:"isCluster,omitempty"`
 
 	// Name: Output only. The name of this group. The format is
-	// "projects/{project_id_or_number}/groups/{group_id}". When creating a
-	// group, this field is ignored and a new name is created consisting of
-	// the project specified in the call to CreateGroup and a unique
-	// {group_id} that is generated automatically.
+	// &quot;projects/{project_id_or_number}/groups/{group_id}&quot;. When
+	// creating a group, this field is ignored and a new name is created
+	// consisting of the project specified in the call to CreateGroup and a
+	// unique {group_id} that is generated automatically.
 	Name string `json:"name,omitempty"`
 
 	// ParentName: The name of the group's parent, if it has one. The format
-	// is "projects/{project_id_or_number}/groups/{group_id}". For groups
-	// with no parent, parentName is the empty string, "".
+	// is &quot;projects/{project_id_or_number}/groups/{group_id}&quot;. For
+	// groups with no parent, parentName is the empty string, &quot;&quot;.
 	ParentName string `json:"parentName,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the
@@ -889,8 +765,8 @@ func (s *LabelDescriptor) MarshalJSON() ([]byte, error) {
 // (except overflow and underflow). Each bucket represents a constant
 // absolute uncertainty on the specific value in the bucket.Defines
 // num_finite_buckets + 2 (= N) buckets with these boundaries for bucket
-// i:Upper bound (0 <= i < N-1): offset + (width * i).  Lower bound (1
-// <= i < N): offset + (width * (i - 1)).
+// i:Upper bound (0 &lt;= i &lt; N-1): offset + (width * i).  Lower
+// bound (1 &lt;= i &lt; N): offset + (width * (i - 1)).
 type Linear struct {
 	// NumFiniteBuckets: Must be greater than 0.
 	NumFiniteBuckets int64 `json:"numFiniteBuckets,omitempty"`
@@ -921,59 +797,6 @@ type Linear struct {
 
 func (s *Linear) MarshalJSON() ([]byte, error) {
 	type noMethod Linear
-	raw := noMethod(*s)
-	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
-}
-
-func (s *Linear) UnmarshalJSON(data []byte) error {
-	type noMethod Linear
-	var s1 struct {
-		Offset gensupport.JSONFloat64 `json:"offset"`
-		Width  gensupport.JSONFloat64 `json:"width"`
-		*noMethod
-	}
-	s1.noMethod = (*noMethod)(s)
-	if err := json.Unmarshal(data, &s1); err != nil {
-		return err
-	}
-	s.Offset = float64(s1.Offset)
-	s.Width = float64(s1.Width)
-	return nil
-}
-
-// ListCategoriesResponse: The ListCategories response.
-type ListCategoriesResponse struct {
-	// Category: The Categories that match the specified filters.
-	Category []*Category `json:"category,omitempty"`
-
-	// NextPageToken: If there are more results than have been returned,
-	// then this field is set to a non-empty value. To see the additional
-	// results, use that value as pageToken in the next call to this method.
-	NextPageToken string `json:"nextPageToken,omitempty"`
-
-	// ServerResponse contains the HTTP response code and headers from the
-	// server.
-	googleapi.ServerResponse `json:"-"`
-
-	// ForceSendFields is a list of field names (e.g. "Category") to
-	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
-	ForceSendFields []string `json:"-"`
-
-	// NullFields is a list of field names (e.g. "Category") to include in
-	// API requests with the JSON null value. By default, fields with empty
-	// values are omitted from API requests. However, any field with an
-	// empty value appearing in NullFields will be sent to the server as
-	// null. It is an error if a field in this list has a non-empty value.
-	// This may be used to include null fields in Patch requests.
-	NullFields []string `json:"-"`
-}
-
-func (s *ListCategoriesResponse) MarshalJSON() ([]byte, error) {
-	type noMethod ListCategoriesResponse
 	raw := noMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
@@ -1051,45 +874,6 @@ type ListGroupsResponse struct {
 
 func (s *ListGroupsResponse) MarshalJSON() ([]byte, error) {
 	type noMethod ListGroupsResponse
-	raw := noMethod(*s)
-	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
-}
-
-// ListMetricAssociationsResponse: The MetricAssociations response.
-type ListMetricAssociationsResponse struct {
-	// MetricAssociations: The MetricAssociations that match the specified
-	// filters.
-	MetricAssociations []*MetricAssociation `json:"metricAssociations,omitempty"`
-
-	// NextPageToken: If there are more results than have been returned,
-	// then this field is set to a non-empty value. To see the additional
-	// results, use that value as pageToken in the next call to this method.
-	NextPageToken string `json:"nextPageToken,omitempty"`
-
-	// ServerResponse contains the HTTP response code and headers from the
-	// server.
-	googleapi.ServerResponse `json:"-"`
-
-	// ForceSendFields is a list of field names (e.g. "MetricAssociations")
-	// to unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
-	ForceSendFields []string `json:"-"`
-
-	// NullFields is a list of field names (e.g. "MetricAssociations") to
-	// include in API requests with the JSON null value. By default, fields
-	// with empty values are omitted from API requests. However, any field
-	// with an empty value appearing in NullFields will be sent to the
-	// server as null. It is an error if a field in this list has a
-	// non-empty value. This may be used to include null fields in Patch
-	// requests.
-	NullFields []string `json:"-"`
-}
-
-func (s *ListMetricAssociationsResponse) MarshalJSON() ([]byte, error) {
-	type noMethod ListMetricAssociationsResponse
 	raw := noMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
@@ -1244,47 +1028,6 @@ func (s *Metric) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-// MetricAssociation: A Vital Signs MetricAssociation, representing the
-// inclusion of its referenced metric type within its parent category.
-type MetricAssociation struct {
-	// IsDefault: A flag to indicate whether this association is part of
-	// Stackdriver's default taxonomy.
-	IsDefault bool `json:"isDefault,omitempty"`
-
-	// MetricType: Resource name of the metric. It must be the full resource
-	// name. For example, "compute.googleapis.com/instance/cpu/utilization".
-	MetricType string `json:"metricType,omitempty"`
-
-	// Name: Resource name for the metric association.
-	Name string `json:"name,omitempty"`
-
-	// ServerResponse contains the HTTP response code and headers from the
-	// server.
-	googleapi.ServerResponse `json:"-"`
-
-	// ForceSendFields is a list of field names (e.g. "IsDefault") to
-	// unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
-	ForceSendFields []string `json:"-"`
-
-	// NullFields is a list of field names (e.g. "IsDefault") to include in
-	// API requests with the JSON null value. By default, fields with empty
-	// values are omitted from API requests. However, any field with an
-	// empty value appearing in NullFields will be sent to the server as
-	// null. It is an error if a field in this list has a non-empty value.
-	// This may be used to include null fields in Patch requests.
-	NullFields []string `json:"-"`
-}
-
-func (s *MetricAssociation) MarshalJSON() ([]byte, error) {
-	type noMethod MetricAssociation
-	raw := noMethod(*s)
-	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
-}
-
 // MetricDescriptor: Defines a metric type and its schema. Once a metric
 // descriptor is created, deleting or altering it stops data collection
 // and makes the metric type's existing data unusable.
@@ -1326,20 +1069,20 @@ type MetricDescriptor struct {
 	// (2) the metric's URL-encoded type, which also appears in the type
 	// field of this descriptor. For example, following is the resource name
 	// of a custom metric within the GCP project
-	// my-project-id:
-	// "projects/my-project-id/metricDescriptors/custom.google
-	// apis.com%2Finvoice%2Fpaid%2Famount"
+	// 123456789:
+	// &quot;projects/123456789/metricDescriptors/custom.googleapi
+	// s.com%2Finvoice%2Fpaid%2Famount&quot;
 	//
 	Name string `json:"name,omitempty"`
 
 	// Type: The metric type, including its DNS name prefix. The type is not
-	// URL-encoded. All user-defined custom metric types have the DNS name
+	// URL-encoded. All user-defined metric types have the DNS name
 	// custom.googleapis.com. Metric types should use a natural hierarchical
 	// grouping. For
 	// example:
-	// "custom.googleapis.com/invoice/paid/amount"
-	// "appengine.google
-	// apis.com/http/server/response_latencies"
+	// &quot;custom.googleapis.com/invoice/paid/amount&quot;
+	// &quot;a
+	// ppengine.googleapis.com/http/server/response_latencies&quot;
 	//
 	Type string `json:"type,omitempty"`
 
@@ -1377,15 +1120,15 @@ type MetricDescriptor struct {
 	// / division (as an infix operator, e.g. 1/s).
 	// . multiplication (as an infix operator, e.g. GBy.d)The grammar for a
 	// unit is as follows:
-	// Expression = Component { "." Component } { "/" Component }
-	// ;
+	// Expression = Component { &quot;.&quot; Component } { &quot;/&quot;
+	// Component } ;
 	//
 	// Component = [ PREFIX ] UNIT [ Annotation ]
 	//           | Annotation
-	//           | "1"
+	//           | &quot;1&quot;
 	//           ;
 	//
-	// Annotation = "{" NAME "}" ;
+	// Annotation = &quot;{&quot; NAME &quot;}&quot; ;
 	// Notes:
 	// Annotation is just a comment if it follows a UNIT and is  equivalent
 	// to 1 if it is used alone. For examples,  {requests}/s == 1/s,
@@ -1445,21 +1188,23 @@ func (s *MetricDescriptor) MarshalJSON() ([]byte, error) {
 // identifies the actual resource and its attributes according to the
 // schema. For example, a particular Compute Engine VM instance could be
 // represented by the following object, because the
-// MonitoredResourceDescriptor for "gce_instance" has labels
-// "instance_id" and "zone":
-// { "type": "gce_instance",
-//   "labels": { "instance_id": "12345678901234",
-//               "zone": "us-central1-a" }}
+// MonitoredResourceDescriptor for &quot;gce_instance&quot; has labels
+// &quot;instance_id&quot; and &quot;zone&quot;:
+// { &quot;type&quot;: &quot;gce_instance&quot;,
+//   &quot;labels&quot;: { &quot;instance_id&quot;:
+// &quot;12345678901234&quot;,
+//               &quot;zone&quot;: &quot;us-central1-a&quot; }}
 //
 type MonitoredResource struct {
 	// Labels: Required. Values for all of the labels listed in the
 	// associated monitored resource descriptor. For example, Cloud SQL
-	// databases use the labels "database_id" and "zone".
+	// databases use the labels &quot;database_id&quot; and
+	// &quot;zone&quot;.
 	Labels map[string]string `json:"labels,omitempty"`
 
 	// Type: Required. The monitored resource type. This field must match
 	// the type field of a MonitoredResourceDescriptor object. For example,
-	// the type of a Cloud SQL database is "cloudsql_database".
+	// the type of a Cloud SQL database is &quot;cloudsql_database&quot;.
 	Type string `json:"type,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Labels") to
@@ -1488,11 +1233,11 @@ func (s *MonitoredResource) MarshalJSON() ([]byte, error) {
 // MonitoredResourceDescriptor: An object that describes the schema of a
 // MonitoredResource object using a type name and a set of labels. For
 // example, the monitored resource descriptor for Google Compute Engine
-// VM instances has a type of "gce_instance" and specifies the use of
-// the labels "instance_id" and "zone" to identify particular VM
-// instances.Different APIs can support different monitored resource
-// types. APIs generally provide a list method that returns the
-// monitored resource descriptors used by the API.
+// VM instances has a type of &quot;gce_instance&quot; and specifies the
+// use of the labels &quot;instance_id&quot; and &quot;zone&quot; to
+// identify particular VM instances.Different APIs can support different
+// monitored resource types. APIs generally provide a list method that
+// returns the monitored resource descriptors used by the API.
 type MonitoredResourceDescriptor struct {
 	// Description: Optional. A detailed description of the monitored
 	// resource type that might be used in documentation.
@@ -1501,27 +1246,28 @@ type MonitoredResourceDescriptor struct {
 	// DisplayName: Optional. A concise name for the monitored resource type
 	// that might be displayed in user interfaces. It should be a Title
 	// Cased Noun Phrase, without any article or other determiners. For
-	// example, "Google Cloud SQL Database".
+	// example, &quot;Google Cloud SQL Database&quot;.
 	DisplayName string `json:"displayName,omitempty"`
 
 	// Labels: Required. A set of labels used to describe instances of this
 	// monitored resource type. For example, an individual Google Cloud SQL
-	// database is identified by values for the labels "database_id" and
-	// "zone".
+	// database is identified by values for the labels
+	// &quot;database_id&quot; and &quot;zone&quot;.
 	Labels []*LabelDescriptor `json:"labels,omitempty"`
 
 	// Name: Optional. The resource name of the monitored resource
 	// descriptor:
-	// "projects/{project_id}/monitoredResourceDescriptors/{type}" where
-	// {type} is the value of the type field in this object and {project_id}
-	// is a project ID that provides API-specific context for accessing the
-	// type. APIs that do not use project information can use the resource
-	// name format "monitoredResourceDescriptors/{type}".
+	// &quot;projects/{project_id}/monitoredResourceDescriptors/{type}&quot;
+	// where {type} is the value of the type field in this object and
+	// {project_id} is a project ID that provides API-specific context for
+	// accessing the type. APIs that do not use project information can use
+	// the resource name format
+	// &quot;monitoredResourceDescriptors/{type}&quot;.
 	Name string `json:"name,omitempty"`
 
 	// Type: Required. The monitored resource type. For example, the type
-	// "cloudsql_database" represents databases in Google Cloud SQL. The
-	// maximum length of this value is 256 characters.
+	// &quot;cloudsql_database&quot; represents databases in Google Cloud
+	// SQL. The maximum length of this value is 256 characters.
 	Type string `json:"type,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the
@@ -1554,17 +1300,11 @@ func (s *MonitoredResourceDescriptor) MarshalJSON() ([]byte, error) {
 // Option: A protocol buffer option, which can be attached to a message,
 // field, enumeration, etc.
 type Option struct {
-	// Name: The option's name. For protobuf built-in options (options
-	// defined in descriptor.proto), this is the short name. For example,
-	// "map_entry". For custom options, it should be the fully-qualified
-	// name. For example, "google.api.http".
+	// Name: The option's name. For example, &quot;java_package&quot;.
 	Name string `json:"name,omitempty"`
 
-	// Value: The option's value packed in an Any message. If the value is a
-	// primitive, the corresponding wrapper type defined in
-	// google/protobuf/wrappers.proto should be used. If the value is an
-	// enum, it should be stored as an int32 value using the
-	// google.protobuf.Int32Value type.
+	// Value: The option's value. For example,
+	// &quot;com.google.protobuf&quot;.
 	Value googleapi.RawMessage `json:"value,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Name") to
@@ -1660,28 +1400,12 @@ func (s *Range) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-func (s *Range) UnmarshalJSON(data []byte) error {
-	type noMethod Range
-	var s1 struct {
-		Max gensupport.JSONFloat64 `json:"max"`
-		Min gensupport.JSONFloat64 `json:"min"`
-		*noMethod
-	}
-	s1.noMethod = (*noMethod)(s)
-	if err := json.Unmarshal(data, &s1); err != nil {
-		return err
-	}
-	s.Max = float64(s1.Max)
-	s.Min = float64(s1.Min)
-	return nil
-}
-
 // SourceContext: SourceContext represents information about the source
 // of a protobuf element, like the file in which it is defined.
 type SourceContext struct {
 	// FileName: The path-qualified name of the .proto file that contained
 	// the associated protobuf element. For example:
-	// "google/protobuf/source_context.proto".
+	// &quot;google/protobuf/source_context.proto&quot;.
 	FileName string `json:"fileName,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "FileName") to
@@ -1917,1353 +1641,6 @@ func (s *TypedValue) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-func (s *TypedValue) UnmarshalJSON(data []byte) error {
-	type noMethod TypedValue
-	var s1 struct {
-		DoubleValue *gensupport.JSONFloat64 `json:"doubleValue"`
-		*noMethod
-	}
-	s1.noMethod = (*noMethod)(s)
-	if err := json.Unmarshal(data, &s1); err != nil {
-		return err
-	}
-	if s1.DoubleValue != nil {
-		s.DoubleValue = (*float64)(s1.DoubleValue)
-	}
-	return nil
-}
-
-// method id "monitoring.categories.list":
-
-type CategoriesListCall struct {
-	s            *Service
-	urlParams_   gensupport.URLParams
-	ifNoneMatch_ string
-	ctx_         context.Context
-	header_      http.Header
-}
-
-// List: List all Categories for a host project.
-func (r *CategoriesService) List() *CategoriesListCall {
-	c := &CategoriesListCall{s: r.s, urlParams_: make(gensupport.URLParams)}
-	return c
-}
-
-// Filter sets the optional parameter "filter": A filter that specifies
-// what Categories to return.
-func (c *CategoriesListCall) Filter(filter string) *CategoriesListCall {
-	c.urlParams_.Set("filter", filter)
-	return c
-}
-
-// PageSize sets the optional parameter "pageSize": A positive number
-// that is the maximum number of results to return. When 0, use default
-// page size.
-func (c *CategoriesListCall) PageSize(pageSize int64) *CategoriesListCall {
-	c.urlParams_.Set("pageSize", fmt.Sprint(pageSize))
-	return c
-}
-
-// PageToken sets the optional parameter "pageToken": If this field is
-// not empty then it must contain the nextPageToken value returned by a
-// previous call to this method. Using this field causes the method to
-// return additional results from the previous method call.
-func (c *CategoriesListCall) PageToken(pageToken string) *CategoriesListCall {
-	c.urlParams_.Set("pageToken", pageToken)
-	return c
-}
-
-// Parent sets the optional parameter "parent": Resource parent of the
-// project to get. Resource parent form is
-// projects/{project_id_or_number}.
-func (c *CategoriesListCall) Parent(parent string) *CategoriesListCall {
-	c.urlParams_.Set("parent", parent)
-	return c
-}
-
-// Fields allows partial responses to be retrieved. See
-// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
-// for more information.
-func (c *CategoriesListCall) Fields(s ...googleapi.Field) *CategoriesListCall {
-	c.urlParams_.Set("fields", googleapi.CombineFields(s))
-	return c
-}
-
-// IfNoneMatch sets the optional parameter which makes the operation
-// fail if the object's ETag matches the given value. This is useful for
-// getting updates only after the object has changed since the last
-// request. Use googleapi.IsNotModified to check whether the response
-// error from Do is the result of In-None-Match.
-func (c *CategoriesListCall) IfNoneMatch(entityTag string) *CategoriesListCall {
-	c.ifNoneMatch_ = entityTag
-	return c
-}
-
-// Context sets the context to be used in this call's Do method. Any
-// pending HTTP request will be aborted if the provided context is
-// canceled.
-func (c *CategoriesListCall) Context(ctx context.Context) *CategoriesListCall {
-	c.ctx_ = ctx
-	return c
-}
-
-// Header returns an http.Header that can be modified by the caller to
-// add HTTP headers to the request.
-func (c *CategoriesListCall) Header() http.Header {
-	if c.header_ == nil {
-		c.header_ = make(http.Header)
-	}
-	return c.header_
-}
-
-func (c *CategoriesListCall) doRequest(alt string) (*http.Response, error) {
-	reqHeaders := make(http.Header)
-	for k, v := range c.header_ {
-		reqHeaders[k] = v
-	}
-	reqHeaders.Set("User-Agent", c.s.userAgent())
-	if c.ifNoneMatch_ != "" {
-		reqHeaders.Set("If-None-Match", c.ifNoneMatch_)
-	}
-	var body io.Reader = nil
-	c.urlParams_.Set("alt", alt)
-	urls := googleapi.ResolveRelative(c.s.BasePath, "v3/categories")
-	urls += "?" + c.urlParams_.Encode()
-	req, _ := http.NewRequest("GET", urls, body)
-	req.Header = reqHeaders
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
-}
-
-// Do executes the "monitoring.categories.list" call.
-// Exactly one of *ListCategoriesResponse or error will be non-nil. Any
-// non-2xx status code is an error. Response headers are in either
-// *ListCategoriesResponse.ServerResponse.Header or (if a response was
-// returned at all) in error.(*googleapi.Error).Header. Use
-// googleapi.IsNotModified to check whether the returned error was
-// because http.StatusNotModified was returned.
-func (c *CategoriesListCall) Do(opts ...googleapi.CallOption) (*ListCategoriesResponse, error) {
-	gensupport.SetOptions(c.urlParams_, opts...)
-	res, err := c.doRequest("json")
-	if res != nil && res.StatusCode == http.StatusNotModified {
-		if res.Body != nil {
-			res.Body.Close()
-		}
-		return nil, &googleapi.Error{
-			Code:   res.StatusCode,
-			Header: res.Header,
-		}
-	}
-	if err != nil {
-		return nil, err
-	}
-	defer googleapi.CloseBody(res)
-	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
-	}
-	ret := &ListCategoriesResponse{
-		ServerResponse: googleapi.ServerResponse{
-			Header:         res.Header,
-			HTTPStatusCode: res.StatusCode,
-		},
-	}
-	target := &ret
-	if err := json.NewDecoder(res.Body).Decode(target); err != nil {
-		return nil, err
-	}
-	return ret, nil
-	// {
-	//   "description": "List all Categories for a host project.",
-	//   "flatPath": "v3/categories",
-	//   "httpMethod": "GET",
-	//   "id": "monitoring.categories.list",
-	//   "parameterOrder": [],
-	//   "parameters": {
-	//     "filter": {
-	//       "description": "A filter that specifies what Categories to return.",
-	//       "location": "query",
-	//       "type": "string"
-	//     },
-	//     "pageSize": {
-	//       "description": "A positive number that is the maximum number of results to return. When 0, use default page size.",
-	//       "format": "int32",
-	//       "location": "query",
-	//       "type": "integer"
-	//     },
-	//     "pageToken": {
-	//       "description": "If this field is not empty then it must contain the nextPageToken value returned by a previous call to this method. Using this field causes the method to return additional results from the previous method call.",
-	//       "location": "query",
-	//       "type": "string"
-	//     },
-	//     "parent": {
-	//       "description": "Resource parent of the project to get. Resource parent form is projects/{project_id_or_number}.",
-	//       "location": "query",
-	//       "type": "string"
-	//     }
-	//   },
-	//   "path": "v3/categories",
-	//   "response": {
-	//     "$ref": "ListCategoriesResponse"
-	//   },
-	//   "scopes": [
-	//     "https://www.googleapis.com/auth/cloud-platform",
-	//     "https://www.googleapis.com/auth/monitoring",
-	//     "https://www.googleapis.com/auth/monitoring.read"
-	//   ]
-	// }
-
-}
-
-// Pages invokes f for each page of results.
-// A non-nil error returned from f will halt the iteration.
-// The provided context supersedes any context provided to the Context method.
-func (c *CategoriesListCall) Pages(ctx context.Context, f func(*ListCategoriesResponse) error) error {
-	c.ctx_ = ctx
-	defer c.PageToken(c.urlParams_.Get("pageToken")) // reset paging to original point
-	for {
-		x, err := c.Do()
-		if err != nil {
-			return err
-		}
-		if err := f(x); err != nil {
-			return err
-		}
-		if x.NextPageToken == "" {
-			return nil
-		}
-		c.PageToken(x.NextPageToken)
-	}
-}
-
-// method id "monitoring.categories.metricAssociations.list":
-
-type CategoriesMetricAssociationsListCall struct {
-	s            *Service
-	parent       string
-	urlParams_   gensupport.URLParams
-	ifNoneMatch_ string
-	ctx_         context.Context
-	header_      http.Header
-}
-
-// List: List the MetricAssociations in a given Category.
-func (r *CategoriesMetricAssociationsService) List(parent string) *CategoriesMetricAssociationsListCall {
-	c := &CategoriesMetricAssociationsListCall{s: r.s, urlParams_: make(gensupport.URLParams)}
-	c.parent = parent
-	return c
-}
-
-// Filter sets the optional parameter "filter": A filter that specifies
-// what MetricAssociations to return.
-func (c *CategoriesMetricAssociationsListCall) Filter(filter string) *CategoriesMetricAssociationsListCall {
-	c.urlParams_.Set("filter", filter)
-	return c
-}
-
-// PageSize sets the optional parameter "pageSize": A positive number
-// that is the maximum number of results to return. When 0, use default
-// page size.
-func (c *CategoriesMetricAssociationsListCall) PageSize(pageSize int64) *CategoriesMetricAssociationsListCall {
-	c.urlParams_.Set("pageSize", fmt.Sprint(pageSize))
-	return c
-}
-
-// PageToken sets the optional parameter "pageToken": If this field is
-// not empty then it must contain the nextPageToken value returned by a
-// previous call to this method. Using this field causes the method to
-// return additional results from the previous method call.
-func (c *CategoriesMetricAssociationsListCall) PageToken(pageToken string) *CategoriesMetricAssociationsListCall {
-	c.urlParams_.Set("pageToken", pageToken)
-	return c
-}
-
-// Fields allows partial responses to be retrieved. See
-// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
-// for more information.
-func (c *CategoriesMetricAssociationsListCall) Fields(s ...googleapi.Field) *CategoriesMetricAssociationsListCall {
-	c.urlParams_.Set("fields", googleapi.CombineFields(s))
-	return c
-}
-
-// IfNoneMatch sets the optional parameter which makes the operation
-// fail if the object's ETag matches the given value. This is useful for
-// getting updates only after the object has changed since the last
-// request. Use googleapi.IsNotModified to check whether the response
-// error from Do is the result of In-None-Match.
-func (c *CategoriesMetricAssociationsListCall) IfNoneMatch(entityTag string) *CategoriesMetricAssociationsListCall {
-	c.ifNoneMatch_ = entityTag
-	return c
-}
-
-// Context sets the context to be used in this call's Do method. Any
-// pending HTTP request will be aborted if the provided context is
-// canceled.
-func (c *CategoriesMetricAssociationsListCall) Context(ctx context.Context) *CategoriesMetricAssociationsListCall {
-	c.ctx_ = ctx
-	return c
-}
-
-// Header returns an http.Header that can be modified by the caller to
-// add HTTP headers to the request.
-func (c *CategoriesMetricAssociationsListCall) Header() http.Header {
-	if c.header_ == nil {
-		c.header_ = make(http.Header)
-	}
-	return c.header_
-}
-
-func (c *CategoriesMetricAssociationsListCall) doRequest(alt string) (*http.Response, error) {
-	reqHeaders := make(http.Header)
-	for k, v := range c.header_ {
-		reqHeaders[k] = v
-	}
-	reqHeaders.Set("User-Agent", c.s.userAgent())
-	if c.ifNoneMatch_ != "" {
-		reqHeaders.Set("If-None-Match", c.ifNoneMatch_)
-	}
-	var body io.Reader = nil
-	c.urlParams_.Set("alt", alt)
-	urls := googleapi.ResolveRelative(c.s.BasePath, "v3/{+parent}/metricAssociations")
-	urls += "?" + c.urlParams_.Encode()
-	req, _ := http.NewRequest("GET", urls, body)
-	req.Header = reqHeaders
-	googleapi.Expand(req.URL, map[string]string{
-		"parent": c.parent,
-	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
-}
-
-// Do executes the "monitoring.categories.metricAssociations.list" call.
-// Exactly one of *ListMetricAssociationsResponse or error will be
-// non-nil. Any non-2xx status code is an error. Response headers are in
-// either *ListMetricAssociationsResponse.ServerResponse.Header or (if a
-// response was returned at all) in error.(*googleapi.Error).Header. Use
-// googleapi.IsNotModified to check whether the returned error was
-// because http.StatusNotModified was returned.
-func (c *CategoriesMetricAssociationsListCall) Do(opts ...googleapi.CallOption) (*ListMetricAssociationsResponse, error) {
-	gensupport.SetOptions(c.urlParams_, opts...)
-	res, err := c.doRequest("json")
-	if res != nil && res.StatusCode == http.StatusNotModified {
-		if res.Body != nil {
-			res.Body.Close()
-		}
-		return nil, &googleapi.Error{
-			Code:   res.StatusCode,
-			Header: res.Header,
-		}
-	}
-	if err != nil {
-		return nil, err
-	}
-	defer googleapi.CloseBody(res)
-	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
-	}
-	ret := &ListMetricAssociationsResponse{
-		ServerResponse: googleapi.ServerResponse{
-			Header:         res.Header,
-			HTTPStatusCode: res.StatusCode,
-		},
-	}
-	target := &ret
-	if err := json.NewDecoder(res.Body).Decode(target); err != nil {
-		return nil, err
-	}
-	return ret, nil
-	// {
-	//   "description": "List the MetricAssociations in a given Category.",
-	//   "flatPath": "v3/categories/{categoriesId}/metricAssociations",
-	//   "httpMethod": "GET",
-	//   "id": "monitoring.categories.metricAssociations.list",
-	//   "parameterOrder": [
-	//     "parent"
-	//   ],
-	//   "parameters": {
-	//     "filter": {
-	//       "description": "A filter that specifies what MetricAssociations to return.",
-	//       "location": "query",
-	//       "type": "string"
-	//     },
-	//     "pageSize": {
-	//       "description": "A positive number that is the maximum number of results to return. When 0, use default page size.",
-	//       "format": "int32",
-	//       "location": "query",
-	//       "type": "integer"
-	//     },
-	//     "pageToken": {
-	//       "description": "If this field is not empty then it must contain the nextPageToken value returned by a previous call to this method. Using this field causes the method to return additional results from the previous method call.",
-	//       "location": "query",
-	//       "type": "string"
-	//     },
-	//     "parent": {
-	//       "description": "Resource parent of the category to get. Resource parent form is projects/{project_id_or_number}/categories/{short_name}.",
-	//       "location": "path",
-	//       "pattern": "^categories/[^/]+$",
-	//       "required": true,
-	//       "type": "string"
-	//     }
-	//   },
-	//   "path": "v3/{+parent}/metricAssociations",
-	//   "response": {
-	//     "$ref": "ListMetricAssociationsResponse"
-	//   },
-	//   "scopes": [
-	//     "https://www.googleapis.com/auth/cloud-platform",
-	//     "https://www.googleapis.com/auth/monitoring",
-	//     "https://www.googleapis.com/auth/monitoring.read"
-	//   ]
-	// }
-
-}
-
-// Pages invokes f for each page of results.
-// A non-nil error returned from f will halt the iteration.
-// The provided context supersedes any context provided to the Context method.
-func (c *CategoriesMetricAssociationsListCall) Pages(ctx context.Context, f func(*ListMetricAssociationsResponse) error) error {
-	c.ctx_ = ctx
-	defer c.PageToken(c.urlParams_.Get("pageToken")) // reset paging to original point
-	for {
-		x, err := c.Do()
-		if err != nil {
-			return err
-		}
-		if err := f(x); err != nil {
-			return err
-		}
-		if x.NextPageToken == "" {
-			return nil
-		}
-		c.PageToken(x.NextPageToken)
-	}
-}
-
-// method id "monitoring.projects.categories.create":
-
-type ProjectsCategoriesCreateCall struct {
-	s          *Service
-	parent     string
-	category   *Category
-	urlParams_ gensupport.URLParams
-	ctx_       context.Context
-	header_    http.Header
-}
-
-// Create: Create a new Category.
-func (r *ProjectsCategoriesService) Create(parent string, category *Category) *ProjectsCategoriesCreateCall {
-	c := &ProjectsCategoriesCreateCall{s: r.s, urlParams_: make(gensupport.URLParams)}
-	c.parent = parent
-	c.category = category
-	return c
-}
-
-// Fields allows partial responses to be retrieved. See
-// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
-// for more information.
-func (c *ProjectsCategoriesCreateCall) Fields(s ...googleapi.Field) *ProjectsCategoriesCreateCall {
-	c.urlParams_.Set("fields", googleapi.CombineFields(s))
-	return c
-}
-
-// Context sets the context to be used in this call's Do method. Any
-// pending HTTP request will be aborted if the provided context is
-// canceled.
-func (c *ProjectsCategoriesCreateCall) Context(ctx context.Context) *ProjectsCategoriesCreateCall {
-	c.ctx_ = ctx
-	return c
-}
-
-// Header returns an http.Header that can be modified by the caller to
-// add HTTP headers to the request.
-func (c *ProjectsCategoriesCreateCall) Header() http.Header {
-	if c.header_ == nil {
-		c.header_ = make(http.Header)
-	}
-	return c.header_
-}
-
-func (c *ProjectsCategoriesCreateCall) doRequest(alt string) (*http.Response, error) {
-	reqHeaders := make(http.Header)
-	for k, v := range c.header_ {
-		reqHeaders[k] = v
-	}
-	reqHeaders.Set("User-Agent", c.s.userAgent())
-	var body io.Reader = nil
-	body, err := googleapi.WithoutDataWrapper.JSONReader(c.category)
-	if err != nil {
-		return nil, err
-	}
-	reqHeaders.Set("Content-Type", "application/json")
-	c.urlParams_.Set("alt", alt)
-	urls := googleapi.ResolveRelative(c.s.BasePath, "v3/{+parent}/categories")
-	urls += "?" + c.urlParams_.Encode()
-	req, _ := http.NewRequest("POST", urls, body)
-	req.Header = reqHeaders
-	googleapi.Expand(req.URL, map[string]string{
-		"parent": c.parent,
-	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
-}
-
-// Do executes the "monitoring.projects.categories.create" call.
-// Exactly one of *Category or error will be non-nil. Any non-2xx status
-// code is an error. Response headers are in either
-// *Category.ServerResponse.Header or (if a response was returned at
-// all) in error.(*googleapi.Error).Header. Use googleapi.IsNotModified
-// to check whether the returned error was because
-// http.StatusNotModified was returned.
-func (c *ProjectsCategoriesCreateCall) Do(opts ...googleapi.CallOption) (*Category, error) {
-	gensupport.SetOptions(c.urlParams_, opts...)
-	res, err := c.doRequest("json")
-	if res != nil && res.StatusCode == http.StatusNotModified {
-		if res.Body != nil {
-			res.Body.Close()
-		}
-		return nil, &googleapi.Error{
-			Code:   res.StatusCode,
-			Header: res.Header,
-		}
-	}
-	if err != nil {
-		return nil, err
-	}
-	defer googleapi.CloseBody(res)
-	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
-	}
-	ret := &Category{
-		ServerResponse: googleapi.ServerResponse{
-			Header:         res.Header,
-			HTTPStatusCode: res.StatusCode,
-		},
-	}
-	target := &ret
-	if err := json.NewDecoder(res.Body).Decode(target); err != nil {
-		return nil, err
-	}
-	return ret, nil
-	// {
-	//   "description": "Create a new Category.",
-	//   "flatPath": "v3/projects/{projectsId}/categories",
-	//   "httpMethod": "POST",
-	//   "id": "monitoring.projects.categories.create",
-	//   "parameterOrder": [
-	//     "parent"
-	//   ],
-	//   "parameters": {
-	//     "parent": {
-	//       "description": "Resource parent of the project to get. Resource parent form is projects/{project_id_or_number}.",
-	//       "location": "path",
-	//       "pattern": "^projects/[^/]+$",
-	//       "required": true,
-	//       "type": "string"
-	//     }
-	//   },
-	//   "path": "v3/{+parent}/categories",
-	//   "request": {
-	//     "$ref": "Category"
-	//   },
-	//   "response": {
-	//     "$ref": "Category"
-	//   },
-	//   "scopes": [
-	//     "https://www.googleapis.com/auth/cloud-platform",
-	//     "https://www.googleapis.com/auth/monitoring"
-	//   ]
-	// }
-
-}
-
-// method id "monitoring.projects.categories.delete":
-
-type ProjectsCategoriesDeleteCall struct {
-	s          *Service
-	name       string
-	urlParams_ gensupport.URLParams
-	ctx_       context.Context
-	header_    http.Header
-}
-
-// Delete: Delete a Category.
-func (r *ProjectsCategoriesService) Delete(name string) *ProjectsCategoriesDeleteCall {
-	c := &ProjectsCategoriesDeleteCall{s: r.s, urlParams_: make(gensupport.URLParams)}
-	c.name = name
-	return c
-}
-
-// Fields allows partial responses to be retrieved. See
-// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
-// for more information.
-func (c *ProjectsCategoriesDeleteCall) Fields(s ...googleapi.Field) *ProjectsCategoriesDeleteCall {
-	c.urlParams_.Set("fields", googleapi.CombineFields(s))
-	return c
-}
-
-// Context sets the context to be used in this call's Do method. Any
-// pending HTTP request will be aborted if the provided context is
-// canceled.
-func (c *ProjectsCategoriesDeleteCall) Context(ctx context.Context) *ProjectsCategoriesDeleteCall {
-	c.ctx_ = ctx
-	return c
-}
-
-// Header returns an http.Header that can be modified by the caller to
-// add HTTP headers to the request.
-func (c *ProjectsCategoriesDeleteCall) Header() http.Header {
-	if c.header_ == nil {
-		c.header_ = make(http.Header)
-	}
-	return c.header_
-}
-
-func (c *ProjectsCategoriesDeleteCall) doRequest(alt string) (*http.Response, error) {
-	reqHeaders := make(http.Header)
-	for k, v := range c.header_ {
-		reqHeaders[k] = v
-	}
-	reqHeaders.Set("User-Agent", c.s.userAgent())
-	var body io.Reader = nil
-	c.urlParams_.Set("alt", alt)
-	urls := googleapi.ResolveRelative(c.s.BasePath, "v3/{+name}")
-	urls += "?" + c.urlParams_.Encode()
-	req, _ := http.NewRequest("DELETE", urls, body)
-	req.Header = reqHeaders
-	googleapi.Expand(req.URL, map[string]string{
-		"name": c.name,
-	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
-}
-
-// Do executes the "monitoring.projects.categories.delete" call.
-// Exactly one of *Empty or error will be non-nil. Any non-2xx status
-// code is an error. Response headers are in either
-// *Empty.ServerResponse.Header or (if a response was returned at all)
-// in error.(*googleapi.Error).Header. Use googleapi.IsNotModified to
-// check whether the returned error was because http.StatusNotModified
-// was returned.
-func (c *ProjectsCategoriesDeleteCall) Do(opts ...googleapi.CallOption) (*Empty, error) {
-	gensupport.SetOptions(c.urlParams_, opts...)
-	res, err := c.doRequest("json")
-	if res != nil && res.StatusCode == http.StatusNotModified {
-		if res.Body != nil {
-			res.Body.Close()
-		}
-		return nil, &googleapi.Error{
-			Code:   res.StatusCode,
-			Header: res.Header,
-		}
-	}
-	if err != nil {
-		return nil, err
-	}
-	defer googleapi.CloseBody(res)
-	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
-	}
-	ret := &Empty{
-		ServerResponse: googleapi.ServerResponse{
-			Header:         res.Header,
-			HTTPStatusCode: res.StatusCode,
-		},
-	}
-	target := &ret
-	if err := json.NewDecoder(res.Body).Decode(target); err != nil {
-		return nil, err
-	}
-	return ret, nil
-	// {
-	//   "description": "Delete a Category.",
-	//   "flatPath": "v3/projects/{projectsId}/categories/{categoriesId}",
-	//   "httpMethod": "DELETE",
-	//   "id": "monitoring.projects.categories.delete",
-	//   "parameterOrder": [
-	//     "name"
-	//   ],
-	//   "parameters": {
-	//     "name": {
-	//       "description": "Resource name of category to delete. Resource name form is projects/{project_id_or_number}/categories/{short_name}.",
-	//       "location": "path",
-	//       "pattern": "^projects/[^/]+/categories/[^/]+$",
-	//       "required": true,
-	//       "type": "string"
-	//     }
-	//   },
-	//   "path": "v3/{+name}",
-	//   "response": {
-	//     "$ref": "Empty"
-	//   },
-	//   "scopes": [
-	//     "https://www.googleapis.com/auth/cloud-platform",
-	//     "https://www.googleapis.com/auth/monitoring"
-	//   ]
-	// }
-
-}
-
-// method id "monitoring.projects.categories.list":
-
-type ProjectsCategoriesListCall struct {
-	s            *Service
-	parent       string
-	urlParams_   gensupport.URLParams
-	ifNoneMatch_ string
-	ctx_         context.Context
-	header_      http.Header
-}
-
-// List: List all Categories for a host project.
-func (r *ProjectsCategoriesService) List(parent string) *ProjectsCategoriesListCall {
-	c := &ProjectsCategoriesListCall{s: r.s, urlParams_: make(gensupport.URLParams)}
-	c.parent = parent
-	return c
-}
-
-// Filter sets the optional parameter "filter": A filter that specifies
-// what Categories to return.
-func (c *ProjectsCategoriesListCall) Filter(filter string) *ProjectsCategoriesListCall {
-	c.urlParams_.Set("filter", filter)
-	return c
-}
-
-// PageSize sets the optional parameter "pageSize": A positive number
-// that is the maximum number of results to return. When 0, use default
-// page size.
-func (c *ProjectsCategoriesListCall) PageSize(pageSize int64) *ProjectsCategoriesListCall {
-	c.urlParams_.Set("pageSize", fmt.Sprint(pageSize))
-	return c
-}
-
-// PageToken sets the optional parameter "pageToken": If this field is
-// not empty then it must contain the nextPageToken value returned by a
-// previous call to this method. Using this field causes the method to
-// return additional results from the previous method call.
-func (c *ProjectsCategoriesListCall) PageToken(pageToken string) *ProjectsCategoriesListCall {
-	c.urlParams_.Set("pageToken", pageToken)
-	return c
-}
-
-// Fields allows partial responses to be retrieved. See
-// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
-// for more information.
-func (c *ProjectsCategoriesListCall) Fields(s ...googleapi.Field) *ProjectsCategoriesListCall {
-	c.urlParams_.Set("fields", googleapi.CombineFields(s))
-	return c
-}
-
-// IfNoneMatch sets the optional parameter which makes the operation
-// fail if the object's ETag matches the given value. This is useful for
-// getting updates only after the object has changed since the last
-// request. Use googleapi.IsNotModified to check whether the response
-// error from Do is the result of In-None-Match.
-func (c *ProjectsCategoriesListCall) IfNoneMatch(entityTag string) *ProjectsCategoriesListCall {
-	c.ifNoneMatch_ = entityTag
-	return c
-}
-
-// Context sets the context to be used in this call's Do method. Any
-// pending HTTP request will be aborted if the provided context is
-// canceled.
-func (c *ProjectsCategoriesListCall) Context(ctx context.Context) *ProjectsCategoriesListCall {
-	c.ctx_ = ctx
-	return c
-}
-
-// Header returns an http.Header that can be modified by the caller to
-// add HTTP headers to the request.
-func (c *ProjectsCategoriesListCall) Header() http.Header {
-	if c.header_ == nil {
-		c.header_ = make(http.Header)
-	}
-	return c.header_
-}
-
-func (c *ProjectsCategoriesListCall) doRequest(alt string) (*http.Response, error) {
-	reqHeaders := make(http.Header)
-	for k, v := range c.header_ {
-		reqHeaders[k] = v
-	}
-	reqHeaders.Set("User-Agent", c.s.userAgent())
-	if c.ifNoneMatch_ != "" {
-		reqHeaders.Set("If-None-Match", c.ifNoneMatch_)
-	}
-	var body io.Reader = nil
-	c.urlParams_.Set("alt", alt)
-	urls := googleapi.ResolveRelative(c.s.BasePath, "v3/{+parent}/categories")
-	urls += "?" + c.urlParams_.Encode()
-	req, _ := http.NewRequest("GET", urls, body)
-	req.Header = reqHeaders
-	googleapi.Expand(req.URL, map[string]string{
-		"parent": c.parent,
-	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
-}
-
-// Do executes the "monitoring.projects.categories.list" call.
-// Exactly one of *ListCategoriesResponse or error will be non-nil. Any
-// non-2xx status code is an error. Response headers are in either
-// *ListCategoriesResponse.ServerResponse.Header or (if a response was
-// returned at all) in error.(*googleapi.Error).Header. Use
-// googleapi.IsNotModified to check whether the returned error was
-// because http.StatusNotModified was returned.
-func (c *ProjectsCategoriesListCall) Do(opts ...googleapi.CallOption) (*ListCategoriesResponse, error) {
-	gensupport.SetOptions(c.urlParams_, opts...)
-	res, err := c.doRequest("json")
-	if res != nil && res.StatusCode == http.StatusNotModified {
-		if res.Body != nil {
-			res.Body.Close()
-		}
-		return nil, &googleapi.Error{
-			Code:   res.StatusCode,
-			Header: res.Header,
-		}
-	}
-	if err != nil {
-		return nil, err
-	}
-	defer googleapi.CloseBody(res)
-	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
-	}
-	ret := &ListCategoriesResponse{
-		ServerResponse: googleapi.ServerResponse{
-			Header:         res.Header,
-			HTTPStatusCode: res.StatusCode,
-		},
-	}
-	target := &ret
-	if err := json.NewDecoder(res.Body).Decode(target); err != nil {
-		return nil, err
-	}
-	return ret, nil
-	// {
-	//   "description": "List all Categories for a host project.",
-	//   "flatPath": "v3/projects/{projectsId}/categories",
-	//   "httpMethod": "GET",
-	//   "id": "monitoring.projects.categories.list",
-	//   "parameterOrder": [
-	//     "parent"
-	//   ],
-	//   "parameters": {
-	//     "filter": {
-	//       "description": "A filter that specifies what Categories to return.",
-	//       "location": "query",
-	//       "type": "string"
-	//     },
-	//     "pageSize": {
-	//       "description": "A positive number that is the maximum number of results to return. When 0, use default page size.",
-	//       "format": "int32",
-	//       "location": "query",
-	//       "type": "integer"
-	//     },
-	//     "pageToken": {
-	//       "description": "If this field is not empty then it must contain the nextPageToken value returned by a previous call to this method. Using this field causes the method to return additional results from the previous method call.",
-	//       "location": "query",
-	//       "type": "string"
-	//     },
-	//     "parent": {
-	//       "description": "Resource parent of the project to get. Resource parent form is projects/{project_id_or_number}.",
-	//       "location": "path",
-	//       "pattern": "^projects/[^/]+$",
-	//       "required": true,
-	//       "type": "string"
-	//     }
-	//   },
-	//   "path": "v3/{+parent}/categories",
-	//   "response": {
-	//     "$ref": "ListCategoriesResponse"
-	//   },
-	//   "scopes": [
-	//     "https://www.googleapis.com/auth/cloud-platform",
-	//     "https://www.googleapis.com/auth/monitoring",
-	//     "https://www.googleapis.com/auth/monitoring.read"
-	//   ]
-	// }
-
-}
-
-// Pages invokes f for each page of results.
-// A non-nil error returned from f will halt the iteration.
-// The provided context supersedes any context provided to the Context method.
-func (c *ProjectsCategoriesListCall) Pages(ctx context.Context, f func(*ListCategoriesResponse) error) error {
-	c.ctx_ = ctx
-	defer c.PageToken(c.urlParams_.Get("pageToken")) // reset paging to original point
-	for {
-		x, err := c.Do()
-		if err != nil {
-			return err
-		}
-		if err := f(x); err != nil {
-			return err
-		}
-		if x.NextPageToken == "" {
-			return nil
-		}
-		c.PageToken(x.NextPageToken)
-	}
-}
-
-// method id "monitoring.projects.categories.metricAssociations.create":
-
-type ProjectsCategoriesMetricAssociationsCreateCall struct {
-	s                 *Service
-	parent            string
-	metricassociation *MetricAssociation
-	urlParams_        gensupport.URLParams
-	ctx_              context.Context
-	header_           http.Header
-}
-
-// Create: Create a MetricAssociation.
-func (r *ProjectsCategoriesMetricAssociationsService) Create(parent string, metricassociation *MetricAssociation) *ProjectsCategoriesMetricAssociationsCreateCall {
-	c := &ProjectsCategoriesMetricAssociationsCreateCall{s: r.s, urlParams_: make(gensupport.URLParams)}
-	c.parent = parent
-	c.metricassociation = metricassociation
-	return c
-}
-
-// Fields allows partial responses to be retrieved. See
-// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
-// for more information.
-func (c *ProjectsCategoriesMetricAssociationsCreateCall) Fields(s ...googleapi.Field) *ProjectsCategoriesMetricAssociationsCreateCall {
-	c.urlParams_.Set("fields", googleapi.CombineFields(s))
-	return c
-}
-
-// Context sets the context to be used in this call's Do method. Any
-// pending HTTP request will be aborted if the provided context is
-// canceled.
-func (c *ProjectsCategoriesMetricAssociationsCreateCall) Context(ctx context.Context) *ProjectsCategoriesMetricAssociationsCreateCall {
-	c.ctx_ = ctx
-	return c
-}
-
-// Header returns an http.Header that can be modified by the caller to
-// add HTTP headers to the request.
-func (c *ProjectsCategoriesMetricAssociationsCreateCall) Header() http.Header {
-	if c.header_ == nil {
-		c.header_ = make(http.Header)
-	}
-	return c.header_
-}
-
-func (c *ProjectsCategoriesMetricAssociationsCreateCall) doRequest(alt string) (*http.Response, error) {
-	reqHeaders := make(http.Header)
-	for k, v := range c.header_ {
-		reqHeaders[k] = v
-	}
-	reqHeaders.Set("User-Agent", c.s.userAgent())
-	var body io.Reader = nil
-	body, err := googleapi.WithoutDataWrapper.JSONReader(c.metricassociation)
-	if err != nil {
-		return nil, err
-	}
-	reqHeaders.Set("Content-Type", "application/json")
-	c.urlParams_.Set("alt", alt)
-	urls := googleapi.ResolveRelative(c.s.BasePath, "v3/{+parent}/metricAssociations")
-	urls += "?" + c.urlParams_.Encode()
-	req, _ := http.NewRequest("POST", urls, body)
-	req.Header = reqHeaders
-	googleapi.Expand(req.URL, map[string]string{
-		"parent": c.parent,
-	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
-}
-
-// Do executes the "monitoring.projects.categories.metricAssociations.create" call.
-// Exactly one of *MetricAssociation or error will be non-nil. Any
-// non-2xx status code is an error. Response headers are in either
-// *MetricAssociation.ServerResponse.Header or (if a response was
-// returned at all) in error.(*googleapi.Error).Header. Use
-// googleapi.IsNotModified to check whether the returned error was
-// because http.StatusNotModified was returned.
-func (c *ProjectsCategoriesMetricAssociationsCreateCall) Do(opts ...googleapi.CallOption) (*MetricAssociation, error) {
-	gensupport.SetOptions(c.urlParams_, opts...)
-	res, err := c.doRequest("json")
-	if res != nil && res.StatusCode == http.StatusNotModified {
-		if res.Body != nil {
-			res.Body.Close()
-		}
-		return nil, &googleapi.Error{
-			Code:   res.StatusCode,
-			Header: res.Header,
-		}
-	}
-	if err != nil {
-		return nil, err
-	}
-	defer googleapi.CloseBody(res)
-	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
-	}
-	ret := &MetricAssociation{
-		ServerResponse: googleapi.ServerResponse{
-			Header:         res.Header,
-			HTTPStatusCode: res.StatusCode,
-		},
-	}
-	target := &ret
-	if err := json.NewDecoder(res.Body).Decode(target); err != nil {
-		return nil, err
-	}
-	return ret, nil
-	// {
-	//   "description": "Create a MetricAssociation.",
-	//   "flatPath": "v3/projects/{projectsId}/categories/{categoriesId}/metricAssociations",
-	//   "httpMethod": "POST",
-	//   "id": "monitoring.projects.categories.metricAssociations.create",
-	//   "parameterOrder": [
-	//     "parent"
-	//   ],
-	//   "parameters": {
-	//     "parent": {
-	//       "description": "Resource parent of the category to get. Resource parent form is projects/{project_id_or_number}/categories/{short_name}.",
-	//       "location": "path",
-	//       "pattern": "^projects/[^/]+/categories/[^/]+$",
-	//       "required": true,
-	//       "type": "string"
-	//     }
-	//   },
-	//   "path": "v3/{+parent}/metricAssociations",
-	//   "request": {
-	//     "$ref": "MetricAssociation"
-	//   },
-	//   "response": {
-	//     "$ref": "MetricAssociation"
-	//   },
-	//   "scopes": [
-	//     "https://www.googleapis.com/auth/cloud-platform",
-	//     "https://www.googleapis.com/auth/monitoring"
-	//   ]
-	// }
-
-}
-
-// method id "monitoring.projects.categories.metricAssociations.delete":
-
-type ProjectsCategoriesMetricAssociationsDeleteCall struct {
-	s          *Service
-	name       string
-	urlParams_ gensupport.URLParams
-	ctx_       context.Context
-	header_    http.Header
-}
-
-// Delete: Delete a MetricAssociation.
-func (r *ProjectsCategoriesMetricAssociationsService) Delete(name string) *ProjectsCategoriesMetricAssociationsDeleteCall {
-	c := &ProjectsCategoriesMetricAssociationsDeleteCall{s: r.s, urlParams_: make(gensupport.URLParams)}
-	c.name = name
-	return c
-}
-
-// Fields allows partial responses to be retrieved. See
-// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
-// for more information.
-func (c *ProjectsCategoriesMetricAssociationsDeleteCall) Fields(s ...googleapi.Field) *ProjectsCategoriesMetricAssociationsDeleteCall {
-	c.urlParams_.Set("fields", googleapi.CombineFields(s))
-	return c
-}
-
-// Context sets the context to be used in this call's Do method. Any
-// pending HTTP request will be aborted if the provided context is
-// canceled.
-func (c *ProjectsCategoriesMetricAssociationsDeleteCall) Context(ctx context.Context) *ProjectsCategoriesMetricAssociationsDeleteCall {
-	c.ctx_ = ctx
-	return c
-}
-
-// Header returns an http.Header that can be modified by the caller to
-// add HTTP headers to the request.
-func (c *ProjectsCategoriesMetricAssociationsDeleteCall) Header() http.Header {
-	if c.header_ == nil {
-		c.header_ = make(http.Header)
-	}
-	return c.header_
-}
-
-func (c *ProjectsCategoriesMetricAssociationsDeleteCall) doRequest(alt string) (*http.Response, error) {
-	reqHeaders := make(http.Header)
-	for k, v := range c.header_ {
-		reqHeaders[k] = v
-	}
-	reqHeaders.Set("User-Agent", c.s.userAgent())
-	var body io.Reader = nil
-	c.urlParams_.Set("alt", alt)
-	urls := googleapi.ResolveRelative(c.s.BasePath, "v3/{+name}")
-	urls += "?" + c.urlParams_.Encode()
-	req, _ := http.NewRequest("DELETE", urls, body)
-	req.Header = reqHeaders
-	googleapi.Expand(req.URL, map[string]string{
-		"name": c.name,
-	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
-}
-
-// Do executes the "monitoring.projects.categories.metricAssociations.delete" call.
-// Exactly one of *Empty or error will be non-nil. Any non-2xx status
-// code is an error. Response headers are in either
-// *Empty.ServerResponse.Header or (if a response was returned at all)
-// in error.(*googleapi.Error).Header. Use googleapi.IsNotModified to
-// check whether the returned error was because http.StatusNotModified
-// was returned.
-func (c *ProjectsCategoriesMetricAssociationsDeleteCall) Do(opts ...googleapi.CallOption) (*Empty, error) {
-	gensupport.SetOptions(c.urlParams_, opts...)
-	res, err := c.doRequest("json")
-	if res != nil && res.StatusCode == http.StatusNotModified {
-		if res.Body != nil {
-			res.Body.Close()
-		}
-		return nil, &googleapi.Error{
-			Code:   res.StatusCode,
-			Header: res.Header,
-		}
-	}
-	if err != nil {
-		return nil, err
-	}
-	defer googleapi.CloseBody(res)
-	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
-	}
-	ret := &Empty{
-		ServerResponse: googleapi.ServerResponse{
-			Header:         res.Header,
-			HTTPStatusCode: res.StatusCode,
-		},
-	}
-	target := &ret
-	if err := json.NewDecoder(res.Body).Decode(target); err != nil {
-		return nil, err
-	}
-	return ret, nil
-	// {
-	//   "description": "Delete a MetricAssociation.",
-	//   "flatPath": "v3/projects/{projectsId}/categories/{categoriesId}/metricAssociations/{metricAssociationsId}",
-	//   "httpMethod": "DELETE",
-	//   "id": "monitoring.projects.categories.metricAssociations.delete",
-	//   "parameterOrder": [
-	//     "name"
-	//   ],
-	//   "parameters": {
-	//     "name": {
-	//       "description": "Resource name of metric association to delete. Resource name form is projects/{project_id_or_number}/\n    categories/{short_name}/metricAssociations/{metric_name}.",
-	//       "location": "path",
-	//       "pattern": "^projects/[^/]+/categories/[^/]+/metricAssociations/[^/]+$",
-	//       "required": true,
-	//       "type": "string"
-	//     }
-	//   },
-	//   "path": "v3/{+name}",
-	//   "response": {
-	//     "$ref": "Empty"
-	//   },
-	//   "scopes": [
-	//     "https://www.googleapis.com/auth/cloud-platform",
-	//     "https://www.googleapis.com/auth/monitoring"
-	//   ]
-	// }
-
-}
-
-// method id "monitoring.projects.categories.metricAssociations.list":
-
-type ProjectsCategoriesMetricAssociationsListCall struct {
-	s            *Service
-	parent       string
-	urlParams_   gensupport.URLParams
-	ifNoneMatch_ string
-	ctx_         context.Context
-	header_      http.Header
-}
-
-// List: List the MetricAssociations in a given Category.
-func (r *ProjectsCategoriesMetricAssociationsService) List(parent string) *ProjectsCategoriesMetricAssociationsListCall {
-	c := &ProjectsCategoriesMetricAssociationsListCall{s: r.s, urlParams_: make(gensupport.URLParams)}
-	c.parent = parent
-	return c
-}
-
-// Filter sets the optional parameter "filter": A filter that specifies
-// what MetricAssociations to return.
-func (c *ProjectsCategoriesMetricAssociationsListCall) Filter(filter string) *ProjectsCategoriesMetricAssociationsListCall {
-	c.urlParams_.Set("filter", filter)
-	return c
-}
-
-// PageSize sets the optional parameter "pageSize": A positive number
-// that is the maximum number of results to return. When 0, use default
-// page size.
-func (c *ProjectsCategoriesMetricAssociationsListCall) PageSize(pageSize int64) *ProjectsCategoriesMetricAssociationsListCall {
-	c.urlParams_.Set("pageSize", fmt.Sprint(pageSize))
-	return c
-}
-
-// PageToken sets the optional parameter "pageToken": If this field is
-// not empty then it must contain the nextPageToken value returned by a
-// previous call to this method. Using this field causes the method to
-// return additional results from the previous method call.
-func (c *ProjectsCategoriesMetricAssociationsListCall) PageToken(pageToken string) *ProjectsCategoriesMetricAssociationsListCall {
-	c.urlParams_.Set("pageToken", pageToken)
-	return c
-}
-
-// Fields allows partial responses to be retrieved. See
-// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
-// for more information.
-func (c *ProjectsCategoriesMetricAssociationsListCall) Fields(s ...googleapi.Field) *ProjectsCategoriesMetricAssociationsListCall {
-	c.urlParams_.Set("fields", googleapi.CombineFields(s))
-	return c
-}
-
-// IfNoneMatch sets the optional parameter which makes the operation
-// fail if the object's ETag matches the given value. This is useful for
-// getting updates only after the object has changed since the last
-// request. Use googleapi.IsNotModified to check whether the response
-// error from Do is the result of In-None-Match.
-func (c *ProjectsCategoriesMetricAssociationsListCall) IfNoneMatch(entityTag string) *ProjectsCategoriesMetricAssociationsListCall {
-	c.ifNoneMatch_ = entityTag
-	return c
-}
-
-// Context sets the context to be used in this call's Do method. Any
-// pending HTTP request will be aborted if the provided context is
-// canceled.
-func (c *ProjectsCategoriesMetricAssociationsListCall) Context(ctx context.Context) *ProjectsCategoriesMetricAssociationsListCall {
-	c.ctx_ = ctx
-	return c
-}
-
-// Header returns an http.Header that can be modified by the caller to
-// add HTTP headers to the request.
-func (c *ProjectsCategoriesMetricAssociationsListCall) Header() http.Header {
-	if c.header_ == nil {
-		c.header_ = make(http.Header)
-	}
-	return c.header_
-}
-
-func (c *ProjectsCategoriesMetricAssociationsListCall) doRequest(alt string) (*http.Response, error) {
-	reqHeaders := make(http.Header)
-	for k, v := range c.header_ {
-		reqHeaders[k] = v
-	}
-	reqHeaders.Set("User-Agent", c.s.userAgent())
-	if c.ifNoneMatch_ != "" {
-		reqHeaders.Set("If-None-Match", c.ifNoneMatch_)
-	}
-	var body io.Reader = nil
-	c.urlParams_.Set("alt", alt)
-	urls := googleapi.ResolveRelative(c.s.BasePath, "v3/{+parent}/metricAssociations")
-	urls += "?" + c.urlParams_.Encode()
-	req, _ := http.NewRequest("GET", urls, body)
-	req.Header = reqHeaders
-	googleapi.Expand(req.URL, map[string]string{
-		"parent": c.parent,
-	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
-}
-
-// Do executes the "monitoring.projects.categories.metricAssociations.list" call.
-// Exactly one of *ListMetricAssociationsResponse or error will be
-// non-nil. Any non-2xx status code is an error. Response headers are in
-// either *ListMetricAssociationsResponse.ServerResponse.Header or (if a
-// response was returned at all) in error.(*googleapi.Error).Header. Use
-// googleapi.IsNotModified to check whether the returned error was
-// because http.StatusNotModified was returned.
-func (c *ProjectsCategoriesMetricAssociationsListCall) Do(opts ...googleapi.CallOption) (*ListMetricAssociationsResponse, error) {
-	gensupport.SetOptions(c.urlParams_, opts...)
-	res, err := c.doRequest("json")
-	if res != nil && res.StatusCode == http.StatusNotModified {
-		if res.Body != nil {
-			res.Body.Close()
-		}
-		return nil, &googleapi.Error{
-			Code:   res.StatusCode,
-			Header: res.Header,
-		}
-	}
-	if err != nil {
-		return nil, err
-	}
-	defer googleapi.CloseBody(res)
-	if err := googleapi.CheckResponse(res); err != nil {
-		return nil, err
-	}
-	ret := &ListMetricAssociationsResponse{
-		ServerResponse: googleapi.ServerResponse{
-			Header:         res.Header,
-			HTTPStatusCode: res.StatusCode,
-		},
-	}
-	target := &ret
-	if err := json.NewDecoder(res.Body).Decode(target); err != nil {
-		return nil, err
-	}
-	return ret, nil
-	// {
-	//   "description": "List the MetricAssociations in a given Category.",
-	//   "flatPath": "v3/projects/{projectsId}/categories/{categoriesId}/metricAssociations",
-	//   "httpMethod": "GET",
-	//   "id": "monitoring.projects.categories.metricAssociations.list",
-	//   "parameterOrder": [
-	//     "parent"
-	//   ],
-	//   "parameters": {
-	//     "filter": {
-	//       "description": "A filter that specifies what MetricAssociations to return.",
-	//       "location": "query",
-	//       "type": "string"
-	//     },
-	//     "pageSize": {
-	//       "description": "A positive number that is the maximum number of results to return. When 0, use default page size.",
-	//       "format": "int32",
-	//       "location": "query",
-	//       "type": "integer"
-	//     },
-	//     "pageToken": {
-	//       "description": "If this field is not empty then it must contain the nextPageToken value returned by a previous call to this method. Using this field causes the method to return additional results from the previous method call.",
-	//       "location": "query",
-	//       "type": "string"
-	//     },
-	//     "parent": {
-	//       "description": "Resource parent of the category to get. Resource parent form is projects/{project_id_or_number}/categories/{short_name}.",
-	//       "location": "path",
-	//       "pattern": "^projects/[^/]+/categories/[^/]+$",
-	//       "required": true,
-	//       "type": "string"
-	//     }
-	//   },
-	//   "path": "v3/{+parent}/metricAssociations",
-	//   "response": {
-	//     "$ref": "ListMetricAssociationsResponse"
-	//   },
-	//   "scopes": [
-	//     "https://www.googleapis.com/auth/cloud-platform",
-	//     "https://www.googleapis.com/auth/monitoring",
-	//     "https://www.googleapis.com/auth/monitoring.read"
-	//   ]
-	// }
-
-}
-
-// Pages invokes f for each page of results.
-// A non-nil error returned from f will halt the iteration.
-// The provided context supersedes any context provided to the Context method.
-func (c *ProjectsCategoriesMetricAssociationsListCall) Pages(ctx context.Context, f func(*ListMetricAssociationsResponse) error) error {
-	c.ctx_ = ctx
-	defer c.PageToken(c.urlParams_.Get("pageToken")) // reset paging to original point
-	for {
-		x, err := c.Do()
-		if err != nil {
-			return err
-		}
-		if err := f(x); err != nil {
-			return err
-		}
-		if x.NextPageToken == "" {
-			return nil
-		}
-		c.PageToken(x.NextPageToken)
-	}
-}
-
 // method id "monitoring.projects.collectdTimeSeries.create":
 
 type ProjectsCollectdTimeSeriesCreateCall struct {
@@ -3381,7 +1758,7 @@ func (c *ProjectsCollectdTimeSeriesCreateCall) Do(opts ...googleapi.CallOption) 
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "The project in which to create the time series. The format is \"projects/PROJECT_ID_OR_NUMBER\".",
+	//       "description": "The project in which to create the time series. The format is \u0026quot;projects/PROJECT_ID_OR_NUMBER\u0026quot;.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+$",
 	//       "required": true,
@@ -3525,7 +1902,7 @@ func (c *ProjectsGroupsCreateCall) Do(opts ...googleapi.CallOption) (*Group, err
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "The project in which to create the group. The format is \"projects/{project_id_or_number}\".",
+	//       "description": "The project in which to create the group. The format is \u0026quot;projects/{project_id_or_number}\u0026quot;.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+$",
 	//       "required": true,
@@ -3659,7 +2036,7 @@ func (c *ProjectsGroupsDeleteCall) Do(opts ...googleapi.CallOption) (*Empty, err
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "The group to delete. The format is \"projects/{project_id_or_number}/groups/{group_id}\".",
+	//       "description": "The group to delete. The format is \u0026quot;projects/{project_id_or_number}/groups/{group_id}\u0026quot;.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/groups/[^/]+$",
 	//       "required": true,
@@ -3799,7 +2176,7 @@ func (c *ProjectsGroupsGetCall) Do(opts ...googleapi.CallOption) (*Group, error)
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "The group to retrieve. The format is \"projects/{project_id_or_number}/groups/{group_id}\".",
+	//       "description": "The group to retrieve. The format is \u0026quot;projects/{project_id_or_number}/groups/{group_id}\u0026quot;.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/groups/[^/]+$",
 	//       "required": true,
@@ -3838,7 +2215,8 @@ func (r *ProjectsGroupsService) List(name string) *ProjectsGroupsListCall {
 }
 
 // AncestorsOfGroup sets the optional parameter "ancestorsOfGroup": A
-// group name: "projects/{project_id_or_number}/groups/{group_id}".
+// group name:
+// &quot;projects/{project_id_or_number}/groups/{group_id}&quot;.
 // Returns groups that are ancestors of the specified group. The groups
 // are returned in order, starting with the immediate parent and ending
 // with the most distant ancestor. If the specified group has no
@@ -3849,7 +2227,8 @@ func (c *ProjectsGroupsListCall) AncestorsOfGroup(ancestorsOfGroup string) *Proj
 }
 
 // ChildrenOfGroup sets the optional parameter "childrenOfGroup": A
-// group name: "projects/{project_id_or_number}/groups/{group_id}".
+// group name:
+// &quot;projects/{project_id_or_number}/groups/{group_id}&quot;.
 // Returns groups whose parentName field contains the group name. If no
 // groups have this parent, the results are empty.
 func (c *ProjectsGroupsListCall) ChildrenOfGroup(childrenOfGroup string) *ProjectsGroupsListCall {
@@ -3858,7 +2237,8 @@ func (c *ProjectsGroupsListCall) ChildrenOfGroup(childrenOfGroup string) *Projec
 }
 
 // DescendantsOfGroup sets the optional parameter "descendantsOfGroup":
-// A group name: "projects/{project_id_or_number}/groups/{group_id}".
+// A group name:
+// &quot;projects/{project_id_or_number}/groups/{group_id}&quot;.
 // Returns the descendants of the specified group. This is a superset of
 // the results returned by the childrenOfGroup filter, and includes
 // children-of-children, and so forth.
@@ -3986,22 +2366,22 @@ func (c *ProjectsGroupsListCall) Do(opts ...googleapi.CallOption) (*ListGroupsRe
 	//   ],
 	//   "parameters": {
 	//     "ancestorsOfGroup": {
-	//       "description": "A group name: \"projects/{project_id_or_number}/groups/{group_id}\". Returns groups that are ancestors of the specified group. The groups are returned in order, starting with the immediate parent and ending with the most distant ancestor. If the specified group has no immediate parent, the results are empty.",
+	//       "description": "A group name: \u0026quot;projects/{project_id_or_number}/groups/{group_id}\u0026quot;. Returns groups that are ancestors of the specified group. The groups are returned in order, starting with the immediate parent and ending with the most distant ancestor. If the specified group has no immediate parent, the results are empty.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "childrenOfGroup": {
-	//       "description": "A group name: \"projects/{project_id_or_number}/groups/{group_id}\". Returns groups whose parentName field contains the group name. If no groups have this parent, the results are empty.",
+	//       "description": "A group name: \u0026quot;projects/{project_id_or_number}/groups/{group_id}\u0026quot;. Returns groups whose parentName field contains the group name. If no groups have this parent, the results are empty.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "descendantsOfGroup": {
-	//       "description": "A group name: \"projects/{project_id_or_number}/groups/{group_id}\". Returns the descendants of the specified group. This is a superset of the results returned by the childrenOfGroup filter, and includes children-of-children, and so forth.",
+	//       "description": "A group name: \u0026quot;projects/{project_id_or_number}/groups/{group_id}\u0026quot;. Returns the descendants of the specified group. This is a superset of the results returned by the childrenOfGroup filter, and includes children-of-children, and so forth.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "name": {
-	//       "description": "The project whose groups are to be listed. The format is \"projects/{project_id_or_number}\".",
+	//       "description": "The project whose groups are to be listed. The format is \u0026quot;projects/{project_id_or_number}\u0026quot;.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+$",
 	//       "required": true,
@@ -4175,7 +2555,7 @@ func (c *ProjectsGroupsUpdateCall) Do(opts ...googleapi.CallOption) (*Group, err
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "Output only. The name of this group. The format is \"projects/{project_id_or_number}/groups/{group_id}\". When creating a group, this field is ignored and a new name is created consisting of the project specified in the call to CreateGroup and a unique {group_id} that is generated automatically.",
+	//       "description": "Output only. The name of this group. The format is \u0026quot;projects/{project_id_or_number}/groups/{group_id}\u0026quot;. When creating a group, this field is ignored and a new name is created consisting of the project specified in the call to CreateGroup and a unique {group_id} that is generated automatically.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/groups/[^/]+$",
 	//       "required": true,
@@ -4221,11 +2601,12 @@ func (r *ProjectsGroupsMembersService) List(name string) *ProjectsGroupsMembersL
 }
 
 // Filter sets the optional parameter "filter": An optional list filter
-// describing the members to be returned. The filter may reference the
-// type, labels, and metadata of monitored resources that comprise the
-// group. For example, to return only resources representing Compute
-// Engine VM instances, use this filter:
-// resource.type = "gce_instance"
+// (/monitoring/api/learn_more#filtering) describing the members to be
+// returned. The filter may reference the type, labels, and metadata of
+// monitored resources that comprise the group. For example, to return
+// only resources representing Compute Engine VM instances, use this
+// filter:
+// resource.type = &quot;gce_instance&quot;
 func (c *ProjectsGroupsMembersListCall) Filter(filter string) *ProjectsGroupsMembersListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
@@ -4366,7 +2747,7 @@ func (c *ProjectsGroupsMembersListCall) Do(opts ...googleapi.CallOption) (*ListG
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "An optional list filter describing the members to be returned. The filter may reference the type, labels, and metadata of monitored resources that comprise the group. For example, to return only resources representing Compute Engine VM instances, use this filter:\nresource.type = \"gce_instance\"\n",
+	//       "description": "An optional list filter (/monitoring/api/learn_more#filtering) describing the members to be returned. The filter may reference the type, labels, and metadata of monitored resources that comprise the group. For example, to return only resources representing Compute Engine VM instances, use this filter:\nresource.type = \u0026quot;gce_instance\u0026quot;\n",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -4383,7 +2764,7 @@ func (c *ProjectsGroupsMembersListCall) Do(opts ...googleapi.CallOption) (*ListG
 	//       "type": "string"
 	//     },
 	//     "name": {
-	//       "description": "The group whose members are listed. The format is \"projects/{project_id_or_number}/groups/{group_id}\".",
+	//       "description": "The group whose members are listed. The format is \u0026quot;projects/{project_id_or_number}/groups/{group_id}\u0026quot;.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/groups/[^/]+$",
 	//       "required": true,
@@ -4447,7 +2828,7 @@ type ProjectsMetricDescriptorsCreateCall struct {
 }
 
 // Create: Creates a new metric descriptor. User-created metric
-// descriptors define custom metrics.
+// descriptors define custom metrics (/monitoring/custom-metrics).
 func (r *ProjectsMetricDescriptorsService) Create(name string, metricdescriptor *MetricDescriptor) *ProjectsMetricDescriptorsCreateCall {
 	c := &ProjectsMetricDescriptorsCreateCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.name = name
@@ -4541,7 +2922,7 @@ func (c *ProjectsMetricDescriptorsCreateCall) Do(opts ...googleapi.CallOption) (
 	}
 	return ret, nil
 	// {
-	//   "description": "Creates a new metric descriptor. User-created metric descriptors define custom metrics.",
+	//   "description": "Creates a new metric descriptor. User-created metric descriptors define custom metrics (/monitoring/custom-metrics).",
 	//   "flatPath": "v3/projects/{projectsId}/metricDescriptors",
 	//   "httpMethod": "POST",
 	//   "id": "monitoring.projects.metricDescriptors.create",
@@ -4550,7 +2931,7 @@ func (c *ProjectsMetricDescriptorsCreateCall) Do(opts ...googleapi.CallOption) (
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "The project on which to execute the request. The format is \"projects/{project_id_or_number}\".",
+	//       "description": "The project on which to execute the request. The format is \u0026quot;projects/{project_id_or_number}\u0026quot;.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+$",
 	//       "required": true,
@@ -4584,7 +2965,7 @@ type ProjectsMetricDescriptorsDeleteCall struct {
 }
 
 // Delete: Deletes a metric descriptor. Only user-created custom metrics
-// can be deleted.
+// (/monitoring/custom-metrics) can be deleted.
 func (r *ProjectsMetricDescriptorsService) Delete(name string) *ProjectsMetricDescriptorsDeleteCall {
 	c := &ProjectsMetricDescriptorsDeleteCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.name = name
@@ -4672,7 +3053,7 @@ func (c *ProjectsMetricDescriptorsDeleteCall) Do(opts ...googleapi.CallOption) (
 	}
 	return ret, nil
 	// {
-	//   "description": "Deletes a metric descriptor. Only user-created custom metrics can be deleted.",
+	//   "description": "Deletes a metric descriptor. Only user-created custom metrics (/monitoring/custom-metrics) can be deleted.",
 	//   "flatPath": "v3/projects/{projectsId}/metricDescriptors/{metricDescriptorsId}",
 	//   "httpMethod": "DELETE",
 	//   "id": "monitoring.projects.metricDescriptors.delete",
@@ -4681,7 +3062,7 @@ func (c *ProjectsMetricDescriptorsDeleteCall) Do(opts ...googleapi.CallOption) (
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "The metric descriptor on which to execute the request. The format is \"projects/{project_id_or_number}/metricDescriptors/{metric_id}\". An example of {metric_id} is: \"custom.googleapis.com/my_test_metric\".",
+	//       "description": "The metric descriptor on which to execute the request. The format is \u0026quot;projects/{project_id_or_number}/metricDescriptors/{metric_id}\u0026quot;. An example of {metric_id} is: \u0026quot;custom.googleapis.com/my_test_metric\u0026quot;.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/metricDescriptors/.+$",
 	//       "required": true,
@@ -4822,7 +3203,7 @@ func (c *ProjectsMetricDescriptorsGetCall) Do(opts ...googleapi.CallOption) (*Me
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "The metric descriptor on which to execute the request. The format is \"projects/{project_id_or_number}/metricDescriptors/{metric_id}\". An example value of {metric_id} is \"compute.googleapis.com/instance/disk/read_bytes_count\".",
+	//       "description": "The metric descriptor on which to execute the request. The format is \u0026quot;projects/{project_id_or_number}/metricDescriptors/{metric_id}\u0026quot;. An example value of {metric_id} is \u0026quot;compute.googleapis.com/instance/disk/read_bytes_count\u0026quot;.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/metricDescriptors/.+$",
 	//       "required": true,
@@ -4864,10 +3245,11 @@ func (r *ProjectsMetricDescriptorsService) List(name string) *ProjectsMetricDesc
 
 // Filter sets the optional parameter "filter": If this field is empty,
 // all custom and system-defined metric descriptors are returned.
-// Otherwise, the filter specifies which metric descriptors are to be
-// returned. For example, the following filter matches all custom
-// metrics:
-// metric.type = starts_with("custom.googleapis.com/")
+// Otherwise, the filter (/monitoring/api/v3/filters) specifies which
+// metric descriptors are to be returned. For example, the following
+// filter matches all custom metrics
+// (/monitoring/custom-metrics):
+// metric.type = starts_with(&quot;custom.googleapis.com/&quot;)
 func (c *ProjectsMetricDescriptorsListCall) Filter(filter string) *ProjectsMetricDescriptorsListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
@@ -4992,12 +3374,12 @@ func (c *ProjectsMetricDescriptorsListCall) Do(opts ...googleapi.CallOption) (*L
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "If this field is empty, all custom and system-defined metric descriptors are returned. Otherwise, the filter specifies which metric descriptors are to be returned. For example, the following filter matches all custom metrics:\nmetric.type = starts_with(\"custom.googleapis.com/\")\n",
+	//       "description": "If this field is empty, all custom and system-defined metric descriptors are returned. Otherwise, the filter (/monitoring/api/v3/filters) specifies which metric descriptors are to be returned. For example, the following filter matches all custom metrics (/monitoring/custom-metrics):\nmetric.type = starts_with(\u0026quot;custom.googleapis.com/\u0026quot;)\n",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "name": {
-	//       "description": "The project on which to execute the request. The format is \"projects/{project_id_or_number}\".",
+	//       "description": "The project on which to execute the request. The format is \u0026quot;projects/{project_id_or_number}\u0026quot;.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+$",
 	//       "required": true,
@@ -5172,7 +3554,7 @@ func (c *ProjectsMonitoredResourceDescriptorsGetCall) Do(opts ...googleapi.CallO
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "The monitored resource descriptor to get. The format is \"projects/{project_id_or_number}/monitoredResourceDescriptors/{resource_type}\". The {resource_type} is a predefined type, such as cloudsql_database.",
+	//       "description": "The monitored resource descriptor to get. The format is \u0026quot;projects/{project_id_or_number}/monitoredResourceDescriptors/{resource_type}\u0026quot;. The {resource_type} is a predefined type, such as cloudsql_database.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+/monitoredResourceDescriptors/[^/]+$",
 	//       "required": true,
@@ -5213,11 +3595,11 @@ func (r *ProjectsMonitoredResourceDescriptorsService) List(name string) *Project
 }
 
 // Filter sets the optional parameter "filter": An optional filter
-// describing the descriptors to be returned. The filter can reference
-// the descriptor's type and labels. For example, the following filter
-// returns only Google Compute Engine descriptors that have an id
-// label:
-// resource.type = starts_with("gce_") AND resource.label:id
+// (/monitoring/api/v3/filters) describing the descriptors to be
+// returned. The filter can reference the descriptor's type and labels.
+// For example, the following filter returns only Google Compute Engine
+// descriptors that have an id label:
+// resource.type = starts_with(&quot;gce_&quot;) AND resource.label:id
 func (c *ProjectsMonitoredResourceDescriptorsListCall) Filter(filter string) *ProjectsMonitoredResourceDescriptorsListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
@@ -5344,12 +3726,12 @@ func (c *ProjectsMonitoredResourceDescriptorsListCall) Do(opts ...googleapi.Call
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "An optional filter describing the descriptors to be returned. The filter can reference the descriptor's type and labels. For example, the following filter returns only Google Compute Engine descriptors that have an id label:\nresource.type = starts_with(\"gce_\") AND resource.label:id\n",
+	//       "description": "An optional filter (/monitoring/api/v3/filters) describing the descriptors to be returned. The filter can reference the descriptor's type and labels. For example, the following filter returns only Google Compute Engine descriptors that have an id label:\nresource.type = starts_with(\u0026quot;gce_\u0026quot;) AND resource.label:id\n",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "name": {
-	//       "description": "The project on which to execute the request. The format is \"projects/{project_id_or_number}\".",
+	//       "description": "The project on which to execute the request. The format is \u0026quot;projects/{project_id_or_number}\u0026quot;.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+$",
 	//       "required": true,
@@ -5519,7 +3901,7 @@ func (c *ProjectsTimeSeriesCreateCall) Do(opts ...googleapi.CallOption) (*Empty,
 	//   ],
 	//   "parameters": {
 	//     "name": {
-	//       "description": "The project on which to execute the request. The format is \"projects/{project_id_or_number}\".",
+	//       "description": "The project on which to execute the request. The format is \u0026quot;projects/{project_id_or_number}\u0026quot;.",
 	//       "location": "path",
 	//       "pattern": "^projects/[^/]+$",
 	//       "required": true,
@@ -5612,13 +3994,10 @@ func (c *ProjectsTimeSeriesListCall) AggregationCrossSeriesReducer(aggregationCr
 // aggregation function. Each subset contains time series that have the
 // same value for each of the grouping fields. Each individual time
 // series is a member of exactly one subset. The crossSeriesReducer is
-// applied to each subset of time series. It is not possible to reduce
-// across different resource types, so this field implicitly contains
-// resource.type. Fields not specified in groupByFields are aggregated
-// away. If groupByFields is not specified and all the time series have
-// the same resource type, then the time series are aggregated into a
-// single output time series. If crossSeriesReducer is not defined, this
-// field is ignored.
+// applied to each subset of time series. Fields not specified in
+// groupByFields are aggregated away. If groupByFields is not specified,
+// the time series are aggregated into a single output time series. If
+// crossSeriesReducer is not defined, this field is ignored.
 func (c *ProjectsTimeSeriesListCall) AggregationGroupByFields(aggregationGroupByFields ...string) *ProjectsTimeSeriesListCall {
 	c.urlParams_.SetMulti("aggregation.groupByFields", append([]string{}, aggregationGroupByFields...))
 	return c
@@ -5658,12 +4037,14 @@ func (c *ProjectsTimeSeriesListCall) AggregationPerSeriesAligner(aggregationPerS
 	return c
 }
 
-// Filter sets the optional parameter "filter": A monitoring filter that
-// specifies which time series should be returned. The filter must
-// specify a single metric type, and can additionally specify metric
-// labels and other information. For example:
-// metric.type = "compute.googleapis.com/instance/cpu/usage_time" AND
-//     metric.label.instance_name = "my-instance-name"
+// Filter sets the optional parameter "filter": A monitoring filter
+// (/monitoring/api/v3/filters) that specifies which time series should
+// be returned. The filter must specify a single metric type, and can
+// additionally specify metric labels and other information. For
+// example:
+// metric.type =
+// &quot;compute.googleapis.com/instance/cpu/usage_time&quot; AND
+//     metric.label.instance_name = &quot;my-instance-name&quot;
 func (c *ProjectsTimeSeriesListCall) Filter(filter string) *ProjectsTimeSeriesListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
@@ -5852,7 +4233,7 @@ func (c *ProjectsTimeSeriesListCall) Do(opts ...googleapi.CallOption) (*ListTime
 	//       "type": "string"
 	//     },
 	//     "aggregation.groupByFields": {
-	//       "description": "The set of fields to preserve when crossSeriesReducer is specified. The groupByFields determine how the time series are partitioned into subsets prior to applying the aggregation function. Each subset contains time series that have the same value for each of the grouping fields. Each individual time series is a member of exactly one subset. The crossSeriesReducer is applied to each subset of time series. It is not possible to reduce across different resource types, so this field implicitly contains resource.type. Fields not specified in groupByFields are aggregated away. If groupByFields is not specified and all the time series have the same resource type, then the time series are aggregated into a single output time series. If crossSeriesReducer is not defined, this field is ignored.",
+	//       "description": "The set of fields to preserve when crossSeriesReducer is specified. The groupByFields determine how the time series are partitioned into subsets prior to applying the aggregation function. Each subset contains time series that have the same value for each of the grouping fields. Each individual time series is a member of exactly one subset. The crossSeriesReducer is applied to each subset of time series. Fields not specified in groupByFields are aggregated away. If groupByFields is not specified, the time series are aggregated into a single output time series. If crossSeriesReducer is not defined, this field is ignored.",
 	//       "location": "query",
 	//       "repeated": true,
 	//       "type": "string"
@@ -5882,7 +4263,7 @@ func (c *ProjectsTimeSeriesListCall) Do(opts ...googleapi.CallOption) (*ListTime
 	//       "type": "string"
 	//     },
 	//     "filter": {
-	//       "description": "A monitoring filter that specifies which time series should be returned. The filter must specify a single metric type, and can additionally specify metric labels and other information. For example:\nmetric.type = \"compute.googleapis.com/instance/cpu/usage_time\" AND\n    metric.label.instance_name = \"my-instance-name\"\n",
+	//       "description": "A monitoring filter (/monitoring/api/v3/filters) that specifies which time series should be returned. The filter must specify a single metric type, and can additionally specify metric labels and other information. For example:\nmetric.type = \u0026quot;compute.googleapis.com/instance/cpu/usage_time\u0026quot; AND\n    metric.label.instance_name = \u0026quot;my-instance-name\u0026quot;\n",
 	//       "location": "query",
 	//       "type": "string"
 	//     },

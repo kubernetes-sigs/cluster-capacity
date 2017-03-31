@@ -19,16 +19,16 @@ package framework
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
+	//"strconv"
 	"strings"
 	"time"
 
 	"github.com/ghodss/yaml"
-	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/conversion"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/kubernetes/pkg/api/unversioned"
-	"k8s.io/kubernetes/pkg/conversion"
-	"k8s.io/kubernetes/pkg/labels"
+	"k8s.io/kubernetes/pkg/api/v1"
 )
 
 type ClusterCapacityReview struct {
@@ -39,7 +39,7 @@ type ClusterCapacityReview struct {
 
 type ClusterCapacityReviewSpec struct {
 	// the pod desired for scheduling
-	Templates []api.Pod
+	Templates []v1.Pod
 
 	// desired number of replicas that should be scheduled
 	// +optional
@@ -78,8 +78,8 @@ type FailReasonSummary struct {
 }
 
 type Resources struct {
-	PrimaryResources   api.ResourceList
-	OpaqueIntResources map[api.ResourceName]int64
+	PrimaryResources   v1.ResourceList
+	OpaqueIntResources map[v1.ResourceName]int64
 }
 
 type Requirements struct {
@@ -104,32 +104,32 @@ func getMainFailReason(message string) *ClusterCapacityReviewScheduleFailReason 
 	return fail
 }
 
-func getResourceRequest(pod *api.Pod) *Resources {
+func getResourceRequest(pod *v1.Pod) *Resources {
 	result := Resources{
-		PrimaryResources: api.ResourceList{
-			api.ResourceName(api.ResourceCPU):       *resource.NewMilliQuantity(0, resource.DecimalSI),
-			api.ResourceName(api.ResourceMemory):    *resource.NewQuantity(0, resource.BinarySI),
-			api.ResourceName(api.ResourceNvidiaGPU): *resource.NewMilliQuantity(0, resource.DecimalSI),
+		PrimaryResources: v1.ResourceList{
+			v1.ResourceName(v1.ResourceCPU):       *resource.NewMilliQuantity(0, resource.DecimalSI),
+			v1.ResourceName(v1.ResourceMemory):    *resource.NewQuantity(0, resource.BinarySI),
+			v1.ResourceName(v1.ResourceNvidiaGPU): *resource.NewMilliQuantity(0, resource.DecimalSI),
 		},
 	}
 
 	for _, container := range pod.Spec.Containers {
 		for rName, rQuantity := range container.Resources.Requests {
 			switch rName {
-			case api.ResourceMemory:
+			case v1.ResourceMemory:
 				rQuantity.Add(*(result.PrimaryResources.Memory()))
-				result.PrimaryResources[api.ResourceMemory] = rQuantity
-			case api.ResourceCPU:
+				result.PrimaryResources[v1.ResourceMemory] = rQuantity
+			case v1.ResourceCPU:
 				rQuantity.Add(*(result.PrimaryResources.Cpu()))
-				result.PrimaryResources[api.ResourceCPU] = rQuantity
-			case api.ResourceNvidiaGPU:
+				result.PrimaryResources[v1.ResourceCPU] = rQuantity
+			case v1.ResourceNvidiaGPU:
 				rQuantity.Add(*(result.PrimaryResources.NvidiaGPU()))
-				result.PrimaryResources[api.ResourceNvidiaGPU] = rQuantity
+				result.PrimaryResources[v1.ResourceNvidiaGPU] = rQuantity
 			default:
-				if api.IsOpaqueIntResourceName(rName) {
+				if v1.IsOpaqueIntResourceName(rName) {
 					// Lazily allocate this map only if required.
 					if result.OpaqueIntResources == nil {
-						result.OpaqueIntResources = map[api.ResourceName]int64{}
+						result.OpaqueIntResources = map[v1.ResourceName]int64{}
 					}
 					result.OpaqueIntResources[rName] += rQuantity.Value()
 				}
@@ -139,7 +139,7 @@ func getResourceRequest(pod *api.Pod) *Resources {
 	return &result
 }
 
-func parsePodsReview(templatePods []*api.Pod, status Status) []*ClusterCapacityReviewResult {
+func parsePodsReview(templatePods []*v1.Pod, status Status) []*ClusterCapacityReviewResult {
 	templatesCount := len(templatePods)
 	result := make([]*ClusterCapacityReviewResult, 0)
 
@@ -172,7 +172,7 @@ func parsePodsReview(templatePods []*api.Pod, status Status) []*ClusterCapacityR
 		return result
 	}
 
-	slicedMessage = strings.Split(slicedMessage[1][31:], `, `)
+	/*slicedMessage = strings.Split(slicedMessage[1][31:], `, `)
 	allReasons := make([]FailReasonSummary, 0)
 	for _, nodeReason := range slicedMessage {
 		leftParenthesis := strings.LastIndex(nodeReason, `(`)
@@ -185,11 +185,11 @@ func parsePodsReview(templatePods []*api.Pod, status Status) []*ClusterCapacityR
 		})
 	}
 
-	result[(len(status.Pods)-1)%templatesCount].FailSummary = allReasons
+	result[(len(status.Pods)-1)%templatesCount].FailSummary = allReasons*/
 	return result
 }
 
-func getPodsRequirements(pods []*api.Pod) []*Requirements {
+func getPodsRequirements(pods []*v1.Pod) []*Requirements {
 	result := make([]*Requirements, 0)
 	for _, pod := range pods {
 		podRequirements := &Requirements{
@@ -202,16 +202,16 @@ func getPodsRequirements(pods []*api.Pod) []*Requirements {
 	return result
 }
 
-func deepCopyPods(in []*api.Pod, out []api.Pod) {
+func deepCopyPods(in []*v1.Pod, out []v1.Pod) {
 	cloner := conversion.NewCloner()
 	for i, pod := range in {
-		api.DeepCopy_api_Pod(pod, &out[i], cloner)
+		v1.DeepCopy_v1_Pod(pod, &out[i], cloner)
 	}
 }
 
-func getReviewSpec(podTemplates []*api.Pod) ClusterCapacityReviewSpec {
+func getReviewSpec(podTemplates []*v1.Pod) ClusterCapacityReviewSpec {
 
-	podCopies := make([]api.Pod, len(podTemplates))
+	podCopies := make([]v1.Pod, len(podTemplates))
 	deepCopyPods(podTemplates, podCopies)
 	return ClusterCapacityReviewSpec{
 		Templates:       podCopies,
@@ -219,7 +219,7 @@ func getReviewSpec(podTemplates []*api.Pod) ClusterCapacityReviewSpec {
 	}
 }
 
-func getReviewStatus(pods []*api.Pod, status Status) ClusterCapacityReviewStatus {
+func getReviewStatus(pods []*v1.Pod, status Status) ClusterCapacityReviewStatus {
 	return ClusterCapacityReviewStatus{
 		CreationTimestamp: time.Now(),
 		Replicas:          int32(len(status.Pods)),
@@ -228,7 +228,7 @@ func getReviewStatus(pods []*api.Pod, status Status) ClusterCapacityReviewStatus
 	}
 }
 
-func GetReport(pods []*api.Pod, status Status) *ClusterCapacityReview {
+func GetReport(pods []*v1.Pod, status Status) *ClusterCapacityReview {
 	return &ClusterCapacityReview{
 		Spec:   getReviewSpec(pods),
 		Status: getReviewStatus(pods, status),
