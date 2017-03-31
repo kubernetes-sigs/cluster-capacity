@@ -27,17 +27,18 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/kubernetes/pkg/api"
+	//"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/testapi"
-	"k8s.io/kubernetes/pkg/apis/extensions"
+	"k8s.io/kubernetes/pkg/api/v1"
+	"k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
 
 	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/test"
 )
 
-func testPodsData() []*api.Pod {
-	pods := make([]*api.Pod, 0, 10)
+func testPodsData() []*v1.Pod {
+	pods := make([]*v1.Pod, 0, 10)
 	for i := 0; i < 10; i++ {
 		name := fmt.Sprintf("pod%v", i)
 		item := test.PodExample(name)
@@ -46,8 +47,8 @@ func testPodsData() []*api.Pod {
 	return pods
 }
 
-func testServicesData() []*api.Service {
-	svcs := make([]*api.Service, 0, 10)
+func testServicesData() []*v1.Service {
+	svcs := make([]*v1.Service, 0, 10)
 	for i := 0; i < 10; i++ {
 		name := fmt.Sprintf("service%v", i)
 		item := test.ServiceExample(name)
@@ -56,8 +57,8 @@ func testServicesData() []*api.Service {
 	return svcs
 }
 
-func testReplicationControllersData() []*api.ReplicationController {
-	rcs := make([]*api.ReplicationController, 0, 10)
+func testReplicationControllersData() []*v1.ReplicationController {
+	rcs := make([]*v1.ReplicationController, 0, 10)
 	for i := 0; i < 10; i++ {
 		name := fmt.Sprintf("rc%v", i)
 		item := test.ReplicationControllerExample(name)
@@ -66,8 +67,8 @@ func testReplicationControllersData() []*api.ReplicationController {
 	return rcs
 }
 
-func testPersistentVolumesData() []*api.PersistentVolume {
-	pvs := make([]*api.PersistentVolume, 0, 10)
+func testPersistentVolumesData() []*v1.PersistentVolume {
+	pvs := make([]*v1.PersistentVolume, 0, 10)
 	for i := 0; i < 1; i++ {
 		name := fmt.Sprintf("pv%v", i)
 		item := test.PersistentVolumeExample(name)
@@ -76,8 +77,8 @@ func testPersistentVolumesData() []*api.PersistentVolume {
 	return pvs
 }
 
-func testPersistentVolumeClaimsData() []*api.PersistentVolumeClaim {
-	pvcs := make([]*api.PersistentVolumeClaim, 0, 10)
+func testPersistentVolumeClaimsData() []*v1.PersistentVolumeClaim {
+	pvcs := make([]*v1.PersistentVolumeClaim, 0, 10)
 	for i := 0; i < 10; i++ {
 		name := fmt.Sprintf("pvc%v", i)
 		item := test.PersistentVolumeClaimExample(name)
@@ -86,8 +87,8 @@ func testPersistentVolumeClaimsData() []*api.PersistentVolumeClaim {
 	return pvcs
 }
 
-func testNodesData() []*api.Node {
-	nodes := make([]*api.Node, 0, 10)
+func testNodesData() []*v1.Node {
+	nodes := make([]*v1.Node, 0, 10)
 	for i := 0; i < 10; i++ {
 		name := fmt.Sprintf("node%v", i)
 		item := test.NodeExample(name)
@@ -96,14 +97,14 @@ func testNodesData() []*api.Node {
 	return nodes
 }
 
-func testReplicaSetsData() []*extensions.ReplicaSet {
-	rss := make([]*extensions.ReplicaSet, 0, 10)
+func testReplicaSetsData() []*v1beta1.ReplicaSet {
+	rss := make([]*v1beta1.ReplicaSet, 0, 10)
 	for i := 0; i < 10; i++ {
 		name := fmt.Sprintf("replicaset%v", i)
-		item := extensions.ReplicaSet{
+		item := v1beta1.ReplicaSet{
 			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "test", ResourceVersion: "125"},
-			Spec: extensions.ReplicaSetSpec{
-				Replicas: 3,
+			Spec: v1beta1.ReplicaSetSpec{
+				Replicas: &[]int32{3}[0],
 			},
 		}
 		rss = append(rss, &item)
@@ -114,22 +115,22 @@ func testReplicaSetsData() []*extensions.ReplicaSet {
 func newTestListRestClient() *RESTClient {
 
 	resourceStore := &store.FakeResourceStore{
-		PodsData: func() []*api.Pod {
+		PodsData: func() []*v1.Pod {
 			return testPodsData()
 		},
-		ServicesData: func() []*api.Service {
+		ServicesData: func() []*v1.Service {
 			return testServicesData()
 		},
-		ReplicationControllersData: func() []*api.ReplicationController {
+		ReplicationControllersData: func() []*v1.ReplicationController {
 			return testReplicationControllersData()
 		},
-		PersistentVolumesData: func() []*api.PersistentVolume {
+		PersistentVolumesData: func() []*v1.PersistentVolume {
 			return testPersistentVolumesData()
 		},
-		PersistentVolumeClaimsData: func() []*api.PersistentVolumeClaim {
+		PersistentVolumeClaimsData: func() []*v1.PersistentVolumeClaim {
 			return testPersistentVolumeClaimsData()
 		},
-		NodesData: func() []*api.Node {
+		NodesData: func() []*v1.Node {
 			return testNodesData()
 		},
 	}
@@ -189,9 +190,9 @@ func TestSyncPods(t *testing.T) {
 		t.Errorf("Unable to understand list result %#v (%v)", list, err)
 	}
 
-	found := make([]api.Pod, 0, len(items))
+	found := make([]v1.Pod, 0, len(items))
 	for _, item := range items {
-		found = append(found, *((interface{})(item).(*api.Pod)))
+		found = append(found, *((interface{})(item).(*v1.Pod)))
 	}
 
 	if !compareItems(expected, found) {
@@ -210,9 +211,9 @@ func TestSyncServices(t *testing.T) {
 		t.Errorf("Unable to understand list result %#v (%v)", list, err)
 	}
 
-	found := make([]api.Service, 0, len(items))
+	found := make([]v1.Service, 0, len(items))
 	for _, item := range items {
-		found = append(found, *((interface{})(item).(*api.Service)))
+		found = append(found, *((interface{})(item).(*v1.Service)))
 	}
 
 	if !compareItems(expected, found) {
@@ -231,9 +232,9 @@ func TestSyncReplicationControllers(t *testing.T) {
 		t.Errorf("Unable to understand list result %#v (%v)", list, err)
 	}
 
-	found := make([]api.ReplicationController, 0, len(items))
+	found := make([]v1.ReplicationController, 0, len(items))
 	for _, item := range items {
-		found = append(found, *((interface{})(item).(*api.ReplicationController)))
+		found = append(found, *((interface{})(item).(*v1.ReplicationController)))
 	}
 
 	if !compareItems(expected, found) {
@@ -250,9 +251,9 @@ func TestSyncPersistentVolumes(t *testing.T) {
 	if err != nil {
 		t.Errorf("Unable to understand list result %#v (%v)", list, err)
 	}
-	found := make([]api.PersistentVolume, 0, len(items))
+	found := make([]v1.PersistentVolume, 0, len(items))
 	for _, item := range items {
-		found = append(found, *((interface{})(item).(*api.PersistentVolume)))
+		found = append(found, *((interface{})(item).(*v1.PersistentVolume)))
 	}
 
 	if !compareItems(expected, found) {
@@ -269,9 +270,9 @@ func TestSyncPersistentVolumeClaims(t *testing.T) {
 	if err != nil {
 		t.Errorf("Unable to understand list result %#v (%v)", list, err)
 	}
-	found := make([]api.PersistentVolumeClaim, 0, len(items))
+	found := make([]v1.PersistentVolumeClaim, 0, len(items))
 	for _, item := range items {
-		found = append(found, *((interface{})(item).(*api.PersistentVolumeClaim)))
+		found = append(found, *((interface{})(item).(*v1.PersistentVolumeClaim)))
 	}
 
 	if !compareItems(expected, found) {
@@ -288,9 +289,9 @@ func TestSyncNodes(t *testing.T) {
 	if err != nil {
 		t.Errorf("Unable to understand list result %#v (%v)", list, err)
 	}
-	found := make([]api.Node, 0, len(items))
+	found := make([]v1.Node, 0, len(items))
 	for _, item := range items {
-		found = append(found, *((interface{})(item).(*api.Node)))
+		found = append(found, *((interface{})(item).(*v1.Node)))
 	}
 
 	if !compareItems(expected, found) {

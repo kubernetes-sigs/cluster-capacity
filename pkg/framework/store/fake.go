@@ -22,20 +22,20 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/apis/extensions"
+	"k8s.io/kubernetes/pkg/api/v1"
+	"k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
 
 	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
 )
 
 type FakeResourceStore struct {
-	PodsData                   func() []*api.Pod
-	ServicesData               func() []*api.Service
-	ReplicationControllersData func() []*api.ReplicationController
-	NodesData                  func() []*api.Node
-	PersistentVolumesData      func() []*api.PersistentVolume
-	PersistentVolumeClaimsData func() []*api.PersistentVolumeClaim
-	ReplicaSetsData            func() []*extensions.ReplicaSet
+	PodsData                   func() []*v1.Pod
+	ServicesData               func() []*v1.Service
+	ReplicationControllersData func() []*v1.ReplicationController
+	NodesData                  func() []*v1.Node
+	PersistentVolumesData      func() []*v1.PersistentVolume
+	PersistentVolumeClaimsData func() []*v1.PersistentVolumeClaim
+	ReplicaSetsData            func() []*v1beta1.ReplicaSet
 	// TODO(jchaloup): fill missing resource functions
 }
 
@@ -73,23 +73,23 @@ func findResource(obj interface{}, objs interface{}) (item interface{}, exists b
 		item := objsSlice.Index(i).Interface()
 		// TODO(jchaloup): make this resource type independent
 		switch item.(type) {
-		case api.Pod:
-			value := item.(api.Pod)
+		case v1.Pod:
+			value := item.(v1.Pod)
 			obj_key, key_err = cache.MetaNamespaceKeyFunc(metav1.Object(&value))
-		case api.Service:
-			value := item.(api.Service)
+		case v1.Service:
+			value := item.(v1.Service)
 			obj_key, key_err = cache.MetaNamespaceKeyFunc(metav1.Object(&value))
-		case api.ReplicationController:
-			value := item.(api.ReplicationController)
+		case v1.ReplicationController:
+			value := item.(v1.ReplicationController)
 			obj_key, key_err = cache.MetaNamespaceKeyFunc(metav1.Object(&value))
-		case api.Node:
-			value := item.(api.Node)
+		case v1.Node:
+			value := item.(v1.Node)
 			obj_key, key_err = cache.MetaNamespaceKeyFunc(metav1.Object(&value))
-		case api.PersistentVolume:
-			value := item.(api.PersistentVolume)
+		case v1.PersistentVolume:
+			value := item.(v1.PersistentVolume)
 			obj_key, key_err = cache.MetaNamespaceKeyFunc(metav1.Object(&value))
-		case api.PersistentVolumeClaim:
-			value := item.(api.PersistentVolumeClaim)
+		case v1.PersistentVolumeClaim:
+			value := item.(v1.PersistentVolumeClaim)
 			obj_key, key_err = cache.MetaNamespaceKeyFunc(metav1.Object(&value))
 		}
 		if key_err != nil {

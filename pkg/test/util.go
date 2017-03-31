@@ -19,72 +19,78 @@ package test
 import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/kubernetes/pkg/api"
 	apitesting "k8s.io/kubernetes/pkg/api/testing"
+	"k8s.io/kubernetes/pkg/api/v1"
 )
 
-func NodeExample(name string) api.Node {
-	return api.Node{
+func NodeExample(name string) v1.Node {
+	return v1.Node{
+		TypeMeta:   metav1.TypeMeta{Kind: "Node", APIVersion: "v1"},
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "test", ResourceVersion: "123"},
-		Spec: api.NodeSpec{
+		Spec: v1.NodeSpec{
 			ExternalID: "ext",
 		},
 	}
 }
 
-func PodExample(name string) api.Pod {
-	pod := api.Pod{
+func PodExample(name string) v1.Pod {
+	pod := v1.Pod{
+		TypeMeta:   metav1.TypeMeta{Kind: "Pod", APIVersion: "v1"},
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "test", ResourceVersion: "10"},
-		Spec:       apitesting.DeepEqualSafePodSpec(),
+		Spec:       apitesting.V1DeepEqualSafePodSpec(),
 	}
-	pod.Spec.Containers = []api.Container{}
+	pod.Spec.Containers = []v1.Container{}
 	return pod
 }
 
-func ServiceExample(name string) api.Service {
-	return api.Service{
+func ServiceExample(name string) v1.Service {
+	return v1.Service{
+		TypeMeta:   metav1.TypeMeta{Kind: "Service", APIVersion: "v1"},
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "test", ResourceVersion: "12"},
-		Spec: api.ServiceSpec{
+		Spec: v1.ServiceSpec{
 			SessionAffinity: "None",
-			Type:            api.ServiceTypeClusterIP,
+			Type:            v1.ServiceTypeClusterIP,
 		},
 	}
 }
 
-func ReplicationControllerExample(name string) api.ReplicationController {
-	return api.ReplicationController{
+func ReplicationControllerExample(name string) v1.ReplicationController {
+	return v1.ReplicationController{
+		TypeMeta:   metav1.TypeMeta{Kind: "ReplicationController", APIVersion: "v1"},
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "test", ResourceVersion: "18"},
-		Spec: api.ReplicationControllerSpec{
-			Replicas: 1,
+		Spec: v1.ReplicationControllerSpec{
+			Replicas: &[]int32{1}[0],
 		},
 	}
 }
-func PersistentVolumeExample(name string) api.PersistentVolume {
-	return api.PersistentVolume{
+func PersistentVolumeExample(name string) v1.PersistentVolume {
+	return v1.PersistentVolume{
+		TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolume", APIVersion: "v1"},
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: name, ResourceVersion: "123"},
-		Spec: api.PersistentVolumeSpec{
-			Capacity: api.ResourceList{
-				api.ResourceName(api.ResourceStorage): resource.MustParse("10G"),
+		Spec: v1.PersistentVolumeSpec{
+			Capacity: v1.ResourceList{
+				v1.ResourceName(v1.ResourceStorage): resource.MustParse("10G"),
 			},
-			PersistentVolumeSource: api.PersistentVolumeSource{
-				HostPath: &api.HostPathVolumeSource{Path: "/foo"},
+			PersistentVolumeSource: v1.PersistentVolumeSource{
+				HostPath: &v1.HostPathVolumeSource{Path: "/foo"},
 			},
 			PersistentVolumeReclaimPolicy: "Retain",
 		},
-		Status: api.PersistentVolumeStatus{
-			Phase: api.PersistentVolumePhase("Pending"),
+		Status: v1.PersistentVolumeStatus{
+			Phase: v1.PersistentVolumePhase("Pending"),
 		},
 	}
 }
 
-func PersistentVolumeClaimExample(name string) api.PersistentVolumeClaim {
-	return api.PersistentVolumeClaim{
+func PersistentVolumeClaimExample(name string) v1.PersistentVolumeClaim {
+	return v1.PersistentVolumeClaim{
+		TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "test", ResourceVersion: "123"},
-		Spec: api.PersistentVolumeClaimSpec{
+		Spec: v1.PersistentVolumeClaimSpec{
 			VolumeName: "volume",
 		},
-		Status: api.PersistentVolumeClaimStatus{
-			Phase: api.PersistentVolumeClaimPhase("Pending"),
+		Status: v1.PersistentVolumeClaimStatus{
+			Phase: v1.PersistentVolumeClaimPhase("Pending"),
 		},
 	}
 }

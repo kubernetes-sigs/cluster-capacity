@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api/v1"
 
 	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
@@ -57,17 +57,17 @@ func getResourceWatcher(client cache.Getter, resource ccapi.ResourceType) watch.
 func emitEvent(client *RESTClient, resource ccapi.ResourceType, test eventTest) {
 	switch resource {
 	case ccapi.Pods:
-		client.EmitObjectWatchEvent(resource, test.event, test.item.(*api.Pod))
+		client.EmitObjectWatchEvent(resource, test.event, test.item.(*v1.Pod))
 	case ccapi.Services:
-		client.EmitObjectWatchEvent(resource, test.event, test.item.(*api.Service))
+		client.EmitObjectWatchEvent(resource, test.event, test.item.(*v1.Service))
 	case ccapi.ReplicationControllers:
-		client.EmitObjectWatchEvent(resource, test.event, test.item.(*api.ReplicationController))
+		client.EmitObjectWatchEvent(resource, test.event, test.item.(*v1.ReplicationController))
 	case ccapi.PersistentVolumes:
-		client.EmitObjectWatchEvent(resource, test.event, test.item.(*api.PersistentVolume))
+		client.EmitObjectWatchEvent(resource, test.event, test.item.(*v1.PersistentVolume))
 	case ccapi.Nodes:
-		client.EmitObjectWatchEvent(resource, test.event, test.item.(*api.Node))
+		client.EmitObjectWatchEvent(resource, test.event, test.item.(*v1.Node))
 	case ccapi.PersistentVolumeClaims:
-		client.EmitObjectWatchEvent(resource, test.event, test.item.(*api.PersistentVolumeClaim))
+		client.EmitObjectWatchEvent(resource, test.event, test.item.(*v1.PersistentVolumeClaim))
 	default:
 		fmt.Printf("Unsupported resource %s", resource)
 		// TODO(jchaloup): log the error
@@ -104,7 +104,7 @@ func testWatch(tests []eventTest, resource ccapi.ResourceType, t *testing.T) {
 				t.Errorf("Expected event type %q, got %q", test.event, event.Type)
 			}
 			if !reflect.DeepEqual(test.item, event.Object) {
-				t.Errorf("unexpected object: expected: %#v\n actual: %#v", test.item, event.Object)
+				t.Errorf("unexpected object:\n\n expected: %#v\n actual  : %#v", test.item, event.Object)
 			}
 		}
 		sync <- struct{}{}
