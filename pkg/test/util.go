@@ -40,6 +40,7 @@ func PodExample(name string) v1.Pod {
 		Spec:       apitesting.V1DeepEqualSafePodSpec(),
 	}
 	pod.Spec.Containers = []v1.Container{}
+	pod.Spec.SchedulerName = "default-scheduler"
 	return pod
 }
 
