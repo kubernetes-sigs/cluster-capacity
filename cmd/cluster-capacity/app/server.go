@@ -18,25 +18,18 @@ package app
 
 import (
 	"fmt"
-	"log"
-	"os"
 	"strings"
-	"time"
 
 	"github.com/renstrom/dedent"
 	"github.com/spf13/cobra"
 
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/clientcmd"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
 
 	"github.com/kubernetes-incubator/cluster-capacity/cmd/cluster-capacity/app/options"
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/apiserver"
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/apiserver/cache"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework"
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/utils"
 )
 
@@ -47,8 +40,6 @@ var (
 		pods specified by --max-limits flag. If the --max-limits flag is not specified, pods are scheduled until
 		the simulated API server runs out of resources.
 	`)
-
-	MAXREPORTS = 100
 )
 
 func NewClusterCapacityCommand() *cobra.Command {
@@ -126,50 +117,14 @@ func Run(opt *options.ClusterCapacityOptions) error {
 		return err
 	}
 
-	if opt.Period == 0 {
-		report, err := runSimulator(conf, true)
-		if err != nil {
-			return err
-		}
-		if err := framework.ClusterCapacityReviewPrint(report, conf.Options.Verbose, conf.Options.OutputFormat); err != nil {
-			return fmt.Errorf("Error while printing: %v", err)
-		}
-		return nil
+	report, err := runSimulator(conf, true)
+	if err != nil {
+		return err
 	}
-
-	conf.Reports = cache.NewCache(MAXREPORTS)
-
-	r := apiserver.NewResource(conf)
-
-	go func() {
-		log.Fatal(apiserver.ListenAndServe(r))
-	}()
-
-	// sync and watch apiserver
-	conf.ResourceStore = store.NewResourceReflectors(conf.KubeClient, wait.NeverStop)
-
-	runSimulation := func(syncWithClient bool) {
-		report, err := runSimulator(conf, syncWithClient)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			return
-		}
-
-		conf.Reports.Add(report)
-		r.PutStatus(report)
-
-		if conf.Options.Verbose {
-			framework.ClusterCapacityReviewPrint(report, conf.Options.Verbose, conf.Options.OutputFormat)
-		}
+	if err := framework.ClusterCapacityReviewPrint(report, conf.Options.Verbose, conf.Options.OutputFormat); err != nil {
+		return fmt.Errorf("Error while printing: %v", err)
 	}
-
-	runSimulation(true)
-	time.Sleep(time.Duration(opt.Period) * time.Second)
-
-	for {
-		runSimulation(false)
-		time.Sleep(time.Duration(opt.Period) * time.Second)
-	}
+	return nil
 }
 
 func getKubeClient(master string, config string) (clientset.Interface, error) {

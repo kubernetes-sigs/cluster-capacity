@@ -36,7 +36,6 @@ import (
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	schedopt "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app/options"
 
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/apiserver/cache"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/utils"
 )
@@ -49,7 +48,6 @@ type ClusterCapacityConfig struct {
 	KubeClient       clientset.Interface
 	Options          *ClusterCapacityOptions
 	DefaultScheduler *schedopt.SchedulerServer
-	Reports          *cache.Cache
 	ResourceStore    store.ResourceStore
 }
 
@@ -60,7 +58,6 @@ type ClusterCapacityOptions struct {
 	MaxLimit                   int
 	Verbose                    bool
 	PodSpecFile                string
-	Period                     int
 	OutputFormat               string
 	ResourceSpaceMode          string
 	AdmissionControl           string
@@ -101,7 +98,6 @@ func (s *ClusterCapacityOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&s.ResourceSpaceMode, "resource-space-mode", "ResourceSpaceFull", "Resource space limitation. Defaults to ResourceSpaceFull. If set to ResourceSpacePartial, ResourceQuota admission is applied.")
 
 	fs.BoolVar(&s.Verbose, "verbose", s.Verbose, "Verbose mode")
-	fs.IntVar(&s.Period, "period", 0, "Number of seconds between cluster capacity checks, if period=0 cluster-capacity will be checked just once")
 	fs.StringVarP(&s.OutputFormat, "output", "o", s.OutputFormat, "Output format. One of: json|yaml")
 }
 

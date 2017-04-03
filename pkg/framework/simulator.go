@@ -34,7 +34,6 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/api/v1"
 	externalclientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	//clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
@@ -107,19 +106,6 @@ func StringToResourceSpaceMode(mode string) (ResourceSpaceMode, error) {
 	default:
 		return "", fmt.Errorf("Resource space mode not recognized")
 	}
-}
-
-type ApiServerOptions struct {
-	AdmissionControl           string
-	AdmissionControlConfigFile string
-
-	// Authorization mode and associated flags.
-	AuthorizationMode                        string
-	AuthorizationPolicyFile                  string
-	AuthorizationWebhookConfigFile           string
-	AuthorizationWebhookCacheAuthorizedTTL   unversioned.Duration
-	AuthorizationWebhookCacheUnauthorizedTTL unversioned.Duration
-	AuthorizationRBACSuperUser               string
 }
 
 type ClusterCapacity struct {
