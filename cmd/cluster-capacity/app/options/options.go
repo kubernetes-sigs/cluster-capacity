@@ -28,7 +28,6 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/v1"
@@ -39,8 +38,6 @@ import (
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/utils"
 )
-
-var SupportedAdmissionControllers = sets.NewString([]string{"LimitRanger", "ResourceQuota"}...)
 
 type ClusterCapacityConfig struct {
 	Schedulers       []*schedopt.SchedulerServer
@@ -60,7 +57,6 @@ type ClusterCapacityOptions struct {
 	PodSpecFile                string
 	OutputFormat               string
 	ResourceSpaceMode          string
-	AdmissionControl           string
 }
 
 func NewClusterCapacityConfig(opt *ClusterCapacityOptions) *ClusterCapacityConfig {
@@ -90,12 +86,7 @@ func (s *ClusterCapacityOptions) AddFlags(fs *pflag.FlagSet) {
 
 	filepath := path.Join(dir, "config/default-scheduler.yaml")
 
-	fs.StringVar(&s.AdmissionControl, "admission-control", s.AdmissionControl, ""+
-		"Ordered list of plug-ins to do admission control of resources into cluster. "+
-		"Comma-delimited list of: "+strings.Join(SupportedAdmissionControllers.List(), ", ")+".")
-
 	fs.StringVar(&s.DefaultSchedulerConfigFile, "default-config", filepath, "Path to JSON or YAML file containing scheduler configuration.")
-	fs.StringVar(&s.ResourceSpaceMode, "resource-space-mode", "ResourceSpaceFull", "Resource space limitation. Defaults to ResourceSpaceFull. If set to ResourceSpacePartial, ResourceQuota admission is applied.")
 
 	fs.BoolVar(&s.Verbose, "verbose", s.Verbose, "Verbose mode")
 	fs.StringVarP(&s.OutputFormat, "output", "o", s.OutputFormat, "Output format. One of: json|yaml")

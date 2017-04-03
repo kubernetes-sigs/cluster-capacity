@@ -29,15 +29,10 @@ import (
 	"k8s.io/apimachinery/pkg/conversion"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/apiserver/pkg/admission"
-	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/kubernetes/pkg/api/v1"
 	externalclientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
-	//clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
-	//clientsetextensions "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/typed/extensions/internalversion"
 	einformers "k8s.io/kubernetes/pkg/client/informers/informers_generated/externalversions"
 	soptions "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app/options"
 	"k8s.io/kubernetes/plugin/pkg/scheduler"
@@ -48,65 +43,12 @@ import (
 	// register algorithm providers
 	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
 
-	// Admission policies
-	// _ "k8s.io/kubernetes/plugin/pkg/admission/admit"
-	// _ "k8s.io/kubernetes/plugin/pkg/admission/alwayspullimages"
-	// _ "k8s.io/kubernetes/plugin/pkg/admission/antiaffinity"
-	// _ "k8s.io/kubernetes/plugin/pkg/admission/deny"
-	// _ "k8s.io/kubernetes/plugin/pkg/admission/exec"
-	// _ "k8s.io/kubernetes/plugin/pkg/admission/gc"
-	// _ "k8s.io/kubernetes/plugin/pkg/admission/imagepolicy"
-	// _ "k8s.io/kubernetes/plugin/pkg/admission/initialresources"
-	// _ "k8s.io/kubernetes/plugin/pkg/admission/limitranger"
-	// _ "k8s.io/kubernetes/plugin/pkg/admission/namespace/autoprovision"
-	// _ "k8s.io/kubernetes/plugin/pkg/admission/namespace/exists"
-	// _ "k8s.io/kubernetes/plugin/pkg/admission/namespace/lifecycle"
-	// _ "k8s.io/kubernetes/plugin/pkg/admission/persistentvolume/label"
-	// _ "k8s.io/kubernetes/plugin/pkg/admission/podnodeselector"
-	// _ "k8s.io/kubernetes/plugin/pkg/admission/resourcequota"
-	// _ "k8s.io/kubernetes/plugin/pkg/admission/security/podsecuritypolicy"
-	// _ "k8s.io/kubernetes/plugin/pkg/admission/securitycontext/scdeny"
-	// _ "k8s.io/kubernetes/plugin/pkg/admission/serviceaccount"
-	// _ "k8s.io/kubernetes/plugin/pkg/admission/storageclass/default"
-
 	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/record"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/restclient/external"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/strategy"
 )
-
-// Main goal: given a pod with non-zero requested resources how many times the pod can be scheduled in the cluster
-// Constraints to consider:
-// - resource quota for memory/cpu: limit the cluster space to explore
-// - namespace node selector: limit the cluster space to explore
-//
-// Due to the constraints the CC framework operates in two modes:
-// - full resource space
-// - partial resource space
-//
-// The full resource space mode explores the entire cluster resource space
-// with emphasis to schedule as much instances of pods as possible.
-// The partial resource space is limited artificialy and the analysis
-// is bounded.
-
-type ResourceSpaceMode string
-
-const (
-	ResourceSpaceFull    ResourceSpaceMode = "ResourceSpaceFull"
-	ResourceSpacePartial ResourceSpaceMode = "ResourceSpacePartial"
-)
-
-func StringToResourceSpaceMode(mode string) (ResourceSpaceMode, error) {
-	switch mode {
-	case "ResourceSpaceFull":
-		return ResourceSpaceFull, nil
-	case "ResourceSpacePartial":
-		return ResourceSpacePartial, nil
-	default:
-		return "", fmt.Errorf("Resource space mode not recognized")
-	}
-}
 
 type ClusterCapacity struct {
 	// caches modified by emulation strategy
@@ -116,7 +58,6 @@ type ClusterCapacity struct {
 	strategy strategy.Strategy
 
 	// fake kube client
-	//kubeclient         *clientset.Clientset
 	externalkubeclient *externalclientset.Clientset
 
 	informerFactory einformers.SharedInformerFactory
@@ -139,10 +80,7 @@ type ClusterCapacity struct {
 	report           *ClusterCapacityReview
 
 	// analysis limitation
-	resourceSpaceMode   ResourceSpaceMode
-	admissionController admission.Interface
-	admissionStopCh     chan struct{}
-	informerStopCh      chan struct{}
+	informerStopCh chan struct{}
 
 	// stop the analysis
 	stop      chan struct{}
@@ -253,7 +191,7 @@ func (c *ClusterCapacity) Bind(binding *v1.Binding, schedulerName string) error 
 
 	// all good, create another pod
 	if err := c.nextPod(); err != nil {
-		if strings.HasPrefix(c.status.StopReason, "AdmissionControllerError") || strings.HasPrefix(c.status.StopReason, "NamespaceNotFound") {
+		if strings.HasPrefix(c.status.StopReason, "NamespaceNotFound") {
 			c.Close()
 			c.stop <- struct{}{}
 			return nil
@@ -277,7 +215,6 @@ func (c *ClusterCapacity) Close() {
 
 	c.coreRestClient.Close()
 	c.extensionsRestClient.Close()
-	close(c.admissionStopCh)
 	close(c.informerStopCh)
 	c.closed = true
 }
@@ -308,18 +245,6 @@ func (c *ClusterCapacity) nextPod() error {
 	pod.Spec.NodeName = ""
 	// use simulated pod name with an index to construct the name
 	pod.ObjectMeta.Name = fmt.Sprintf("%v-%v", c.simulatedPod.Name, c.simulated)
-
-	if c.admissionController != nil {
-		gv := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}.GroupVersion()
-		userInfo, _ := request.UserFrom(request.WithUserAgent(request.NewContext(), "Cluster-Capacity-Agent"))
-		attr := admission.NewAttributesRecord(runtime.Object(&pod), nil, schema.FromAPIVersionAndKind("v1", "Pod"), pod.Namespace, pod.Name, gv.WithResource("pods"), "", admission.Create, userInfo)
-
-		err := c.admissionController.Admit(attr)
-		if err != nil {
-			c.status.StopReason = fmt.Sprintf("AdmissionControllerError: %v", err)
-			return fmt.Errorf("AdmissionControllerError: %v", err)
-		}
-	}
 
 	// Check the pod's namespace exists
 	_, err := c.externalkubeclient.Core().Namespaces().Get(pod.ObjectMeta.Namespace, metav1.GetOptions{})
@@ -436,25 +361,21 @@ func createConfig(s *soptions.SchedulerServer, configFactory scheduler.Configura
 // Create new cluster capacity analysis
 // The analysis is completely independent of apiserver so no need
 // for kubeconfig nor for apiserver url
-func New(s *soptions.SchedulerServer, simulatedPod *v1.Pod, maxPods int, resourceSpaceMode ResourceSpaceMode, admissionControl string) (*ClusterCapacity, error) {
+func New(s *soptions.SchedulerServer, simulatedPod *v1.Pod, maxPods int) (*ClusterCapacity, error) {
 	resourceStore := store.NewResourceStore()
 	restClient := external.NewRESTClient(resourceStore, "core")
 	extensionsRestClient := external.NewRESTClient(resourceStore, "extensions")
 
 	cc := &ClusterCapacity{
-		resourceStore: resourceStore,
-		strategy:      strategy.NewPredictiveStrategy(resourceStore),
-		//kubeclient:           clientset.New(restClient),
+		resourceStore:        resourceStore,
+		strategy:             strategy.NewPredictiveStrategy(resourceStore),
 		externalkubeclient:   externalclientset.New(restClient),
 		simulatedPod:         simulatedPod,
 		simulated:            0,
 		maxSimulated:         maxPods,
 		coreRestClient:       restClient,
 		extensionsRestClient: extensionsRestClient,
-		resourceSpaceMode:    resourceSpaceMode,
 	}
-
-	//cc.kubeclient.ExtensionsClient = clientsetextensions.New(extensionsRestClient)
 
 	for _, resource := range resourceStore.Resources() {
 		// The resource variable would be shared among all [Add|Update|Delete]Func functions
@@ -488,47 +409,6 @@ func New(s *soptions.SchedulerServer, simulatedPod *v1.Pod, maxPods int, resourc
 	cc.defaultScheduler = s.SchedulerName
 
 	cc.stop = make(chan struct{})
-	cc.admissionStopCh = make(chan struct{})
 	cc.informerStopCh = make(chan struct{})
-
-	// Create empty event recorder, broadcaster, metrics and everything up to binder.
-	// Binder is redirected to cluster capacity's counter.
-
-	// initialize admission controllers if specified
-	// if len(admissionControl) > 0 {
-	// 	admissionsNames := strings.Split(admissionControl, ",")
-	// 	admissionNamesSets := sets.NewString(admissionsNames...)
-
-	// 	// filter out limitations that forbid the analysis to expand to entire resource space
-	// 	if cc.resourceSpaceMode == ResourceSpaceFull {
-	// 		// filter out ResourceQuota admission
-	// 		admissionNamesSets.Delete("ResourceQuota")
-	// 	}
-	// 	admissionControlPluginNames := admissionNamesSets.List()
-
-	// 	sharedInformers := informers.NewSharedInformerFactory(cc.kubeclient, 10*time.Minute)
-	// 	authorizationConfig := authorizer.AuthorizationConfig{
-	// 		InformerFactory: sharedInformers,
-	// 	}
-
-	// 	authorizationConfig.WebhookCacheUnauthorizedTTL, _ = time.ParseDuration("30s")
-	// 	authorizationConfig.WebhookCacheAuthorizedTTL, _ = time.ParseDuration("5m0s")
-	// 	authorizationConfig.AuthorizationModes = []string{"AlwaysAllow"}
-
-	// 	apiAuthorizer, err := authorizationConfig.New()
-	// 	if err != nil {
-	// 		log.Fatalf("Invalid Authorization Config: %v", err)
-	// 	}
-
-	// 	pluginInitializer := kubeapiserveradmission.NewPluginInitializer(cc.kubeclient, sharedInformers, apiAuthorizer, nil)
-	// 	admissionController, err := admission.NewFromPlugins(admissionControlPluginNames, nil, pluginInitializer)
-	// 	if err != nil {
-	// 		log.Fatalf("Failed to initialize plugins: %v", err)
-	// 	}
-
-	// 	cc.admissionController = admissionController
-	// 	sharedInformers.Start(cc.admissionStopCh)
-	// }
-
 	return cc, nil
 }

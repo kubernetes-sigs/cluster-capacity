@@ -18,12 +18,10 @@ package app
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/renstrom/dedent"
 	"github.com/spf13/cobra"
 
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/clientcmd"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
@@ -66,16 +64,6 @@ func NewClusterCapacityCommand() *cobra.Command {
 }
 
 func Validate(opt *options.ClusterCapacityOptions) error {
-
-	if len(opt.AdmissionControl) > 0 {
-		admissionsNames := strings.Split(opt.AdmissionControl, ",")
-		admissionNamesSets := sets.NewString(admissionsNames...)
-		if !options.SupportedAdmissionControllers.IsSuperset(admissionNamesSets) {
-			return fmt.Errorf("Requested not supported admission control plugin. Supported admission control plugins are: %v",
-				strings.Join(options.SupportedAdmissionControllers.List(), ", "))
-		}
-	}
-
 	if len(opt.PodSpecFile) == 0 {
 		return fmt.Errorf("Pod spec file is missing")
 	}
@@ -83,11 +71,6 @@ func Validate(opt *options.ClusterCapacityOptions) error {
 	if len(opt.Kubeconfig) == 0 {
 		return fmt.Errorf("kubeconfig is missing")
 	}
-
-	if opt.ResourceSpaceMode != "" && opt.ResourceSpaceMode != "ResourceSpaceFull" && opt.ResourceSpaceMode != "ResourceSpacePartial" {
-		return fmt.Errorf("Resource space mode not recognized. Valid values are: ResourceSpaceFull, ResourceSpacePartial")
-	}
-
 	return nil
 }
 
@@ -145,12 +128,7 @@ func getKubeClient(master string, config string) (clientset.Interface, error) {
 }
 
 func runSimulator(s *options.ClusterCapacityConfig, syncWithClient bool) (*framework.ClusterCapacityReview, error) {
-	mode, err := framework.StringToResourceSpaceMode(s.Options.ResourceSpaceMode)
-	if err != nil {
-		return nil, err
-	}
-
-	cc, err := framework.New(s.DefaultScheduler, s.Pod, s.Options.MaxLimit, mode, s.Options.AdmissionControl)
+	cc, err := framework.New(s.DefaultScheduler, s.Pod, s.Options.MaxLimit)
 	if err != nil {
 		return nil, err
 	}
