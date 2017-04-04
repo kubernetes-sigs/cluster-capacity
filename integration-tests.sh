@@ -104,63 +104,6 @@ echo ""
 echo "# Delete resource in the cluster by deleting rc"
 $KUBECTL delete -f examples/rc.yml
 
-
-echo ""
-echo ""
-echo "# Running with ResourceQuota admission plugin"
-echo "## Creating resource quota"
-$KUBECTL create resourcequota pod-quota --namespace=cluster-capacity --hard=pods=1
-
-$CC --podspec=examples/pod.yaml --resource-space-mode=ResourceSpacePartial --admission-control="ResourceQuota" | tee estimation.log
-if [ -z "$(cat estimation.log | grep 'AdmissionControllerError')" ]; then
-  printError "Missing Admission controller error"
-  $KUBECTL delete resourcequota pod-quota --namespace=cluster-capacity
-  exit 1
-fi
-
-echo "## Deleting resource quota"
-$KUBECTL delete resourcequota pod-quota --namespace=cluster-capacity
-
-
-echo ""
-echo ""
-echo "# Running with LimitRange admission plugin"
-echo "## Creating limit range"
-lrspec=$(mktemp)
-cat << EOF > $lrspec
-apiVersion: v1
-kind: LimitRange
-metadata:
-  name: simple-limit
-  namespace: cluster-capacity
-spec:
-  limits:
-  - max:
-      cpu: "1m"
-    type: Pod
-EOF
-$KUBECTL create -f $lrspec
-rm $lrspec
-
-$CC --podspec=examples/pod.yaml --admission-control="LimitRanger" | tee estimation.log
-if [ -z "$(cat estimation.log | grep 'AdmissionControllerError')" ]; then
-  printError "Missing Admission controller error"
-  $KUBECTL delete limitrange simple-limit --namespace=cluster-capacity
-  exit 1
-fi
-
-echo "## Deleting limit range"
-$KUBECTL delete limitrange simple-limit --namespace=cluster-capacity
-
-echo ""
-echo ""
-echo "# Running with not supported admission plugin"
-$CC --podspec=examples/pod.yaml --admission-control="foo" | tee estimation.log
-if [ -z "$(cat estimation.log | grep 'not supported admission control plugin.')" ]; then
-  printError "Should fail with unsupported admission plugin"
-  exit 1
-fi
-
 printSuccess "#### All tests passed"
 
 #### BOILERPLATE
