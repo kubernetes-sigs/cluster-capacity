@@ -18,10 +18,12 @@ package app
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/renstrom/dedent"
 	"github.com/spf13/cobra"
 
+	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
@@ -68,8 +70,11 @@ func Validate(opt *options.ClusterCapacityOptions) error {
 		return fmt.Errorf("Pod spec file is missing")
 	}
 
-	if len(opt.Kubeconfig) == 0 {
-		return fmt.Errorf("kubeconfig is missing")
+	_, present := os.LookupEnv("CC_INCLUSTER")
+	if !present {
+		if len(opt.Kubeconfig) == 0 {
+			return fmt.Errorf("kubeconfig is missing")
+		}
 	}
 	return nil
 }
@@ -90,11 +95,26 @@ func Run(opt *options.ClusterCapacityOptions) error {
 		return fmt.Errorf("Failed to parse config file: %v ", err)
 	}
 
-	master, err := utils.GetMasterFromKubeConfig(conf.Options.Kubeconfig)
-	if err != nil {
-		return fmt.Errorf("Failed to parse kubeconfig file: %v ", err)
+	var cfg *restclient.Config
+	if len(conf.Options.Kubeconfig) != 0 {
+		master, err := utils.GetMasterFromKubeConfig(conf.Options.Kubeconfig)
+		if err != nil {
+			return fmt.Errorf("Failed to parse kubeconfig file: %v ", err)
+		}
+
+		cfg, err = clientcmd.BuildConfigFromFlags(master, conf.Options.Kubeconfig)
+		if err != nil {
+			return fmt.Errorf("Unable to build config: %v", err)
+		}
+
+	} else {
+		cfg, err = restclient.InClusterConfig()
+		if err != nil {
+			return fmt.Errorf("Unable to build in cluster config: %v", err)
+		}
 	}
-	conf.KubeClient, err = getKubeClient(master, conf.Options.Kubeconfig)
+
+	conf.KubeClient, err = clientset.NewForConfig(cfg)
 
 	if err != nil {
 		return err
@@ -108,23 +128,6 @@ func Run(opt *options.ClusterCapacityOptions) error {
 		return fmt.Errorf("Error while printing: %v", err)
 	}
 	return nil
-}
-
-func getKubeClient(master string, config string) (clientset.Interface, error) {
-	cfg, err := clientcmd.BuildConfigFromFlags(master, config)
-	if err != nil {
-		return nil, fmt.Errorf("Unable to build config: %v", err)
-	}
-	kubeClient, err := clientset.NewForConfig(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("Invalid API configuration: %v", err)
-	}
-
-	if _, err = kubeClient.Discovery().ServerVersion(); err != nil {
-		return nil, fmt.Errorf("Unable to get server version: %v\n", err)
-	}
-
-	return kubeClient, nil
 }
 
 func runSimulator(s *options.ClusterCapacityConfig, syncWithClient bool) (*framework.ClusterCapacityReview, error) {

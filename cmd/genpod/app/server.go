@@ -19,9 +19,11 @@ package app
 import (
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/spf13/cobra"
 
+	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
@@ -67,11 +69,27 @@ func Validate(opt *options.GenPodOptions) error {
 }
 
 func Run(opt *options.GenPodOptions) error {
-	master, err := utils.GetMasterFromKubeConfig(opt.Kubeconfig)
-	if err != nil {
-		return fmt.Errorf("Failed to parse kubeconfig file: %v ", err)
+	var cfg *restclient.Config
+	_, present := os.LookupEnv("CC_INCLUSTER")
+	if !present {
+		master, err := utils.GetMasterFromKubeConfig(opt.Kubeconfig)
+		if err != nil {
+			return fmt.Errorf("Failed to parse kubeconfig file: %v ", err)
+		}
+
+		cfg, err = clientcmd.BuildConfigFromFlags(master, opt.Kubeconfig)
+		if err != nil {
+			return fmt.Errorf("Unable to build config: %v", err)
+		}
+	} else {
+		var err error
+		cfg, err = restclient.InClusterConfig()
+		if err != nil {
+			return fmt.Errorf("Unable to build in cluster config: %v", err)
+		}
 	}
-	client, err := getKubeClient(master, opt.Kubeconfig)
+
+	client, err := clientset.NewForConfig(cfg)
 	if err != nil {
 		return err
 	}
@@ -83,20 +101,4 @@ func Run(opt *options.GenPodOptions) error {
 
 	return utils.PrintPod(pod, opt.Format)
 
-}
-
-func getKubeClient(master string, config string) (clientset.Interface, error) {
-	cfg, err := clientcmd.BuildConfigFromFlags(master, config)
-	if err != nil {
-		return nil, fmt.Errorf("Unable to build config: %v", err)
-	}
-	kubeClient, err := clientset.NewForConfig(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("Invalid API configuration: %v", err)
-	}
-
-	if _, err = kubeClient.Discovery().ServerVersion(); err != nil {
-		return nil, fmt.Errorf("Unable to get server version: %v\n", err)
-	}
-	return kubeClient, nil
 }
