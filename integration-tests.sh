@@ -65,7 +65,7 @@ echo ""
 echo "####RUNNING TESTS"
 echo ""
 echo "# Running simple estimation of examples/pod.yaml"
-$CC --podspec=examples/pod.yaml | tee estimation.log
+$CC --podspec=examples/pod.yaml --verbose| tee estimation.log
 if [ -z "$(cat estimation.log | grep 'Termination reason')" ]; then
   printError "Missing termination reason"
   exit 1
