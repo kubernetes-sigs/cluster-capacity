@@ -63,8 +63,7 @@ type ClusterCapacity struct {
 	informerFactory einformers.SharedInformerFactory
 
 	// fake rest clients
-	coreRestClient       *external.RESTClient
-	extensionsRestClient *external.RESTClient
+	coreRestClient *external.RESTClient
 
 	// schedulers
 	schedulers       map[string]*scheduler.Scheduler
@@ -214,7 +213,6 @@ func (c *ClusterCapacity) Close() {
 	}
 
 	c.coreRestClient.Close()
-	c.extensionsRestClient.Close()
 	close(c.informerStopCh)
 	c.closed = true
 }
@@ -364,17 +362,15 @@ func createConfig(s *soptions.SchedulerServer, configFactory scheduler.Configura
 func New(s *soptions.SchedulerServer, simulatedPod *v1.Pod, maxPods int) (*ClusterCapacity, error) {
 	resourceStore := store.NewResourceStore()
 	restClient := external.NewRESTClient(resourceStore, "core")
-	extensionsRestClient := external.NewRESTClient(resourceStore, "extensions")
 
 	cc := &ClusterCapacity{
-		resourceStore:        resourceStore,
-		strategy:             strategy.NewPredictiveStrategy(resourceStore),
-		externalkubeclient:   externalclientset.New(restClient),
-		simulatedPod:         simulatedPod,
-		simulated:            0,
-		maxSimulated:         maxPods,
-		coreRestClient:       restClient,
-		extensionsRestClient: extensionsRestClient,
+		resourceStore:      resourceStore,
+		strategy:           strategy.NewPredictiveStrategy(resourceStore),
+		externalkubeclient: externalclientset.New(restClient),
+		simulatedPod:       simulatedPod,
+		simulated:          0,
+		maxSimulated:       maxPods,
+		coreRestClient:     restClient,
 	}
 
 	for _, resource := range resourceStore.Resources() {
