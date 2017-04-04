@@ -21,7 +21,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/kubernetes/pkg/api/v1"
-	"k8s.io/kubernetes/pkg/apis/extensions"
+	"k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
 )
 
 type ResourceType string
@@ -60,7 +60,7 @@ func (r ResourceType) ObjectType() runtime.Object {
 	case "persistentvolumeclaims":
 		return &v1.PersistentVolumeClaim{}
 	case "replicasets":
-		return &extensions.ReplicaSet{}
+		return &v1beta1.ReplicaSet{}
 	case "resourcequotas":
 		return &v1.ResourceQuota{}
 	case "secrets":

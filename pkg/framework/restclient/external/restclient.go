@@ -38,7 +38,6 @@ import (
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/testapi"
 	"k8s.io/kubernetes/pkg/api/v1"
-	"k8s.io/kubernetes/pkg/apis/extensions"
 	"k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
 
 	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
@@ -474,6 +473,7 @@ func (c *RESTClient) createListReadCloser(resource ccapi.ResourceType, fieldsSel
 		encoder := api.Codecs.EncoderForVersion(info.Serializer, gvr.GroupVersion())
 		nopCloser := ioutil.NopCloser(bytes.NewReader([]byte(runtime.EncodeOrDie(encoder, obj.(*v1beta1.ReplicaSetList)))))
 		return &nopCloser, nil
+
 	} else {
 		debug := runtime.EncodeOrDie(testapi.Default.Codec(), obj)
 		nopCloser := ioutil.NopCloser(bytes.NewReader([]byte(debug)))
@@ -521,7 +521,7 @@ func (c *RESTClient) createGetReadCloser(resource ccapi.ResourceType, resourceNa
 		obj = runtime.Object(item.(*v1.Node))
 	case ccapi.ReplicaSets:
 		obj = runtime.Object(item.(*v1beta1.ReplicaSet))
-		ns = item.(*extensions.ReplicaSet).Namespace
+		ns = item.(*v1beta1.ReplicaSet).Namespace
 	case ccapi.ResourceQuota:
 		obj = runtime.Object(item.(*v1.ResourceQuota))
 		ns = item.(*v1.ResourceQuota).Namespace
