@@ -264,9 +264,16 @@ func clusterCapacityReviewPrettyPrint(r *ClusterCapacityReview, verbose bool) {
 	}
 
 	for _, pod := range r.Status.Pods {
-		fmt.Printf("The cluster can schedule %v instance(s) of the pod %v.\n", instancesSum(pod.ReplicasOnNodes), pod.PodName)
+		if verbose {
+			fmt.Printf("The cluster can schedule %v instance(s) of the pod %v.\n", instancesSum(pod.ReplicasOnNodes), pod.PodName)
+		} else {
+			fmt.Printf("\n%v\n", instancesSum(pod.ReplicasOnNodes))
+		}
 	}
-	fmt.Printf("\nTermination reason: %v: %v\n", r.Status.FailReason.FailType, r.Status.FailReason.FailMessage)
+
+	if verbose {
+		fmt.Printf("\nTermination reason: %v: %v\n", r.Status.FailReason.FailType, r.Status.FailReason.FailMessage)
+	}
 
 	if verbose && r.Status.Replicas > 0 {
 		for _, pod := range r.Status.Pods {
