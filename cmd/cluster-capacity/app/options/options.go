@@ -28,7 +28,6 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/v1"
@@ -36,12 +35,9 @@ import (
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	schedopt "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app/options"
 
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/apiserver/cache"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/utils"
 )
-
-var SupportedAdmissionControllers = sets.NewString([]string{"LimitRanger", "ResourceQuota"}...)
 
 type ClusterCapacityConfig struct {
 	Schedulers       []*schedopt.SchedulerServer
@@ -49,7 +45,6 @@ type ClusterCapacityConfig struct {
 	KubeClient       clientset.Interface
 	Options          *ClusterCapacityOptions
 	DefaultScheduler *schedopt.SchedulerServer
-	Reports          *cache.Cache
 	ResourceStore    store.ResourceStore
 }
 
@@ -60,10 +55,8 @@ type ClusterCapacityOptions struct {
 	MaxLimit                   int
 	Verbose                    bool
 	PodSpecFile                string
-	Period                     int
 	OutputFormat               string
 	ResourceSpaceMode          string
-	AdmissionControl           string
 }
 
 func NewClusterCapacityConfig(opt *ClusterCapacityOptions) *ClusterCapacityConfig {
@@ -93,16 +86,10 @@ func (s *ClusterCapacityOptions) AddFlags(fs *pflag.FlagSet) {
 
 	filepath := path.Join(dir, "config/default-scheduler.yaml")
 
-	fs.StringVar(&s.AdmissionControl, "admission-control", s.AdmissionControl, ""+
-		"Ordered list of plug-ins to do admission control of resources into cluster. "+
-		"Comma-delimited list of: "+strings.Join(SupportedAdmissionControllers.List(), ", ")+".")
-
 	fs.StringVar(&s.DefaultSchedulerConfigFile, "default-config", filepath, "Path to JSON or YAML file containing scheduler configuration.")
-	fs.StringVar(&s.ResourceSpaceMode, "resource-space-mode", "ResourceSpaceFull", "Resource space limitation. Defaults to ResourceSpaceFull. If set to ResourceSpacePartial, ResourceQuota admission is applied.")
 
 	fs.BoolVar(&s.Verbose, "verbose", s.Verbose, "Verbose mode")
-	fs.IntVar(&s.Period, "period", 0, "Number of seconds between cluster capacity checks, if period=0 cluster-capacity will be checked just once")
-	fs.StringVarP(&s.OutputFormat, "output", "o", s.OutputFormat, "Output format. One of: json|yaml")
+	fs.StringVarP(&s.OutputFormat, "output", "o", s.OutputFormat, "Output format. One of: json|yaml (Note: output is not versioned or guaranteed to be stable across releases).")
 }
 
 func parseSchedulerConfig(path string) (*schedopt.SchedulerServer, error) {
@@ -209,11 +196,5 @@ func (s *ClusterCapacityConfig) SetDefaultScheduler() error {
 		return fmt.Errorf("Error in opening default scheduler config file: %v", err)
 	}
 
-	s.DefaultScheduler.Master, err = utils.GetMasterFromKubeConfig(s.Options.Kubeconfig)
-	if err != nil {
-		return fmt.Errorf("Error in opening kubeconfig file %v", err)
-	}
-
-	s.DefaultScheduler.Kubeconfig = s.Options.Kubeconfig
 	return nil
 }

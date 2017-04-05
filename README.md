@@ -97,11 +97,25 @@ Pod distribution among nodes:
 	- kube-node-3: 12 instance(s)
 ```
 
-## Pod generator
+## Output format
+`cluster capacity` command has a flag `--output (-o)` to format its output as json or yaml.
+
+```sh
+$ ./cluster-capacity --kubeconfig <path to kubeconfig> --podspec=pod.yaml -o json
+$ ./cluster-capacity --kubeconfig <path to kubeconfig> --podspec=pod.yaml -o yaml
+```
+
+The json or yaml output is not versioned and is not guaranteed to be stable across various releases.
+
+
+## Pod spec generator: genpod
+
+`genpod` is an internal tool to cluster capacity, and could be used to create sample pod spec.
+In general, users are recommended to provide their own pod spec file as part of analysis
 
 As pods are part of a namespace with resource limits and additional constraints (e.g. node selector forced by namespace annotation),
 it is natural to analyse how many instances of a pod with maximal resource requirements can be scheduled.
-In order to generate the pod, you can run:
+In order to generate the pod spec, you can run:
 
 ```sh
 $ genpod --kubeconfig <path to kubeconfig>  --namespace <namespace>
@@ -155,159 +169,6 @@ spec:
     region: hpc
   restartPolicy: OnFailure
 status: {}
-```
-
-## Admissions
-
-The analysis can be run with admissions enabled as well:
-
-```sh
-./cluster-capacity --kubeconfig <path to kubeconfig>  --podspec=examples/pod.yaml --admission-control LimitRanger,ResourceQuota --resource-space-mode ResourceSpacePartial
-```
-
-The admission controllers are configured the same way as in the Apiserver by specifying --admission-control flag.
-Currently only supported admission plugins are ``LimitRanger``, and ``ResourceQuota``. Each time a pod is scheduled, it
-is run through the admission controller first. ``LimitRanger`` can alter pod's specification, and ``ResourceQuota`` can
-forbid the pod from being scheduled.
-
-As the ``ResourceQuota`` limits pods in a namespace, it is not enabled in the
-analysis by default. In order to enable the plugin as well, ``--resource-space-mode``
-needs to be set to ``ResourceSpacePartial``.
-
-**Example**:
-
-Assuming the following namespace, resource quota and limit range objects are available in the cluster:
-
-```sh
-$ cat examples/namespace.yml 
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: cluster-capacity
-  annotations:
-    openshift.io/node-selector: "region=hpc,load=high"
-```
-
-```sh
-$ cat examples/limits.yml 
-apiVersion: v1
-kind: LimitRange
-metadata:
-  name: hpclimits
-  namespace: cluster-capacity
-spec:
-  limits:
-  - max:
-      cpu: "200m"
-      memory: 200Mi
-    min:
-      cpu: 10m
-      memory: 6Mi
-    type: Pod
-  - default:
-      cpu: 10m
-      memory: 6Mi
-    defaultRequest:
-      cpu: 10m
-      memory: 6Mi
-    max:
-      cpu: "250m"
-      memory: 200Mi
-    min:
-      cpu: 10m
-      memory: 6Mi
-    type: Container
-```
-
-```sh
-$ cat examples/rq.yml 
-apiVersion: v1
-kind: ResourceQuota
-metadata:
-  name: compute-resources
-  namespace: cluster-capacity
-spec:
-  hard:
-    pods: "4"
-    requests.cpu: "1"
-    requests.memory: 1Gi
-    limits.cpu: "2"
-    limits.memory: 2Gi
-```
-
-When running the analysis the number of instances of a pod is limited by the resource quota:
-
-```sh
-$ ./cluster-capacity --kubeconfig <path to kubeconfig> --podspec=examples/pod.yaml --admission-control LimitRanger,ResourceQuota  --verbose --resource-space-mode ResourceSpacePartial
-Pod requirements:
-	- cpu: 150m
-	- memory: 100Mi
-
-The cluster can schedule 4 instance(s) of the pod.
-Termination reason: AdmissionControllerError: pods "small-pod-4" is forbidden: exceeded quota: compute-resources, requested: pods=1, used: pods=4, limited: pods=4
-
-Pod distribution among nodes:
-	- 127.0.0.1: 4 instance(s)
-```
-
-## Continuous cluster capacity analysis
-
-The provided analysis can be run in loop to provide continuous stream of actual cluster capacities.
-
-
-To start the continuous analysis providing the capacity each second you can run:
-
-```sh
-$ ./cluster-capacity --kubeconfig <path to kubeconfig> --podspec=examples/pod.yaml --period 1
-```
-
-With the ``period`` set to non-zero value, the ``cluster-capacity`` binary publishes the current capacity
-at ``http://localhost:8081/capacity/status?watch=true`` address.
-You can use ``curl`` to access the data:
-
-```sh
-$ curl http://localhost:8081/capacity/status?watch=true
-[
-  {
-   "Timestamp": "2016-11-16T08:30:33.079973497Z",
-   "PodRequirements": {
-    "Cpu": "200m",
-    "Memory": "100Mi"
-   },
-   "TotalInstances": 5,
-   "NodesNumInstances": {
-    "kube-node-2": 5
-   },
-   "FailReasons": {
-    "FailType": "FailedScheduling",
-    "FailMessage": "pod (cluster-capacity-stub-container-5) failed to fit in any node",
-    "NodeFailures": {
-     "kube-node-1": "MatchNodeSelector",
-     "kube-node-2": "Insufficient cpu"
-    }
-   }
-  },
-  {
-   "Timestamp": "2016-11-16T08:30:43.277040728Z",
-   "PodRequirements": {
-    "Cpu": "200m",
-    "Memory": "100Mi"
-   },
-   "TotalInstances": 5,
-   "NodesNumInstances": {
-    "kube-node-2": 5
-   },
-   "FailReasons": {
-    "FailType": "FailedScheduling",
-    "FailMessage": "pod (cluster-capacity-stub-container-5) failed to fit in any node",
-    "NodeFailures": {
-     "kube-node-1": "MatchNodeSelector",
-     "kube-node-2": "Insufficient cpu"
-    }
-   }
-  }
- ]
-...
 ```
 
 ## Roadmap

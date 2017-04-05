@@ -208,8 +208,6 @@ func TestPrediction(t *testing.T) {
 	},
 		simulatedPod,
 		6,
-		ResourceSpaceFull,
-		"",
 	)
 
 	if err != nil {

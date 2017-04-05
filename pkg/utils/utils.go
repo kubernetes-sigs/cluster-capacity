@@ -24,10 +24,11 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/testapi"
+	"k8s.io/kubernetes/pkg/api/v1"
 	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
 )
 
-func PrintPod(pod *api.Pod, format string) error {
+func PrintPod(pod *v1.Pod, format string) error {
 	var contentType string
 	switch format {
 	case "json":

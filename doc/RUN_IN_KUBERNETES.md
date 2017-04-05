@@ -34,7 +34,7 @@ spec:
       /bin/genpod --namespace=cluster-capacity >> /pod.yaml
       cat /pod.yaml
       echo "Running cluster capacity framework"
-      /bin/cluster-capacity --period=1 --podspec=/pod.yaml --default-config /config/default-scheduler.yaml
+      /bin/cluster-capacity --podspec=/pod.yaml --default-config /config/default-scheduler.yaml
     ports:
     - containerPort: 8081
 $ kubectl create -f cluster-capacity-pod.yaml

@@ -18,25 +18,18 @@ package app
 
 import (
 	"fmt"
-	"log"
 	"os"
-	"strings"
-	"time"
 
 	"github.com/renstrom/dedent"
 	"github.com/spf13/cobra"
 
-	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/util/wait"
+	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
 
 	"github.com/kubernetes-incubator/cluster-capacity/cmd/cluster-capacity/app/options"
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/apiserver"
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/apiserver/cache"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework"
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/utils"
 )
 
@@ -47,8 +40,6 @@ var (
 		pods specified by --max-limits flag. If the --max-limits flag is not specified, pods are scheduled until
 		the simulated API server runs out of resources.
 	`)
-
-	MAXREPORTS = 100
 )
 
 func NewClusterCapacityCommand() *cobra.Command {
@@ -75,28 +66,16 @@ func NewClusterCapacityCommand() *cobra.Command {
 }
 
 func Validate(opt *options.ClusterCapacityOptions) error {
-
-	if len(opt.AdmissionControl) > 0 {
-		admissionsNames := strings.Split(opt.AdmissionControl, ",")
-		admissionNamesSets := sets.NewString(admissionsNames...)
-		if !options.SupportedAdmissionControllers.IsSuperset(admissionNamesSets) {
-			return fmt.Errorf("Requested not supported admission control plugin. Supported admission control plugins are: %v",
-				strings.Join(options.SupportedAdmissionControllers.List(), ", "))
-		}
-	}
-
 	if len(opt.PodSpecFile) == 0 {
 		return fmt.Errorf("Pod spec file is missing")
 	}
 
-	if len(opt.Kubeconfig) == 0 {
-		return fmt.Errorf("kubeconfig is missing")
+	_, present := os.LookupEnv("CC_INCLUSTER")
+	if !present {
+		if len(opt.Kubeconfig) == 0 {
+			return fmt.Errorf("kubeconfig is missing")
+		}
 	}
-
-	if opt.ResourceSpaceMode != "" && opt.ResourceSpaceMode != "ResourceSpaceFull" && opt.ResourceSpaceMode != "ResourceSpacePartial" {
-		return fmt.Errorf("Resource space mode not recognized. Valid values are: ResourceSpaceFull, ResourceSpacePartial")
-	}
-
 	return nil
 }
 
@@ -116,86 +95,43 @@ func Run(opt *options.ClusterCapacityOptions) error {
 		return fmt.Errorf("Failed to parse config file: %v ", err)
 	}
 
-	master, err := utils.GetMasterFromKubeConfig(conf.Options.Kubeconfig)
-	if err != nil {
-		return fmt.Errorf("Failed to parse kubeconfig file: %v ", err)
+	var cfg *restclient.Config
+	if len(conf.Options.Kubeconfig) != 0 {
+		master, err := utils.GetMasterFromKubeConfig(conf.Options.Kubeconfig)
+		if err != nil {
+			return fmt.Errorf("Failed to parse kubeconfig file: %v ", err)
+		}
+
+		cfg, err = clientcmd.BuildConfigFromFlags(master, conf.Options.Kubeconfig)
+		if err != nil {
+			return fmt.Errorf("Unable to build config: %v", err)
+		}
+
+	} else {
+		cfg, err = restclient.InClusterConfig()
+		if err != nil {
+			return fmt.Errorf("Unable to build in cluster config: %v", err)
+		}
 	}
-	conf.KubeClient, err = getKubeClient(master, conf.Options.Kubeconfig)
+
+	conf.KubeClient, err = clientset.NewForConfig(cfg)
 
 	if err != nil {
 		return err
 	}
 
-	if opt.Period == 0 {
-		report, err := runSimulator(conf, true)
-		if err != nil {
-			return err
-		}
-		if err := framework.ClusterCapacityReviewPrint(report, conf.Options.Verbose, conf.Options.OutputFormat); err != nil {
-			return fmt.Errorf("Error while printing: %v", err)
-		}
-		return nil
-	}
-
-	conf.Reports = cache.NewCache(MAXREPORTS)
-
-	r := apiserver.NewResource(conf)
-
-	go func() {
-		log.Fatal(apiserver.ListenAndServe(r))
-	}()
-
-	// sync and watch apiserver
-	conf.ResourceStore = store.NewResourceReflectors(conf.KubeClient, wait.NeverStop)
-
-	runSimulation := func(syncWithClient bool) {
-		report, err := runSimulator(conf, syncWithClient)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			return
-		}
-
-		conf.Reports.Add(report)
-		r.PutStatus(report)
-
-		if conf.Options.Verbose {
-			framework.ClusterCapacityReviewPrint(report, conf.Options.Verbose, conf.Options.OutputFormat)
-		}
-	}
-
-	runSimulation(true)
-	time.Sleep(time.Duration(opt.Period) * time.Second)
-
-	for {
-		runSimulation(false)
-		time.Sleep(time.Duration(opt.Period) * time.Second)
-	}
-}
-
-func getKubeClient(master string, config string) (clientset.Interface, error) {
-	cfg, err := clientcmd.BuildConfigFromFlags(master, config)
+	report, err := runSimulator(conf, true)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to build config: %v", err)
+		return err
 	}
-	kubeClient, err := clientset.NewForConfig(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("Invalid API configuration: %v", err)
+	if err := framework.ClusterCapacityReviewPrint(report, conf.Options.Verbose, conf.Options.OutputFormat); err != nil {
+		return fmt.Errorf("Error while printing: %v", err)
 	}
-
-	if _, err = kubeClient.Discovery().ServerVersion(); err != nil {
-		return nil, fmt.Errorf("Unable to get server version: %v\n", err)
-	}
-
-	return kubeClient, nil
+	return nil
 }
 
 func runSimulator(s *options.ClusterCapacityConfig, syncWithClient bool) (*framework.ClusterCapacityReview, error) {
-	mode, err := framework.StringToResourceSpaceMode(s.Options.ResourceSpaceMode)
-	if err != nil {
-		return nil, err
-	}
-
-	cc, err := framework.New(s.DefaultScheduler, s.Pod, s.Options.MaxLimit, mode, s.Options.AdmissionControl)
+	cc, err := framework.New(s.DefaultScheduler, s.Pod, s.Options.MaxLimit)
 	if err != nil {
 		return nil, err
 	}
