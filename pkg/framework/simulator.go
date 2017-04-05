@@ -33,6 +33,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/kubernetes/pkg/api/v1"
 	externalclientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
+	"k8s.io/kubernetes/pkg/client/clientset_generated/clientset/fake"
 	einformers "k8s.io/kubernetes/pkg/client/informers/informers_generated/externalversions"
 	soptions "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app/options"
 	"k8s.io/kubernetes/plugin/pkg/scheduler"
@@ -297,6 +298,9 @@ func (c *ClusterCapacity) createSchedulerConfig(s *soptions.SchedulerServer) (*s
 	if c.informerFactory == nil {
 		c.informerFactory = einformers.NewSharedInformerFactory(c.externalkubeclient, 0)
 	}
+
+	fakeClient := fake.NewSimpleClientset()
+	fakeInformerFactory := einformers.NewSharedInformerFactory(fakeClient, 0)
 	configFactory := factory.NewConfigFactory(s.SchedulerName,
 		c.externalkubeclient,
 		c.informerFactory.Core().V1().Nodes(),
@@ -304,7 +308,7 @@ func (c *ClusterCapacity) createSchedulerConfig(s *soptions.SchedulerServer) (*s
 		c.informerFactory.Core().V1().PersistentVolumeClaims(),
 		c.informerFactory.Core().V1().ReplicationControllers(),
 		c.informerFactory.Extensions().V1beta1().ReplicaSets(),
-		c.informerFactory.Apps().V1beta1().StatefulSets(),
+		fakeInformerFactory.Apps().V1beta1().StatefulSets(),
 		c.informerFactory.Core().V1().Services(),
 		s.HardPodAffinitySymmetricWeight)
 	config, err := createConfig(s, configFactory)
