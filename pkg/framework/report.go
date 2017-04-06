@@ -267,7 +267,7 @@ func clusterCapacityReviewPrettyPrint(r *ClusterCapacityReview, verbose bool) {
 		if verbose {
 			fmt.Printf("The cluster can schedule %v instance(s) of the pod %v.\n", instancesSum(pod.ReplicasOnNodes), pod.PodName)
 		} else {
-			fmt.Printf("\n%v\n", instancesSum(pod.ReplicasOnNodes))
+			fmt.Printf("%v\n", instancesSum(pod.ReplicasOnNodes))
 		}
 	}
 
