@@ -39,6 +39,7 @@ import (
 	"k8s.io/kubernetes/plugin/pkg/scheduler"
 	schedulerapi "k8s.io/kubernetes/plugin/pkg/scheduler/api"
 	latestschedulerapi "k8s.io/kubernetes/plugin/pkg/scheduler/api/latest"
+	"k8s.io/kubernetes/plugin/pkg/scheduler/core"
 	"k8s.io/kubernetes/plugin/pkg/scheduler/factory"
 
 	// register algorithm providers
@@ -326,6 +327,15 @@ func (c *ClusterCapacity) createSchedulerConfig(s *soptions.SchedulerServer) (*s
 	}
 	config.Binder = lbpcu
 	config.PodConditionUpdater = lbpcu
+	// pending merge of https://github.com/kubernetes/kubernetes/pull/44115
+	// we wrap how error handling is done to avoid extraneous logging
+	errorFn := config.Error
+	wrappedErrorFn := func(pod *v1.Pod, err error) {
+		if _, ok := err.(*core.FitError); !ok {
+			errorFn(pod, err)
+		}
+	}
+	config.Error = wrappedErrorFn
 	return config, nil
 }
 
