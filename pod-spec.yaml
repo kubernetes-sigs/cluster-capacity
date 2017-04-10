@@ -20,3 +20,4 @@ spec:
       cat /pod.yaml
       echo "Running cluster capacity framework"
       /bin/cluster-capacity --podspec=/pod.yaml --default-config /config/default-scheduler.yaml
+  restartPolicy: "OnFailure"
