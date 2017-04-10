@@ -34,6 +34,24 @@ func RetrieveNamespacePod(client clientset.Interface, namespace string) (*v1.Pod
 		return nil, fmt.Errorf("Namespace %v not found: %v", namespace, err)
 	}
 
+	namespacePod := v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cluster-capacity-stub-container",
+			Namespace: namespace,
+		},
+		Spec: v1.PodSpec{
+			Containers: []v1.Container{
+				v1.Container{
+					Name:            "cluster-capacity-stub-container",
+					Image:           "gcr.io/google_containers/pause:2.0",
+					ImagePullPolicy: v1.PullAlways,
+				},
+			},
+			RestartPolicy: v1.RestartPolicyOnFailure,
+			DNSPolicy:     v1.DNSDefault,
+		},
+	}
+
 	// Iterate through all limit ranges and pick the minimum of all related to pod constraints
 	limits, err := client.Core().LimitRanges(namespace).List(metav1.ListOptions{})
 	if err != nil {
@@ -77,40 +95,22 @@ func RetrieveNamespacePod(client clientset.Interface, namespace string) (*v1.Pod
 		}
 	}
 
-	if !nonzero {
-		return nil, fmt.Errorf("No resource limit set for pod in %v namespace", namespace)
-	}
-
-	limitsResourceList := make(map[v1.ResourceName]resource.Quantity)
-	requestsResourceList := make(map[v1.ResourceName]resource.Quantity)
-	for key, val := range resources {
-		if val == nil {
-			continue
+	if nonzero {
+		limitsResourceList := make(map[v1.ResourceName]resource.Quantity)
+		requestsResourceList := make(map[v1.ResourceName]resource.Quantity)
+		for key, val := range resources {
+			if val == nil {
+				continue
+			}
+			limitsResourceList[key] = *val
+			requestsResourceList[key] = *val
 		}
-		limitsResourceList[key] = *val
-		requestsResourceList[key] = *val
-	}
 
-	namespacePod := v1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cluster-capacity-stub-container",
-			Namespace: namespace,
-		},
-		Spec: v1.PodSpec{
-			Containers: []v1.Container{
-				v1.Container{
-					Name:            "cluster-capacity-stub-container",
-					Image:           "gcr.io/google_containers/pause:2.0",
-					ImagePullPolicy: v1.PullAlways,
-					Resources: v1.ResourceRequirements{
-						Limits:   limitsResourceList,
-						Requests: requestsResourceList,
-					},
-				},
-			},
-			RestartPolicy: v1.RestartPolicyOnFailure,
-			DNSPolicy:     v1.DNSDefault,
-		},
+		namespacePod.Spec.Containers[0].Resources = v1.ResourceRequirements{
+			Limits:   limitsResourceList,
+			Requests: requestsResourceList,
+		}
+
 	}
 
 	annotations := ns.GetAnnotations()
