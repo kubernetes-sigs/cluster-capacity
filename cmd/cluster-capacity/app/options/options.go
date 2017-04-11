@@ -19,10 +19,8 @@ package options
 import (
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
@@ -79,29 +77,24 @@ func (s *ClusterCapacityOptions) AddFlags(fs *pflag.FlagSet) {
 	//TODO(jchaloup): uncomment this line once the multi-schedulers are fully implemented
 	//fs.StringArrayVar(&s.SchedulerConfigFile, "config", s.SchedulerConfigFile, "Paths to files containing scheduler configuration in JSON or YAML format")
 
-	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
-	if err != nil {
-		log.Fatalf("Unable to get current directory: %v", err)
-	}
-
-	filepath := path.Join(dir, "config/default-scheduler.yaml")
-
-	fs.StringVar(&s.DefaultSchedulerConfigFile, "default-config", filepath, "Path to JSON or YAML file containing scheduler configuration.")
+	fs.StringVar(&s.DefaultSchedulerConfigFile, "default-config", s.DefaultSchedulerConfigFile, "Path to JSON or YAML file containing scheduler configuration.")
 
 	fs.BoolVar(&s.Verbose, "verbose", s.Verbose, "Verbose mode")
 	fs.StringVarP(&s.OutputFormat, "output", "o", s.OutputFormat, "Output format. One of: json|yaml (Note: output is not versioned or guaranteed to be stable across releases).")
 }
 
 func parseSchedulerConfig(path string) (*schedopt.SchedulerServer, error) {
-	filename, _ := filepath.Abs(path)
-	config, err := os.Open(filename)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to open config file: %v", err)
-	}
-
 	newScheduler := schedopt.NewSchedulerServer()
-	decoder := yaml.NewYAMLOrJSONDecoder(config, 4096)
-	decoder.Decode(&(newScheduler.KubeSchedulerConfiguration))
+	if len(path) > 0 {
+		filename, _ := filepath.Abs(path)
+		config, err := os.Open(filename)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to open config file: %v", err)
+		}
+
+		decoder := yaml.NewYAMLOrJSONDecoder(config, 4096)
+		decoder.Decode(&(newScheduler.KubeSchedulerConfiguration))
+	}
 	return newScheduler, nil
 }
 
