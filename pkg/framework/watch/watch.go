@@ -28,7 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/testapi"
+	"k8s.io/kubernetes/pkg/api/v1"
 
 	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
 )
@@ -95,18 +95,18 @@ func (c *WatchBuffer) EmitWatchEvent(eType watch.EventType, object runtime.Objec
 	//	Object: object,
 	//}
 
-	var encoder runtime.Encoder
-	if c.Resource == ccapi.ReplicaSets {
-		gvr := schema.GroupVersionResource{Group: "extensions", Version: "v1beta1", Resource: "replicasets"}
-		info, ok := runtime.SerializerInfoForMediaType(testapi.Default.NegotiatedSerializer().SupportedMediaTypes(), runtime.ContentTypeJSON)
-		if !ok {
-			return fmt.Errorf("serializer for %s not registered", runtime.ContentTypeJSON)
-		}
-
-		encoder = api.Codecs.EncoderForVersion(info.Serializer, gvr.GroupVersion())
-	} else {
-		encoder = testapi.Default.Codec()
+	info, ok := runtime.SerializerInfoForMediaType(api.Codecs.SupportedMediaTypes(), runtime.ContentTypeJSON)
+	if !ok {
+		return fmt.Errorf("serializer for %s not registered", runtime.ContentTypeJSON)
 	}
+
+	gv := v1.SchemeGroupVersion
+	if c.Resource == ccapi.ReplicaSets {
+		gv = schema.GroupVersion{Group: "extensions", Version: "v1beta1"}
+	}
+
+	encoder := api.Codecs.EncoderForVersion(info.Serializer, gv)
+
 	obj_str := runtime.EncodeOrDie(encoder, object)
 	obj_str = strings.Replace(obj_str, "\n", "", -1)
 

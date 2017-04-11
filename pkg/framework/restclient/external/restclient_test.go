@@ -27,8 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
-	//"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/testapi"
+	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
 
@@ -136,7 +135,7 @@ func newTestListRestClient() *RESTClient {
 	}
 
 	client := &RESTClient{
-		NegotiatedSerializer: testapi.Default.NegotiatedSerializer(),
+		NegotiatedSerializer: api.Codecs,
 		resourceStore:        resourceStore,
 	}
 

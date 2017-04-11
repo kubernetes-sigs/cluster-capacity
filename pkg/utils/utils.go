@@ -23,7 +23,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/testapi"
 	"k8s.io/kubernetes/pkg/api/v1"
 	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
 )
@@ -39,7 +38,7 @@ func PrintPod(pod *v1.Pod, format string) error {
 		contentType = "application/yaml"
 	}
 
-	info, ok := runtime.SerializerInfoForMediaType(testapi.Default.NegotiatedSerializer().SupportedMediaTypes(), contentType)
+	info, ok := runtime.SerializerInfoForMediaType(api.Codecs.SupportedMediaTypes(), contentType)
 	if !ok {
 		return fmt.Errorf("serializer for %s not registered", contentType)
 	}
