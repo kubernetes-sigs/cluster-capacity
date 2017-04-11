@@ -10,12 +10,5 @@ spec:
   - name: php-redis
     image: gcr.io/google-samples/gb-frontend:v4
     imagePullPolicy: Always
-    resources:
-      limits:
-        cpu: 150m
-        memory: 100Mi
-      requests:
-        cpu: 150m
-        memory: 100Mi
   restartPolicy: "OnFailure"
   dnsPolicy: "Default"

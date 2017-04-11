@@ -28,7 +28,7 @@ type GenPodOptions struct {
 }
 
 func NewGenPodOptions() *GenPodOptions {
-	return &GenPodOptions{}
+	return &GenPodOptions{Namespace: "default"}
 }
 
 func (s *GenPodOptions) AddFlags(fs *pflag.FlagSet) {
