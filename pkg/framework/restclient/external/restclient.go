@@ -36,7 +36,6 @@ import (
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/util/flowcontrol"
 	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/testapi"
 	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
 
@@ -395,7 +394,7 @@ func (c *RESTClient) Verb(verb string) *restclient.Request {
 }
 
 func (c *RESTClient) APIVersion() schema.GroupVersion {
-	return *(testapi.Default.GroupVersion())
+	return v1.SchemeGroupVersion
 }
 
 func (c *RESTClient) Get() *restclient.Request {
@@ -419,9 +418,10 @@ func (c *RESTClient) Delete() *restclient.Request {
 }
 
 func (c *RESTClient) request(verb string) *restclient.Request {
+	gv := v1.SchemeGroupVersion
 	config := restclient.ContentConfig{
 		ContentType:          runtime.ContentTypeJSON,
-		GroupVersion:         testapi.Default.GroupVersion(),
+		GroupVersion:         &gv,
 		NegotiatedSerializer: c.NegotiatedSerializer,
 	}
 	ns := c.NegotiatedSerializer
@@ -432,11 +432,11 @@ func (c *RESTClient) request(verb string) *restclient.Request {
 		gvr := schema.GroupVersionResource{Group: "extensions", Version: "v1beta1", Resource: "replicasets"}
 		targetVersion = gvr.GroupVersion()
 	} else {
-		targetVersion = *testapi.Default.GroupVersion()
+		targetVersion = gv
 	}
 
 	serializers := restclient.Serializers{
-		Encoder: ns.EncoderForVersion(info.Serializer, *testapi.Default.GroupVersion()),
+		Encoder: ns.EncoderForVersion(info.Serializer, gv),
 		Decoder: ns.DecoderToVersion(info.Serializer, targetVersion),
 	}
 
@@ -457,28 +457,27 @@ func splitPath(path string) []string {
 	return strings.Split(path, "/")
 }
 
+func (c *RESTClient) createReadCloser(resource ccapi.ResourceType, obj runtime.Object) (rc *io.ReadCloser, err error) {
+	info, ok := runtime.SerializerInfoForMediaType(c.NegotiatedSerializer.SupportedMediaTypes(), runtime.ContentTypeJSON)
+	if !ok {
+		return nil, fmt.Errorf("serializer for %s not registered", runtime.ContentTypeJSON)
+	}
+
+	gv := v1.SchemeGroupVersion
+	if resource == ccapi.ReplicaSets {
+		gv = schema.GroupVersion{Group: "extensions", Version: "v1beta1"}
+	}
+	encoder := api.Codecs.EncoderForVersion(info.Serializer, gv)
+	nopCloser := ioutil.NopCloser(bytes.NewReader([]byte(runtime.EncodeOrDie(encoder, obj))))
+	return &nopCloser, nil
+}
+
 func (c *RESTClient) createListReadCloser(resource ccapi.ResourceType, fieldsSelector fields.Selector) (rc *io.ReadCloser, err error) {
 	obj, err := c.List(resource, fieldsSelector)
 	if err != nil {
 		return nil, err
 	}
-
-	if resource == ccapi.ReplicaSets {
-		gvr := schema.GroupVersionResource{Group: "extensions", Version: "v1beta1", Resource: "replicasets"}
-		info, ok := runtime.SerializerInfoForMediaType(c.NegotiatedSerializer.SupportedMediaTypes(), runtime.ContentTypeJSON)
-		if !ok {
-			return nil, fmt.Errorf("serializer for %s not registered", runtime.ContentTypeJSON)
-		}
-
-		encoder := api.Codecs.EncoderForVersion(info.Serializer, gvr.GroupVersion())
-		nopCloser := ioutil.NopCloser(bytes.NewReader([]byte(runtime.EncodeOrDie(encoder, obj.(*v1beta1.ReplicaSetList)))))
-		return &nopCloser, nil
-
-	} else {
-		debug := runtime.EncodeOrDie(testapi.Default.Codec(), obj)
-		nopCloser := ioutil.NopCloser(bytes.NewReader([]byte(debug)))
-		return &nopCloser, nil
-	}
+	return c.createReadCloser(resource, obj)
 }
 
 func (c *RESTClient) createGetReadCloser(resource ccapi.ResourceType, resourceName string, namespace string) (rc *io.ReadCloser, err error) {
@@ -546,9 +545,7 @@ func (c *RESTClient) createGetReadCloser(resource ccapi.ResourceType, resourceNa
 		}
 	}
 
-	debug := runtime.EncodeOrDie(testapi.Default.Codec(), obj)
-	nopCloser := ioutil.NopCloser(bytes.NewReader([]byte(debug)))
-	return &nopCloser, nil
+	return c.createReadCloser(resource, obj)
 }
 
 func (c *RESTClient) createWatchReadCloser(resource ccapi.ResourceType, fieldsSelector fields.Selector) (rc *ewatch.WatchBuffer, err error) {
@@ -644,7 +641,7 @@ func (c *RESTClient) Do(req *http.Request) (*http.Response, error) {
 	// check all fields
 	//fmt.Printf("URL request path: %v, rawQuery: %v, fields selector: %v\n", req.URL.Path, queryParams, fieldsSelector)
 	// is field selector on?
-	value, ok := queryParams[metav1.FieldSelectorQueryParam(testapi.Default.GroupVersion().String())]
+	value, ok := queryParams[metav1.FieldSelectorQueryParam(v1.SchemeGroupVersion.String())]
 	if ok {
 		fieldsSelector = fields.ParseSelectorOrDie(value[0])
 	}
@@ -685,7 +682,7 @@ func (c *RESTClient) Do(req *http.Request) (*http.Response, error) {
 	} else {
 		// l = len(parts)
 		// if l == 1 => list objects of a given resource
-		// if l == 2 => list one objects of a given resource
+		// if l == 2 => list one object of a given resource
 		// if l == 3 => list objects of a given resource from a given namespace
 		// if l == 4 => list one object of a given resource from a given namespace
 		var body *io.ReadCloser
@@ -741,8 +738,8 @@ func (c *RESTClient) Do(req *http.Request) (*http.Response, error) {
 					}
 				}
 
-				obj := &api.ResourceQuota{}
-				runtime.DecodeInto(testapi.Default.Codec(), buffer.Bytes(), runtime.Object(obj))
+				obj := &v1.ResourceQuota{}
+				runtime.DecodeInto(api.Codecs.UniversalDecoder(), buffer.Bytes(), runtime.Object(obj))
 				c.resourceStore.Add(ccapi.ResourceQuota, obj)
 			}
 
@@ -768,7 +765,7 @@ func (c *RESTClient) Do(req *http.Request) (*http.Response, error) {
 
 func NewRESTClient(resourceStore store.ResourceStore, name string) *RESTClient {
 	client := &RESTClient{
-		NegotiatedSerializer: testapi.Default.NegotiatedSerializer(),
+		NegotiatedSerializer: api.Codecs,
 		resourceStore:        resourceStore,
 		watcherReadGetters:   make(map[ccapi.ResourceType]map[string][]*ewatch.WatchBuffer),
 		name:                 name,
