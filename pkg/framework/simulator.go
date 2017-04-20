@@ -17,7 +17,10 @@ limitations under the License.
 package framework
 
 import (
+	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -48,8 +51,30 @@ import (
 )
 
 const (
-	podProvisioner = "cc.kubernetes.io/provisioned-by"
+	podProvisioner         = "cc.kubernetes.io/provisioned-by"
+	podSpecIndexAnnotation = "cluster-capacity/pod-spec-index"
 )
+
+// function returning a sequence that defines pod templates visit ordering
+type indexGeneratorFunc func() int
+
+func newIndexGeneratorFunc(numPodSpecs int) indexGeneratorFunc {
+	return (&seqGenerator{limit: numPodSpecs, idx: 0}).next
+}
+
+type seqGenerator struct {
+	limit int
+	idx   int
+}
+
+func (p *seqGenerator) next() int {
+	if p.limit <= 0 {
+		return -1
+	}
+	curr := p.idx
+	p.idx = (p.idx + 1) % p.limit
+	return curr
+}
 
 type ClusterCapacity struct {
 	// caches modified by emulation strategy
@@ -72,7 +97,8 @@ type ClusterCapacity struct {
 	defaultScheduler string
 
 	// pod to schedule
-	simulatedPod     *v1.Pod
+	simulatedPods    []*v1.Pod
+	nextIndex        indexGeneratorFunc
 	lastSimulatedPod *v1.Pod
 	maxSimulated     int
 	simulated        int
@@ -99,9 +125,7 @@ type Status struct {
 func (c *ClusterCapacity) Report() *ClusterCapacityReview {
 	if c.report == nil {
 		// Preparation before pod sequence scheduling is done
-		pods := make([]*v1.Pod, 0)
-		pods = append(pods, c.simulatedPod)
-		c.report = GetReport(pods, c.status)
+		c.report = GetReport(c.simulatedPods, c.status)
 		c.report.Spec.Replicas = int32(c.maxSimulated)
 	}
 
@@ -185,6 +209,11 @@ func (c *ClusterCapacity) Bind(binding *v1.Binding, schedulerName string) error 
 
 	// all good, create another pod
 	if err := c.nextPod(); err != nil {
+		if strings.HasPrefix(c.status.StopReason, "PodSpecsExahusted") {
+			c.Close()
+			c.stop <- struct{}{}
+			return nil
+		}
 		return fmt.Errorf("Unable to create next pod to schedule: %v", err)
 	}
 	return nil
@@ -208,6 +237,9 @@ func (c *ClusterCapacity) Close() {
 }
 
 func (c *ClusterCapacity) Update(pod *v1.Pod, podCondition *v1.PodCondition, schedulerName string) error {
+	// TODO: For the moment it stops when the first unschedulable pod is met, it
+	// would be interesting to allow other strategies ( e.g. stop the
+	// simulation when there are no more schedulable pods ).
 	stop := podCondition.Type == v1.PodScheduled && podCondition.Status == v1.ConditionFalse && podCondition.Reason == "Unschedulable"
 
 	// Only for pending pods provisioned by cluster-capacity
@@ -225,16 +257,27 @@ func (c *ClusterCapacity) Update(pod *v1.Pod, podCondition *v1.PodCondition, sch
 }
 
 func (c *ClusterCapacity) nextPod() error {
+	idx := c.nextIndex()
+	if idx < 0 || idx >= len(c.simulatedPods) {
+		return errors.New("PodSpecsExahusted: No more pod specs to schedule")
+	}
 	cloner := conversion.NewCloner()
 	pod := v1.Pod{}
-	if err := v1.DeepCopy_v1_Pod(c.simulatedPod, &pod, cloner); err != nil {
+	currPod := c.simulatedPods[idx]
+	if err := v1.DeepCopy_v1_Pod(currPod, &pod, cloner); err != nil {
 		return err
 	}
+	// Adds annotations map if not present
+	if pod.ObjectMeta.Annotations == nil {
+		pod.ObjectMeta.Annotations = map[string]string{}
+	}
+	// Stores the index pointing to the pod spec used to generate this pod
+	pod.ObjectMeta.Annotations[podSpecIndexAnnotation] = strconv.Itoa(idx)
 
 	// reset any node designation set
 	pod.Spec.NodeName = ""
 	// use simulated pod name with an index to construct the name
-	pod.ObjectMeta.Name = fmt.Sprintf("%v-%v", c.simulatedPod.Name, c.simulated)
+	pod.ObjectMeta.Name = fmt.Sprintf("%v-%v", pod.ObjectMeta.Name, c.simulated)
 
 	// Add pod provisioner annotation
 	if pod.ObjectMeta.Annotations == nil {
@@ -343,7 +386,7 @@ func (c *ClusterCapacity) AddScheduler(s *soptions.SchedulerServer) error {
 // Create new cluster capacity analysis
 // The analysis is completely independent of apiserver so no need
 // for kubeconfig nor for apiserver url
-func New(s *soptions.SchedulerServer, simulatedPod *v1.Pod, maxPods int) (*ClusterCapacity, error) {
+func New(s *soptions.SchedulerServer, simulatedPods []*v1.Pod, maxPods int) (*ClusterCapacity, error) {
 	resourceStore := store.NewResourceStore()
 	restClient := external.NewRESTClient(resourceStore, "core")
 
@@ -351,7 +394,8 @@ func New(s *soptions.SchedulerServer, simulatedPod *v1.Pod, maxPods int) (*Clust
 		resourceStore:      resourceStore,
 		strategy:           strategy.NewPredictiveStrategy(resourceStore),
 		externalkubeclient: externalclientset.New(restClient),
-		simulatedPod:       simulatedPod,
+		nextIndex:          newIndexGeneratorFunc(len(simulatedPods)),
+		simulatedPods:      simulatedPods,
 		simulated:          0,
 		maxSimulated:       maxPods,
 		coreRestClient:     restClient,

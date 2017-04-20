@@ -19,7 +19,7 @@ package framework
 import (
 	"encoding/json"
 	"fmt"
-	//"strconv"
+	"strconv"
 	"strings"
 	"time"
 
@@ -151,17 +151,18 @@ func parsePodsReview(templatePods []*v1.Pod, status Status) []*ClusterCapacityRe
 		})
 	}
 
-	for i, pod := range status.Pods {
+	for _, pod := range status.Pods {
 		nodeName := pod.Spec.NodeName
+		podTemplateIdx, _ := strconv.Atoi(pod.ObjectMeta.Annotations[podSpecIndexAnnotation])
 		first := true
-		for _, sum := range result[i%templatesCount].ReplicasOnNodes {
+		for _, sum := range result[podTemplateIdx].ReplicasOnNodes {
 			if sum.NodeName == nodeName {
 				sum.Replicas++
 				first = false
 			}
 		}
 		if first {
-			result[i%templatesCount].ReplicasOnNodes = append(result[i%templatesCount].ReplicasOnNodes, &ReplicasOnNode{
+			result[podTemplateIdx].ReplicasOnNodes = append(result[podTemplateIdx].ReplicasOnNodes, &ReplicasOnNode{
 				NodeName: nodeName,
 				Replicas: 1,
 			})
