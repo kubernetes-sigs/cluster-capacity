@@ -32,7 +32,7 @@ func TestPacketConnReadWriteMulticastUDP(t *testing.T) {
 	case "freebsd": // due to a bug on loopback marking
 		// See http://www.freebsd.org/cgi/query-pr.cgi?pr=180065.
 		t.Skipf("not supported on %s", runtime.GOOS)
-	case "nacl", "plan9", "windows":
+	case "nacl", "plan9", "solaris", "windows":
 		t.Skipf("not supported on %s", runtime.GOOS)
 	}
 	if !supportsIPv6 {
@@ -132,7 +132,7 @@ func TestPacketConnReadWriteMulticastICMP(t *testing.T) {
 	case "freebsd": // due to a bug on loopback marking
 		// See http://www.freebsd.org/cgi/query-pr.cgi?pr=180065.
 		t.Skipf("not supported on %s", runtime.GOOS)
-	case "nacl", "plan9", "windows":
+	case "nacl", "plan9", "solaris", "windows":
 		t.Skipf("not supported on %s", runtime.GOOS)
 	}
 	if !supportsIPv6 {
@@ -205,11 +205,7 @@ func TestPacketConnReadWriteMulticastICMP(t *testing.T) {
 			if toggle {
 				psh = nil
 				if err := p.SetChecksum(true, 2); err != nil {
-					// Solaris never allows to
-					// modify ICMP properties.
-					if runtime.GOOS != "solaris" {
-						t.Fatal(err)
-					}
+					t.Fatal(err)
 				}
 			} else {
 				psh = pshicmp

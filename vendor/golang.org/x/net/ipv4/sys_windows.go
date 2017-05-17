@@ -20,22 +20,22 @@ const (
 	sysIP_DROP_SOURCE_MEMBERSHIP = 0x10
 	sysIP_PKTINFO                = 0x13
 
-	sizeofInetPktinfo  = 0x8
-	sizeofIPMreq       = 0x8
-	sizeofIPMreqSource = 0xc
+	sysSizeofInetPktinfo  = 0x8
+	sysSizeofIPMreq       = 0x8
+	sysSizeofIPMreqSource = 0xc
 )
 
-type inetPktinfo struct {
+type sysInetPktinfo struct {
 	Addr    [4]byte
 	Ifindex int32
 }
 
-type ipMreq struct {
+type sysIPMreq struct {
 	Multiaddr [4]byte
 	Interface [4]byte
 }
 
-type ipMreqSource struct {
+type sysIPMreqSource struct {
 	Multiaddr  [4]byte
 	Sourceaddr [4]byte
 	Interface  [4]byte
@@ -56,6 +56,6 @@ var (
 	}
 )
 
-func (pi *inetPktinfo) setIfindex(i int) {
+func (pi *sysInetPktinfo) setIfindex(i int) {
 	pi.Ifindex = int32(i)
 }

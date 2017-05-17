@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 )
 
 // Challenge carries information from a WWW-Authenticate response header.
@@ -44,45 +43,29 @@ type ChallengeManager interface {
 // perform requests on the endpoints or cache the responses
 // to a backend.
 func NewSimpleChallengeManager() ChallengeManager {
-	return &simpleChallengeManager{
-		Challanges: make(map[string][]Challenge),
-	}
+	return simpleChallengeManager{}
 }
 
-type simpleChallengeManager struct {
-	sync.RWMutex
-	Challanges map[string][]Challenge
-}
+type simpleChallengeManager map[string][]Challenge
 
-func normalizeURL(endpoint *url.URL) {
+func (m simpleChallengeManager) GetChallenges(endpoint url.URL) ([]Challenge, error) {
 	endpoint.Host = strings.ToLower(endpoint.Host)
-	endpoint.Host = canonicalAddr(endpoint)
-}
 
-func (m *simpleChallengeManager) GetChallenges(endpoint url.URL) ([]Challenge, error) {
-	normalizeURL(&endpoint)
-
-	m.RLock()
-	defer m.RUnlock()
-	challenges := m.Challanges[endpoint.String()]
+	challenges := m[endpoint.String()]
 	return challenges, nil
 }
 
-func (m *simpleChallengeManager) AddResponse(resp *http.Response) error {
+func (m simpleChallengeManager) AddResponse(resp *http.Response) error {
 	challenges := ResponseChallenges(resp)
 	if resp.Request == nil {
 		return fmt.Errorf("missing request reference")
 	}
 	urlCopy := url.URL{
 		Path:   resp.Request.URL.Path,
-		Host:   resp.Request.URL.Host,
+		Host:   strings.ToLower(resp.Request.URL.Host),
 		Scheme: resp.Request.URL.Scheme,
 	}
-	normalizeURL(&urlCopy)
-
-	m.Lock()
-	defer m.Unlock()
-	m.Challanges[urlCopy.String()] = challenges
+	m[urlCopy.String()] = challenges
 	return nil
 }
 

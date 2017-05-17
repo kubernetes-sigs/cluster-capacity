@@ -1,24 +1,41 @@
+/*
+Copyright 2017 The Kubernetes Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package store
 
 import (
 	"fmt"
 	"reflect"
 
-	ccapi "github.com/ingvagabund/cluster-capacity/pkg/api"
-	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/meta"
-	"k8s.io/kubernetes/pkg/apis/extensions"
-	"k8s.io/kubernetes/pkg/client/cache"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/kubernetes/pkg/api/v1"
+	"k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
+
+	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
 )
 
 type FakeResourceStore struct {
-	PodsData                   func() []*api.Pod
-	ServicesData               func() []*api.Service
-	ReplicationControllersData func() []*api.ReplicationController
-	NodesData                  func() []*api.Node
-	PersistentVolumesData      func() []*api.PersistentVolume
-	PersistentVolumeClaimsData func() []*api.PersistentVolumeClaim
-	ReplicaSetsData            func() []*extensions.ReplicaSet
+	PodsData                   func() []*v1.Pod
+	ServicesData               func() []*v1.Service
+	ReplicationControllersData func() []*v1.ReplicationController
+	NodesData                  func() []*v1.Node
+	PersistentVolumesData      func() []*v1.PersistentVolume
+	PersistentVolumeClaimsData func() []*v1.PersistentVolumeClaim
+	ReplicaSetsData            func() []*v1beta1.ReplicaSet
 	// TODO(jchaloup): fill missing resource functions
 }
 
@@ -56,24 +73,24 @@ func findResource(obj interface{}, objs interface{}) (item interface{}, exists b
 		item := objsSlice.Index(i).Interface()
 		// TODO(jchaloup): make this resource type independent
 		switch item.(type) {
-		case api.Pod:
-			value := item.(api.Pod)
-			obj_key, key_err = cache.MetaNamespaceKeyFunc(meta.Object(&value))
-		case api.Service:
-			value := item.(api.Service)
-			obj_key, key_err = cache.MetaNamespaceKeyFunc(meta.Object(&value))
-		case api.ReplicationController:
-			value := item.(api.ReplicationController)
-			obj_key, key_err = cache.MetaNamespaceKeyFunc(meta.Object(&value))
-		case api.Node:
-			value := item.(api.Node)
-			obj_key, key_err = cache.MetaNamespaceKeyFunc(meta.Object(&value))
-		case api.PersistentVolume:
-			value := item.(api.PersistentVolume)
-			obj_key, key_err = cache.MetaNamespaceKeyFunc(meta.Object(&value))
-		case api.PersistentVolumeClaim:
-			value := item.(api.PersistentVolumeClaim)
-			obj_key, key_err = cache.MetaNamespaceKeyFunc(meta.Object(&value))
+		case v1.Pod:
+			value := item.(v1.Pod)
+			obj_key, key_err = cache.MetaNamespaceKeyFunc(metav1.Object(&value))
+		case v1.Service:
+			value := item.(v1.Service)
+			obj_key, key_err = cache.MetaNamespaceKeyFunc(metav1.Object(&value))
+		case v1.ReplicationController:
+			value := item.(v1.ReplicationController)
+			obj_key, key_err = cache.MetaNamespaceKeyFunc(metav1.Object(&value))
+		case v1.Node:
+			value := item.(v1.Node)
+			obj_key, key_err = cache.MetaNamespaceKeyFunc(metav1.Object(&value))
+		case v1.PersistentVolume:
+			value := item.(v1.PersistentVolume)
+			obj_key, key_err = cache.MetaNamespaceKeyFunc(metav1.Object(&value))
+		case v1.PersistentVolumeClaim:
+			value := item.(v1.PersistentVolumeClaim)
+			obj_key, key_err = cache.MetaNamespaceKeyFunc(metav1.Object(&value))
 		}
 		if key_err != nil {
 			return nil, false, key_err
@@ -146,7 +163,7 @@ func (s *FakeResourceStore) Get(resource ccapi.ResourceType, obj interface{}) (i
 	return nil, false, nil
 }
 
-func (s *FakeResourceStore) GetByKey(key string) (item interface{}, exists bool, err error) {
+func (s *FakeResourceStore) GetByKey(resource ccapi.ResourceType, key string) (item interface{}, exists bool, err error) {
 	return nil, false, nil
 }
 

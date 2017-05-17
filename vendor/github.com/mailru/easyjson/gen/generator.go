@@ -8,7 +8,6 @@ import (
 	"path"
 	"reflect"
 	"sort"
-	"strconv"
 	"strings"
 	"unicode"
 )
@@ -199,18 +198,8 @@ func (g *Generator) Run(out io.Writer) error {
 	return err
 }
 
-// fixes vendored paths
-func fixPkgPathVendoring(pkgPath string) string {
-	const vendor = "/vendor/"
-	if i := strings.LastIndex(pkgPath, vendor); i != -1 {
-		return pkgPath[i+len(vendor):]
-	}
-	return pkgPath
-}
-
 // pkgAlias creates and returns and import alias for a given package.
 func (g *Generator) pkgAlias(pkgPath string) string {
-	pkgPath = fixPkgPathVendoring(pkgPath)
 	if alias := g.imports[pkgPath]; alias != "" {
 		return alias
 	}
@@ -244,8 +233,6 @@ func (g *Generator) getType(t reflect.Type) string {
 			return "*" + g.getType(t.Elem())
 		case reflect.Slice:
 			return "[]" + g.getType(t.Elem())
-		case reflect.Array:
-			return "[" + strconv.Itoa(t.Len()) + "]" + g.getType(t.Elem())
 		case reflect.Map:
 			return "map[" + g.getType(t.Key()) + "]" + g.getType(t.Elem())
 		}

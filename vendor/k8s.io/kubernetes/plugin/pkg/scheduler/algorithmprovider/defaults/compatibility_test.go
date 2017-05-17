@@ -23,13 +23,14 @@ import (
 
 	"net/http/httptest"
 
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
+	restclient "k8s.io/client-go/rest"
+	utiltesting "k8s.io/client-go/util/testing"
 	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/apimachinery/registered"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
-	"k8s.io/kubernetes/pkg/client/restclient"
-	"k8s.io/kubernetes/pkg/runtime"
-	"k8s.io/kubernetes/pkg/util/sets"
-	utiltesting "k8s.io/kubernetes/pkg/util/testing"
+	"k8s.io/kubernetes/pkg/api/v1"
+	"k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
+	informers "k8s.io/kubernetes/pkg/client/informers/informers_generated/externalversions"
 	schedulerapi "k8s.io/kubernetes/plugin/pkg/scheduler/api"
 	latestschedulerapi "k8s.io/kubernetes/plugin/pkg/scheduler/api/latest"
 	"k8s.io/kubernetes/plugin/pkg/scheduler/factory"
@@ -138,6 +139,7 @@ func TestCompatibility_v1_Scheduler(t *testing.T) {
 			{"name": "NoVolumeZoneConflict"},
 			{"name": "MaxEBSVolumeCount"},
 			{"name": "MaxGCEPDVolumeCount"},
+			{"name": "MaxAzureDiskVolumeCount"},
 			{"name": "TestServiceAffinity", "argument": {"serviceAffinity" : {"labels" : ["region"]}}},
 			{"name": "TestLabelsPresence",  "argument": {"labelsPresence"  : {"labels" : ["foo"], "presence":true}}}
 		  ],"priorities": [
@@ -161,6 +163,7 @@ func TestCompatibility_v1_Scheduler(t *testing.T) {
 					{Name: "NoVolumeZoneConflict"},
 					{Name: "MaxEBSVolumeCount"},
 					{Name: "MaxGCEPDVolumeCount"},
+					{Name: "MaxAzureDiskVolumeCount"},
 					{Name: "TestServiceAffinity", Argument: &schedulerapi.PredicateArgument{ServiceAffinity: &schedulerapi.ServiceAffinity{Labels: []string{"region"}}}},
 					{Name: "TestLabelsPresence", Argument: &schedulerapi.PredicateArgument{LabelsPresence: &schedulerapi.LabelsPresence{Labels: []string{"foo"}, Presence: true}}},
 				},
@@ -194,6 +197,7 @@ func TestCompatibility_v1_Scheduler(t *testing.T) {
 			{"name": "CheckNodeMemoryPressure"},
 			{"name": "MaxEBSVolumeCount"},
 			{"name": "MaxGCEPDVolumeCount"},
+			{"name": "MaxAzureDiskVolumeCount"},
 			{"name": "MatchInterPodAffinity"},
 			{"name": "GeneralPredicates"},
 			{"name": "TestServiceAffinity", "argument": {"serviceAffinity" : {"labels" : ["region"]}}},
@@ -221,6 +225,7 @@ func TestCompatibility_v1_Scheduler(t *testing.T) {
 					{Name: "CheckNodeMemoryPressure"},
 					{Name: "MaxEBSVolumeCount"},
 					{Name: "MaxGCEPDVolumeCount"},
+					{Name: "MaxAzureDiskVolumeCount"},
 					{Name: "MatchInterPodAffinity"},
 					{Name: "GeneralPredicates"},
 					{Name: "TestServiceAffinity", Argument: &schedulerapi.PredicateArgument{ServiceAffinity: &schedulerapi.ServiceAffinity{Labels: []string{"region"}}}},
@@ -257,6 +262,7 @@ func TestCompatibility_v1_Scheduler(t *testing.T) {
 			{"name": "CheckNodeDiskPressure"},
 			{"name": "MaxEBSVolumeCount"},
 			{"name": "MaxGCEPDVolumeCount"},
+			{"name": "MaxAzureDiskVolumeCount"},
 			{"name": "MatchInterPodAffinity"},
 			{"name": "GeneralPredicates"},
 			{"name": "TestServiceAffinity", "argument": {"serviceAffinity" : {"labels" : ["region"]}}},
@@ -287,76 +293,7 @@ func TestCompatibility_v1_Scheduler(t *testing.T) {
 					{Name: "CheckNodeDiskPressure"},
 					{Name: "MaxEBSVolumeCount"},
 					{Name: "MaxGCEPDVolumeCount"},
-					{Name: "MatchInterPodAffinity"},
-					{Name: "GeneralPredicates"},
-					{Name: "TestServiceAffinity", Argument: &schedulerapi.PredicateArgument{ServiceAffinity: &schedulerapi.ServiceAffinity{Labels: []string{"region"}}}},
-					{Name: "TestLabelsPresence", Argument: &schedulerapi.PredicateArgument{LabelsPresence: &schedulerapi.LabelsPresence{Labels: []string{"foo"}, Presence: true}}},
-				},
-				Priorities: []schedulerapi.PriorityPolicy{
-					{Name: "EqualPriority", Weight: 2},
-					{Name: "ImageLocalityPriority", Weight: 2},
-					{Name: "LeastRequestedPriority", Weight: 2},
-					{Name: "BalancedResourceAllocation", Weight: 2},
-					{Name: "SelectorSpreadPriority", Weight: 2},
-					{Name: "NodePreferAvoidPodsPriority", Weight: 2},
-					{Name: "NodeAffinityPriority", Weight: 2},
-					{Name: "TaintTolerationPriority", Weight: 2},
-					{Name: "InterPodAffinityPriority", Weight: 2},
-					{Name: "MostRequestedPriority", Weight: 2},
-				},
-			},
-		},
-
-		// Do not change this JSON after the corresponding release has been tagged.
-		// A failure indicates backwards compatibility with the specified release was broken.
-		"1.5": {
-			JSON: `{
-		  "kind": "Policy",
-		  "apiVersion": "v1",
-		  "predicates": [
-			{"name": "MatchNodeSelector"},
-			{"name": "PodFitsResources"},
-			{"name": "PodFitsHostPorts"},
-			{"name": "HostName"},
-			{"name": "NoDiskConflict"},
-			{"name": "NoVolumeZoneConflict"},
-			{"name": "PodToleratesNodeTaints"},
-			{"name": "CheckNodeMemoryPressure"},
-			{"name": "CheckNodeDiskPressure"},
-			{"name": "CheckNodeInodePressure"},
-			{"name": "MaxEBSVolumeCount"},
-			{"name": "MaxGCEPDVolumeCount"},
-			{"name": "MatchInterPodAffinity"},
-			{"name": "GeneralPredicates"},
-			{"name": "TestServiceAffinity", "argument": {"serviceAffinity" : {"labels" : ["region"]}}},
-			{"name": "TestLabelsPresence",  "argument": {"labelsPresence"  : {"labels" : ["foo"], "presence":true}}}
-		  ],"priorities": [
-			{"name": "EqualPriority",   "weight": 2},
-			{"name": "ImageLocalityPriority",   "weight": 2},
-			{"name": "LeastRequestedPriority",   "weight": 2},
-			{"name": "BalancedResourceAllocation",   "weight": 2},
-			{"name": "SelectorSpreadPriority",   "weight": 2},
-			{"name": "NodePreferAvoidPodsPriority",   "weight": 2},
-			{"name": "NodeAffinityPriority",   "weight": 2},
-			{"name": "TaintTolerationPriority",   "weight": 2},
-			{"name": "InterPodAffinityPriority",   "weight": 2},
-			{"name": "MostRequestedPriority",   "weight": 2}
-		  ]
-		}`,
-			ExpectedPolicy: schedulerapi.Policy{
-				Predicates: []schedulerapi.PredicatePolicy{
-					{Name: "MatchNodeSelector"},
-					{Name: "PodFitsResources"},
-					{Name: "PodFitsHostPorts"},
-					{Name: "HostName"},
-					{Name: "NoDiskConflict"},
-					{Name: "NoVolumeZoneConflict"},
-					{Name: "PodToleratesNodeTaints"},
-					{Name: "CheckNodeMemoryPressure"},
-					{Name: "CheckNodeDiskPressure"},
-					{Name: "CheckNodeInodePressure"},
-					{Name: "MaxEBSVolumeCount"},
-					{Name: "MaxGCEPDVolumeCount"},
+					{Name: "MaxAzureDiskVolumeCount"},
 					{Name: "MatchInterPodAffinity"},
 					{Name: "GeneralPredicates"},
 					{Name: "TestServiceAffinity", Argument: &schedulerapi.PredicateArgument{ServiceAffinity: &schedulerapi.ServiceAffinity{Labels: []string{"region"}}}},
@@ -408,9 +345,21 @@ func TestCompatibility_v1_Scheduler(t *testing.T) {
 		}
 		server := httptest.NewServer(&handler)
 		defer server.Close()
-		client := clientset.NewForConfigOrDie(&restclient.Config{Host: server.URL, ContentConfig: restclient.ContentConfig{GroupVersion: &registered.GroupOrDie(api.GroupName).GroupVersion}})
+		client := clientset.NewForConfigOrDie(&restclient.Config{Host: server.URL, ContentConfig: restclient.ContentConfig{GroupVersion: &api.Registry.GroupOrDie(v1.GroupName).GroupVersion}})
+		informerFactory := informers.NewSharedInformerFactory(client, 0)
 
-		if _, err := factory.NewConfigFactory(client, "some-scheduler-name", api.DefaultHardPodAffinitySymmetricWeight, api.DefaultFailureDomains).CreateFromConfig(policy); err != nil {
+		if _, err := factory.NewConfigFactory(
+			"some-scheduler-name",
+			client,
+			informerFactory.Core().V1().Nodes(),
+			informerFactory.Core().V1().PersistentVolumes(),
+			informerFactory.Core().V1().PersistentVolumeClaims(),
+			informerFactory.Core().V1().ReplicationControllers(),
+			informerFactory.Extensions().V1beta1().ReplicaSets(),
+			informerFactory.Apps().V1beta1().StatefulSets(),
+			informerFactory.Core().V1().Services(),
+			v1.DefaultHardPodAffinitySymmetricWeight,
+		).CreateFromConfig(policy); err != nil {
 			t.Errorf("%s: Error constructing: %v", v, err)
 			continue
 		}

@@ -36,7 +36,16 @@ ADDON_CHECK_INTERVAL_SEC=${TEST_ADDON_CHECK_INTERVAL_SEC:-60}
 ADDON_PATH=${ADDON_PATH:-/etc/kubernetes/addons}
 
 SYSTEM_NAMESPACE=kube-system
-trusty_master=${TRUSTY_MASTER:-false}
+
+# Addons could use this label with two modes:
+# - ADDON_MANAGER_LABEL=Reconcile
+# - ADDON_MANAGER_LABEL=EnsureExists
+ADDON_MANAGER_LABEL="addonmanager.kubernetes.io/mode"
+# This label is deprecated (only for Addon Manager). In future release
+# addon-manager may not respect it anymore. Addons with
+# CLUSTER_SERVICE_LABEL=true and without ADDON_MANAGER_LABEL=EnsureExists
+# will be reconciled for now.
+CLUSTER_SERVICE_LABEL="kubernetes.io/cluster-service"
 
 # Remember that you can't log from functions that print some output (because
 # logs are also printed on stdout).
@@ -69,28 +78,6 @@ function log() {
         echo "INVALID_LOG_LEVEL $1: $2"
         ;;
   esac
-}
-
-# $1 command to execute.
-# $2 count of tries to execute the command.
-# $3 delay in seconds between two consecutive tries
-function run_until_success() {
-  local -r command=$1
-  local tries=$2
-  local -r delay=$3
-  local -r command_name=$1
-  while [ ${tries} -gt 0 ]; do
-    log DBG "executing: '$command'"
-    # let's give the command as an argument to bash -c, so that we can use
-    # && and || inside the command itself
-    /bin/bash -c "${command}" && \
-      log DB3 "== Successfully executed ${command_name} at $(date -Is) ==" && \
-      return 0
-    let tries=tries-1
-    log WRN "== Failed to execute ${command_name} at $(date -Is). ${tries} tries remaining. =="
-    sleep ${delay}
-  done
-  return 1
 }
 
 # $1 filename of addon to start.
@@ -134,7 +121,7 @@ function annotate_addons() {
 
   # Annotate to objects already have this annotation should fail.
   # Only try once for now.
-  ${KUBECTL} ${KUBECTL_OPTS} annotate ${obj_type} --namespace=${SYSTEM_NAMESPACE} -l kubernetes.io/cluster-service=true \
+  ${KUBECTL} ${KUBECTL_OPTS} annotate ${obj_type} --namespace=${SYSTEM_NAMESPACE} -l ${CLUSTER_SERVICE_LABEL}=true \
     kubectl.kubernetes.io/last-applied-configuration='' --overwrite=false
 
   if [[ $? -eq 0 ]]; then
@@ -145,19 +132,34 @@ function annotate_addons() {
 }
 
 # $1 enable --prune or not.
-# $2 additional option for command.
-function update_addons() {
+function reconcile_addons() {
   local -r enable_prune=$1;
-  local -r additional_opt=$2;
 
-  run_until_success "${KUBECTL} ${KUBECTL_OPTS} apply --namespace=${SYSTEM_NAMESPACE} -f ${ADDON_PATH} \
-    --prune=${enable_prune} -l kubernetes.io/cluster-service=true --recursive ${additional_opt}" 3 5
+  # TODO: Remove the first command in future release.
+  # Adding this for backward compatibility. Old addons have CLUSTER_SERVICE_LABEL=true and don't have
+  # ADDON_MANAGER_LABEL=EnsureExists will still be reconciled.
+  # Filter out `configured` message to not noisily log.
+  # `created`, `pruned` and errors will be logged.
+  log INFO "== Reconciling with deprecated label =="
+  ${KUBECTL} ${KUBECTL_OPTS} apply --namespace=${SYSTEM_NAMESPACE} -f ${ADDON_PATH} \
+    -l ${CLUSTER_SERVICE_LABEL}=true,${ADDON_MANAGER_LABEL}!=EnsureExists \
+    --prune=${enable_prune} --recursive | grep -v configured
 
-  if [[ $? -eq 0 ]]; then
-    log INFO "== Kubernetes addon update completed successfully at $(date -Is) =="
-  else
-    log WRN "== Kubernetes addon update completed with errors at $(date -Is) =="
-  fi
+  log INFO "== Reconciling with addon-manager label =="
+  ${KUBECTL} ${KUBECTL_OPTS} apply --namespace=${SYSTEM_NAMESPACE} -f ${ADDON_PATH} \
+    -l ${CLUSTER_SERVICE_LABEL}!=true,${ADDON_MANAGER_LABEL}=Reconcile \
+    --prune=${enable_prune} --recursive | grep -v configured
+
+  log INFO "== Kubernetes addon reconcile completed at $(date -Is) =="
+}
+
+function ensure_addons() {
+  # Create objects already exist should fail.
+  # Filter out `AlreadyExists` message to not noisily log.
+  ${KUBECTL} ${KUBECTL_OPTS} create --namespace=${SYSTEM_NAMESPACE} -f ${ADDON_PATH} \
+    -l ${ADDON_MANAGER_LABEL}=EnsureExists --recursive 2>&1 | grep -v AlreadyExists
+
+  log INFO "== Kubernetes addon ensure completed at $(date -Is) =="
 }
 
 # The business logic for whether a given object should be created
@@ -172,7 +174,11 @@ start_addon /opt/namespace.yaml 100 10 "" &
 token_found=""
 while [ -z "${token_found}" ]; do
   sleep .5
-  token_found=$(${KUBECTL} ${KUBECTL_OPTS} get --namespace="${SYSTEM_NAMESPACE}" serviceaccount default -o go-template="{{with index .secrets 0}}{{.name}}{{end}}" || true)
+  token_found=$(${KUBECTL} ${KUBECTL_OPTS} get --namespace="${SYSTEM_NAMESPACE}" serviceaccount default -o go-template="{{with index .secrets 0}}{{.name}}{{end}}")
+  if [[ $? -ne 0 ]]; then
+    token_found="";
+    log WRN "== Error getting default service account, retry in 0.5 second =="
+  fi
 done
 
 log INFO "== Default service account in the ${SYSTEM_NAMESPACE} namespace has token ${token_found} =="
@@ -185,20 +191,24 @@ for obj in $(find /etc/kubernetes/admission-controls \( -name \*.yaml -o -name \
   log INFO "++ obj ${obj} is created ++"
 done
 
+# TODO: The annotate and spin up parts should be removed after 1.6 is released.
+
 # Fake the "kubectl.kubernetes.io/last-applied-configuration" annotation on old resources
 # in order to clean them up by `kubectl apply --prune`.
-# RCs have to be annotated for 1.4->1.5 upgrade, because we are migrating from RCs to deployments for all default addons.
+# RCs have to be annotated for 1.4->1.5+ upgrade, because we migrated from RCs to deployments for all default addons in 1.5.
 # Other types resources will also need this fake annotation if their names are changed,
 # otherwise they would be leaked during upgrade.
 log INFO "== Annotating the old addon resources at $(date -Is) =="
 annotate_addons ReplicationController
+annotate_addons Deployment
 
 # Create new addon resources by apply (with --prune=false).
 # The old RCs will not fight for pods created by new Deployments with the same label because the `controllerRef` feature.
 # The new Deployments will not fight for pods created by old RCs with the same label because the additional `pod-template-hash` label.
 # Apply will fail if some fields are modified but not are allowed, in that case should bump up addon version and name (e.g. handle externally).
 log INFO "== Executing apply to spin up new addon resources at $(date -Is) =="
-update_addons false
+ensure_addons
+reconcile_addons false
 
 # Wait for new addons to be spinned up before delete old resources
 log INFO "== Wait for addons to be spinned up at $(date -Is) =="
@@ -211,7 +221,8 @@ log INFO "== Entering periodical apply loop at $(date -Is) =="
 while true; do
   start_sec=$(date +"%s")
   # Only print stderr for the readability of logging
-  update_addons true ">/dev/null"
+  ensure_addons
+  reconcile_addons true
   end_sec=$(date +"%s")
   len_sec=$((${end_sec}-${start_sec}))
   # subtract the time passed from the sleep time

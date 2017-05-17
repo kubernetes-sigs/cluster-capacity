@@ -20,6 +20,7 @@ set -o pipefail
 export KUBE_ROOT=$(dirname "${BASH_SOURCE}")/..
 source "${KUBE_ROOT}/hack/lib/init.sh"
 
+
 cd "${KUBE_ROOT}"
 if ! hack/update_owners.py --check; then
     echo 'Run ./hack/update_owners.py to fix it'

@@ -24,6 +24,7 @@ import (
 	"k8s.io/kubernetes/pkg/kubectl/cmd/templates"
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
 	"k8s.io/kubernetes/pkg/kubectl/resource"
+	"k8s.io/kubernetes/pkg/util/i18n"
 )
 
 var (
@@ -55,7 +56,7 @@ func NewCmdStop(f cmdutil.Factory, out io.Writer) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:        "stop (-f FILENAME | TYPE (NAME | -l label | --all))",
-		Short:      "Deprecated: Gracefully shut down a resource by name or filename",
+		Short:      i18n.T("Deprecated: Gracefully shut down a resource by name or filename"),
 		Long:       stop_long,
 		Example:    stop_example,
 		Deprecated: fmt.Sprintf("use %q instead.", "delete"),
@@ -96,5 +97,13 @@ func RunStop(f cmdutil.Factory, cmd *cobra.Command, args []string, out io.Writer
 		return r.Err()
 	}
 	shortOutput := cmdutil.GetFlagString(cmd, "output") == "name"
-	return ReapResult(r, f, out, false, cmdutil.GetFlagBool(cmd, "ignore-not-found"), cmdutil.GetFlagDuration(cmd, "timeout"), cmdutil.GetFlagInt(cmd, "grace-period"), shortOutput, mapper, false)
+	gracePeriod := cmdutil.GetFlagInt(cmd, "grace-period")
+	waitForDeletion := false
+	if gracePeriod == 0 {
+		// To preserve backwards compatibility, but prevent accidental data loss, we convert --grace-period=0
+		// into --grace-period=1 and wait until the object is successfully deleted.
+		gracePeriod = 1
+		waitForDeletion = true
+	}
+	return ReapResult(r, f, out, false, cmdutil.GetFlagBool(cmd, "ignore-not-found"), cmdutil.GetFlagDuration(cmd, "timeout"), gracePeriod, waitForDeletion, shortOutput, mapper, false)
 }

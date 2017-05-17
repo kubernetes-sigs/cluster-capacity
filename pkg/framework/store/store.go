@@ -1,13 +1,30 @@
+/*
+Copyright 2017 The Kubernetes Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package store
 
 import (
 	"fmt"
 
-	ccapi "github.com/ingvagabund/cluster-capacity/pkg/api"
-	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/client/cache"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
-	"k8s.io/kubernetes/pkg/fields"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/client-go/tools/cache"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
+
+	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
 )
 
 type ResourceStore interface {
@@ -16,7 +33,7 @@ type ResourceStore interface {
 	Delete(resource ccapi.ResourceType, obj interface{}) error
 	List(resource ccapi.ResourceType) []interface{}
 	Get(resource ccapi.ResourceType, obj interface{}) (item interface{}, exists bool, err error)
-	GetByKey(key string) (item interface{}, exists bool, err error)
+	GetByKey(resource ccapi.ResourceType, key string) (item interface{}, exists bool, err error)
 	RegisterEventHandler(resource ccapi.ResourceType, handler cache.ResourceEventHandler) error
 	// Replace will delete the contents of the store, using instead the
 	// given list. Store takes ownership of the list, you should not reference
@@ -49,12 +66,12 @@ type resourceStore struct {
 
 // Add resource obj to store and emit event handler if set
 func (s *resourceStore) Add(resource ccapi.ResourceType, obj interface{}) error {
-	cache, exists := s.resourceToCache[resource]
+	cacheL, exists := s.resourceToCache[resource]
 	if !exists {
 		return fmt.Errorf("Resource %s not recognized", resource)
 	}
 
-	err := cache.Add(obj)
+	err := cacheL.Add(obj)
 	if err != nil {
 		return fmt.Errorf("Unable to add %s: %v", resource, err)
 	}
@@ -69,12 +86,12 @@ func (s *resourceStore) Add(resource ccapi.ResourceType, obj interface{}) error 
 
 // Update resource obj to store and emit event handler if set
 func (s *resourceStore) Update(resource ccapi.ResourceType, obj interface{}) error {
-	cache, exists := s.resourceToCache[resource]
+	cacheL, exists := s.resourceToCache[resource]
 	if !exists {
 		return fmt.Errorf("Resource %s not recognized", resource)
 	}
 
-	err := cache.Update(obj)
+	err := cacheL.Update(obj)
 	if err != nil {
 		return fmt.Errorf("Unable to update %s: %v", resource, err)
 	}
@@ -89,12 +106,12 @@ func (s *resourceStore) Update(resource ccapi.ResourceType, obj interface{}) err
 
 // Delete resource obj to store and emit event handler if set
 func (s *resourceStore) Delete(resource ccapi.ResourceType, obj interface{}) error {
-	cache, exists := s.resourceToCache[resource]
+	cacheL, exists := s.resourceToCache[resource]
 	if !exists {
 		return fmt.Errorf("Resource %s not recognized", resource)
 	}
 
-	err := cache.Delete(obj)
+	err := cacheL.Delete(obj)
 	if err != nil {
 		return fmt.Errorf("Unable to delete %s: %v", resource, err)
 	}
@@ -108,23 +125,27 @@ func (s *resourceStore) Delete(resource ccapi.ResourceType, obj interface{}) err
 }
 
 func (s *resourceStore) List(resource ccapi.ResourceType) []interface{} {
-	if cache, exists := s.resourceToCache[resource]; exists {
-		return cache.List()
+	if cacheL, exists := s.resourceToCache[resource]; exists {
+		return cacheL.List()
 	}
 	return nil
 }
 
 func (s *resourceStore) Get(resource ccapi.ResourceType, obj interface{}) (item interface{}, exists bool, err error) {
-	cache, exists := s.resourceToCache[resource]
+	cacheL, exists := s.resourceToCache[resource]
 	if !exists {
 		return nil, false, fmt.Errorf("Resource %s not recognized", resource)
 	}
 
-	return cache.Get(obj)
+	return cacheL.Get(obj)
 }
 
-func (s *resourceStore) GetByKey(key string) (item interface{}, exists bool, err error) {
-	return nil, false, nil
+func (s *resourceStore) GetByKey(resource ccapi.ResourceType, key string) (item interface{}, exists bool, err error) {
+	cacheL, exists := s.resourceToCache[resource]
+	if !exists {
+		return nil, false, fmt.Errorf("Resource %s not recognized", resource)
+	}
+	return cacheL.GetByKey(key)
 }
 
 func (s *resourceStore) RegisterEventHandler(resource ccapi.ResourceType, handler cache.ResourceEventHandler) error {
@@ -136,8 +157,8 @@ func (s *resourceStore) RegisterEventHandler(resource ccapi.ResourceType, handle
 // given list. Store takes ownership of the list, you should not reference
 // it after calling this function.
 func (s *resourceStore) Replace(resource ccapi.ResourceType, items []interface{}, resourceVersion string) error {
-	if cache, exists := s.resourceToCache[resource]; exists {
-		err := cache.Replace(items, resourceVersion)
+	if cacheL, exists := s.resourceToCache[resource]; exists {
+		err := cacheL.Replace(items, resourceVersion)
 		if err != nil {
 			return err
 		}
@@ -205,9 +226,9 @@ func NewResourceReflectors(client clientset.Interface, stopCh <-chan struct{}) *
 	for _, resource := range rs.Resources() {
 		var listWatcher *cache.ListWatch
 		if resource == ccapi.ReplicaSets {
-			listWatcher = cache.NewListWatchFromClient(client.Extensions().RESTClient(), resource.String(), api.NamespaceAll, fields.ParseSelectorOrDie(""))
+			listWatcher = cache.NewListWatchFromClient(client.Extensions().RESTClient(), resource.String(), metav1.NamespaceAll, fields.ParseSelectorOrDie(""))
 		} else {
-			listWatcher = cache.NewListWatchFromClient(client.Core().RESTClient(), resource.String(), api.NamespaceAll, fields.ParseSelectorOrDie(""))
+			listWatcher = cache.NewListWatchFromClient(client.Core().RESTClient(), resource.String(), metav1.NamespaceAll, fields.ParseSelectorOrDie(""))
 		}
 		cache.NewReflector(listWatcher, resource.ObjectType(), rs.resourceToCache[resource], 0).RunUntil(stopCh)
 	}

@@ -29,13 +29,15 @@ import (
 
 	// Volume plugins
 	"github.com/golang/glog"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/kubernetes/pkg/cloudprovider"
 	"k8s.io/kubernetes/pkg/cloudprovider/providers/aws"
 	"k8s.io/kubernetes/pkg/cloudprovider/providers/azure"
 	"k8s.io/kubernetes/pkg/cloudprovider/providers/gce"
 	"k8s.io/kubernetes/pkg/cloudprovider/providers/openstack"
+	"k8s.io/kubernetes/pkg/cloudprovider/providers/photon"
 	"k8s.io/kubernetes/pkg/cloudprovider/providers/vsphere"
-	utilconfig "k8s.io/kubernetes/pkg/util/config"
+	"k8s.io/kubernetes/pkg/features"
 	"k8s.io/kubernetes/pkg/util/io"
 	"k8s.io/kubernetes/pkg/volume"
 	"k8s.io/kubernetes/pkg/volume/aws_ebs"
@@ -47,8 +49,11 @@ import (
 	"k8s.io/kubernetes/pkg/volume/glusterfs"
 	"k8s.io/kubernetes/pkg/volume/host_path"
 	"k8s.io/kubernetes/pkg/volume/nfs"
+	"k8s.io/kubernetes/pkg/volume/photon_pd"
+	"k8s.io/kubernetes/pkg/volume/portworx"
 	"k8s.io/kubernetes/pkg/volume/quobyte"
 	"k8s.io/kubernetes/pkg/volume/rbd"
+	"k8s.io/kubernetes/pkg/volume/scaleio"
 	"k8s.io/kubernetes/pkg/volume/vsphere_volume"
 )
 
@@ -65,8 +70,11 @@ func ProbeAttachableVolumePlugins(config componentconfig.VolumeConfiguration) []
 	allPlugins = append(allPlugins, gce_pd.ProbeVolumePlugins()...)
 	allPlugins = append(allPlugins, cinder.ProbeVolumePlugins()...)
 	allPlugins = append(allPlugins, flexvolume.ProbeVolumePlugins(config.FlexVolumePluginDir)...)
+	allPlugins = append(allPlugins, portworx.ProbeVolumePlugins()...)
 	allPlugins = append(allPlugins, vsphere_volume.ProbeVolumePlugins()...)
 	allPlugins = append(allPlugins, azure_dd.ProbeVolumePlugins()...)
+	allPlugins = append(allPlugins, photon_pd.ProbeVolumePlugins()...)
+	allPlugins = append(allPlugins, scaleio.ProbeVolumePlugins()...)
 	return allPlugins
 }
 
@@ -111,6 +119,8 @@ func ProbeControllerVolumePlugins(cloud cloudprovider.Interface, config componen
 	allPlugins = append(allPlugins, quobyte.ProbeVolumePlugins()...)
 
 	allPlugins = append(allPlugins, flocker.ProbeVolumePlugins()...)
+	allPlugins = append(allPlugins, portworx.ProbeVolumePlugins()...)
+	allPlugins = append(allPlugins, scaleio.ProbeVolumePlugins()...)
 
 	if cloud != nil {
 		switch {
@@ -124,6 +134,8 @@ func ProbeControllerVolumePlugins(cloud cloudprovider.Interface, config componen
 			allPlugins = append(allPlugins, vsphere_volume.ProbeVolumePlugins()...)
 		case azure.CloudProviderName == cloud.ProviderName():
 			allPlugins = append(allPlugins, azure_dd.ProbeVolumePlugins()...)
+		case photon.ProviderName == cloud.ProviderName():
+			allPlugins = append(allPlugins, photon_pd.ProbeVolumePlugins()...)
 		}
 	}
 
@@ -137,7 +149,7 @@ func ProbeControllerVolumePlugins(cloud cloudprovider.Interface, config componen
 // TODO: remove in Kubernetes 1.5
 func NewAlphaVolumeProvisioner(cloud cloudprovider.Interface, config componentconfig.VolumeConfiguration) (volume.ProvisionableVolumePlugin, error) {
 	switch {
-	case !utilconfig.DefaultFeatureGate.DynamicVolumeProvisioning():
+	case !utilfeature.DefaultFeatureGate.Enabled(features.DynamicVolumeProvisioning):
 		return nil, nil
 	case cloud == nil && config.EnableHostPathProvisioning:
 		return getProvisionablePluginFromVolumePlugins(host_path.ProbeVolumePlugins(
@@ -154,6 +166,8 @@ func NewAlphaVolumeProvisioner(cloud cloudprovider.Interface, config componentco
 		return getProvisionablePluginFromVolumePlugins(vsphere_volume.ProbeVolumePlugins())
 	case cloud != nil && azure.CloudProviderName == cloud.ProviderName():
 		return getProvisionablePluginFromVolumePlugins(azure_dd.ProbeVolumePlugins())
+	case cloud != nil && photon.ProviderName == cloud.ProviderName():
+		return getProvisionablePluginFromVolumePlugins(photon_pd.ProbeVolumePlugins())
 	}
 	return nil, nil
 }
@@ -175,6 +189,9 @@ func AttemptToLoadRecycler(path string, config *volume.VolumeConfig) error {
 		recyclerPod, err := io.LoadPodFromFile(path)
 		if err != nil {
 			return err
+		}
+		if err = volume.ValidateRecyclerPodTemplate(recyclerPod); err != nil {
+			return fmt.Errorf("Pod specification (%v): %v", path, err)
 		}
 		config.RecyclerPodTemplate = recyclerPod
 	}

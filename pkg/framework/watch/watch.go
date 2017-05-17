@@ -1,3 +1,19 @@
+/*
+Copyright 2017 The Kubernetes Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package watch
 
 import (
@@ -8,12 +24,13 @@ import (
 	"sync"
 	"time"
 
-	ccapi "github.com/ingvagabund/cluster-capacity/pkg/api"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/testapi"
-	"k8s.io/kubernetes/pkg/api/unversioned"
-	"k8s.io/kubernetes/pkg/runtime"
-	"k8s.io/kubernetes/pkg/watch"
+	"k8s.io/kubernetes/pkg/api/v1"
+
+	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
 )
 
 // Every watcher expects infinite byte stream
@@ -78,18 +95,18 @@ func (c *WatchBuffer) EmitWatchEvent(eType watch.EventType, object runtime.Objec
 	//	Object: object,
 	//}
 
-	var encoder runtime.Encoder
-	if c.Resource == ccapi.ReplicaSets {
-		gvr := unversioned.GroupVersionResource{Group: "extensions", Version: "v1beta1", Resource: "replicasets"}
-		info, ok := runtime.SerializerInfoForMediaType(testapi.Default.NegotiatedSerializer().SupportedMediaTypes(), runtime.ContentTypeJSON)
-		if !ok {
-			return fmt.Errorf("serializer for %s not registered", runtime.ContentTypeJSON)
-		}
-
-		encoder = api.Codecs.EncoderForVersion(info.Serializer, gvr.GroupVersion())
-	} else {
-		encoder = testapi.Default.Codec()
+	info, ok := runtime.SerializerInfoForMediaType(api.Codecs.SupportedMediaTypes(), runtime.ContentTypeJSON)
+	if !ok {
+		return fmt.Errorf("serializer for %s not registered", runtime.ContentTypeJSON)
 	}
+
+	gv := v1.SchemeGroupVersion
+	if c.Resource == ccapi.ReplicaSets {
+		gv = schema.GroupVersion{Group: "extensions", Version: "v1beta1"}
+	}
+
+	encoder := api.Codecs.EncoderForVersion(info.Serializer, gv)
+
 	obj_str := runtime.EncodeOrDie(encoder, object)
 	obj_str = strings.Replace(obj_str, "\n", "", -1)
 

@@ -8,8 +8,6 @@ import (
 	"net"
 	"syscall"
 	"time"
-
-	"golang.org/x/net/internal/netreflect"
 )
 
 // A Conn represents a network endpoint that uses IPv6 transport.
@@ -31,11 +29,11 @@ func (c *Conn) PathMTU() (int, error) {
 	if !c.genericOpt.ok() {
 		return 0, syscall.EINVAL
 	}
-	s, err := netreflect.SocketOf(c.genericOpt.Conn)
+	fd, err := c.genericOpt.sysfd()
 	if err != nil {
 		return 0, err
 	}
-	_, mtu, err := getMTUInfo(s, &sockOpts[ssoPathMTU])
+	_, mtu, err := getMTUInfo(fd, &sockOpts[ssoPathMTU])
 	if err != nil {
 		return 0, err
 	}
@@ -72,11 +70,11 @@ func (c *PacketConn) SetControlMessage(cf ControlFlags, on bool) error {
 	if !c.payloadHandler.ok() {
 		return syscall.EINVAL
 	}
-	s, err := netreflect.PacketSocketOf(c.dgramOpt.PacketConn)
+	fd, err := c.payloadHandler.sysfd()
 	if err != nil {
 		return err
 	}
-	return setControlMessage(s, &c.payloadHandler.rawOpt, cf, on)
+	return setControlMessage(fd, &c.payloadHandler.rawOpt, cf, on)
 }
 
 // SetDeadline sets the read and write deadlines associated with the

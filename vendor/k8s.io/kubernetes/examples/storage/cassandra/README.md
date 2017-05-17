@@ -7,9 +7,9 @@
   - [Cassandra Docker](#cassandra-docker)
   - [Quickstart](#quickstart)
   - [Step 1: Create a Cassandra Headless Service](#step-1-create-a-cassandra-headless-service)
-  - [Step 2: Use a Pet Set to create Cassandra Ring](#step-2-create-a-cassandra-petset)
-  - [Step 3: Validate and Modify The Cassandra Pet Set](#step-3-validate-and-modify-the-cassandra-pet-set)
-  - [Step 4: Delete Cassandra Pet Set](#step-4-delete-cassandra-pet-set)
+  - [Step 2: Use a StatefulSet to create Cassandra Ring](#step-2-use-a-statefulset-to-create-cassandra-ring)
+  - [Step 3: Validate and Modify The Cassandra StatefulSet](#step-3-validate-and-modify-the-cassandra-statefulset)
+  - [Step 4: Delete Cassandra StatefulSet](#step-4-delete-cassandra-statefulset)
   - [Step 5: Use a Replication Controller to create Cassandra node pods](#step-5-use-a-replication-controller-to-create-cassandra-node-pods)
   - [Step 6: Scale up the Cassandra cluster](#step-6-scale-up-the-cassandra-cluster)
   - [Step 7: Delete the Replication Controller](#step-7-delete-the-replication-controller)
@@ -30,7 +30,7 @@ This example also uses some of the core components of Kubernetes:
 - [_Pods_](../../../docs/user-guide/pods.md)
 - [ _Services_](../../../docs/user-guide/services.md)
 - [_Replication Controllers_](../../../docs/user-guide/replication-controller.md)
-- [_Pet Sets_](http://kubernetes.io/docs/user-guide/petset/)
+- [_Stateful Sets_](http://kubernetes.io/docs/user-guide/petset/)
 - [_Daemon Sets_](../../../docs/admin/daemons.md)
 
 ## Prerequisites
@@ -47,7 +47,7 @@ computer.
 
 ## Cassandra Docker
 
-The pods use the [```gcr.io/google-samples/cassandra:v11```](image/Dockerfile)
+The pods use the [```gcr.io/google-samples/cassandra:v12```](image/Dockerfile)
 image from Google's [container registry](https://cloud.google.com/container-registry/docs/).
 The docker is based on `debian:jessie` and includes OpenJDK 8. This image
 includes a standard Cassandra installation from the Apache Debian repo.  Through the use of environment variables you are able to change values that are inserted into the `cassandra.yaml`.
@@ -65,21 +65,21 @@ here are the steps:
 
 ```sh
 #
-# Pet Set
+# StatefulSet
 #
 
-# create a service to track all cassandra petset nodes
+# create a service to track all cassandra statefulset nodes
 kubectl create -f examples/storage/cassandra/cassandra-service.yaml
 
-# create a petset
-kubectl create -f examples/storage/cassandra/cassandra-petset.yaml
+# create a statefulset
+kubectl create -f examples/storage/cassandra/cassandra-statefulset.yaml
 
 # validate the Cassandra cluster. Substitute the name of one of your pods.
 kubectl exec -ti cassandra-0 -- nodetool status
 
 # cleanup
 grace=$(kubectl get po cassandra-0 --template '{{.spec.terminationGracePeriodSeconds}}') \
-  && kubectl delete petset,po -l app=cassandra \
+  && kubectl delete statefulset,po -l app=cassandra \
   && echo "Sleeping $grace" \
   && sleep $grace \
   && kubectl delete pvc -l app=cassandra
@@ -143,7 +143,7 @@ spec:
 [Download example](cassandra-service.yaml?raw=true)
 <!-- END MUNGE: EXAMPLE cassandra-service.yaml -->
 
-Create the service for the Pet Set:
+Create the service for the StatefulSet:
 
 
 ```console
@@ -165,21 +165,24 @@ cassandra   None         <none>        9042/TCP   45s
 
 If an error is returned the service create failed.
 
-## Step 2: Use a Pet Set to create Cassandra Ring
+## Step 2: Use a StatefulSet to create Cassandra Ring
 
-Pet Sets are a new feature that was added as an <i>Alpha</i> component in Kubernetes
-1.3.  Deploying stateful distributed applications, like Cassandra, within a clustered
-environment can be challenging.  We implemented Pet Set to greatly simplify this
-process.  Multiple Pet Set features are used within this example, but is out of
-scope of this documentation.  [Please refer to the Pet Set documentation.](http://kubernetes.io/docs/user-guide/petset/)
+StatefulSets (previously PetSets) are a feature that was upgraded to a <i>Beta</i> component in
+Kubernetes 1.5.  Deploying stateful distributed applications, like Cassandra, within a clustered
+environment can be challenging.  We implemented StatefulSet to greatly simplify this
+process.  Multiple StatefulSet features are used within this example, but is out of
+scope of this documentation.  [Please refer to the Stateful Set documentation.](https://kubernetes.io/docs/concepts/abstractions/controllers/statefulsets/)
 
-The Pet Set manifest that is included below, creates a Cassandra ring that consists
+The StatefulSet manifest that is included below, creates a Cassandra ring that consists
 of three pods.
 
-<!-- BEGIN MUNGE: EXAMPLE cassandra-petset.yaml -->
+This example includes using a GCE Storage Class, please update appropriately depending
+on the cloud you are working with. 
+
+<!-- BEGIN MUNGE: EXAMPLE cassandra-statefulset.yaml -->
 
 ```yaml
-apiVersion: "apps/v1alpha1"
+apiVersion: "apps/v1beta1"
 kind: StatefulSet
 metadata:
   name: cassandra
@@ -188,14 +191,12 @@ spec:
   replicas: 3
   template:
     metadata:
-      annotations:
-        pod.alpha.kubernetes.io/initialized: "true"
       labels:
         app: cassandra
     spec:
       containers:
       - name: cassandra
-        image: gcr.io/google-samples/cassandra:v11
+        image: gcr.io/google-samples/cassandra:v12
         imagePullPolicy: Always
         ports:
         - containerPort: 7000
@@ -217,6 +218,10 @@ spec:
           capabilities:
             add:
               - IPC_LOCK
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/bin/sh", "-c", "PID=$(pidof java) && kill $PID && while ps -p $PID > /dev/null; do sleep 1; done"]
         env:
           - name: MAX_HEAP_SIZE
             value: 512M
@@ -246,7 +251,7 @@ spec:
           timeoutSeconds: 5
         # These volume mounts are persistent. They are like inline claims,
         # but not exactly because the names need to match exactly one of
-        # the pet volumes.
+        # the stateful pod volumes.
         volumeMounts:
         - name: cassandra-data
           mountPath: /cassandra_data
@@ -257,34 +262,42 @@ spec:
   - metadata:
       name: cassandra-data
       annotations:
-        volume.alpha.kubernetes.io/storage-class: anything
+        volume.beta.kubernetes.io/storage-class: fast
     spec:
       accessModes: [ "ReadWriteOnce" ]
       resources:
         requests:
           storage: 1Gi
+---
+kind: StorageClass
+apiVersion: storage.k8s.io/v1beta1
+metadata:
+  name: fast
+provisioner: kubernetes.io/gce-pd
+parameters:
+  type: pd-ssd
 ```
 
-[Download example](cassandra-petset.yaml?raw=true)
-<!-- END MUNGE: EXAMPLE cassandra-petset.yaml -->
+[Download example](cassandra-statefulset.yaml?raw=true)
+<!-- END MUNGE: EXAMPLE cassandra-statefulset.yaml -->
 
-Create the Cassandra Pet Set as follows:
+Create the Cassandra StatefulSet as follows:
 
 ```console
-$ kubectl create -f examples/storage/cassandra/cassandra-petset.yaml
+$ kubectl create -f examples/storage/cassandra/cassandra-statefulset.yaml
 ```
 
-## Step 3: Validate and Modify The Cassandra Pet Set
+## Step 3: Validate and Modify The Cassandra StatefulSet
 
-Deploying this Pet Set shows off two of the new features that Pet Sets provides.
+Deploying this StatefulSet shows off two of the new features that StatefulSets provides.
 
 1. The pod names are known
 2. The pods deploy in incremental order
 
-First validate that the Pet Set has deployed, by running `kubectl` command below.
+First validate that the StatefulSet has deployed, by running `kubectl` command below.
 
 ```console
-$ kubectl get petset cassandra
+$ kubectl get statefulset cassandra
 ```
 
 The command should respond like:
@@ -294,7 +307,7 @@ NAME        DESIRED   CURRENT   AGE
 cassandra   3         3         13s
 ```
 
-Next watch the Cassandra pods deploy, one after another.  The Pet Set resource
+Next watch the Cassandra pods deploy, one after another.  The StatefulSet resource
 deploys pods in a number fashion: 1, 2, 3, etc.  If you execute the following
 command before the pods deploy you are able to see the ordered creation.
 
@@ -305,9 +318,9 @@ cassandra-0   1/1       Running             0          1m
 cassandra-1   0/1       ContainerCreating   0          8s
 ```
 
-The above example shows two of the three pods in the Cassandra Pet Set deployed.
+The above example shows two of the three pods in the Cassandra StatefulSet deployed.
 Once all of the pods are deployed the same command will respond with the full
-Pet Set.
+StatefulSet.
 
 ```console
 $ kubectl get pods -l="app=cassandra"
@@ -339,13 +352,13 @@ $ kubectl exec cassandra-0 -- cqlsh -e 'desc keyspaces'
 system_traces  system_schema  system_auth  system  system_distributed
 ```
 
-In order to increase or decrease the size of the Cassandra Pet Set, you must use
+In order to increase or decrease the size of the Cassandra StatefulSet, you must use
 `kubectl edit`.  You can find more information about the edit command in the [documentation](../../../docs/user-guide/kubectl/kubectl_edit.md).
 
-Use the following command to edit the Pet Set.
+Use the following command to edit the StatefulSet.
 
 ```console
-$ kubectl edit petset cassandra
+$ kubectl edit statefulset cassandra
 ```
 
 This will create an editor in your terminal.  The line you are looking to change is
@@ -357,8 +370,8 @@ the last line of the example below is the replicas line that you want to change.
 # and an empty file will abort the edit. If an error occurs while saving this file will be
 # reopened with the relevant failures.
 #
-apiVersion: apps/v1alpha1
-kind: PetSet
+apiVersion: apps/v1beta1
+kind: StatefulSet
 metadata:
   creationTimestamp: 2016-08-13T18:40:58Z
   generation: 1
@@ -367,7 +380,7 @@ metadata:
   name: cassandra
   namespace: default
   resourceVersion: "323"
-  selfLink: /apis/apps/v1alpha1/namespaces/default/petsets/cassandra
+  selfLink: /apis/apps/v1beta1/namespaces/default/statefulsets/cassandra
   uid: 7a219483-6185-11e6-a910-42010a8a0fc0
 spec:
   replicas: 3
@@ -380,10 +393,10 @@ spec:
   replicas: 4
 ```
 
-The Pet Set will now contain four Pets.
+The StatefulSet will now contain four pods.
 
 ```console
-$ kubectl get petset cassandra
+$ kubectl get statefulset cassandra
 ```
 
 The command should respond like:
@@ -393,21 +406,18 @@ NAME        DESIRED   CURRENT   AGE
 cassandra   4         4         36m
 ```
 
-For the Alpha release of Kubernetes 1.3 the Pet Set resource does not have `kubectl scale`
+For the Kubernetes 1.5 release, the beta StatefulSet resource does not have `kubectl scale`
 functionality, like a Deployment, ReplicaSet, Replication Controller, or Job.
 
-## Step 4: Delete Cassandra Pet Set
+## Step 4: Delete Cassandra StatefulSet
 
-There are some limitations with the Alpha release of Pet Set in 1.3. From the [documentation](http://kubernetes.io/docs/user-guide/petset/):
+Deleting and/or scaling a StatefulSet down will not delete the volumes associated with the StatefulSet. This is done to ensure safety first, your data is more valuable than an auto purge of all related StatefulSet resources. Deleting the Persistent Volume Claims may result in a deletion of the associated volumes, depending on the storage class and reclaim policy. You should never assume ability to access a volume after claim deletion.
 
-"Deleting the Pet Set will not delete any pets. You will either have to manually scale it down to 0 pets first, or delete the pets yourself.
-Deleting and/or scaling a Pet Set down will not delete the volumes associated with the Pet Set. This is done to ensure safety first, your data is more valuable than an auto purge of all related Pet Set resources. Deleting the Persistent Volume Claims will result in a deletion of the associated volumes."
-
-Use the following commands to delete the Pet Set.
+Use the following commands to delete the StatefulSet.
 
 ```console
 $ grace=$(kubectl get po cassandra-0 --template '{{.spec.terminationGracePeriodSeconds}}') \
-  && kubectl delete petset,po -l app=cassandra \
+  && kubectl delete statefulset -l app=cassandra \
   && echo "Sleeping $grace" \
   && sleep $grace \
   && kubectl delete pvc -l app=cassandra
@@ -471,7 +481,7 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
-          image: gcr.io/google-samples/cassandra:v11
+          image: gcr.io/google-samples/cassandra:v12
           name: cassandra
           ports:
             - containerPort: 7000
@@ -520,7 +530,7 @@ You can list the new controller:
 
 $ kubectl get rc -o wide
 NAME        DESIRED   CURRENT   AGE       CONTAINER(S)   IMAGE(S)                             SELECTOR
-cassandra   2         2         11s       cassandra      gcr.io/google-samples/cassandra:v11   app=cassandra
+cassandra   2         2         11s       cassandra      gcr.io/google-samples/cassandra:v12   app=cassandra
 
 ```
 
@@ -697,7 +707,7 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
-          image: gcr.io/google-samples/cassandra:v11
+          image: gcr.io/google-samples/cassandra:v12
           name: cassandra
           ports:
             - containerPort: 7000
@@ -816,7 +826,7 @@ $ kubectl delete daemonset cassandra
 
 A custom [`SeedProvider`](https://svn.apache.org/repos/asf/cassandra/trunk/src/java/org/apache/cassandra/locator/SeedProvider.java)
 is included for running Cassandra on top of Kubernetes.  Only when you deploy Cassandra
-via a replication control or a deamonset, you will need to use the custom seed provider.
+via a replication control or a daemonset, you will need to use the custom seed provider.
 In Cassandra, a `SeedProvider` bootstraps the gossip protocol that Cassandra uses to find other
 Cassandra nodes. Seed addresses are hosts deemed as contact points. Cassandra
 instances use the seed list to find each other and learn the topology of the

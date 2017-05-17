@@ -20,13 +20,15 @@ import (
 	"fmt"
 	"io"
 
-	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
+	"k8s.io/apiserver/pkg/util/flag"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/kubernetes/pkg/kubectl/cmd/auth"
 	cmdconfig "k8s.io/kubernetes/pkg/kubectl/cmd/config"
 	"k8s.io/kubernetes/pkg/kubectl/cmd/rollout"
 	"k8s.io/kubernetes/pkg/kubectl/cmd/set"
 	"k8s.io/kubernetes/pkg/kubectl/cmd/templates"
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
-	"k8s.io/kubernetes/pkg/util/flag"
+	"k8s.io/kubernetes/pkg/util/i18n"
 
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
@@ -70,6 +72,15 @@ __kubectl_get_namespaces()
     local template kubectl_out
     template="{{ range .items  }}{{ .metadata.name }} {{ end }}"
     if kubectl_out=$(kubectl get -o template --template="${template}" namespace 2>/dev/null); then
+        COMPREPLY=( $( compgen -W "${kubectl_out[*]}" -- "$cur" ) )
+    fi
+}
+
+__kubectl_get_contexts()
+{
+    local template kubectl_out
+    template="{{ range .contexts  }}{{ .name }} {{ end }}"
+    if kubectl_out=$(kubectl config $(__kubectl_override_flags) -o template --template="${template}" view 2>/dev/null); then
         COMPREPLY=( $( compgen -W "${kubectl_out[*]}" -- "$cur" ) )
     fi
 }
@@ -170,7 +181,11 @@ __custom_func() {
 	// TODO: This should be populated using the discovery information from apiserver.
 	valid_resources = `Valid resource types include:
 
+    * all
+    * certificatesigningrequests (aka 'csr')
     * clusters (valid only for federation apiservers)
+    * clusterrolebindings
+    * clusterroles
     * componentstatuses (aka 'cs')
     * configmaps (aka 'cm')
     * daemonsets (aka 'ds')
@@ -187,14 +202,18 @@ __custom_func() {
     * persistentvolumeclaims (aka 'pvc')
     * persistentvolumes (aka 'pv')
     * pods (aka 'po')
+    * poddisruptionbudgets (aka 'pdb')
     * podsecuritypolicies (aka 'psp')
     * podtemplates
     * replicasets (aka 'rs')
     * replicationcontrollers (aka 'rc')
     * resourcequotas (aka 'quota')
+    * rolebindings
+    * roles
     * secrets
     * serviceaccounts (aka 'sa')
     * services (aka 'svc')
+    * statefulsets
     * storageclasses
     * thirdpartyresources
     `
@@ -205,7 +224,7 @@ func NewKubectlCommand(f cmdutil.Factory, in io.Reader, out, err io.Writer) *cob
 	// Parent command to which all subcommands are added.
 	cmds := &cobra.Command{
 		Use:   "kubectl",
-		Short: "kubectl controls the Kubernetes cluster manager",
+		Short: i18n.T("kubectl controls the Kubernetes cluster manager"),
 		Long: templates.LongDesc(`
       kubectl controls the Kubernetes cluster manager.
 
@@ -216,6 +235,13 @@ func NewKubectlCommand(f cmdutil.Factory, in io.Reader, out, err io.Writer) *cob
 
 	f.BindFlags(cmds.PersistentFlags())
 	f.BindExternalFlags(cmds.PersistentFlags())
+
+	// Sending in 'nil' for the getLanguageFn() results in using
+	// the LANG environment variable.
+	//
+	// TODO: Consider adding a flag or file preference for setting
+	// the language, instead of just loading from the LANG env. variable.
+	i18n.LoadTranslations("kubectl", nil)
 
 	// From this point and forward we get warnings on flags that contain "_" separators
 	cmds.SetGlobalNormalizationFunc(flag.WarnWordSepNormalizeFunc)
@@ -236,13 +262,13 @@ func NewKubectlCommand(f cmdutil.Factory, in io.Reader, out, err io.Writer) *cob
 				NewCmdGet(f, out, err),
 				NewCmdExplain(f, out, err),
 				NewCmdEdit(f, out, err),
-				NewCmdDelete(f, out),
+				NewCmdDelete(f, out, err),
 			},
 		},
 		{
 			Message: "Deploy Commands:",
 			Commands: []*cobra.Command{
-				rollout.NewCmdRollout(f, out),
+				rollout.NewCmdRollout(f, out, err),
 				NewCmdRollingUpdate(f, out),
 				NewCmdScale(f, out),
 				NewCmdAutoscale(f, out),
@@ -251,11 +277,12 @@ func NewKubectlCommand(f cmdutil.Factory, in io.Reader, out, err io.Writer) *cob
 		{
 			Message: "Cluster Management Commands:",
 			Commands: []*cobra.Command{
+				NewCmdCertificate(f, out),
 				NewCmdClusterInfo(f, out),
-				NewCmdTop(f, out),
+				NewCmdTop(f, out, err),
 				NewCmdCordon(f, out),
 				NewCmdUncordon(f, out),
-				NewCmdDrain(f, out),
+				NewCmdDrain(f, out, err),
 				NewCmdTaint(f, out),
 			},
 		},
@@ -269,12 +296,13 @@ func NewKubectlCommand(f cmdutil.Factory, in io.Reader, out, err io.Writer) *cob
 				NewCmdPortForward(f, out, err),
 				NewCmdProxy(f, out),
 				NewCmdCp(f, in, out, err),
+				auth.NewCmdAuth(f, out, err),
 			},
 		},
 		{
 			Message: "Advanced Commands:",
 			Commands: []*cobra.Command{
-				NewCmdApply(f, out),
+				NewCmdApply(f, out, err),
 				NewCmdPatch(f, out),
 				NewCmdReplace(f, out),
 				NewCmdConvert(f, out),
@@ -285,7 +313,7 @@ func NewKubectlCommand(f cmdutil.Factory, in io.Reader, out, err io.Writer) *cob
 			Commands: []*cobra.Command{
 				NewCmdLabel(f, out),
 				NewCmdAnnotate(f, out),
-				NewCmdCompletion(f, out),
+				NewCmdCompletion(f, out, ""),
 			},
 		},
 	}
@@ -307,7 +335,17 @@ func NewKubectlCommand(f cmdutil.Factory, in io.Reader, out, err io.Writer) *cob
 		)
 	}
 
-	cmds.AddCommand(cmdconfig.NewCmdConfig(clientcmd.NewDefaultPathOptions(), out))
+	if cmds.Flag("context") != nil {
+		if cmds.Flag("context").Annotations == nil {
+			cmds.Flag("context").Annotations = map[string][]string{}
+		}
+		cmds.Flag("context").Annotations[cobra.BashCompCustom] = append(
+			cmds.Flag("context").Annotations[cobra.BashCompCustom],
+			"__kubectl_get_contexts",
+		)
+	}
+
+	cmds.AddCommand(cmdconfig.NewCmdConfig(clientcmd.NewDefaultPathOptions(), out, err))
 	cmds.AddCommand(NewCmdVersion(f, out))
 	cmds.AddCommand(NewCmdApiVersions(f, out))
 	cmds.AddCommand(NewCmdOptions(out))

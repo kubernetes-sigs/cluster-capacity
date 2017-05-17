@@ -176,14 +176,12 @@ func newAccessController(options map[string]interface{}) (auth.AccessController,
 	var rootCerts []*x509.Certificate
 	pemBlock, rawCertBundle := pem.Decode(rawCertBundle)
 	for pemBlock != nil {
-		if pemBlock.Type == "CERTIFICATE" {
-			cert, err := x509.ParseCertificate(pemBlock.Bytes)
-			if err != nil {
-				return nil, fmt.Errorf("unable to parse token auth root certificate: %s", err)
-			}
-
-			rootCerts = append(rootCerts, cert)
+		cert, err := x509.ParseCertificate(pemBlock.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse token auth root certificate: %s", err)
 		}
+
+		rootCerts = append(rootCerts, cert)
 
 		pemBlock, rawCertBundle = pem.Decode(rawCertBundle)
 	}

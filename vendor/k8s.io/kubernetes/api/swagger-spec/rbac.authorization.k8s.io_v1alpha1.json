@@ -54,7 +54,7 @@
         "type": "string",
         "paramType": "query",
         "name": "resourceVersion",
-        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history. When specified for list: - if unset, then the result is returned from remote storage based on quorum-read flag; - if it's 0, then we simply return what we currently have in cache, no guarantee; - if set to non zero, then the result is at least as fresh as given rv.",
         "required": false,
         "allowMultiple": false
        },
@@ -125,7 +125,7 @@
       ]
      },
      {
-      "type": "unversioned.Status",
+      "type": "v1.Status",
       "method": "DELETE",
       "summary": "delete collection of ClusterRoleBinding",
       "nickname": "deletecollectionClusterRoleBinding",
@@ -166,7 +166,7 @@
         "type": "string",
         "paramType": "query",
         "name": "resourceVersion",
-        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history. When specified for list: - if unset, then the result is returned from remote storage based on quorum-read flag; - if it's 0, then we simply return what we currently have in cache, no guarantee; - if set to non zero, then the result is at least as fresh as given rv.",
         "required": false,
         "allowMultiple": false
        },
@@ -183,7 +183,7 @@
        {
         "code": 200,
         "message": "OK",
-        "responseModel": "unversioned.Status"
+        "responseModel": "v1.Status"
        }
       ],
       "produces": [
@@ -202,7 +202,7 @@
     "description": "API at /apis/rbac.authorization.k8s.io/v1alpha1",
     "operations": [
      {
-      "type": "versioned.Event",
+      "type": "v1.WatchEvent",
       "method": "GET",
       "summary": "watch individual changes to a list of ClusterRoleBinding",
       "nickname": "watchClusterRoleBindingList",
@@ -243,7 +243,7 @@
         "type": "string",
         "paramType": "query",
         "name": "resourceVersion",
-        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history. When specified for list: - if unset, then the result is returned from remote storage based on quorum-read flag; - if it's 0, then we simply return what we currently have in cache, no guarantee; - if set to non zero, then the result is at least as fresh as given rv.",
         "required": false,
         "allowMultiple": false
        },
@@ -260,7 +260,7 @@
        {
         "code": 200,
         "message": "OK",
-        "responseModel": "versioned.Event"
+        "responseModel": "v1.WatchEvent"
        }
       ],
       "produces": [
@@ -381,7 +381,7 @@
         "allowMultiple": false
        },
        {
-        "type": "unversioned.Patch",
+        "type": "v1.Patch",
         "paramType": "body",
         "name": "body",
         "description": "",
@@ -416,7 +416,7 @@
       ]
      },
      {
-      "type": "unversioned.Status",
+      "type": "v1.Status",
       "method": "DELETE",
       "summary": "delete a ClusterRoleBinding",
       "nickname": "deleteClusterRoleBinding",
@@ -438,6 +438,30 @@
         "allowMultiple": false
        },
        {
+        "type": "integer",
+        "paramType": "query",
+        "name": "gracePeriodSeconds",
+        "description": "The duration in seconds before the object should be deleted. Value must be non-negative integer. The value zero indicates delete immediately. If this value is nil, the default grace period for the specified type will be used. Defaults to a per object value if not specified. zero means delete immediately.",
+        "required": false,
+        "allowMultiple": false
+       },
+       {
+        "type": "boolean",
+        "paramType": "query",
+        "name": "orphanDependents",
+        "description": "Deprecated: please use the PropagationPolicy, this field will be deprecated in 1.7. Should the dependent objects be orphaned. If true/false, the \"orphan\" finalizer will be added to/removed from the object's finalizers list. Either this field or PropagationPolicy may be set, but not both.",
+        "required": false,
+        "allowMultiple": false
+       },
+       {
+        "type": "string",
+        "paramType": "query",
+        "name": "propagationPolicy",
+        "description": "Whether and how garbage collection will be performed. Either this field or OrphanDependents may be set, but not both. The default policy is decided by the existing finalizer set in the metadata.finalizers and the resource-specific default policy.",
+        "required": false,
+        "allowMultiple": false
+       },
+       {
         "type": "string",
         "paramType": "path",
         "name": "name",
@@ -450,7 +474,7 @@
        {
         "code": 200,
         "message": "OK",
-        "responseModel": "unversioned.Status"
+        "responseModel": "v1.Status"
        }
       ],
       "produces": [
@@ -469,7 +493,7 @@
     "description": "API at /apis/rbac.authorization.k8s.io/v1alpha1",
     "operations": [
      {
-      "type": "versioned.Event",
+      "type": "v1.WatchEvent",
       "method": "GET",
       "summary": "watch changes to an object of kind ClusterRoleBinding",
       "nickname": "watchClusterRoleBinding",
@@ -510,7 +534,7 @@
         "type": "string",
         "paramType": "query",
         "name": "resourceVersion",
-        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history. When specified for list: - if unset, then the result is returned from remote storage based on quorum-read flag; - if it's 0, then we simply return what we currently have in cache, no guarantee; - if set to non zero, then the result is at least as fresh as given rv.",
         "required": false,
         "allowMultiple": false
        },
@@ -535,7 +559,7 @@
        {
         "code": 200,
         "message": "OK",
-        "responseModel": "versioned.Event"
+        "responseModel": "v1.WatchEvent"
        }
       ],
       "produces": [
@@ -597,7 +621,7 @@
         "type": "string",
         "paramType": "query",
         "name": "resourceVersion",
-        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history. When specified for list: - if unset, then the result is returned from remote storage based on quorum-read flag; - if it's 0, then we simply return what we currently have in cache, no guarantee; - if set to non zero, then the result is at least as fresh as given rv.",
         "required": false,
         "allowMultiple": false
        },
@@ -668,7 +692,7 @@
       ]
      },
      {
-      "type": "unversioned.Status",
+      "type": "v1.Status",
       "method": "DELETE",
       "summary": "delete collection of ClusterRole",
       "nickname": "deletecollectionClusterRole",
@@ -709,7 +733,7 @@
         "type": "string",
         "paramType": "query",
         "name": "resourceVersion",
-        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history. When specified for list: - if unset, then the result is returned from remote storage based on quorum-read flag; - if it's 0, then we simply return what we currently have in cache, no guarantee; - if set to non zero, then the result is at least as fresh as given rv.",
         "required": false,
         "allowMultiple": false
        },
@@ -726,7 +750,7 @@
        {
         "code": 200,
         "message": "OK",
-        "responseModel": "unversioned.Status"
+        "responseModel": "v1.Status"
        }
       ],
       "produces": [
@@ -745,7 +769,7 @@
     "description": "API at /apis/rbac.authorization.k8s.io/v1alpha1",
     "operations": [
      {
-      "type": "versioned.Event",
+      "type": "v1.WatchEvent",
       "method": "GET",
       "summary": "watch individual changes to a list of ClusterRole",
       "nickname": "watchClusterRoleList",
@@ -786,7 +810,7 @@
         "type": "string",
         "paramType": "query",
         "name": "resourceVersion",
-        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history. When specified for list: - if unset, then the result is returned from remote storage based on quorum-read flag; - if it's 0, then we simply return what we currently have in cache, no guarantee; - if set to non zero, then the result is at least as fresh as given rv.",
         "required": false,
         "allowMultiple": false
        },
@@ -803,7 +827,7 @@
        {
         "code": 200,
         "message": "OK",
-        "responseModel": "versioned.Event"
+        "responseModel": "v1.WatchEvent"
        }
       ],
       "produces": [
@@ -924,7 +948,7 @@
         "allowMultiple": false
        },
        {
-        "type": "unversioned.Patch",
+        "type": "v1.Patch",
         "paramType": "body",
         "name": "body",
         "description": "",
@@ -959,7 +983,7 @@
       ]
      },
      {
-      "type": "unversioned.Status",
+      "type": "v1.Status",
       "method": "DELETE",
       "summary": "delete a ClusterRole",
       "nickname": "deleteClusterRole",
@@ -981,6 +1005,30 @@
         "allowMultiple": false
        },
        {
+        "type": "integer",
+        "paramType": "query",
+        "name": "gracePeriodSeconds",
+        "description": "The duration in seconds before the object should be deleted. Value must be non-negative integer. The value zero indicates delete immediately. If this value is nil, the default grace period for the specified type will be used. Defaults to a per object value if not specified. zero means delete immediately.",
+        "required": false,
+        "allowMultiple": false
+       },
+       {
+        "type": "boolean",
+        "paramType": "query",
+        "name": "orphanDependents",
+        "description": "Deprecated: please use the PropagationPolicy, this field will be deprecated in 1.7. Should the dependent objects be orphaned. If true/false, the \"orphan\" finalizer will be added to/removed from the object's finalizers list. Either this field or PropagationPolicy may be set, but not both.",
+        "required": false,
+        "allowMultiple": false
+       },
+       {
+        "type": "string",
+        "paramType": "query",
+        "name": "propagationPolicy",
+        "description": "Whether and how garbage collection will be performed. Either this field or OrphanDependents may be set, but not both. The default policy is decided by the existing finalizer set in the metadata.finalizers and the resource-specific default policy.",
+        "required": false,
+        "allowMultiple": false
+       },
+       {
         "type": "string",
         "paramType": "path",
         "name": "name",
@@ -993,7 +1041,7 @@
        {
         "code": 200,
         "message": "OK",
-        "responseModel": "unversioned.Status"
+        "responseModel": "v1.Status"
        }
       ],
       "produces": [
@@ -1012,7 +1060,7 @@
     "description": "API at /apis/rbac.authorization.k8s.io/v1alpha1",
     "operations": [
      {
-      "type": "versioned.Event",
+      "type": "v1.WatchEvent",
       "method": "GET",
       "summary": "watch changes to an object of kind ClusterRole",
       "nickname": "watchClusterRole",
@@ -1053,7 +1101,7 @@
         "type": "string",
         "paramType": "query",
         "name": "resourceVersion",
-        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history. When specified for list: - if unset, then the result is returned from remote storage based on quorum-read flag; - if it's 0, then we simply return what we currently have in cache, no guarantee; - if set to non zero, then the result is at least as fresh as given rv.",
         "required": false,
         "allowMultiple": false
        },
@@ -1078,7 +1126,7 @@
        {
         "code": 200,
         "message": "OK",
-        "responseModel": "versioned.Event"
+        "responseModel": "v1.WatchEvent"
        }
       ],
       "produces": [
@@ -1140,7 +1188,7 @@
         "type": "string",
         "paramType": "query",
         "name": "resourceVersion",
-        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history. When specified for list: - if unset, then the result is returned from remote storage based on quorum-read flag; - if it's 0, then we simply return what we currently have in cache, no guarantee; - if set to non zero, then the result is at least as fresh as given rv.",
         "required": false,
         "allowMultiple": false
        },
@@ -1227,7 +1275,7 @@
       ]
      },
      {
-      "type": "unversioned.Status",
+      "type": "v1.Status",
       "method": "DELETE",
       "summary": "delete collection of RoleBinding",
       "nickname": "deletecollectionNamespacedRoleBinding",
@@ -1268,7 +1316,7 @@
         "type": "string",
         "paramType": "query",
         "name": "resourceVersion",
-        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history. When specified for list: - if unset, then the result is returned from remote storage based on quorum-read flag; - if it's 0, then we simply return what we currently have in cache, no guarantee; - if set to non zero, then the result is at least as fresh as given rv.",
         "required": false,
         "allowMultiple": false
        },
@@ -1293,7 +1341,7 @@
        {
         "code": 200,
         "message": "OK",
-        "responseModel": "unversioned.Status"
+        "responseModel": "v1.Status"
        }
       ],
       "produces": [
@@ -1312,7 +1360,7 @@
     "description": "API at /apis/rbac.authorization.k8s.io/v1alpha1",
     "operations": [
      {
-      "type": "versioned.Event",
+      "type": "v1.WatchEvent",
       "method": "GET",
       "summary": "watch individual changes to a list of RoleBinding",
       "nickname": "watchNamespacedRoleBindingList",
@@ -1353,7 +1401,7 @@
         "type": "string",
         "paramType": "query",
         "name": "resourceVersion",
-        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history. When specified for list: - if unset, then the result is returned from remote storage based on quorum-read flag; - if it's 0, then we simply return what we currently have in cache, no guarantee; - if set to non zero, then the result is at least as fresh as given rv.",
         "required": false,
         "allowMultiple": false
        },
@@ -1378,7 +1426,7 @@
        {
         "code": 200,
         "message": "OK",
-        "responseModel": "versioned.Event"
+        "responseModel": "v1.WatchEvent"
        }
       ],
       "produces": [
@@ -1515,7 +1563,7 @@
         "allowMultiple": false
        },
        {
-        "type": "unversioned.Patch",
+        "type": "v1.Patch",
         "paramType": "body",
         "name": "body",
         "description": "",
@@ -1558,7 +1606,7 @@
       ]
      },
      {
-      "type": "unversioned.Status",
+      "type": "v1.Status",
       "method": "DELETE",
       "summary": "delete a RoleBinding",
       "nickname": "deleteNamespacedRoleBinding",
@@ -1577,6 +1625,30 @@
         "name": "body",
         "description": "",
         "required": true,
+        "allowMultiple": false
+       },
+       {
+        "type": "integer",
+        "paramType": "query",
+        "name": "gracePeriodSeconds",
+        "description": "The duration in seconds before the object should be deleted. Value must be non-negative integer. The value zero indicates delete immediately. If this value is nil, the default grace period for the specified type will be used. Defaults to a per object value if not specified. zero means delete immediately.",
+        "required": false,
+        "allowMultiple": false
+       },
+       {
+        "type": "boolean",
+        "paramType": "query",
+        "name": "orphanDependents",
+        "description": "Deprecated: please use the PropagationPolicy, this field will be deprecated in 1.7. Should the dependent objects be orphaned. If true/false, the \"orphan\" finalizer will be added to/removed from the object's finalizers list. Either this field or PropagationPolicy may be set, but not both.",
+        "required": false,
+        "allowMultiple": false
+       },
+       {
+        "type": "string",
+        "paramType": "query",
+        "name": "propagationPolicy",
+        "description": "Whether and how garbage collection will be performed. Either this field or OrphanDependents may be set, but not both. The default policy is decided by the existing finalizer set in the metadata.finalizers and the resource-specific default policy.",
+        "required": false,
         "allowMultiple": false
        },
        {
@@ -1600,7 +1672,7 @@
        {
         "code": 200,
         "message": "OK",
-        "responseModel": "unversioned.Status"
+        "responseModel": "v1.Status"
        }
       ],
       "produces": [
@@ -1619,7 +1691,7 @@
     "description": "API at /apis/rbac.authorization.k8s.io/v1alpha1",
     "operations": [
      {
-      "type": "versioned.Event",
+      "type": "v1.WatchEvent",
       "method": "GET",
       "summary": "watch changes to an object of kind RoleBinding",
       "nickname": "watchNamespacedRoleBinding",
@@ -1660,7 +1732,7 @@
         "type": "string",
         "paramType": "query",
         "name": "resourceVersion",
-        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history. When specified for list: - if unset, then the result is returned from remote storage based on quorum-read flag; - if it's 0, then we simply return what we currently have in cache, no guarantee; - if set to non zero, then the result is at least as fresh as given rv.",
         "required": false,
         "allowMultiple": false
        },
@@ -1693,7 +1765,7 @@
        {
         "code": 200,
         "message": "OK",
-        "responseModel": "versioned.Event"
+        "responseModel": "v1.WatchEvent"
        }
       ],
       "produces": [
@@ -1755,7 +1827,7 @@
         "type": "string",
         "paramType": "query",
         "name": "resourceVersion",
-        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history. When specified for list: - if unset, then the result is returned from remote storage based on quorum-read flag; - if it's 0, then we simply return what we currently have in cache, no guarantee; - if set to non zero, then the result is at least as fresh as given rv.",
         "required": false,
         "allowMultiple": false
        },
@@ -1793,7 +1865,7 @@
     "description": "API at /apis/rbac.authorization.k8s.io/v1alpha1",
     "operations": [
      {
-      "type": "versioned.Event",
+      "type": "v1.WatchEvent",
       "method": "GET",
       "summary": "watch individual changes to a list of RoleBinding",
       "nickname": "watchRoleBindingListForAllNamespaces",
@@ -1834,7 +1906,7 @@
         "type": "string",
         "paramType": "query",
         "name": "resourceVersion",
-        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history. When specified for list: - if unset, then the result is returned from remote storage based on quorum-read flag; - if it's 0, then we simply return what we currently have in cache, no guarantee; - if set to non zero, then the result is at least as fresh as given rv.",
         "required": false,
         "allowMultiple": false
        },
@@ -1851,7 +1923,7 @@
        {
         "code": 200,
         "message": "OK",
-        "responseModel": "versioned.Event"
+        "responseModel": "v1.WatchEvent"
        }
       ],
       "produces": [
@@ -1913,7 +1985,7 @@
         "type": "string",
         "paramType": "query",
         "name": "resourceVersion",
-        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history. When specified for list: - if unset, then the result is returned from remote storage based on quorum-read flag; - if it's 0, then we simply return what we currently have in cache, no guarantee; - if set to non zero, then the result is at least as fresh as given rv.",
         "required": false,
         "allowMultiple": false
        },
@@ -2000,7 +2072,7 @@
       ]
      },
      {
-      "type": "unversioned.Status",
+      "type": "v1.Status",
       "method": "DELETE",
       "summary": "delete collection of Role",
       "nickname": "deletecollectionNamespacedRole",
@@ -2041,7 +2113,7 @@
         "type": "string",
         "paramType": "query",
         "name": "resourceVersion",
-        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history. When specified for list: - if unset, then the result is returned from remote storage based on quorum-read flag; - if it's 0, then we simply return what we currently have in cache, no guarantee; - if set to non zero, then the result is at least as fresh as given rv.",
         "required": false,
         "allowMultiple": false
        },
@@ -2066,7 +2138,7 @@
        {
         "code": 200,
         "message": "OK",
-        "responseModel": "unversioned.Status"
+        "responseModel": "v1.Status"
        }
       ],
       "produces": [
@@ -2085,7 +2157,7 @@
     "description": "API at /apis/rbac.authorization.k8s.io/v1alpha1",
     "operations": [
      {
-      "type": "versioned.Event",
+      "type": "v1.WatchEvent",
       "method": "GET",
       "summary": "watch individual changes to a list of Role",
       "nickname": "watchNamespacedRoleList",
@@ -2126,7 +2198,7 @@
         "type": "string",
         "paramType": "query",
         "name": "resourceVersion",
-        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history. When specified for list: - if unset, then the result is returned from remote storage based on quorum-read flag; - if it's 0, then we simply return what we currently have in cache, no guarantee; - if set to non zero, then the result is at least as fresh as given rv.",
         "required": false,
         "allowMultiple": false
        },
@@ -2151,7 +2223,7 @@
        {
         "code": 200,
         "message": "OK",
-        "responseModel": "versioned.Event"
+        "responseModel": "v1.WatchEvent"
        }
       ],
       "produces": [
@@ -2288,7 +2360,7 @@
         "allowMultiple": false
        },
        {
-        "type": "unversioned.Patch",
+        "type": "v1.Patch",
         "paramType": "body",
         "name": "body",
         "description": "",
@@ -2331,7 +2403,7 @@
       ]
      },
      {
-      "type": "unversioned.Status",
+      "type": "v1.Status",
       "method": "DELETE",
       "summary": "delete a Role",
       "nickname": "deleteNamespacedRole",
@@ -2350,6 +2422,30 @@
         "name": "body",
         "description": "",
         "required": true,
+        "allowMultiple": false
+       },
+       {
+        "type": "integer",
+        "paramType": "query",
+        "name": "gracePeriodSeconds",
+        "description": "The duration in seconds before the object should be deleted. Value must be non-negative integer. The value zero indicates delete immediately. If this value is nil, the default grace period for the specified type will be used. Defaults to a per object value if not specified. zero means delete immediately.",
+        "required": false,
+        "allowMultiple": false
+       },
+       {
+        "type": "boolean",
+        "paramType": "query",
+        "name": "orphanDependents",
+        "description": "Deprecated: please use the PropagationPolicy, this field will be deprecated in 1.7. Should the dependent objects be orphaned. If true/false, the \"orphan\" finalizer will be added to/removed from the object's finalizers list. Either this field or PropagationPolicy may be set, but not both.",
+        "required": false,
+        "allowMultiple": false
+       },
+       {
+        "type": "string",
+        "paramType": "query",
+        "name": "propagationPolicy",
+        "description": "Whether and how garbage collection will be performed. Either this field or OrphanDependents may be set, but not both. The default policy is decided by the existing finalizer set in the metadata.finalizers and the resource-specific default policy.",
+        "required": false,
         "allowMultiple": false
        },
        {
@@ -2373,7 +2469,7 @@
        {
         "code": 200,
         "message": "OK",
-        "responseModel": "unversioned.Status"
+        "responseModel": "v1.Status"
        }
       ],
       "produces": [
@@ -2392,7 +2488,7 @@
     "description": "API at /apis/rbac.authorization.k8s.io/v1alpha1",
     "operations": [
      {
-      "type": "versioned.Event",
+      "type": "v1.WatchEvent",
       "method": "GET",
       "summary": "watch changes to an object of kind Role",
       "nickname": "watchNamespacedRole",
@@ -2433,7 +2529,7 @@
         "type": "string",
         "paramType": "query",
         "name": "resourceVersion",
-        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history. When specified for list: - if unset, then the result is returned from remote storage based on quorum-read flag; - if it's 0, then we simply return what we currently have in cache, no guarantee; - if set to non zero, then the result is at least as fresh as given rv.",
         "required": false,
         "allowMultiple": false
        },
@@ -2466,7 +2562,7 @@
        {
         "code": 200,
         "message": "OK",
-        "responseModel": "versioned.Event"
+        "responseModel": "v1.WatchEvent"
        }
       ],
       "produces": [
@@ -2528,7 +2624,7 @@
         "type": "string",
         "paramType": "query",
         "name": "resourceVersion",
-        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history. When specified for list: - if unset, then the result is returned from remote storage based on quorum-read flag; - if it's 0, then we simply return what we currently have in cache, no guarantee; - if set to non zero, then the result is at least as fresh as given rv.",
         "required": false,
         "allowMultiple": false
        },
@@ -2566,7 +2662,7 @@
     "description": "API at /apis/rbac.authorization.k8s.io/v1alpha1",
     "operations": [
      {
-      "type": "versioned.Event",
+      "type": "v1.WatchEvent",
       "method": "GET",
       "summary": "watch individual changes to a list of Role",
       "nickname": "watchRoleListForAllNamespaces",
@@ -2607,7 +2703,7 @@
         "type": "string",
         "paramType": "query",
         "name": "resourceVersion",
-        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+        "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history. When specified for list: - if unset, then the result is returned from remote storage based on quorum-read flag; - if it's 0, then we simply return what we currently have in cache, no guarantee; - if set to non zero, then the result is at least as fresh as given rv.",
         "required": false,
         "allowMultiple": false
        },
@@ -2624,7 +2720,7 @@
        {
         "code": 200,
         "message": "OK",
-        "responseModel": "versioned.Event"
+        "responseModel": "v1.WatchEvent"
        }
       ],
       "produces": [
@@ -2645,7 +2741,7 @@
     "description": "API at /apis/rbac.authorization.k8s.io/v1alpha1",
     "operations": [
      {
-      "type": "unversioned.APIResourceList",
+      "type": "v1.APIResourceList",
       "method": "GET",
       "summary": "get available resources",
       "nickname": "getAPIResources",
@@ -2681,7 +2777,7 @@
       "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#resources"
      },
      "metadata": {
-      "$ref": "unversioned.ListMeta",
+      "$ref": "v1.ListMeta",
       "description": "Standard object's metadata."
      },
      "items": {
@@ -2693,8 +2789,8 @@
      }
     }
    },
-   "unversioned.ListMeta": {
-    "id": "unversioned.ListMeta",
+   "v1.ListMeta": {
+    "id": "v1.ListMeta",
     "description": "ListMeta describes metadata that synthetic resources must have, including lists and various status objects. A resource may have only one of {ObjectMeta, ListMeta}.",
     "properties": {
      "selfLink": {
@@ -2775,13 +2871,11 @@
      },
      "creationTimestamp": {
       "type": "string",
-      "format": "date-time",
       "description": "CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.\n\nPopulated by the system. Read-only. Null for lists. More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#metadata"
      },
      "deletionTimestamp": {
       "type": "string",
-      "format": "date-time",
-      "description": "DeletionTimestamp is RFC 3339 date and time at which this resource will be deleted. This field is set by the server when a graceful deletion is requested by the user, and is not directly settable by a client. The resource will be deleted (no longer visible from resource lists, and not reachable by name) after the time in this field. Once set, this value may not be unset or be set further into the future, although it may be shortened or the resource may be deleted prior to this time. For example, a user may request that a pod is deleted in 30 seconds. The Kubelet will react by sending a graceful termination signal to the containers in the pod. Once the resource is deleted in the API, the Kubelet will send a hard termination signal to the container. If not set, graceful deletion of the object has not been requested.\n\nPopulated by the system when a graceful deletion is requested. Read-only. More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#metadata"
+      "description": "DeletionTimestamp is RFC 3339 date and time at which this resource will be deleted. This field is set by the server when a graceful deletion is requested by the user, and is not directly settable by a client. The resource is expected to be deleted (no longer visible from resource lists, and not reachable by name) after the time in this field. Once set, this value may not be unset or be set further into the future, although it may be shortened or the resource may be deleted prior to this time. For example, a user may request that a pod is deleted in 30 seconds. The Kubelet will react by sending a graceful termination signal to the containers in the pod. After that 30 seconds, the Kubelet will send a hard termination signal (SIGKILL) to the container and after cleanup, remove the pod from the API. In the presence of network partitions, this object may still exist after this timestamp, until an administrator or automated process can determine the resource is fully terminated. If not set, graceful deletion of the object has not been requested.\n\nPopulated by the system when a graceful deletion is requested. Read-only. More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#metadata"
      },
      "deletionGracePeriodSeconds": {
       "type": "integer",
@@ -2845,6 +2939,10 @@
      "controller": {
       "type": "boolean",
       "description": "If true, this reference points to the managing controller."
+     },
+     "blockOwnerDeletion": {
+      "type": "boolean",
+      "description": "If true, AND if the owner has the \"foregroundDeletion\" finalizer, then the owner cannot be deleted from the key-value store until this reference is removed. Defaults to false. To set this field, a user needs \"delete\" permission of the owner, otherwise 422 (Unprocessable Entity) will be returned."
      }
     }
    },
@@ -2862,7 +2960,7 @@
      },
      "apiVersion": {
       "type": "string",
-      "description": "APIVersion holds the API group and version of the referenced object."
+      "description": "APIVersion holds the API group and version of the referenced subject. Defaults to \"v1\" for ServiceAccount subjects. Defaults to \"rbac.authorization.k8s.io/v1alpha1\" for User and Group subjects."
      },
      "name": {
       "type": "string",
@@ -2897,8 +2995,8 @@
      }
     }
    },
-   "unversioned.Status": {
-    "id": "unversioned.Status",
+   "v1.Status": {
+    "id": "v1.Status",
     "description": "Status is a return value for calls that don't return other objects.",
     "properties": {
      "kind": {
@@ -2910,7 +3008,7 @@
       "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#resources"
      },
      "metadata": {
-      "$ref": "unversioned.ListMeta",
+      "$ref": "v1.ListMeta",
       "description": "Standard list metadata. More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#types-kinds"
      },
      "status": {
@@ -2926,7 +3024,7 @@
       "description": "A machine-readable description of why this operation is in the \"Failure\" status. If this value is empty there is no information available. A Reason clarifies an HTTP status code but does not override it."
      },
      "details": {
-      "$ref": "unversioned.StatusDetails",
+      "$ref": "v1.StatusDetails",
       "description": "Extended data associated with the reason.  Each reason may define its own extended details. This field is optional and the data returned is not guaranteed to conform to any schema except that defined by the reason type."
      },
      "code": {
@@ -2936,8 +3034,8 @@
      }
     }
    },
-   "unversioned.StatusDetails": {
-    "id": "unversioned.StatusDetails",
+   "v1.StatusDetails": {
+    "id": "v1.StatusDetails",
     "description": "StatusDetails is a set of additional properties that MAY be set by the server to provide additional information about a response. The Reason field of a Status object defines what attributes will be set. Clients must ignore fields that do not match the defined type of each attribute, and should assume that any attribute may be empty, invalid, or under defined.",
     "properties": {
      "name": {
@@ -2955,7 +3053,7 @@
      "causes": {
       "type": "array",
       "items": {
-       "$ref": "unversioned.StatusCause"
+       "$ref": "v1.StatusCause"
       },
       "description": "The Causes array includes more details associated with the StatusReason failure. Not all StatusReasons may provide detailed causes."
      },
@@ -2966,8 +3064,8 @@
      }
     }
    },
-   "unversioned.StatusCause": {
-    "id": "unversioned.StatusCause",
+   "v1.StatusCause": {
+    "id": "v1.StatusCause",
     "description": "StatusCause provides more information about an api.Status failure, including cases when multiple errors are encountered.",
     "properties": {
      "reason": {
@@ -2984,8 +3082,8 @@
      }
     }
    },
-   "versioned.Event": {
-    "id": "versioned.Event",
+   "v1.WatchEvent": {
+    "id": "v1.WatchEvent",
     "required": [
      "type",
      "object"
@@ -2999,14 +3097,14 @@
      }
     }
    },
-   "unversioned.Patch": {
-    "id": "unversioned.Patch",
+   "v1.Patch": {
+    "id": "v1.Patch",
     "description": "Patch is provided to give a concrete name and type to the Kubernetes PATCH request body.",
     "properties": {}
    },
    "v1.DeleteOptions": {
     "id": "v1.DeleteOptions",
-    "description": "DeleteOptions may be provided when deleting an API object",
+    "description": "DeleteOptions may be provided when deleting an API object.",
     "properties": {
      "kind": {
       "type": "string",
@@ -3027,7 +3125,11 @@
      },
      "orphanDependents": {
       "type": "boolean",
-      "description": "Should the dependent objects be orphaned. If true/false, the \"orphan\" finalizer will be added to/removed from the object's finalizers list."
+      "description": "Deprecated: please use the PropagationPolicy, this field will be deprecated in 1.7. Should the dependent objects be orphaned. If true/false, the \"orphan\" finalizer will be added to/removed from the object's finalizers list. Either this field or PropagationPolicy may be set, but not both."
+     },
+     "propagationPolicy": {
+      "$ref": "v1.DeletionPropagation",
+      "description": "Whether and how garbage collection will be performed. Either this field or OrphanDependents may be set, but not both. The default policy is decided by the existing finalizer set in the metadata.finalizers and the resource-specific default policy."
      }
     }
    },
@@ -3043,6 +3145,10 @@
    },
    "types.UID": {
     "id": "types.UID",
+    "properties": {}
+   },
+   "v1.DeletionPropagation": {
+    "id": "v1.DeletionPropagation",
     "properties": {}
    },
    "v1alpha1.ClusterRoleList": {
@@ -3061,7 +3167,7 @@
       "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#resources"
      },
      "metadata": {
-      "$ref": "unversioned.ListMeta",
+      "$ref": "v1.ListMeta",
       "description": "Standard object's metadata."
      },
      "items": {
@@ -3115,10 +3221,6 @@
       },
       "description": "Verbs is a list of Verbs that apply to ALL the ResourceKinds and AttributeRestrictions contained in this rule.  VerbAll represents all kinds."
      },
-     "attributeRestrictions": {
-      "type": "string",
-      "description": "AttributeRestrictions will vary depending on what the Authorizer/AuthorizationAttributeBuilder pair supports. If the Authorizer does not recognize how to handle the AttributeRestrictions, the Authorizer should report an error."
-     },
      "apiGroups": {
       "type": "array",
       "items": {
@@ -3165,7 +3267,7 @@
       "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#resources"
      },
      "metadata": {
-      "$ref": "unversioned.ListMeta",
+      "$ref": "v1.ListMeta",
       "description": "Standard object's metadata."
      },
      "items": {
@@ -3226,7 +3328,7 @@
       "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#resources"
      },
      "metadata": {
-      "$ref": "unversioned.ListMeta",
+      "$ref": "v1.ListMeta",
       "description": "Standard object's metadata."
      },
      "items": {
@@ -3266,8 +3368,8 @@
      }
     }
    },
-   "unversioned.APIResourceList": {
-    "id": "unversioned.APIResourceList",
+   "v1.APIResourceList": {
+    "id": "v1.APIResourceList",
     "description": "APIResourceList is a list of APIResource, it is used to expose the name of the resources supported in a specific group and version, and if the resource is namespaced.",
     "required": [
      "groupVersion",
@@ -3289,19 +3391,20 @@
      "resources": {
       "type": "array",
       "items": {
-       "$ref": "unversioned.APIResource"
+       "$ref": "v1.APIResource"
       },
       "description": "resources contains the name of the resources and if they are namespaced."
      }
     }
    },
-   "unversioned.APIResource": {
-    "id": "unversioned.APIResource",
+   "v1.APIResource": {
+    "id": "v1.APIResource",
     "description": "APIResource specifies the name of a resource and whether it is namespaced.",
     "required": [
      "name",
      "namespaced",
-     "kind"
+     "kind",
+     "verbs"
     ],
     "properties": {
      "name": {
@@ -3315,6 +3418,20 @@
      "kind": {
       "type": "string",
       "description": "kind is the kind for the resource (e.g. 'Foo' is the kind for a resource 'foo')"
+     },
+     "verbs": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "verbs is a list of supported kube verbs (this includes get, list, watch, create, update, patch, delete, deletecollection, and proxy)"
+     },
+     "shortNames": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "shortNames is a list of suggested short names of the resource."
      }
     }
    }

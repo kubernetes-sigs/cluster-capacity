@@ -4,10 +4,7 @@ licenses(["notice"])
 
 load(
     "@io_bazel_rules_go//go:def.bzl",
-    "go_binary",
     "go_library",
-    "go_test",
-    "cgo_library",
 )
 
 go_library(
@@ -15,15 +12,24 @@ go_library(
     srcs = [
         "doc.go",
         "logs.go",
-        "metrics.go",
         "ui.go",
     ],
     tags = ["automanaged"],
     deps = [
-        "//pkg/apiserver/metrics:go_default_library",
-        "//pkg/genericapiserver/mux:go_default_library",
-        "//pkg/storage/etcd/metrics:go_default_library",
         "//vendor:github.com/emicklei/go-restful",
-        "//vendor:github.com/prometheus/client_golang/prometheus",
+        "//vendor:k8s.io/apiserver/pkg/server/mux",
     ],
+)
+
+filegroup(
+    name = "package-srcs",
+    srcs = glob(["**"]),
+    tags = ["automanaged"],
+    visibility = ["//visibility:private"],
+)
+
+filegroup(
+    name = "all-srcs",
+    srcs = [":package-srcs"],
+    tags = ["automanaged"],
 )

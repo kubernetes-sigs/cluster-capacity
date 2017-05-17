@@ -1,27 +1,42 @@
+/*
+Copyright 2017 The Kubernetes Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package app
 
 import (
 	"fmt"
 	"log"
+	"os"
 
-	"github.com/ingvagabund/cluster-capacity/cmd/genpod/app/options"
-	nspod "github.com/ingvagabund/cluster-capacity/pkg/client"
 	"github.com/spf13/cobra"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
-	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
+
+	restclient "k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
 
-	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/testapi"
-	"k8s.io/kubernetes/pkg/api/unversioned"
-	"k8s.io/kubernetes/pkg/runtime"
-	"k8s.io/kubernetes/pkg/client/restclient"
+	"github.com/kubernetes-incubator/cluster-capacity/cmd/genpod/app/options"
+	nspod "github.com/kubernetes-incubator/cluster-capacity/pkg/client"
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/utils"
 )
 
 func NewGenPodCommand() *cobra.Command {
 	opt := options.NewGenPodOptions()
 	cmd := &cobra.Command{
-		Use:   "genpod --master MASTER --kubeconfig KUBECONFIG --namespace NAMESPACE",
+		Use:   "genpod --kubeconfig KUBECONFIG --namespace NAMESPACE",
 		Short: "Generate pod based on namespace resource limits and node selector annotations",
 		Long:  "Generate pod based on namespace resource limits and node selector annotations",
 		Run: func(cmd *cobra.Command, args []string) {
@@ -54,7 +69,27 @@ func Validate(opt *options.GenPodOptions) error {
 }
 
 func Run(opt *options.GenPodOptions) error {
-	client, err := getKubeClient(opt.Master, opt.Kubeconfig)
+	var cfg *restclient.Config
+	_, present := os.LookupEnv("CC_INCLUSTER")
+	if !present {
+		master, err := utils.GetMasterFromKubeConfig(opt.Kubeconfig)
+		if err != nil {
+			return fmt.Errorf("Failed to parse kubeconfig file: %v ", err)
+		}
+
+		cfg, err = clientcmd.BuildConfigFromFlags(master, opt.Kubeconfig)
+		if err != nil {
+			return fmt.Errorf("Unable to build config: %v", err)
+		}
+	} else {
+		var err error
+		cfg, err = restclient.InClusterConfig()
+		if err != nil {
+			return fmt.Errorf("Unable to build in cluster config: %v", err)
+		}
+	}
+
+	client, err := clientset.NewForConfig(cfg)
 	if err != nil {
 		return err
 	}
@@ -62,55 +97,8 @@ func Run(opt *options.GenPodOptions) error {
 	pod, err := nspod.RetrieveNamespacePod(client, opt.Namespace)
 	if err != nil {
 		log.Fatalf("Error: %v\n", err)
-	} else {
-		var contentType string
-		switch opt.Format {
-		case "json":
-			contentType = runtime.ContentTypeJSON
-		case "yaml":
-			contentType = "application/yaml"
-		default:
-			contentType = "application/yaml"
-		}
-
-		info, ok := runtime.SerializerInfoForMediaType(testapi.Default.NegotiatedSerializer().SupportedMediaTypes(), contentType)
-		if !ok {
-			return fmt.Errorf("serializer for %s not registered", contentType)
-		}
-		gvr := unversioned.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
-		encoder := api.Codecs.EncoderForVersion(info.Serializer, gvr.GroupVersion())
-		stream, err := runtime.Encode(encoder, pod)
-
-		if err != nil {
-			return fmt.Errorf("Failed to create pod: %v", err)
-		}
-		fmt.Print(string(stream))
 	}
 
-	return nil
-}
+	return utils.PrintPod(pod, opt.Format)
 
-func getKubeClient(master string, config string) (clientset.Interface, error) {
-	var cfg *restclient.Config
-	var err error
-	if master != "" && config != "" {
-		cfg, err = clientcmd.BuildConfigFromFlags(master, config)
-		if err != nil {
-			return nil, fmt.Errorf("unable to build config from flags: %v", err)
-		}
-	} else {
-		cfg, err = restclient.InClusterConfig()
-		if err != nil {
-			return nil, err
-		}
-	}
-	kubeClient, err := clientset.NewForConfig(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("Invalid API configuration: %v", err)
-	}
-
-	if _, err = kubeClient.Discovery().ServerVersion(); err != nil {
-		return nil, fmt.Errorf("Unable to get server version: %v\n", err)
-	}
-	return kubeClient, nil
 }

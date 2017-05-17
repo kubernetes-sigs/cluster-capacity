@@ -1,38 +1,73 @@
+/*
+Copyright 2017 The Kubernetes Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package client
 
 import (
 	"fmt"
 
-	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/resource"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
-	"k8s.io/kubernetes/pkg/labels"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/kubernetes/pkg/api/v1"
+	"k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 )
 
 // Retrieve a namespace pod constructed from the namespace limitations.
 // Limitations cover pod resource limits and node selector if available
-func RetrieveNamespacePod(client clientset.Interface, namespace string) (*api.Pod, error) {
-	ns, err := client.Core().Namespaces().Get(namespace)
+func RetrieveNamespacePod(client clientset.Interface, namespace string) (*v1.Pod, error) {
+	ns, err := client.Core().Namespaces().Get(namespace, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("Namespace %v not found: %v", namespace, err)
 	}
 
-	// Iterate through all limit ranges and pick the minimum of all related to pod constraints
-	limits, err := client.Core().LimitRanges(namespace).List(api.ListOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("Could not retrive limit ranges for %v namespaces: %v", namespace, err)
+	namespacePod := v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cluster-capacity-stub-container",
+			Namespace: namespace,
+		},
+		Spec: v1.PodSpec{
+			Containers: []v1.Container{
+				v1.Container{
+					Name:            "cluster-capacity-stub-container",
+					Image:           "gcr.io/google_containers/pause:2.0",
+					ImagePullPolicy: v1.PullAlways,
+				},
+			},
+			RestartPolicy: v1.RestartPolicyOnFailure,
+			DNSPolicy:     v1.DNSDefault,
+		},
 	}
 
-	resources := make(map[api.ResourceName]*resource.Quantity)
+	// Iterate through all limit ranges and pick the minimum of all related to pod constraints
+	limits, err := client.Core().LimitRanges(namespace).List(metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("Could not retrieve limit ranges for %v namespaces: %v", namespace, err)
+	}
+
+	resources := make(map[v1.ResourceName]*resource.Quantity)
 
 	// TODO(jchaloup): extend the list of considered resources with other types
-	resources[api.ResourceMemory] = nil
-	resources[api.ResourceCPU] = nil
-	resources[api.ResourceNvidiaGPU] = nil
+	resources[v1.ResourceMemory] = nil
+	resources[v1.ResourceCPU] = nil
+	resources[v1.ResourceNvidiaGPU] = nil
 
 	for _, limit := range limits.Items {
 		for _, item := range limit.Spec.Limits {
-			if item.Type != api.LimitTypePod {
+			if item.Type != v1.LimitTypePod {
 				continue
 			}
 
@@ -60,40 +95,22 @@ func RetrieveNamespacePod(client clientset.Interface, namespace string) (*api.Po
 		}
 	}
 
-	if !nonzero {
-		return nil, fmt.Errorf("No resource limit set for pod in %v namespace", namespace)
-	}
-
-	limitsResourceList := make(map[api.ResourceName]resource.Quantity)
-	requestsResourceList := make(map[api.ResourceName]resource.Quantity)
-	for key, val := range resources {
-		if val == nil {
-			continue
+	if nonzero {
+		limitsResourceList := make(map[v1.ResourceName]resource.Quantity)
+		requestsResourceList := make(map[v1.ResourceName]resource.Quantity)
+		for key, val := range resources {
+			if val == nil {
+				continue
+			}
+			limitsResourceList[key] = *val
+			requestsResourceList[key] = *val
 		}
-		limitsResourceList[key] = *val
-		requestsResourceList[key] = *val
-	}
 
-	namespacePod := api.Pod{
-		ObjectMeta: api.ObjectMeta{
-			Name:      "cluster-capacity-stub-container",
-			Namespace: namespace,
-		},
-		Spec: api.PodSpec{
-			Containers: []api.Container{
-				api.Container{
-					Name:            "cluster-capacity-stub-container",
-					Image:           "gcr.io/google_containers/pause:2.0",
-					ImagePullPolicy: api.PullAlways,
-					Resources: api.ResourceRequirements{
-						Limits:   limitsResourceList,
-						Requests: requestsResourceList,
-					},
-				},
-			},
-			RestartPolicy: api.RestartPolicyOnFailure,
-			DNSPolicy:     api.DNSDefault,
-		},
+		namespacePod.Spec.Containers[0].Resources = v1.ResourceRequirements{
+			Limits:   limitsResourceList,
+			Requests: requestsResourceList,
+		}
+
 	}
 
 	annotations := ns.GetAnnotations()

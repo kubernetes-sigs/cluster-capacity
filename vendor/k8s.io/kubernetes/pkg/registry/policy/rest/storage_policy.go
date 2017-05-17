@@ -17,34 +17,33 @@ limitations under the License.
 package rest
 
 import (
-	"k8s.io/kubernetes/pkg/api/rest"
+	"k8s.io/apiserver/pkg/registry/generic"
+	"k8s.io/apiserver/pkg/registry/rest"
+	genericapiserver "k8s.io/apiserver/pkg/server"
+	serverstorage "k8s.io/apiserver/pkg/server/storage"
+	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/apis/policy"
-	policyapiv1alpha1 "k8s.io/kubernetes/pkg/apis/policy/v1alpha1"
-	"k8s.io/kubernetes/pkg/genericapiserver"
-	poddisruptionbudgetetcd "k8s.io/kubernetes/pkg/registry/policy/poddisruptionbudget/etcd"
+	policyapiv1beta1 "k8s.io/kubernetes/pkg/apis/policy/v1beta1"
+	poddisruptionbudgetstore "k8s.io/kubernetes/pkg/registry/policy/poddisruptionbudget/storage"
 )
 
 type RESTStorageProvider struct{}
 
-var _ genericapiserver.RESTStorageProvider = &RESTStorageProvider{}
+func (p RESTStorageProvider) NewRESTStorage(apiResourceConfigSource serverstorage.APIResourceConfigSource, restOptionsGetter generic.RESTOptionsGetter) (genericapiserver.APIGroupInfo, bool) {
+	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(policy.GroupName, api.Registry, api.Scheme, api.ParameterCodec, api.Codecs)
 
-func (p RESTStorageProvider) NewRESTStorage(apiResourceConfigSource genericapiserver.APIResourceConfigSource, restOptionsGetter genericapiserver.RESTOptionsGetter) (genericapiserver.APIGroupInfo, bool) {
-	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(policy.GroupName)
-
-	if apiResourceConfigSource.AnyResourcesForVersionEnabled(policyapiv1alpha1.SchemeGroupVersion) {
-		apiGroupInfo.VersionedResourcesStorageMap[policyapiv1alpha1.SchemeGroupVersion.Version] = p.v1alpha1Storage(apiResourceConfigSource, restOptionsGetter)
-		apiGroupInfo.GroupMeta.GroupVersion = policyapiv1alpha1.SchemeGroupVersion
+	if apiResourceConfigSource.AnyResourcesForVersionEnabled(policyapiv1beta1.SchemeGroupVersion) {
+		apiGroupInfo.VersionedResourcesStorageMap[policyapiv1beta1.SchemeGroupVersion.Version] = p.v1beta1Storage(apiResourceConfigSource, restOptionsGetter)
+		apiGroupInfo.GroupMeta.GroupVersion = policyapiv1beta1.SchemeGroupVersion
 	}
-
 	return apiGroupInfo, true
 }
 
-func (p RESTStorageProvider) v1alpha1Storage(apiResourceConfigSource genericapiserver.APIResourceConfigSource, restOptionsGetter genericapiserver.RESTOptionsGetter) map[string]rest.Storage {
-	version := policyapiv1alpha1.SchemeGroupVersion
-
+func (p RESTStorageProvider) v1beta1Storage(apiResourceConfigSource serverstorage.APIResourceConfigSource, restOptionsGetter generic.RESTOptionsGetter) map[string]rest.Storage {
+	version := policyapiv1beta1.SchemeGroupVersion
 	storage := map[string]rest.Storage{}
 	if apiResourceConfigSource.ResourceEnabled(version.WithResource("poddisruptionbudgets")) {
-		poddisruptionbudgetStorage, poddisruptionbudgetStatusStorage := poddisruptionbudgetetcd.NewREST(restOptionsGetter(policy.Resource("poddisruptionbudgets")))
+		poddisruptionbudgetStorage, poddisruptionbudgetStatusStorage := poddisruptionbudgetstore.NewREST(restOptionsGetter)
 		storage["poddisruptionbudgets"] = poddisruptionbudgetStorage
 		storage["poddisruptionbudgets/status"] = poddisruptionbudgetStatusStorage
 	}

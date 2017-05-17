@@ -20,7 +20,7 @@ import (
 
 func TestPacketConnReadWriteUnicastUDP(t *testing.T) {
 	switch runtime.GOOS {
-	case "nacl", "plan9", "windows":
+	case "nacl", "plan9", "solaris", "windows":
 		t.Skipf("not supported on %s", runtime.GOOS)
 	}
 	if !supportsIPv6 {
@@ -81,7 +81,7 @@ func TestPacketConnReadWriteUnicastUDP(t *testing.T) {
 
 func TestPacketConnReadWriteUnicastICMP(t *testing.T) {
 	switch runtime.GOOS {
-	case "nacl", "plan9", "windows":
+	case "nacl", "plan9", "solaris", "windows":
 		t.Skipf("not supported on %s", runtime.GOOS)
 	}
 	if !supportsIPv6 {
@@ -127,11 +127,7 @@ func TestPacketConnReadWriteUnicastICMP(t *testing.T) {
 		if toggle {
 			psh = nil
 			if err := p.SetChecksum(true, 2); err != nil {
-				// Solaris never allows to modify
-				// ICMP properties.
-				if runtime.GOOS != "solaris" {
-					t.Fatal(err)
-				}
+				t.Fatal(err)
 			}
 		} else {
 			psh = pshicmp

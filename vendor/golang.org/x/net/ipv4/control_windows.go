@@ -6,7 +6,7 @@ package ipv4
 
 import "syscall"
 
-func setControlMessage(s uintptr, opt *rawOpt, cf ControlFlags, on bool) error {
+func setControlMessage(fd syscall.Handle, opt *rawOpt, cf ControlFlags, on bool) error {
 	// TODO(mikio): implement this
 	return syscall.EWINDOWS
 }

@@ -17,34 +17,43 @@ limitations under the License.
 package rest
 
 import (
-	"k8s.io/kubernetes/pkg/api/rest"
+	"k8s.io/apiserver/pkg/registry/generic"
+	"k8s.io/apiserver/pkg/registry/rest"
+	genericapiserver "k8s.io/apiserver/pkg/server"
+	serverstorage "k8s.io/apiserver/pkg/server/storage"
+	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/apis/apps"
-	appsapiv1alpha1 "k8s.io/kubernetes/pkg/apis/apps/v1alpha1"
-	"k8s.io/kubernetes/pkg/genericapiserver"
-	statefulsetetcd "k8s.io/kubernetes/pkg/registry/apps/petset/etcd"
+	appsapiv1beta1 "k8s.io/kubernetes/pkg/apis/apps/v1beta1"
+	statefulsetstore "k8s.io/kubernetes/pkg/registry/apps/petset/storage"
+	deploymentstore "k8s.io/kubernetes/pkg/registry/extensions/deployment/storage"
 )
 
 type RESTStorageProvider struct{}
 
-var _ genericapiserver.RESTStorageProvider = &RESTStorageProvider{}
+func (p RESTStorageProvider) NewRESTStorage(apiResourceConfigSource serverstorage.APIResourceConfigSource, restOptionsGetter generic.RESTOptionsGetter) (genericapiserver.APIGroupInfo, bool) {
+	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(apps.GroupName, api.Registry, api.Scheme, api.ParameterCodec, api.Codecs)
 
-func (p RESTStorageProvider) NewRESTStorage(apiResourceConfigSource genericapiserver.APIResourceConfigSource, restOptionsGetter genericapiserver.RESTOptionsGetter) (genericapiserver.APIGroupInfo, bool) {
-	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(apps.GroupName)
-
-	if apiResourceConfigSource.AnyResourcesForVersionEnabled(appsapiv1alpha1.SchemeGroupVersion) {
-		apiGroupInfo.VersionedResourcesStorageMap[appsapiv1alpha1.SchemeGroupVersion.Version] = p.v1alpha1Storage(apiResourceConfigSource, restOptionsGetter)
-		apiGroupInfo.GroupMeta.GroupVersion = appsapiv1alpha1.SchemeGroupVersion
+	if apiResourceConfigSource.AnyResourcesForVersionEnabled(appsapiv1beta1.SchemeGroupVersion) {
+		apiGroupInfo.VersionedResourcesStorageMap[appsapiv1beta1.SchemeGroupVersion.Version] = p.v1beta1Storage(apiResourceConfigSource, restOptionsGetter)
+		apiGroupInfo.GroupMeta.GroupVersion = appsapiv1beta1.SchemeGroupVersion
 	}
 
 	return apiGroupInfo, true
 }
 
-func (p RESTStorageProvider) v1alpha1Storage(apiResourceConfigSource genericapiserver.APIResourceConfigSource, restOptionsGetter genericapiserver.RESTOptionsGetter) map[string]rest.Storage {
-	version := appsapiv1alpha1.SchemeGroupVersion
+func (p RESTStorageProvider) v1beta1Storage(apiResourceConfigSource serverstorage.APIResourceConfigSource, restOptionsGetter generic.RESTOptionsGetter) map[string]rest.Storage {
+	version := appsapiv1beta1.SchemeGroupVersion
 
 	storage := map[string]rest.Storage{}
+	if apiResourceConfigSource.ResourceEnabled(version.WithResource("deployments")) {
+		deploymentStorage := deploymentstore.NewStorage(restOptionsGetter)
+		storage["deployments"] = deploymentStorage.Deployment
+		storage["deployments/status"] = deploymentStorage.Status
+		storage["deployments/rollback"] = deploymentStorage.Rollback
+		storage["deployments/scale"] = deploymentStorage.Scale
+	}
 	if apiResourceConfigSource.ResourceEnabled(version.WithResource("statefulsets")) {
-		statefulsetStorage, statefulsetStatusStorage := statefulsetetcd.NewREST(restOptionsGetter(apps.Resource("statefulsets")))
+		statefulsetStorage, statefulsetStatusStorage := statefulsetstore.NewREST(restOptionsGetter)
 		storage["statefulsets"] = statefulsetStorage
 		storage["statefulsets/status"] = statefulsetStatusStorage
 	}

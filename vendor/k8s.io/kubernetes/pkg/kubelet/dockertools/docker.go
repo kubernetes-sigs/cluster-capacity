@@ -31,13 +31,13 @@ import (
 	dockerapi "github.com/docker/engine-api/client"
 	dockertypes "github.com/docker/engine-api/types"
 	"github.com/golang/glog"
-	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/apimachinery/pkg/types"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/credentialprovider"
 	kubecontainer "k8s.io/kubernetes/pkg/kubelet/container"
 	"k8s.io/kubernetes/pkg/kubelet/images"
 	"k8s.io/kubernetes/pkg/kubelet/leaky"
-	"k8s.io/kubernetes/pkg/types"
-	utilerrors "k8s.io/kubernetes/pkg/util/errors"
 )
 
 const (
@@ -46,17 +46,6 @@ const (
 	DockerPullablePrefix  = "docker-pullable://"
 	LogSuffix             = "log"
 	ext4MaxFileNameLen    = 255
-)
-
-const (
-	// Taken from lmctfy https://github.com/google/lmctfy/blob/master/lmctfy/controllers/cpu_controller.cc
-	minShares     = 2
-	sharesPerCPU  = 1024
-	milliCPUToCPU = 1000
-
-	// 100000 is equivalent to 100ms
-	quotaPeriod    = 100000
-	minQuotaPeriod = 1000
 )
 
 // DockerInterface is an abstract interface for testability.  It abstracts the interface of docker client.
@@ -104,8 +93,8 @@ func SetContainerNamePrefix(prefix string) {
 
 // DockerPuller is an abstract interface for testability.  It abstracts image pull operations.
 type DockerPuller interface {
-	Pull(image string, secrets []api.Secret) error
-	IsImagePresent(image string) (bool, error)
+	Pull(image string, secrets []v1.Secret) error
+	GetImageRef(image string) (string, error)
 }
 
 // dockerPuller is the default implementation of DockerPuller.
@@ -236,7 +225,7 @@ func matchImageIDOnly(inspected dockertypes.ImageInspect, image string) bool {
 	return false
 }
 
-func (p dockerPuller) Pull(image string, secrets []api.Secret) error {
+func (p dockerPuller) Pull(image string, secrets []v1.Secret) error {
 	keyring, err := credentialprovider.MakeDockerKeyring(secrets, p.keyring)
 	if err != nil {
 		return err
@@ -252,11 +241,11 @@ func (p dockerPuller) Pull(image string, secrets []api.Secret) error {
 		err := p.client.PullImage(image, dockertypes.AuthConfig{}, opts)
 		if err == nil {
 			// Sometimes PullImage failed with no error returned.
-			exist, ierr := p.IsImagePresent(image)
+			imageRef, ierr := p.GetImageRef(image)
 			if ierr != nil {
 				glog.Warningf("Failed to inspect image %s: %v", image, ierr)
 			}
-			if !exist {
+			if imageRef == "" {
 				return fmt.Errorf("image pull failed for unknown error")
 			}
 			return nil
@@ -288,15 +277,23 @@ func (p dockerPuller) Pull(image string, secrets []api.Secret) error {
 	return utilerrors.NewAggregate(pullErrs)
 }
 
-func (p dockerPuller) IsImagePresent(image string) (bool, error) {
-	_, err := p.client.InspectImageByRef(image)
+func (p dockerPuller) GetImageRef(image string) (string, error) {
+	resp, err := p.client.InspectImageByRef(image)
 	if err == nil {
-		return true, nil
+		if resp == nil {
+			return "", nil
+		}
+
+		imageRef := resp.ID
+		if len(resp.RepoDigests) > 0 {
+			imageRef = resp.RepoDigests[0]
+		}
+		return imageRef, nil
 	}
-	if _, ok := err.(imageNotFoundError); ok {
-		return false, nil
+	if IsImageNotFoundError(err) {
+		return "", nil
 	}
-	return false, err
+	return "", err
 }
 
 // Creates a name which can be reversed to identify both full pod name and container name.
@@ -304,8 +301,8 @@ func (p dockerPuller) IsImagePresent(image string) (bool, error) {
 // Although rand.Uint32() is not really unique, but it's enough for us because error will
 // only occur when instances of the same container in the same pod have the same UID. The
 // chance is really slim.
-func BuildDockerName(dockerName KubeletContainerName, container *api.Container) (string, string, string) {
-	containerName := dockerName.ContainerName + "." + strconv.FormatUint(kubecontainer.HashContainer(container), 16)
+func BuildDockerName(dockerName KubeletContainerName, container *v1.Container) (string, string, string) {
+	containerName := dockerName.ContainerName + "." + strconv.FormatUint(kubecontainer.HashContainerLegacy(container), 16)
 	stableName := fmt.Sprintf("%s_%s_%s_%s",
 		containerNamePrefix,
 		containerName,
@@ -376,7 +373,7 @@ func getDockerClient(dockerEndpoint string) (*dockerapi.Client, error) {
 // is the timeout for docker requests. If timeout is exceeded, the request
 // will be cancelled and throw out an error. If requestTimeout is 0, a default
 // value will be applied.
-func ConnectToDockerOrDie(dockerEndpoint string, requestTimeout time.Duration) DockerInterface {
+func ConnectToDockerOrDie(dockerEndpoint string, requestTimeout, imagePullProgressDeadline time.Duration) DockerInterface {
 	if dockerEndpoint == "fake://" {
 		return NewFakeDockerClient()
 	}
@@ -385,49 +382,7 @@ func ConnectToDockerOrDie(dockerEndpoint string, requestTimeout time.Duration) D
 		glog.Fatalf("Couldn't connect to docker: %v", err)
 	}
 	glog.Infof("Start docker client with request timeout=%v", requestTimeout)
-	return newKubeDockerClient(client, requestTimeout)
-}
-
-// milliCPUToQuota converts milliCPU to CFS quota and period values
-func milliCPUToQuota(milliCPU int64) (quota int64, period int64) {
-	// CFS quota is measured in two values:
-	//  - cfs_period_us=100ms (the amount of time to measure usage across)
-	//  - cfs_quota=20ms (the amount of cpu time allowed to be used across a period)
-	// so in the above example, you are limited to 20% of a single CPU
-	// for multi-cpu environments, you just scale equivalent amounts
-
-	if milliCPU == 0 {
-		// take the default behavior from docker
-		return
-	}
-
-	// we set the period to 100ms by default
-	period = quotaPeriod
-
-	// we then convert your milliCPU to a value normalized over a period
-	quota = (milliCPU * quotaPeriod) / milliCPUToCPU
-
-	// quota needs to be a minimum of 1ms.
-	if quota < minQuotaPeriod {
-		quota = minQuotaPeriod
-	}
-
-	return
-}
-
-func milliCPUToShares(milliCPU int64) int64 {
-	if milliCPU == 0 {
-		// Docker converts zero milliCPU to unset, which maps to kernel default
-		// for unset: 1024. Return 2 here to really match kernel default for
-		// zero milliCPU.
-		return minShares
-	}
-	// Conceptually (milliCPU / milliCPUToCPU) * sharesPerCPU, but factored to improve rounding.
-	shares := (milliCPU * sharesPerCPU) / milliCPUToCPU
-	if shares < minShares {
-		return minShares
-	}
-	return shares
+	return newKubeDockerClient(client, requestTimeout, imagePullProgressDeadline)
 }
 
 // GetKubeletDockerContainers lists all container or just the running ones.

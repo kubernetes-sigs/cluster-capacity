@@ -2,10 +2,10 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build nacl plan9
+// +build nacl plan9 solaris
 
 package ipv4
 
-func setInt(s uintptr, opt *sockOpt, v int) error {
+func setInt(fd int, opt *sockOpt, v int) error {
 	return errOpNoSupport
 }

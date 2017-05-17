@@ -17,7 +17,8 @@ limitations under the License.
 package volume
 
 import (
-	"k8s.io/kubernetes/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/pkg/volume/util"
 )
 
@@ -39,7 +40,7 @@ func NewMetricsStatFS(path string) MetricsProvider {
 // GetMetrics calculates the volume usage and device free space by executing "du"
 // and gathering filesystem info for the Volume path.
 func (md *metricsStatFS) GetMetrics() (*Metrics, error) {
-	metrics := &Metrics{}
+	metrics := &Metrics{Time: metav1.Now()}
 	if md.path == "" {
 		return metrics, NewNoPathDefinedError()
 	}
@@ -54,12 +55,15 @@ func (md *metricsStatFS) GetMetrics() (*Metrics, error) {
 
 // getFsInfo writes metrics.Capacity, metrics.Used and metrics.Available from the filesystem info
 func (md *metricsStatFS) getFsInfo(metrics *Metrics) error {
-	available, capacity, usage, err := util.FsInfo(md.path)
+	available, capacity, usage, inodes, inodesFree, inodesUsed, err := util.FsInfo(md.path)
 	if err != nil {
 		return NewFsInfoFailedError(err)
 	}
 	metrics.Available = resource.NewQuantity(available, resource.BinarySI)
 	metrics.Capacity = resource.NewQuantity(capacity, resource.BinarySI)
 	metrics.Used = resource.NewQuantity(usage, resource.BinarySI)
+	metrics.Inodes = resource.NewQuantity(inodes, resource.BinarySI)
+	metrics.InodesFree = resource.NewQuantity(inodesFree, resource.BinarySI)
+	metrics.InodesUsed = resource.NewQuantity(inodesUsed, resource.BinarySI)
 	return nil
 }

@@ -97,7 +97,7 @@
 // between the protocol stack within the kernel.  When the application
 // needs a destination address on an incoming packet,
 // SetControlMessage of ipv6.PacketConn is used to enable control
-// message transmissions.
+// message transmissons.
 //
 //	if err := p.SetControlMessage(ipv6.FlagDst, true); err != nil {
 //		// error handling

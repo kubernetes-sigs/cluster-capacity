@@ -21,14 +21,15 @@ import (
 	"io"
 	"os"
 
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/unversioned"
-	"k8s.io/kubernetes/pkg/apimachinery/registered"
-	"k8s.io/kubernetes/pkg/kubectl"
 	"k8s.io/kubernetes/pkg/kubectl/cmd/templates"
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
 	"k8s.io/kubernetes/pkg/kubectl/resource"
-	"k8s.io/kubernetes/pkg/runtime"
+	"k8s.io/kubernetes/pkg/printers"
+	"k8s.io/kubernetes/pkg/util/i18n"
 
 	"github.com/spf13/cobra"
 )
@@ -64,7 +65,7 @@ func NewCmdConvert(f cmdutil.Factory, out io.Writer) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "convert -f FILENAME",
-		Short:   "Convert config files between different API versions",
+		Short:   i18n.T("Convert config files between different API versions"),
 		Long:    convert_long,
 		Example: convert_example,
 		Run: func(cmd *cobra.Command, args []string) {
@@ -79,8 +80,9 @@ func NewCmdConvert(f cmdutil.Factory, out io.Writer) *cobra.Command {
 	cmdutil.AddFilenameOptionFlags(cmd, &options.FilenameOptions, usage)
 	cmd.MarkFlagRequired("filename")
 	cmdutil.AddValidateFlags(cmd)
-	cmdutil.AddPrinterFlags(cmd)
+	cmdutil.AddNonDeprecatedPrinterFlags(cmd)
 	cmd.Flags().BoolVar(&options.local, "local", true, "If true, convert will NOT try to contact api-server but run locally.")
+	cmd.Flags().String("output-version", "", "Output the formatted object with the given group version (for ex: 'extensions/v1beta1').")
 	cmdutil.AddInclude3rdPartyFlags(cmd)
 	return cmd
 }
@@ -94,18 +96,33 @@ type ConvertOptions struct {
 
 	encoder runtime.Encoder
 	out     io.Writer
-	printer kubectl.ResourcePrinter
+	printer printers.ResourcePrinter
 
-	outputVersion unversioned.GroupVersion
+	outputVersion schema.GroupVersion
+}
+
+// outputVersion returns the preferred output version for generic content (JSON, YAML, or templates)
+// defaultVersion is never mutated.  Nil simply allows clean passing in common usage from client.Config
+func outputVersion(cmd *cobra.Command, defaultVersion *schema.GroupVersion) (schema.GroupVersion, error) {
+	outputVersionString := cmdutil.GetFlagString(cmd, "output-version")
+	if len(outputVersionString) == 0 {
+		if defaultVersion == nil {
+			return schema.GroupVersion{}, nil
+		}
+
+		return *defaultVersion, nil
+	}
+
+	return schema.ParseGroupVersion(outputVersionString)
 }
 
 // Complete collects information required to run Convert command from command line.
 func (o *ConvertOptions) Complete(f cmdutil.Factory, out io.Writer, cmd *cobra.Command, args []string) (err error) {
-	o.outputVersion, err = cmdutil.OutputVersion(cmd, &registered.EnabledVersionsForGroup(api.GroupName)[0])
+	o.outputVersion, err = outputVersion(cmd, &api.Registry.EnabledVersionsForGroup(api.GroupName)[0])
 	if err != nil {
 		return err
 	}
-	if !registered.IsEnabledVersion(o.outputVersion) {
+	if !api.Registry.IsEnabledVersion(o.outputVersion) {
 		cmdutil.UsageError(cmd, "'%s' is not a registered version.", o.outputVersion)
 	}
 
@@ -143,9 +160,11 @@ func (o *ConvertOptions) Complete(f cmdutil.Factory, out io.Writer, cmd *cobra.C
 		} else {
 			outputFormat = "template"
 		}
+		// TODO: once printing is abstracted, this should be handled at flag declaration time
+		cmd.Flags().Set("output", outputFormat)
 	}
 	o.encoder = f.JSONEncoder()
-	o.printer, _, err = kubectl.GetPrinter(outputFormat, templateFile, false)
+	o.printer, _, err = f.PrinterForCommand(cmd)
 	if err != nil {
 		return err
 	}
@@ -161,26 +180,32 @@ func (o *ConvertOptions) RunConvert() error {
 		return err
 	}
 
-	count := 0
-	err = r.Visit(func(info *resource.Info, err error) error {
-		if err != nil {
-			return err
-		}
-
-		infos := []*resource.Info{info}
-		objects, err := resource.AsVersionedObject(infos, false, o.outputVersion, o.encoder)
-		if err != nil {
-			return err
-		}
-
-		count++
-		return o.printer.PrintObj(objects, o.out)
-	})
+	singleItemImplied := false
+	infos, err := r.IntoSingleItemImplied(&singleItemImplied).Infos()
 	if err != nil {
 		return err
 	}
-	if count == 0 {
+
+	if len(infos) == 0 {
 		return fmt.Errorf("no objects passed to convert")
 	}
-	return nil
+
+	objects, err := resource.AsVersionedObject(infos, !singleItemImplied, o.outputVersion, o.encoder)
+	if err != nil {
+		return err
+	}
+
+	if meta.IsListType(objects) {
+		_, items, err := cmdutil.FilterResourceList(objects, nil, nil)
+		if err != nil {
+			return err
+		}
+		filteredObj, err := cmdutil.ObjectListToVersionedObject(items, o.outputVersion)
+		if err != nil {
+			return err
+		}
+		return o.printer.PrintObj(filteredObj, o.out)
+	}
+
+	return o.printer.PrintObj(objects, o.out)
 }

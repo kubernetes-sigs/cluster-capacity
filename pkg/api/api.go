@@ -1,11 +1,27 @@
+/*
+Copyright 2017 The Kubernetes Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package api
 
 import (
 	"fmt"
 
-	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/apis/extensions"
-	"k8s.io/kubernetes/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/kubernetes/pkg/api/v1"
+	"k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
 )
 
 type ResourceType string
@@ -32,29 +48,29 @@ func (r ResourceType) String() string {
 func (r ResourceType) ObjectType() runtime.Object {
 	switch r {
 	case "pods":
-		return &api.Pod{}
+		return &v1.Pod{}
 	case "persistentvolumes":
-		return &api.PersistentVolume{}
+		return &v1.PersistentVolume{}
 	case "replicationcontrollers":
-		return &api.ReplicationController{}
+		return &v1.ReplicationController{}
 	case "nodes":
-		return &api.Node{}
+		return &v1.Node{}
 	case "services":
-		return &api.Service{}
+		return &v1.Service{}
 	case "persistentvolumeclaims":
-		return &api.PersistentVolumeClaim{}
+		return &v1.PersistentVolumeClaim{}
 	case "replicasets":
-		return &extensions.ReplicaSet{}
+		return &v1beta1.ReplicaSet{}
 	case "resourcequotas":
-		return &api.ResourceQuota{}
+		return &v1.ResourceQuota{}
 	case "secrets":
-		return &api.Secret{}
+		return &v1.Secret{}
 	case "serviceaccounts":
-		return &api.ServiceAccount{}
+		return &v1.ServiceAccount{}
 	case "limitranges":
-		return &api.LimitRange{}
+		return &v1.LimitRange{}
 	case "namespaces":
-		return &api.Namespace{}
+		return &v1.Namespace{}
 	}
 	return nil
 }

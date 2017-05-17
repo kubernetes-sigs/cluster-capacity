@@ -34,13 +34,6 @@ func jsonDoc(path string) (json.RawMessage, error) {
 	return json.RawMessage(data), nil
 }
 
-func TestExpandsKnownRef(t *testing.T) {
-	schema := RefProperty("http://json-schema.org/draft-04/schema#")
-	if assert.NoError(t, ExpandSchema(schema, nil, nil)) {
-		assert.Equal(t, "Core schema meta-schema", schema.Description)
-	}
-}
-
 func TestSpecExpansion(t *testing.T) {
 	spec := new(Swagger)
 	// resolver, err := defaultSchemaLoader(spec, nil, nil)

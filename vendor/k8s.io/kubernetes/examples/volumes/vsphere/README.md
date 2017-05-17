@@ -1,33 +1,3 @@
-<!-- BEGIN MUNGE: UNVERSIONED_WARNING -->
-
-<!-- BEGIN STRIP_FOR_RELEASE -->
-
-<img src="http://kubernetes.io/kubernetes/img/warning.png" alt="WARNING"
-     width="25" height="25">
-<img src="http://kubernetes.io/kubernetes/img/warning.png" alt="WARNING"
-     width="25" height="25">
-<img src="http://kubernetes.io/kubernetes/img/warning.png" alt="WARNING"
-     width="25" height="25">
-<img src="http://kubernetes.io/kubernetes/img/warning.png" alt="WARNING"
-     width="25" height="25">
-<img src="http://kubernetes.io/kubernetes/img/warning.png" alt="WARNING"
-     width="25" height="25">
-
-<h2>PLEASE NOTE: This document applies to the HEAD of the source tree</h2>
-
-If you are using a released version of Kubernetes, you should
-refer to the docs that go with that version.
-
-Documentation for other releases can be found at
-[releases.k8s.io](http://releases.k8s.io).
-</strong>
---
-
-<!-- END STRIP_FOR_RELEASE -->
-
-<!-- END MUNGE: UNVERSIONED_WARNING -->
-
-
 # vSphere Volume
 
   - [Prerequisites](#prerequisites)
@@ -206,7 +176,7 @@ Documentation for other releases can be found at
           - name: test-volume
             mountPath: /test-vmdk
         volumes:
-        - name: vmdk-storage
+        - name: test-volume
           persistentVolumeClaim:
             claimName: pvc0001
       ```
@@ -232,7 +202,7 @@ Documentation for other releases can be found at
   __Note: Here you don't need to create vmdk it is created for you.__
   1. Create Storage Class.
 
-      See example:
+      Example 1:
 
       ```yaml
       kind: StorageClass
@@ -246,6 +216,23 @@ Documentation for other releases can be found at
 
       [Download example](vsphere-volume-sc-fast.yaml?raw=true)
 
+      You can also specify the datastore in the Storageclass as shown in example 2. The volume will be created on the datastore specified in the storage class.
+      This field is optional. If not specified as shown in example 1, the volume will be created on the datastore specified in the vsphere config file used to initialize the vSphere Cloud Provider.
+
+      Example 2:
+ 
+      ```yaml
+      kind: StorageClass
+      apiVersion: storage.k8s.io/v1beta1
+      metadata:
+        name: fast
+      provisioner: kubernetes.io/vsphere-volume
+      parameters:
+          diskformat: zeroedthick
+          datastore: VSANDatastore
+      ```
+
+      [Download example](vsphere-volume-sc-with-datastore.yaml?raw=true)
       Creating the storageclass:
 
       ``` bash
@@ -345,7 +332,7 @@ Documentation for other releases can be found at
           - name: test-volume
             mountPath: /test-vmdk
         volumes:
-        - name: vmdk-storage
+        - name: test-volume
           persistentVolumeClaim:
             claimName: pvcsc001
       ```

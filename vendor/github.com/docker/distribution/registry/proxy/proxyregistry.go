@@ -91,7 +91,7 @@ func NewRegistryPullThroughCache(ctx context.Context, registry distribution.Name
 		return nil, err
 	}
 
-	cs, err := configureAuth(config.Username, config.Password, config.RemoteURL)
+	cs, err := configureAuth(config.Username, config.Password)
 	if err != nil {
 		return nil, err
 	}
@@ -203,7 +203,7 @@ func (r *remoteAuthChallenger) tryEstablishChallenges(ctx context.Context) error
 
 	remoteURL := r.remoteURL
 	remoteURL.Path = "/v2/"
-	challenges, err := r.cm.GetChallenges(remoteURL)
+	challenges, err := r.cm.GetChallenges(r.remoteURL)
 	if err != nil {
 		return err
 	}
