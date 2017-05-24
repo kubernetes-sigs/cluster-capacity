@@ -11,17 +11,17 @@ readonly OS_LOCAL_RELEASEPATH="${OS_OUTPUT}/releases"
 readonly OS_OUTPUT_BINPATH="${OS_OUTPUT}/bin"
 readonly OS_OUTPUT_PKGDIR="${OS_OUTPUT}/pkgdir"
 
-readonly OS_GO_PACKAGE=github.com/kubernetes-incubator/cluster-capacity/cmd/hypercc
+readonly OS_GO_PACKAGE=github.com/kubernetes-incubator/cluster-capacity
 
 readonly OS_SDN_COMPILE_TARGETS_LINUX=(
 )
 readonly OS_IMAGE_COMPILE_TARGETS_LINUX=(
-  ../../cmd/hypercc
+  cmd/hypercc
 )
 readonly OS_IMAGE_COMPILE_BINARIES=("${OS_IMAGE_COMPILE_TARGETS_LINUX[@]##*/}")
 
 readonly OS_CROSS_COMPILE_TARGETS=(
-  ../../cmd/hypercc
+  cmd/hypercc
 )
 readonly OS_CROSS_COMPILE_BINARIES=("${OS_CROSS_COMPILE_TARGETS[@]##*/}")
 
