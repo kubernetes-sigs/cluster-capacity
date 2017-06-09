@@ -295,7 +295,7 @@ func (c *ClusterCapacity) createSchedulerConfig(s *soptions.SchedulerServer) (*s
 		c.informerFactory.Core().V1().PersistentVolumes(),
 		c.informerFactory.Core().V1().PersistentVolumeClaims(),
 		c.informerFactory.Core().V1().ReplicationControllers(),
-		c.informerFactory.Extensions().V1beta1().ReplicaSets(),
+		fakeInformerFactory.Extensions().V1beta1().ReplicaSets(),
 		fakeInformerFactory.Apps().V1beta1().StatefulSets(),
 		c.informerFactory.Core().V1().Services(),
 		s.HardPodAffinitySymmetricWeight)
