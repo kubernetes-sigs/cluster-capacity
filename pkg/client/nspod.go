@@ -41,7 +41,7 @@ func RetrieveNamespacePod(client clientset.Interface, namespace string) (*v1.Pod
 		},
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
-				v1.Container{
+				{
 					Name:            "cluster-capacity-stub-container",
 					Image:           "gcr.io/google_containers/pause:2.0",
 					ImagePullPolicy: v1.PullAlways,
