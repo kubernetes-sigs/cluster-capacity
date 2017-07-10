@@ -136,6 +136,8 @@ func TestPrediction(t *testing.T) {
 		podSpecs        []*v1.Pod
 		nodes           []*v1.Node
 		maxNumberOfPods int
+		oneShot         bool
+		expRunError     bool
 		expNumPods      []int
 		expFailType     string
 	}{
@@ -164,6 +166,50 @@ func TestPrediction(t *testing.T) {
 			maxNumberOfPods: 6,
 			expNumPods:      []int{6},
 			expFailType:     "LimitReached",
+		},
+		{
+			name: "One-shot",
+			podSpecs: []*v1.Pod{
+				getPod("simulated-pod-1", "test-namespace-1", 100, 5E6, 0),
+				getPod("simulated-pod-2", "test-namespace-1", 200, 10E6, 0),
+				getPod("simulated-pod-3", "test-namespace-1", 300, 20E6, 0),
+			},
+			nodes: []*v1.Node{
+				// create first node with 2 cpus and 4GB, with some resources already consumed
+				getGeneralNode("test-node-1",
+					*getResourceList(2000, 4E9, 10, 0), //capacity
+					*getResourceList(300, 1E9, 3, 0),   //allocatable
+				),
+				// create second node with 1 cpus and 4GB, with some resources already consumed
+				getGeneralNode("test-node-2",
+					*getResourceList(1000, 4E9, 10, 0), //capacity
+					*getResourceList(400, 2E9, 3, 0),   //allocatable
+				),
+				// create second node with 2 cpus and 4GB, with some resources already consumed
+				getGeneralNode("test-node-3",
+					*getResourceList(2000, 4E9, 10, 0), //capacity
+					*getResourceList(1200, 1E9, 3, 0),  //allocatable
+				),
+			},
+			maxNumberOfPods: 10,
+			oneShot:         true,
+			expNumPods:      []int{1, 1, 1},
+			expFailType:     "PodSpecsExhausted",
+		},
+		{
+			name:     "No pod specs",
+			podSpecs: []*v1.Pod{},
+			nodes: []*v1.Node{
+				// create first node with 2 cpus and 4GB, with some resources already consumed
+				getGeneralNode("test-node-1",
+					*getResourceList(2000, 4E9, 10, 0), //capacity
+					*getResourceList(300, 1E9, 3, 0),   //allocatable
+				),
+			},
+			maxNumberOfPods: 10,
+			expRunError:     true,
+			expNumPods:      []int{},
+			expFailType:     "PodSpecsExhausted",
 		},
 		{
 			name: "Unschedulable due to insufficient memory",
@@ -211,6 +257,7 @@ func TestPrediction(t *testing.T) {
 		},
 			tc.podSpecs,
 			tc.maxNumberOfPods,
+			tc.oneShot,
 		)
 
 		if err != nil {
@@ -221,8 +268,10 @@ func TestPrediction(t *testing.T) {
 		if err := cc.SyncWithStore(resourceStore); err != nil {
 			t.Errorf("Unable to sync resources: %v", err)
 		}
-		if err := cc.Run(); err != nil {
+		if err := cc.Run(); err != nil && !tc.expRunError {
 			t.Errorf("Unable to run analysis: %v", err)
+		} else if err == nil && tc.expRunError {
+			t.Error("Expected run error but none occurred.")
 		}
 
 		//4. check expected number of pods is scheduled and reflected in the resource storage

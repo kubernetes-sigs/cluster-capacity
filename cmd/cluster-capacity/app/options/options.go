@@ -52,6 +52,7 @@ type ClusterCapacityOptions struct {
 	SchedulerConfigFile        []string
 	DefaultSchedulerConfigFile string
 	MaxLimit                   int
+	OneShot                    bool
 	Verbose                    bool
 	PodSpecFile                string
 	OutputFormat               string
@@ -75,6 +76,7 @@ func (s *ClusterCapacityOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&s.PodSpecFile, "podspec", s.PodSpecFile, "Path or URL to Kubernetes resource file containing pod definitions. The supported resource types are Pod, PodList and List (should contain only Pods).")
 	fs.IntVar(&s.MaxLimit, "max-limit", 0, "Number of instances of pod to be scheduled after which analysis stops. By default unlimited.")
 
+	fs.BoolVar(&s.OneShot, "one-shot", false, "Stops the simulation after all provided pod specs have been scheduled once.")
 	//TODO(jchaloup): uncomment this line once the multi-schedulers are fully implemented
 	//fs.StringArrayVar(&s.SchedulerConfigFile, "config", s.SchedulerConfigFile, "Paths to files containing scheduler configuration in JSON or YAML format")
 

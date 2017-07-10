@@ -55,25 +55,39 @@ const (
 	podSpecIndexAnnotation = "cluster-capacity/pod-spec-index"
 )
 
-// function returning a sequence that defines pod templates visit ordering
-type indexGeneratorFunc func() int
-
-func newIndexGeneratorFunc(numPodSpecs int) indexGeneratorFunc {
-	return (&seqGenerator{limit: numPodSpecs, idx: 0}).next
+func newPodsIterator(podSpecs []*v1.Pod, wrapAround bool) *podsIterator {
+	return &podsIterator{podSpecs: podSpecs, idx: -1, wrapAround: wrapAround}
 }
 
-type seqGenerator struct {
-	limit int
-	idx   int
+// podsIterator iterates the pod specs. If wrapAround is set to 'true'
+// iteration never stops and after last pod spec the iteration restarts from
+// the first one. Incase it is set to false the iteration stops when the end of
+// the podSpecs slice is reached.
+type podsIterator struct {
+	podSpecs   []*v1.Pod
+	idx        int
+	wrapAround bool
 }
 
-func (p *seqGenerator) next() int {
-	if p.limit <= 0 {
-		return -1
+// Next passes to the next pod spec and return true if the end of the
+// iterations is reached.
+func (p *podsIterator) Next() bool {
+	p.idx += 1
+	if p.wrapAround && len(p.podSpecs) > 0 {
+		p.idx = p.idx % len(p.podSpecs)
 	}
-	curr := p.idx
-	p.idx = (p.idx + 1) % p.limit
-	return curr
+	return p.idx < len(p.podSpecs)
+}
+
+// Value returns current pod spec and the corresponding index in the podSpecs
+// list.
+func (p *podsIterator) Value() (int, *v1.Pod) {
+	return p.idx, p.podSpecs[p.idx]
+}
+
+// GetAll returns the entire list of pod specs.
+func (p *podsIterator) GetAll() []*v1.Pod {
+	return p.podSpecs
 }
 
 type ClusterCapacity struct {
@@ -97,13 +111,12 @@ type ClusterCapacity struct {
 	defaultScheduler string
 
 	// pod to schedule
-	simulatedPods    []*v1.Pod
-	nextIndex        indexGeneratorFunc
-	lastSimulatedPod *v1.Pod
-	maxSimulated     int
-	simulated        int
-	status           Status
-	report           *ClusterCapacityReview
+	simulatedPodsIterator *podsIterator
+	lastSimulatedPod      *v1.Pod
+	maxSimulated          int
+	simulated             int
+	status                Status
+	report                *ClusterCapacityReview
 
 	// analysis limitation
 	informerStopCh chan struct{}
@@ -125,7 +138,7 @@ type Status struct {
 func (c *ClusterCapacity) Report() *ClusterCapacityReview {
 	if c.report == nil {
 		// Preparation before pod sequence scheduling is done
-		c.report = GetReport(c.simulatedPods, c.status)
+		c.report = GetReport(c.simulatedPodsIterator.GetAll(), c.status)
 		c.report.Spec.Replicas = int32(c.maxSimulated)
 	}
 
@@ -209,7 +222,7 @@ func (c *ClusterCapacity) Bind(binding *v1.Binding, schedulerName string) error 
 
 	// all good, create another pod
 	if err := c.nextPod(); err != nil {
-		if strings.HasPrefix(c.status.StopReason, "PodSpecsExahusted") {
+		if strings.HasPrefix(c.status.StopReason, "PodSpecsExhausted") {
 			c.Close()
 			c.stop <- struct{}{}
 			return nil
@@ -257,13 +270,13 @@ func (c *ClusterCapacity) Update(pod *v1.Pod, podCondition *v1.PodCondition, sch
 }
 
 func (c *ClusterCapacity) nextPod() error {
-	idx := c.nextIndex()
-	if idx < 0 || idx >= len(c.simulatedPods) {
-		return errors.New("PodSpecsExahusted: No more pod specs to schedule")
+	if !c.simulatedPodsIterator.Next() {
+		c.status.StopReason = "PodSpecsExhausted: No more pod specs to schedule"
+		return errors.New(c.status.StopReason)
 	}
 	cloner := conversion.NewCloner()
 	pod := v1.Pod{}
-	currPod := c.simulatedPods[idx]
+	idx, currPod := c.simulatedPodsIterator.Value()
 	if err := v1.DeepCopy_v1_Pod(currPod, &pod, cloner); err != nil {
 		return err
 	}
@@ -386,19 +399,18 @@ func (c *ClusterCapacity) AddScheduler(s *soptions.SchedulerServer) error {
 // Create new cluster capacity analysis
 // The analysis is completely independent of apiserver so no need
 // for kubeconfig nor for apiserver url
-func New(s *soptions.SchedulerServer, simulatedPods []*v1.Pod, maxPods int) (*ClusterCapacity, error) {
+func New(s *soptions.SchedulerServer, simulatedPods []*v1.Pod, maxPods int, oneShot bool) (*ClusterCapacity, error) {
 	resourceStore := store.NewResourceStore()
 	restClient := external.NewRESTClient(resourceStore, "core")
 
 	cc := &ClusterCapacity{
-		resourceStore:      resourceStore,
-		strategy:           strategy.NewPredictiveStrategy(resourceStore),
-		externalkubeclient: externalclientset.New(restClient),
-		nextIndex:          newIndexGeneratorFunc(len(simulatedPods)),
-		simulatedPods:      simulatedPods,
-		simulated:          0,
-		maxSimulated:       maxPods,
-		coreRestClient:     restClient,
+		resourceStore:         resourceStore,
+		strategy:              strategy.NewPredictiveStrategy(resourceStore),
+		externalkubeclient:    externalclientset.New(restClient),
+		simulatedPodsIterator: newPodsIterator(simulatedPods, !oneShot),
+		simulated:             0,
+		maxSimulated:          maxPods,
+		coreRestClient:        restClient,
 	}
 
 	for _, resource := range resourceStore.Resources() {
