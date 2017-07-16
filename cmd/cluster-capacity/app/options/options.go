@@ -34,13 +34,14 @@ import (
 	"k8s.io/kubernetes/pkg/kubectl/resource"
 	schedopt "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app/options"
 
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/utils"
 )
 
 type ClusterCapacityConfig struct {
 	Schedulers       []*schedopt.SchedulerServer
-	Pods             []*v1.Pod
+	Pods             []framework.SimulatedPod
 	KubeClient       clientset.Interface
 	Options          *ClusterCapacityOptions
 	DefaultScheduler *schedopt.SchedulerServer
@@ -73,7 +74,7 @@ func NewClusterCapacityOptions() *ClusterCapacityOptions {
 
 func (s *ClusterCapacityOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&s.Kubeconfig, "kubeconfig", s.Kubeconfig, "Path to the kubeconfig file to use for the analysis.")
-	fs.StringVar(&s.PodSpecFile, "podspec", s.PodSpecFile, "Path or URL to Kubernetes resource file containing pod definitions. The supported resource types are Pod, PodList and List (should contain only Pods).")
+	fs.StringVar(&s.PodSpecFile, "podspec", s.PodSpecFile, "Path or URL to Kubernetes resource file containing pod definitions. The supported resource types are Pod, ReplicationController and List (should contain only supported resources).")
 	fs.IntVar(&s.MaxLimit, "max-limit", 0, "Number of instances of pod to be scheduled after which analysis stops. By default unlimited.")
 
 	fs.BoolVar(&s.OneShot, "one-shot", false, "Stops the simulation after all provided pod specs have been scheduled once.")
@@ -135,13 +136,20 @@ func (s *ClusterCapacityConfig) ParseAPISpec() error {
 		Flatten().
 		Do()
 
-	versionedPods := make([]*v1.Pod, 0)
+	versionedPods := make([]framework.SimulatedPod, 0)
 	err = r.Visit(func(info *resource.Info, err error) error {
 		switch info.Object.(type) {
-		// TODO: Support DC and RC as well
+		// TODO: Support Deployment and ReplicaSet as well
 		case *v1.Pod:
-			pod := info.Object.(*v1.Pod)
+			pod := framework.SimulatedPod{Pod: info.Object.(*v1.Pod), Replicas: 1}
 			versionedPods = append(versionedPods, pod)
+		case *v1.ReplicationController:
+			rc := info.Object.(*v1.ReplicationController)
+			pod, err := utils.GetPodFromTemplate(rc.Spec.Template, rc)
+			if err != nil {
+				return err
+			}
+			versionedPods = append(versionedPods, framework.SimulatedPod{Pod: pod, Replicas: *rc.Spec.Replicas})
 		default:
 			return fmt.Errorf("file contains a resource which is not supported: name=[%s] kind=[%s]", info.Name, info.Object.GetObjectKind().GroupVersionKind())
 		}
@@ -173,7 +181,7 @@ func (s *ClusterCapacityConfig) ParseAPISpec() error {
 
 		// TODO: client side validation seems like a long term problem for this command.
 		internalPod := &api.Pod{}
-		if err := v1.Convert_v1_Pod_To_api_Pod(versionedPod, internalPod, nil); err != nil {
+		if err := v1.Convert_v1_Pod_To_api_Pod(versionedPod.Pod, internalPod, nil); err != nil {
 			return fmt.Errorf("unable to convert to internal version: %#v", err)
 
 		}

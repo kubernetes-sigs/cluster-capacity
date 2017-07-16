@@ -55,8 +55,15 @@ const (
 	podSpecIndexAnnotation = "cluster-capacity/pod-spec-index"
 )
 
-func newPodsIterator(podSpecs []*v1.Pod, wrapAround bool) *podsIterator {
-	return &podsIterator{podSpecs: podSpecs, idx: -1, wrapAround: wrapAround}
+// SimulatedPod represents a pod spec to be scheduled with the associated
+// replica count.
+type SimulatedPod struct {
+	*v1.Pod
+	Replicas int32
+}
+
+func newPodsIterator(podSpecs []SimulatedPod, wrapAround bool) *podsIterator {
+	return &podsIterator{podSpecs: podSpecs, idx: -1, replicaCounter: 0, wrapAround: wrapAround}
 }
 
 // podsIterator iterates the pod specs. If wrapAround is set to 'true'
@@ -64,30 +71,58 @@ func newPodsIterator(podSpecs []*v1.Pod, wrapAround bool) *podsIterator {
 // the first one. Incase it is set to false the iteration stops when the end of
 // the podSpecs slice is reached.
 type podsIterator struct {
-	podSpecs   []*v1.Pod
-	idx        int
+	podSpecs []SimulatedPod
+	idx      int
+	// counts the visited replicas for the current pod spec
+	replicaCounter int32
+	// counts the visiter replicas for all pod specs
+	totalCounter int32
+	// flag saying wether we should or not restart from the first when all pod
+	// specs has been visited.
 	wrapAround bool
 }
 
 // Next passes to the next pod spec and return true if the end of the
 // iterations is reached.
 func (p *podsIterator) Next() bool {
-	p.idx += 1
-	if p.wrapAround && len(p.podSpecs) > 0 {
-		p.idx = p.idx % len(p.podSpecs)
+	if p.idx >= len(p.podSpecs) {
+		if p.wrapAround && p.totalCounter > 0 {
+			// restart from the first, totalCounter is used to stop the
+			// recursion in case there is no pod with at least one replica.
+			p.idx = 0
+		} else {
+			// no more pod specs
+			return false
+		}
 	}
-	return p.idx < len(p.podSpecs)
+	// if the exp number of replicas is reached pass to next pod spec,
+	// otherwise increment the counters
+	if p.idx < 0 || p.replicaCounter >= p.podSpecs[p.idx].Replicas {
+		p.idx++
+		p.replicaCounter = 0
+		return p.Next()
+	}
+	p.replicaCounter++
+	p.totalCounter++
+	return true
 }
 
 // Value returns current pod spec and the corresponding index in the podSpecs
 // list.
 func (p *podsIterator) Value() (int, *v1.Pod) {
-	return p.idx, p.podSpecs[p.idx]
+	if p.idx >= 0 && p.idx < len(p.podSpecs) {
+		return p.idx, p.podSpecs[p.idx].Pod
+	}
+	return p.idx, nil
 }
 
-// GetAll returns the entire list of pod specs.
+// GetAll returns all the pod specs.
 func (p *podsIterator) GetAll() []*v1.Pod {
-	return p.podSpecs
+	var podSpecs []*v1.Pod
+	for _, p := range p.podSpecs {
+		podSpecs = append(podSpecs, p.Pod)
+	}
+	return podSpecs
 }
 
 type ClusterCapacity struct {
@@ -399,7 +434,7 @@ func (c *ClusterCapacity) AddScheduler(s *soptions.SchedulerServer) error {
 // Create new cluster capacity analysis
 // The analysis is completely independent of apiserver so no need
 // for kubeconfig nor for apiserver url
-func New(s *soptions.SchedulerServer, simulatedPods []*v1.Pod, maxPods int, oneShot bool) (*ClusterCapacity, error) {
+func New(s *soptions.SchedulerServer, simulatedPods []SimulatedPod, maxPods int, oneShot bool) (*ClusterCapacity, error) {
 	resourceStore := store.NewResourceStore()
 	restClient := external.NewRESTClient(resourceStore, "core")
 

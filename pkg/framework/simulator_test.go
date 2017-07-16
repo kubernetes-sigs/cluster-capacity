@@ -133,7 +133,7 @@ func getPod(name, namespace string, cpuRequest, memoryRequest, nvidiaGPURequest 
 func TestPrediction(t *testing.T) {
 	testCases := []struct {
 		name            string
-		podSpecs        []*v1.Pod
+		podSpecs        []SimulatedPod
 		nodes           []*v1.Node
 		maxNumberOfPods int
 		oneShot         bool
@@ -143,8 +143,8 @@ func TestPrediction(t *testing.T) {
 	}{
 		{
 			name: "Limit reached",
-			podSpecs: []*v1.Pod{
-				getPod("simulated-pod-1", "test-namespace-1", 100, 5E6, 0),
+			podSpecs: []SimulatedPod{
+				{getPod("simulated-pod-1", "test-namespace-1", 100, 5E6, 0), 1},
 			},
 			nodes: []*v1.Node{
 				// create first node with 2 cpus and 4GB, with some resources already consumed
@@ -169,10 +169,10 @@ func TestPrediction(t *testing.T) {
 		},
 		{
 			name: "One-shot",
-			podSpecs: []*v1.Pod{
-				getPod("simulated-pod-1", "test-namespace-1", 100, 5E6, 0),
-				getPod("simulated-pod-2", "test-namespace-1", 200, 10E6, 0),
-				getPod("simulated-pod-3", "test-namespace-1", 300, 20E6, 0),
+			podSpecs: []SimulatedPod{
+				{getPod("simulated-pod-1", "test-namespace-1", 100, 5E6, 0), 1},
+				{getPod("simulated-pod-2", "test-namespace-1", 100, 5E6, 0), 2},
+				{getPod("simulated-pod-3", "test-namespace-1", 100, 5E6, 0), 3},
 			},
 			nodes: []*v1.Node{
 				// create first node with 2 cpus and 4GB, with some resources already consumed
@@ -193,12 +193,12 @@ func TestPrediction(t *testing.T) {
 			},
 			maxNumberOfPods: 10,
 			oneShot:         true,
-			expNumPods:      []int{1, 1, 1},
+			expNumPods:      []int{1, 2, 3},
 			expFailType:     "PodSpecsExhausted",
 		},
 		{
 			name:     "No pod specs",
-			podSpecs: []*v1.Pod{},
+			podSpecs: []SimulatedPod{},
 			nodes: []*v1.Node{
 				// create first node with 2 cpus and 4GB, with some resources already consumed
 				getGeneralNode("test-node-1",
@@ -212,10 +212,29 @@ func TestPrediction(t *testing.T) {
 			expFailType:     "PodSpecsExhausted",
 		},
 		{
+			name: "Zero replicas pod specs",
+			podSpecs: []SimulatedPod{
+				{getPod("simulated-pod-1", "test-namespace-1", 100, 5E6, 0), 0},
+				{getPod("simulated-pod-2", "test-namespace-1", 100, 5E6, 0), 0},
+				{getPod("simulated-pod-3", "test-namespace-1", 100, 5E6, 0), -1},
+			},
+			nodes: []*v1.Node{
+				// create first node with 2 cpus and 4GB, with some resources already consumed
+				getGeneralNode("test-node-1",
+					*getResourceList(2000, 4E9, 10, 0), //capacity
+					*getResourceList(300, 1E9, 3, 0),   //allocatable
+				),
+			},
+			maxNumberOfPods: 10,
+			expRunError:     true,
+			expNumPods:      []int{0, 0, 0},
+			expFailType:     "PodSpecsExhausted",
+		},
+		{
 			name: "Unschedulable due to insufficient memory",
-			podSpecs: []*v1.Pod{
-				getPod("simulated-pod-1", "test-namespace-1", 100, 100E6, 0),
-				getPod("simulated-pod-2", "test-namespace-1", 100, 50E6, 0),
+			podSpecs: []SimulatedPod{
+				{getPod("simulated-pod-1", "test-namespace-1", 100, 100E6, 0), 1},
+				{getPod("simulated-pod-2", "test-namespace-1", 100, 50E6, 0), 1},
 			},
 			nodes: []*v1.Node{
 				// create first node with 2 cpus and 1GB
@@ -231,66 +250,69 @@ func TestPrediction(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		t.Logf("Test case: %s\n", tc.name)
-		// 1. create fake storage with initial data
-		// - create three nodes, each node with different resources (cpu, memory)
-		resourceStore := store.NewResourceStore()
+		t.Run(tc.name, func(t *testing.T) {
+			// 1. create fake storage with initial data
+			// - create three nodes, each node with different resources (cpu, memory)
+			resourceStore := store.NewResourceStore()
 
-		// Add nodes
-		for _, node := range tc.nodes {
-			if err := resourceStore.Add("nodes", metav1.Object(node)); err != nil {
+			// Add nodes
+			for _, node := range tc.nodes {
+				if err := resourceStore.Add("nodes", metav1.Object(node)); err != nil {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			}
+
+			// 2. create predictor
+			// - create simple configuration file for scheduler (use the default values or from systemd env file if reasonable)
+			cc, err := New(&soptions.SchedulerServer{
+				KubeSchedulerConfiguration: componentconfig.KubeSchedulerConfiguration{
+					SchedulerName:                  v1.DefaultSchedulerName,
+					HardPodAffinitySymmetricWeight: v1.DefaultHardPodAffinitySymmetricWeight,
+					FailureDomains:                 kubeletapis.DefaultFailureDomains,
+					AlgorithmProvider:              factory.DefaultProvider,
+				},
+				Master:     "http://localhost:8080",
+				Kubeconfig: "/etc/kubernetes/kubeconfig",
+			},
+				tc.podSpecs,
+				tc.maxNumberOfPods,
+				tc.oneShot,
+			)
+			defer cc.Close()
+
+			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
-		}
 
-		// 2. create predictor
-		// - create simple configuration file for scheduler (use the default values or from systemd env file if reasonable)
-		cc, err := New(&soptions.SchedulerServer{
-			KubeSchedulerConfiguration: componentconfig.KubeSchedulerConfiguration{
-				SchedulerName:                  v1.DefaultSchedulerName,
-				HardPodAffinitySymmetricWeight: v1.DefaultHardPodAffinitySymmetricWeight,
-				FailureDomains:                 kubeletapis.DefaultFailureDomains,
-				AlgorithmProvider:              factory.DefaultProvider,
-			},
-			Master:     "http://localhost:8080",
-			Kubeconfig: "/etc/kubernetes/kubeconfig",
-		},
-			tc.podSpecs,
-			tc.maxNumberOfPods,
-			tc.oneShot,
-		)
-
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
-		}
-
-		// 3. run predictor
-		if err := cc.SyncWithStore(resourceStore); err != nil {
-			t.Errorf("Unable to sync resources: %v", err)
-		}
-		if err := cc.Run(); err != nil && !tc.expRunError {
-			t.Errorf("Unable to run analysis: %v", err)
-		} else if err == nil && tc.expRunError {
-			t.Error("Expected run error but none occurred.")
-		}
-
-		//4. check expected number of pods is scheduled and reflected in the resource storage
-		for i, pod := range cc.Report().Status.Pods {
-			t.Logf("Report for pod: %s", pod.PodName)
-			total := 0
-			for _, replicas := range pod.ReplicasOnNodes {
-				t.Logf("Node: %s, instances: %d\n", replicas.NodeName, replicas.Replicas)
-				total += replicas.Replicas
+			// 3. run predictor
+			if err := cc.SyncWithStore(resourceStore); err != nil {
+				t.Errorf("Unable to sync resources: %v", err)
 			}
-			if e, a := tc.expNumPods[i], total; e != a {
-				t.Errorf("Expected number of replicas for pod %d was %d, but we got %d", i, e, a)
+			if err := cc.Run(); err != nil && !tc.expRunError {
+				t.Errorf("Unable to run analysis: %v", err)
+			} else if err == nil && tc.expRunError {
+				t.Error("Expected run error but none occurred.")
 			}
-		}
 
-		t.Logf("Stop reason: %v\n", cc.Report().Status.FailReason)
+			//4. check expected number of pods is scheduled and reflected in the resource storage
+			for i, pod := range cc.Report().Status.Pods {
+				t.Logf("Report for pod: %s", pod.PodName)
+				total := 0
+				for _, replicas := range pod.ReplicasOnNodes {
+					t.Logf("Node: %s, instances: %d\n", replicas.NodeName, replicas.Replicas)
+					total += replicas.Replicas
+				}
+				if e, a := tc.expNumPods[i], total; e != a {
+					t.Errorf("Expected number of replicas for pod %d was %d, but we got %d", i, e, a)
+				}
+			}
 
-		if cc.Report().Status.FailReason.FailType != tc.expFailType {
-			t.Errorf("Unexpected stop reason occured: %v, expecting: %v", cc.Report().Status.FailReason.FailType, tc.expFailType)
-		}
+			t.Logf("Stop reason: %v\n", cc.Report().Status.FailReason)
+
+			if cc.Report().Status.FailReason.FailType != tc.expFailType {
+				t.Errorf("Unexpected stop reason occured: %v, expecting: %v", cc.Report().Status.FailReason.FailType, tc.expFailType)
+			}
+
+		})
 	}
 }
