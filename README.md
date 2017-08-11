@@ -1,4 +1,5 @@
 # Cluster capacity analysis framework
+[![Build Status](https://travis-ci.org/kubernetes-incubator/cluster-capacity.svg?branch=master)](https://travis-ci.org/kubernetes-incubator/cluster-capacity)
 
 Implementation of [cluster capacity analysis](https://github.com/kubernetes-incubator/cluster-capacity/blob/master/doc/cluster-capacity.md).
 
