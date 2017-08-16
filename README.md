@@ -115,7 +115,7 @@ being able to be run multiple times without needing user intervention.
 Follow these example steps to run Cluster Capacity as a job:
 
 ### 1.  Create a Container that runs Cluster Capacity
-In this example we create a simple Docker image utlizing the Dockerfile found in the root directory and tag it with `cluster-capacity-image`:
+In this example we create a simple Docker image utilizing the Dockerfile found in the root directory and tag it with `cluster-capacity-image`:
 ```
 $ docker build -t cluster-capacity-image .
 ```
