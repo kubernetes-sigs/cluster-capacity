@@ -34,7 +34,7 @@ import (
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
 )
 
-func getGeneralNode(nodeName string) *v1.Node {
+func getGeneralNode(nodeName string, capacity, allocatable v1.ResourceList) *v1.Node {
 	return &v1.Node{
 		ObjectMeta: metav1.ObjectMeta{Name: nodeName},
 		Spec:       v1.NodeSpec{},
@@ -85,18 +85,8 @@ func getGeneralNode(nodeName string) *v1.Node {
 				KubeletVersion:          version.Get().String(),
 				KubeProxyVersion:        version.Get().String(),
 			},
-			Capacity: v1.ResourceList{
-				v1.ResourceCPU:       *resource.NewMilliQuantity(1000, resource.DecimalSI),
-				v1.ResourceMemory:    *resource.NewQuantity(4E9, resource.BinarySI),
-				v1.ResourcePods:      *resource.NewQuantity(10, resource.DecimalSI),
-				v1.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
-			},
-			Allocatable: v1.ResourceList{
-				v1.ResourceCPU:       *resource.NewMilliQuantity(0, resource.DecimalSI),
-				v1.ResourceMemory:    *resource.NewQuantity(0, resource.BinarySI),
-				v1.ResourcePods:      *resource.NewQuantity(0, resource.DecimalSI),
-				v1.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
-			},
+			Capacity:    capacity,
+			Allocatable: allocatable,
 			Addresses: []v1.NodeAddress{
 				{Type: v1.NodeExternalIP, Address: "127.0.0.1"},
 				{Type: v1.NodeInternalIP, Address: "127.0.0.1"},
@@ -106,82 +96,30 @@ func getGeneralNode(nodeName string) *v1.Node {
 	}
 }
 
-func TestPrediction(t *testing.T) {
-	// 1. create fake storage with initial data
-	// - create three nodes, each node with different resources (cpu, memory)
-	resourceStore := store.NewResourceStore()
+func getResourceList(cpu, memory, pods, nvidiaGPU int64) *v1.ResourceList {
+	return &v1.ResourceList{
+		v1.ResourceCPU:       *resource.NewMilliQuantity(cpu, resource.DecimalSI),
+		v1.ResourceMemory:    *resource.NewQuantity(memory, resource.BinarySI),
+		v1.ResourcePods:      *resource.NewQuantity(pods, resource.DecimalSI),
+		v1.ResourceNvidiaGPU: *resource.NewQuantity(nvidiaGPU, resource.DecimalSI),
+	}
+}
 
-	// create first node with 2 cpus and 4GB, with some resources already consumed
-	node1 := getGeneralNode("test-node-1")
-	node1.Status.Capacity = v1.ResourceList{
-		v1.ResourceCPU:       *resource.NewMilliQuantity(2000, resource.DecimalSI),
-		v1.ResourceMemory:    *resource.NewQuantity(4E9, resource.BinarySI),
-		v1.ResourcePods:      *resource.NewQuantity(10, resource.DecimalSI),
-		v1.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
-	}
-	node1.Status.Allocatable = v1.ResourceList{
-		v1.ResourceCPU:       *resource.NewMilliQuantity(300, resource.DecimalSI),
-		v1.ResourceMemory:    *resource.NewQuantity(1E9, resource.BinarySI),
-		v1.ResourcePods:      *resource.NewQuantity(3, resource.DecimalSI),
-		v1.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
-	}
-
-	if err := resourceStore.Add("nodes", metav1.Object(node1)); err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	}
-
-	// create second node with 2 cpus and 1GB, with some resources already consumed
-	node2 := getGeneralNode("test-node-2")
-	node2.Status.Capacity = v1.ResourceList{
-		v1.ResourceCPU:       *resource.NewMilliQuantity(1000, resource.DecimalSI),
-		v1.ResourceMemory:    *resource.NewQuantity(4E9, resource.BinarySI),
-		v1.ResourcePods:      *resource.NewQuantity(10, resource.DecimalSI),
-		v1.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
-	}
-	node2.Status.Allocatable = v1.ResourceList{
-		v1.ResourceCPU:       *resource.NewMilliQuantity(400, resource.DecimalSI),
-		v1.ResourceMemory:    *resource.NewQuantity(2E9, resource.BinarySI),
-		v1.ResourcePods:      *resource.NewQuantity(3, resource.DecimalSI),
-		v1.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
-	}
-	if err := resourceStore.Add("nodes", metav1.Object(node2)); err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	}
-	// create third node with 2 cpus and 4GB, with some resources already consumed
-	node3 := getGeneralNode("test-node-3")
-	node3.Status.Capacity = v1.ResourceList{
-		v1.ResourceCPU:       *resource.NewMilliQuantity(2000, resource.DecimalSI),
-		v1.ResourceMemory:    *resource.NewQuantity(4E9, resource.BinarySI),
-		v1.ResourcePods:      *resource.NewQuantity(10, resource.DecimalSI),
-		v1.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
-	}
-	node3.Status.Allocatable = v1.ResourceList{
-		v1.ResourceCPU:       *resource.NewMilliQuantity(1200, resource.DecimalSI),
-		v1.ResourceMemory:    *resource.NewQuantity(1E9, resource.BinarySI),
-		v1.ResourcePods:      *resource.NewQuantity(3, resource.DecimalSI),
-		v1.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
-	}
-	if err := resourceStore.Add("nodes", metav1.Object(node3)); err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	}
-
-	simulatedPod := &v1.Pod{
-		ObjectMeta: metav1.ObjectMeta{Name: "simulated-pod", Namespace: "test-node-3", ResourceVersion: "10"},
+func getPod(name, namespace string, cpuRequest, memoryRequest, nvidiaGPURequest int64) *v1.Pod {
+	pod := v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace, ResourceVersion: "10"},
 		Spec:       apitesting.V1DeepEqualSafePodSpec(),
 	}
-
 	limitResourceList := make(map[v1.ResourceName]resource.Quantity)
 	requestsResourceList := make(map[v1.ResourceName]resource.Quantity)
-
-	limitResourceList[v1.ResourceCPU] = *resource.NewMilliQuantity(100, resource.DecimalSI)
-	limitResourceList[v1.ResourceMemory] = *resource.NewQuantity(5E6, resource.BinarySI)
-	limitResourceList[v1.ResourceNvidiaGPU] = *resource.NewQuantity(0, resource.DecimalSI)
-	requestsResourceList[v1.ResourceCPU] = *resource.NewMilliQuantity(100, resource.DecimalSI)
-	requestsResourceList[v1.ResourceMemory] = *resource.NewQuantity(5E6, resource.BinarySI)
-	requestsResourceList[v1.ResourceNvidiaGPU] = *resource.NewQuantity(0, resource.DecimalSI)
-
+	limitResourceList[v1.ResourceCPU] = *resource.NewMilliQuantity(cpuRequest, resource.DecimalSI)
+	limitResourceList[v1.ResourceMemory] = *resource.NewQuantity(memoryRequest, resource.BinarySI)
+	limitResourceList[v1.ResourceNvidiaGPU] = *resource.NewQuantity(nvidiaGPURequest, resource.DecimalSI)
+	requestsResourceList[v1.ResourceCPU] = *resource.NewMilliQuantity(cpuRequest, resource.DecimalSI)
+	requestsResourceList[v1.ResourceMemory] = *resource.NewQuantity(memoryRequest, resource.BinarySI)
+	requestsResourceList[v1.ResourceNvidiaGPU] = *resource.NewQuantity(nvidiaGPURequest, resource.DecimalSI)
 	// set pod's resource consumption
-	simulatedPod.Spec.Containers = []v1.Container{
+	pod.Spec.Containers = []v1.Container{
 		{
 			Resources: v1.ResourceRequirements{
 				Limits:   limitResourceList,
@@ -189,44 +127,192 @@ func TestPrediction(t *testing.T) {
 			},
 		},
 	}
+	return &pod
+}
 
-	// 2. create predictor
-	// - create simple configuration file for scheduler (use the default values or from systemd env file if reasonable)
-	cc, err := New(&soptions.SchedulerServer{
-		KubeSchedulerConfiguration: componentconfig.KubeSchedulerConfiguration{
-			SchedulerName:                  v1.DefaultSchedulerName,
-			HardPodAffinitySymmetricWeight: v1.DefaultHardPodAffinitySymmetricWeight,
-			FailureDomains:                 kubeletapis.DefaultFailureDomains,
-			AlgorithmProvider:              factory.DefaultProvider,
+func TestPrediction(t *testing.T) {
+	testCases := []struct {
+		name            string
+		podSpecs        []SimulatedPod
+		nodes           []*v1.Node
+		maxNumberOfPods int
+		oneShot         bool
+		expRunError     bool
+		expNumPods      []int
+		expFailType     string
+	}{
+		{
+			name: "Limit reached",
+			podSpecs: []SimulatedPod{
+				{getPod("simulated-pod-1", "test-namespace-1", 100, 5E6, 0), 1},
+			},
+			nodes: []*v1.Node{
+				// create first node with 2 cpus and 4GB, with some resources already consumed
+				getGeneralNode("test-node-1",
+					*getResourceList(2000, 4E9, 10, 0), //capacity
+					*getResourceList(300, 1E9, 3, 0),   //allocatable
+				),
+				// create second node with 1 cpus and 4GB, with some resources already consumed
+				getGeneralNode("test-node-2",
+					*getResourceList(1000, 4E9, 10, 0), //capacity
+					*getResourceList(400, 2E9, 3, 0),   //allocatable
+				),
+				// create second node with 2 cpus and 4GB, with some resources already consumed
+				getGeneralNode("test-node-3",
+					*getResourceList(2000, 4E9, 10, 0), //capacity
+					*getResourceList(1200, 1E9, 3, 0),  //allocatable
+				),
+			},
+			maxNumberOfPods: 6,
+			expNumPods:      []int{6},
+			expFailType:     "LimitReached",
 		},
-		Master:     "http://localhost:8080",
-		Kubeconfig: "/etc/kubernetes/kubeconfig",
-	},
-		simulatedPod,
-		6,
-	)
-
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
+		{
+			name: "One-shot",
+			podSpecs: []SimulatedPod{
+				{getPod("simulated-pod-1", "test-namespace-1", 100, 5E6, 0), 1},
+				{getPod("simulated-pod-2", "test-namespace-1", 100, 5E6, 0), 2},
+				{getPod("simulated-pod-3", "test-namespace-1", 100, 5E6, 0), 3},
+			},
+			nodes: []*v1.Node{
+				// create first node with 2 cpus and 4GB, with some resources already consumed
+				getGeneralNode("test-node-1",
+					*getResourceList(2000, 4E9, 10, 0), //capacity
+					*getResourceList(300, 1E9, 3, 0),   //allocatable
+				),
+				// create second node with 1 cpus and 4GB, with some resources already consumed
+				getGeneralNode("test-node-2",
+					*getResourceList(1000, 4E9, 10, 0), //capacity
+					*getResourceList(400, 2E9, 3, 0),   //allocatable
+				),
+				// create second node with 2 cpus and 4GB, with some resources already consumed
+				getGeneralNode("test-node-3",
+					*getResourceList(2000, 4E9, 10, 0), //capacity
+					*getResourceList(1200, 1E9, 3, 0),  //allocatable
+				),
+			},
+			maxNumberOfPods: 10,
+			oneShot:         true,
+			expNumPods:      []int{1, 2, 3},
+			expFailType:     "PodSpecsExhausted",
+		},
+		{
+			name:     "No pod specs",
+			podSpecs: []SimulatedPod{},
+			nodes: []*v1.Node{
+				// create first node with 2 cpus and 4GB, with some resources already consumed
+				getGeneralNode("test-node-1",
+					*getResourceList(2000, 4E9, 10, 0), //capacity
+					*getResourceList(300, 1E9, 3, 0),   //allocatable
+				),
+			},
+			maxNumberOfPods: 10,
+			expRunError:     true,
+			expNumPods:      []int{},
+			expFailType:     "PodSpecsExhausted",
+		},
+		{
+			name: "Zero replicas pod specs",
+			podSpecs: []SimulatedPod{
+				{getPod("simulated-pod-1", "test-namespace-1", 100, 5E6, 0), 0},
+				{getPod("simulated-pod-2", "test-namespace-1", 100, 5E6, 0), 0},
+				{getPod("simulated-pod-3", "test-namespace-1", 100, 5E6, 0), -1},
+			},
+			nodes: []*v1.Node{
+				// create first node with 2 cpus and 4GB, with some resources already consumed
+				getGeneralNode("test-node-1",
+					*getResourceList(2000, 4E9, 10, 0), //capacity
+					*getResourceList(300, 1E9, 3, 0),   //allocatable
+				),
+			},
+			maxNumberOfPods: 10,
+			expRunError:     true,
+			expNumPods:      []int{0, 0, 0},
+			expFailType:     "PodSpecsExhausted",
+		},
+		{
+			name: "Unschedulable due to insufficient memory",
+			podSpecs: []SimulatedPod{
+				{getPod("simulated-pod-1", "test-namespace-1", 100, 100E6, 0), 1},
+				{getPod("simulated-pod-2", "test-namespace-1", 100, 50E6, 0), 1},
+			},
+			nodes: []*v1.Node{
+				// create first node with 2 cpus and 1GB
+				getGeneralNode("test-node-1",
+					*getResourceList(2000, 1E9, 20, 0), //capacity
+					*getResourceList(2000, 1E9, 20, 0), //allocatable
+				),
+			},
+			maxNumberOfPods: 100,
+			expNumPods:      []int{7, 6},
+			expFailType:     "Unschedulable",
+		},
 	}
 
-	// 3. run predictor
-	if err := cc.SyncWithStore(resourceStore); err != nil {
-		t.Errorf("Unable to sync resources: %v", err)
-	}
-	if err := cc.Run(); err != nil {
-		t.Errorf("Unable to run analysis: %v", err)
-	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// 1. create fake storage with initial data
+			// - create three nodes, each node with different resources (cpu, memory)
+			resourceStore := store.NewResourceStore()
 
-	// TODO: modify when sequence is implemented
-	for reason, replicas := range cc.Report().Status.Pods[0].ReplicasOnNodes {
-		t.Logf("Reason: %v, instances: %v\n", reason, replicas)
-	}
+			// Add nodes
+			for _, node := range tc.nodes {
+				if err := resourceStore.Add("nodes", metav1.Object(node)); err != nil {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			}
 
-	t.Logf("Stop reason: %v\n", cc.Report().Status.FailReason)
+			// 2. create predictor
+			// - create simple configuration file for scheduler (use the default values or from systemd env file if reasonable)
+			cc, err := New(&soptions.SchedulerServer{
+				KubeSchedulerConfiguration: componentconfig.KubeSchedulerConfiguration{
+					SchedulerName:                  v1.DefaultSchedulerName,
+					HardPodAffinitySymmetricWeight: v1.DefaultHardPodAffinitySymmetricWeight,
+					FailureDomains:                 kubeletapis.DefaultFailureDomains,
+					AlgorithmProvider:              factory.DefaultProvider,
+				},
+				Master:     "http://localhost:8080",
+				Kubeconfig: "/etc/kubernetes/kubeconfig",
+			},
+				tc.podSpecs,
+				tc.maxNumberOfPods,
+				tc.oneShot,
+			)
+			defer cc.Close()
 
-	//4. check expected number of pods is scheduled and reflected in the resource storage
-	if cc.Report().Status.FailReason.FailType != "LimitReached" {
-		t.Errorf("Unexpected stop reason occured: %v, expecting: LimitReached", cc.Report().Status.FailReason.FailType)
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+
+			// 3. run predictor
+			if err := cc.SyncWithStore(resourceStore); err != nil {
+				t.Errorf("Unable to sync resources: %v", err)
+			}
+			if err := cc.Run(); err != nil && !tc.expRunError {
+				t.Errorf("Unable to run analysis: %v", err)
+			} else if err == nil && tc.expRunError {
+				t.Error("Expected run error but none occurred.")
+			}
+
+			//4. check expected number of pods is scheduled and reflected in the resource storage
+			for i, pod := range cc.Report().Status.Pods {
+				t.Logf("Report for pod: %s", pod.PodName)
+				total := 0
+				for _, replicas := range pod.ReplicasOnNodes {
+					t.Logf("Node: %s, instances: %d\n", replicas.NodeName, replicas.Replicas)
+					total += replicas.Replicas
+				}
+				if e, a := tc.expNumPods[i], total; e != a {
+					t.Errorf("Expected number of replicas for pod %d was %d, but we got %d", i, e, a)
+				}
+			}
+
+			t.Logf("Stop reason: %v\n", cc.Report().Status.FailReason)
+
+			if cc.Report().Status.FailReason.FailType != tc.expFailType {
+				t.Errorf("Unexpected stop reason occured: %v, expecting: %v", cc.Report().Status.FailReason.FailType, tc.expFailType)
+			}
+
+		})
 	}
 }

@@ -19,6 +19,9 @@ package utils
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/clientcmd"
@@ -68,4 +71,35 @@ func GetMasterFromKubeConfig(filename string) (string, error) {
 		return val.Server, nil
 	}
 	return "", fmt.Errorf("Failed to get master address from kubeconfig")
+}
+
+// inspired by:
+// https://github.com/kubernetes/kubernetes/blob/release-1.6/pkg/controller/controller_utils.go#L512
+func GetPodFromTemplate(template *v1.PodTemplateSpec, parentObject runtime.Object) (*v1.Pod, error) {
+	desiredLabels := getPodsLabelSet(template)
+	accessor, err := meta.Accessor(parentObject)
+	if err != nil {
+		return nil, fmt.Errorf("parentObject does not have ObjectMeta, %v", err)
+	}
+
+	pod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: desiredLabels,
+			Name:   accessor.GetName(),
+		},
+	}
+	clone, err := api.Scheme.DeepCopy(&template.Spec)
+	if err != nil {
+		return nil, err
+	}
+	pod.Spec = *clone.(*v1.PodSpec)
+	return pod, nil
+}
+
+func getPodsLabelSet(template *v1.PodTemplateSpec) labels.Set {
+	desiredLabels := make(labels.Set)
+	for k, v := range template.Labels {
+		desiredLabels[k] = v
+	}
+	return desiredLabels
 }

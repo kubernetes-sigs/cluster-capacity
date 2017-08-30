@@ -17,7 +17,10 @@ limitations under the License.
 package framework
 
 import (
+	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -48,8 +51,79 @@ import (
 )
 
 const (
-	podProvisioner = "cc.kubernetes.io/provisioned-by"
+	podProvisioner         = "cc.kubernetes.io/provisioned-by"
+	podSpecIndexAnnotation = "cluster-capacity/pod-spec-index"
 )
+
+// SimulatedPod represents a pod spec to be scheduled with the associated
+// replica count.
+type SimulatedPod struct {
+	*v1.Pod
+	Replicas int32
+}
+
+func newPodsIterator(podSpecs []SimulatedPod, wrapAround bool) *podsIterator {
+	return &podsIterator{podSpecs: podSpecs, idx: -1, replicaCounter: 0, wrapAround: wrapAround}
+}
+
+// podsIterator iterates the pod specs. If wrapAround is set to 'true'
+// iteration never stops and after last pod spec the iteration restarts from
+// the first one. Incase it is set to false the iteration stops when the end of
+// the podSpecs slice is reached.
+type podsIterator struct {
+	podSpecs []SimulatedPod
+	idx      int
+	// counts the visited replicas for the current pod spec
+	replicaCounter int32
+	// counts the visiter replicas for all pod specs
+	totalCounter int32
+	// flag saying wether we should or not restart from the first when all pod
+	// specs has been visited.
+	wrapAround bool
+}
+
+// Next passes to the next pod spec and return true if the end of the
+// iterations is reached.
+func (p *podsIterator) Next() bool {
+	if p.idx >= len(p.podSpecs) {
+		if p.wrapAround && p.totalCounter > 0 {
+			// restart from the first, totalCounter is used to stop the
+			// recursion in case there is no pod with at least one replica.
+			p.idx = 0
+		} else {
+			// no more pod specs
+			return false
+		}
+	}
+	// if the exp number of replicas is reached pass to next pod spec,
+	// otherwise increment the counters
+	if p.idx < 0 || p.replicaCounter >= p.podSpecs[p.idx].Replicas {
+		p.idx++
+		p.replicaCounter = 0
+		return p.Next()
+	}
+	p.replicaCounter++
+	p.totalCounter++
+	return true
+}
+
+// Value returns current pod spec and the corresponding index in the podSpecs
+// list.
+func (p *podsIterator) Value() (int, *v1.Pod) {
+	if p.idx >= 0 && p.idx < len(p.podSpecs) {
+		return p.idx, p.podSpecs[p.idx].Pod
+	}
+	return p.idx, nil
+}
+
+// GetAll returns all the pod specs.
+func (p *podsIterator) GetAll() []*v1.Pod {
+	var podSpecs []*v1.Pod
+	for _, p := range p.podSpecs {
+		podSpecs = append(podSpecs, p.Pod)
+	}
+	return podSpecs
+}
 
 type ClusterCapacity struct {
 	// caches modified by emulation strategy
@@ -72,12 +146,12 @@ type ClusterCapacity struct {
 	defaultScheduler string
 
 	// pod to schedule
-	simulatedPod     *v1.Pod
-	lastSimulatedPod *v1.Pod
-	maxSimulated     int
-	simulated        int
-	status           Status
-	report           *ClusterCapacityReview
+	simulatedPodsIterator *podsIterator
+	lastSimulatedPod      *v1.Pod
+	maxSimulated          int
+	simulated             int
+	status                Status
+	report                *ClusterCapacityReview
 
 	// analysis limitation
 	informerStopCh chan struct{}
@@ -99,9 +173,7 @@ type Status struct {
 func (c *ClusterCapacity) Report() *ClusterCapacityReview {
 	if c.report == nil {
 		// Preparation before pod sequence scheduling is done
-		pods := make([]*v1.Pod, 0)
-		pods = append(pods, c.simulatedPod)
-		c.report = GetReport(pods, c.status)
+		c.report = GetReport(c.simulatedPodsIterator.GetAll(), c.status)
 		c.report.Spec.Replicas = int32(c.maxSimulated)
 	}
 
@@ -185,6 +257,11 @@ func (c *ClusterCapacity) Bind(binding *v1.Binding, schedulerName string) error 
 
 	// all good, create another pod
 	if err := c.nextPod(); err != nil {
+		if strings.HasPrefix(c.status.StopReason, "PodSpecsExhausted") {
+			c.Close()
+			c.stop <- struct{}{}
+			return nil
+		}
 		return fmt.Errorf("Unable to create next pod to schedule: %v", err)
 	}
 	return nil
@@ -208,6 +285,9 @@ func (c *ClusterCapacity) Close() {
 }
 
 func (c *ClusterCapacity) Update(pod *v1.Pod, podCondition *v1.PodCondition, schedulerName string) error {
+	// TODO: For the moment it stops when the first unschedulable pod is met, it
+	// would be interesting to allow other strategies ( e.g. stop the
+	// simulation when there are no more schedulable pods ).
 	stop := podCondition.Type == v1.PodScheduled && podCondition.Status == v1.ConditionFalse && podCondition.Reason == "Unschedulable"
 
 	// Only for pending pods provisioned by cluster-capacity
@@ -225,16 +305,27 @@ func (c *ClusterCapacity) Update(pod *v1.Pod, podCondition *v1.PodCondition, sch
 }
 
 func (c *ClusterCapacity) nextPod() error {
+	if !c.simulatedPodsIterator.Next() {
+		c.status.StopReason = "PodSpecsExhausted: No more pod specs to schedule"
+		return errors.New(c.status.StopReason)
+	}
 	cloner := conversion.NewCloner()
 	pod := v1.Pod{}
-	if err := v1.DeepCopy_v1_Pod(c.simulatedPod, &pod, cloner); err != nil {
+	idx, currPod := c.simulatedPodsIterator.Value()
+	if err := v1.DeepCopy_v1_Pod(currPod, &pod, cloner); err != nil {
 		return err
 	}
+	// Adds annotations map if not present
+	if pod.ObjectMeta.Annotations == nil {
+		pod.ObjectMeta.Annotations = map[string]string{}
+	}
+	// Stores the index pointing to the pod spec used to generate this pod
+	pod.ObjectMeta.Annotations[podSpecIndexAnnotation] = strconv.Itoa(idx)
 
 	// reset any node designation set
 	pod.Spec.NodeName = ""
 	// use simulated pod name with an index to construct the name
-	pod.ObjectMeta.Name = fmt.Sprintf("%v-%v", c.simulatedPod.Name, c.simulated)
+	pod.ObjectMeta.Name = fmt.Sprintf("%v-%v", pod.ObjectMeta.Name, c.simulated)
 
 	// Add pod provisioner annotation
 	if pod.ObjectMeta.Annotations == nil {
@@ -343,18 +434,18 @@ func (c *ClusterCapacity) AddScheduler(s *soptions.SchedulerServer) error {
 // Create new cluster capacity analysis
 // The analysis is completely independent of apiserver so no need
 // for kubeconfig nor for apiserver url
-func New(s *soptions.SchedulerServer, simulatedPod *v1.Pod, maxPods int) (*ClusterCapacity, error) {
+func New(s *soptions.SchedulerServer, simulatedPods []SimulatedPod, maxPods int, oneShot bool) (*ClusterCapacity, error) {
 	resourceStore := store.NewResourceStore()
 	restClient := external.NewRESTClient(resourceStore, "core")
 
 	cc := &ClusterCapacity{
-		resourceStore:      resourceStore,
-		strategy:           strategy.NewPredictiveStrategy(resourceStore),
-		externalkubeclient: externalclientset.New(restClient),
-		simulatedPod:       simulatedPod,
-		simulated:          0,
-		maxSimulated:       maxPods,
-		coreRestClient:     restClient,
+		resourceStore:         resourceStore,
+		strategy:              strategy.NewPredictiveStrategy(resourceStore),
+		externalkubeclient:    externalclientset.New(restClient),
+		simulatedPodsIterator: newPodsIterator(simulatedPods, !oneShot),
+		simulated:             0,
+		maxSimulated:          maxPods,
+		coreRestClient:        restClient,
 	}
 
 	for _, resource := range resourceStore.Resources() {

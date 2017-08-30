@@ -131,7 +131,7 @@ func Run(opt *options.ClusterCapacityOptions) error {
 }
 
 func runSimulator(s *options.ClusterCapacityConfig, syncWithClient bool) (*framework.ClusterCapacityReview, error) {
-	cc, err := framework.New(s.DefaultScheduler, s.Pod, s.Options.MaxLimit)
+	cc, err := framework.New(s.DefaultScheduler, s.Pods, s.Options.MaxLimit, s.Options.OneShot)
 	if err != nil {
 		return nil, err
 	}
