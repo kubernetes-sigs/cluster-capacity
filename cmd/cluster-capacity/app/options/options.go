@@ -30,6 +30,7 @@ import (
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/api/validation"
+	extensions "k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	"k8s.io/kubernetes/pkg/kubectl/resource"
 	schedopt "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app/options"
@@ -130,7 +131,7 @@ func newFakeClient() resource.ClientMapper {
 func (s *ClusterCapacityConfig) ParseAPISpec() error {
 	var err error
 
-	r := resource.NewBuilder(api.Registry.RESTMapper(), resource.LegacyCategoryExpander, api.Scheme, newFakeClient(), api.Codecs.UniversalDecoder(v1.SchemeGroupVersion)).
+	r := resource.NewBuilder(api.Registry.RESTMapper(), resource.LegacyCategoryExpander, api.Scheme, newFakeClient(), api.Codecs.UniversalDecoder(v1.SchemeGroupVersion, extensions.SchemeGroupVersion)).
 		FilenameParam(false, &resource.FilenameOptions{Filenames: []string{s.Options.PodSpecFile}, Recursive: false}).
 		ContinueOnError().
 		Flatten().
@@ -150,6 +151,14 @@ func (s *ClusterCapacityConfig) ParseAPISpec() error {
 				return err
 			}
 			versionedPods = append(versionedPods, framework.SimulatedPod{Pod: pod, Replicas: *rc.Spec.Replicas})
+		case *extensions.ReplicaSet:
+			rs := info.Object.(*extensions.ReplicaSet)
+			pod, err := utils.GetPodFromTemplate(&rs.Spec.Template, rs)
+			if err != nil {
+				return err
+			}
+			versionedPods = append(versionedPods, framework.SimulatedPod{Pod: pod, Replicas: *rs.Spec.Replicas})
+
 		default:
 			return fmt.Errorf("file contains a resource which is not supported: name=[%s] kind=[%s]", info.Name, info.Object.GetObjectKind().GroupVersionKind())
 		}

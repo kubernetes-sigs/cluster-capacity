@@ -28,10 +28,11 @@ import (
 	internal "k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/testapi"
 	"k8s.io/kubernetes/pkg/api/v1"
+	extensions "k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
 )
 
 func encodeOrDie(obj runtime.Object) []byte {
-	data, err := runtime.Encode(internal.Codecs.LegacyCodec(v1.SchemeGroupVersion), obj)
+	data, err := runtime.Encode(internal.Codecs.LegacyCodec(v1.SchemeGroupVersion, extensions.SchemeGroupVersion), obj)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -80,6 +81,28 @@ func newReplicationController(replicas int) *v1.ReplicationController {
 	return rc
 }
 
+func newReplicaSet(replicas int) *extensions.ReplicaSet {
+	return &extensions.ReplicaSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "rs-1",
+			Namespace:       metav1.NamespaceDefault,
+			ResourceVersion: "18",
+		},
+		Spec: extensions.ReplicaSetSpec{
+			Replicas: func() *int32 { i := int32(replicas); return &i }(),
+			Template: v1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"name": "foo",
+						"type": "production",
+					},
+				},
+				Spec: *newPodSpec(),
+			},
+		},
+	}
+}
+
 func TestParseAPISpec(t *testing.T) {
 	var tmpDir string
 	var err error
@@ -121,14 +144,26 @@ func TestParseAPISpec(t *testing.T) {
 			expPodReplicas: []int{1, 3},
 		},
 		{
-			name: "ReplicationControllerZeroReplicas",
+			name: "ReplicaSet",
 			spec: &v1.List{
 				Items: []runtime.RawExtension{
-					{Raw: encodeOrDie(newReplicationController(0))},
+					{Raw: encodeOrDie(getV1Pod("pod", "1"))},
+					{Raw: encodeOrDie(newReplicaSet(4))},
 				},
 			},
 			expError:       false,
-			expPodReplicas: []int{0},
+			expPodReplicas: []int{1, 4},
+		},
+		{
+			name: "ZeroReplicas",
+			spec: &v1.List{
+				Items: []runtime.RawExtension{
+					{Raw: encodeOrDie(newReplicationController(0))},
+					{Raw: encodeOrDie(newReplicaSet(0))},
+				},
+			},
+			expError:       false,
+			expPodReplicas: []int{0, 0},
 		},
 		{
 			name: "NotSupportedType",

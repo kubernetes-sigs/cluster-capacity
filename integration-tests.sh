@@ -80,6 +80,14 @@ if [ -z "$(cat estimation.log | grep 'Termination reason')" ]; then
 fi
 
 echo ""
+echo "# Running simple estimation of examples/rc-pod-and-replicaset.yaml in verbose mode"
+$CC --podspec=examples/rc-pod-and-replicaset.yaml --verbose | tee estimation.log
+if [ -z "$(cat estimation.log | grep 'Termination reason')" ]; then
+  printError "Missing termination reason"
+  exit 1
+fi
+
+echo ""
 echo "# Decrease resource in the cluster by running new pods"
 $KUBECTL create -f examples/rc.yml
 if [ "$?" -ne 0 ]; then
