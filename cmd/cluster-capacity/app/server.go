@@ -81,18 +81,20 @@ func Validate(opt *options.ClusterCapacityOptions) error {
 
 func Run(opt *options.ClusterCapacityOptions) error {
 	conf := options.NewClusterCapacityConfig(opt)
-	err := conf.ParseAPISpec()
-	if err != nil {
-		return fmt.Errorf("Failed to parse pod spec file: %v ", err)
-	}
 
-	err = conf.SetDefaultScheduler()
+	err := conf.SetDefaultScheduler()
 	if err != nil {
 		return fmt.Errorf("Failed to set default scheduler config: %v ", err)
 	}
+
 	err = conf.ParseAdditionalSchedulerConfigs()
 	if err != nil {
 		return fmt.Errorf("Failed to parse config file: %v ", err)
+	}
+
+	err = conf.ParseAPISpec()
+	if err != nil {
+		return fmt.Errorf("Failed to parse pod spec file: %v ", err)
 	}
 
 	var cfg *restclient.Config

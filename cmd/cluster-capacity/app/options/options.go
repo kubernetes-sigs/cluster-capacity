@@ -95,6 +95,7 @@ func parseSchedulerConfig(path string) (*schedopt.SchedulerServer, error) {
 		decoder := yaml.NewYAMLOrJSONDecoder(config, 4096)
 		decoder.Decode(&(newScheduler.KubeSchedulerConfiguration))
 	}
+	newScheduler.SchedulerName = "cluster-capacity"
 	return newScheduler, nil
 }
 
@@ -147,6 +148,11 @@ func (s *ClusterCapacityConfig) ParseAPISpec() error {
 
 	if versionedPod.ObjectMeta.Namespace == "" {
 		versionedPod.ObjectMeta.Namespace = "default"
+	}
+
+	// set pod's scheduler name to cluster-capacity
+	if versionedPod.Spec.SchedulerName == "" {
+		versionedPod.Spec.SchedulerName = s.DefaultScheduler.SchedulerName
 	}
 
 	// hardcoded from kube api defaults and validation
