@@ -22,6 +22,9 @@ in terms of a number of instances of a pod with given requirements that can be s
 Build the framework:
 
 ```sh
+$ cd $GOPATH/src/github.com/kubernetes-incubator
+$ git clone https://github.com/kubernetes-incubator/cluster-capacity
+$ cd cluster-capacity
 $ make build
 ```
 
