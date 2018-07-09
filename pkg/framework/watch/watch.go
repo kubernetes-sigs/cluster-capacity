@@ -57,10 +57,15 @@ var _ io.ReadCloser = &WatchBuffer{}
 
 // Read watch events as byte stream
 func (w *WatchBuffer) Read(p []byte) (n int, err error) {
-	if w.closed {
+	w.closeMux.RLock()
+	closeWatch := w.closed
+	w.closeMux.RUnlock()
+	if closeWatch {
 		return 0, io.EOF
 	}
+	w.closeMux.Lock()
 	w.read <- p
+	w.closeMux.Unlock()
 	ret := <-w.retc
 	return ret.n, ret.e
 }
@@ -81,7 +86,10 @@ func (w *WatchBuffer) Close() error {
 
 // Write
 func (w *WatchBuffer) Write(data []byte) (nr int, err error) {
-	if w.closed {
+	w.closeMux.RLock()
+	closeWatch := w.closed
+	w.closeMux.RUnlock()
+	if closeWatch {
 		return 0, io.EOF
 	}
 	w.write <- data
@@ -124,7 +132,10 @@ func (w *WatchBuffer) loop() {
 		case dataIn = <-w.write:
 			// channel closed
 			if len(dataIn) == 0 {
-				if w.closed {
+				w.closeMux.RLock()
+				closeWatch := w.closed
+				w.closeMux.RUnlock()
+				if closeWatch {
 					return
 				}
 			}
@@ -148,10 +159,15 @@ func (w *WatchBuffer) loop() {
 				}
 			}
 			nr, err := w.buf.Read(dataOut)
-			if w.closed {
+			w.closeMux.RLock()
+			closeWatch := w.closed
+			w.closeMux.RUnlock()
+			if closeWatch {
 				break
 			}
+			w.closeMux.Lock()
 			w.retc <- retc{nr, err}
+			w.closeMux.Unlock()
 		}
 	}
 }

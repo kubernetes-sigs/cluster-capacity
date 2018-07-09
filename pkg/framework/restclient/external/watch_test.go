@@ -124,24 +124,27 @@ func testWatch(tests []eventTest, resource ccapi.ResourceType, t *testing.T) {
 
 func TestWatchPods(t *testing.T) {
 
-	pod := test.PodExample("pod1")
+	pod1 := test.PodExample("pod1")
+	pod2 := test.PodExample("pod2")
+	pod3 := test.PodExample("pod3")
+	pod4 := test.PodExample("pod4")
 
 	tests := []eventTest{
 		{
 			event: watch.Modified,
-			item:  &pod,
+			item:  &pod1,
 		},
 		{
 			event: watch.Added,
-			item:  &pod,
+			item:  &pod2,
 		},
 		{
 			event: watch.Modified,
-			item:  &pod,
+			item:  &pod3,
 		},
 		{
 			event: watch.Deleted,
-			item:  &pod,
+			item:  &pod4,
 		},
 	}
 
@@ -150,24 +153,27 @@ func TestWatchPods(t *testing.T) {
 
 func TestWatchServices(t *testing.T) {
 
-	service := test.ServiceExample("service1")
+	service1 := test.ServiceExample("service1")
+	service2 := test.ServiceExample("service2")
+	service3 := test.ServiceExample("service3")
+	service4 := test.ServiceExample("service4")
 
 	tests := []eventTest{
 		{
 			event: watch.Modified,
-			item:  &service,
+			item:  &service1,
 		},
 		{
 			event: watch.Added,
-			item:  &service,
+			item:  &service2,
 		},
 		{
 			event: watch.Modified,
-			item:  &service,
+			item:  &service3,
 		},
 		{
 			event: watch.Deleted,
-			item:  &service,
+			item:  &service4,
 		},
 	}
 
@@ -175,24 +181,27 @@ func TestWatchServices(t *testing.T) {
 }
 
 func TestWatchPersistentVolumes(t *testing.T) {
-	pv := test.PersistentVolumeExample("persistentvolume1")
+	pv1 := test.PersistentVolumeExample("persistentvolume1")
+	pv2 := test.PersistentVolumeExample("persistentvolume2")
+	pv3 := test.PersistentVolumeExample("persistentvolume3")
+	pv4 := test.PersistentVolumeExample("persistentvolume4")
 
 	tests := []eventTest{
 		{
 			event: watch.Modified,
-			item:  &pv,
+			item:  &pv1,
 		},
 		{
 			event: watch.Added,
-			item:  &pv,
+			item:  &pv2,
 		},
 		{
 			event: watch.Modified,
-			item:  &pv,
+			item:  &pv3,
 		},
 		{
 			event: watch.Deleted,
-			item:  &pv,
+			item:  &pv4,
 		},
 	}
 
@@ -200,24 +209,27 @@ func TestWatchPersistentVolumes(t *testing.T) {
 }
 
 func TestWatchPersistentVolumeClaims(t *testing.T) {
-	pvc := test.PersistentVolumeClaimExample("persistentVolumeClaim1")
+	pvc1 := test.PersistentVolumeClaimExample("persistentVolumeClaim1")
+	pvc2 := test.PersistentVolumeClaimExample("persistentVolumeClaim2")
+	pvc3 := test.PersistentVolumeClaimExample("persistentVolumeClaim3")
+	pvc4 := test.PersistentVolumeClaimExample("persistentVolumeClaim4")
 
 	tests := []eventTest{
 		{
 			event: watch.Modified,
-			item:  &pvc,
+			item:  &pvc1,
 		},
 		{
 			event: watch.Added,
-			item:  &pvc,
+			item:  &pvc2,
 		},
 		{
 			event: watch.Modified,
-			item:  &pvc,
+			item:  &pvc3,
 		},
 		{
 			event: watch.Deleted,
-			item:  &pvc,
+			item:  &pvc4,
 		},
 	}
 
@@ -225,24 +237,27 @@ func TestWatchPersistentVolumeClaims(t *testing.T) {
 }
 
 func TestWatchNodes(t *testing.T) {
-	node := test.NodeExample("node1")
+	node1 := test.NodeExample("node1")
+	node2 := test.NodeExample("node2")
+	node3 := test.NodeExample("node3")
+	node4 := test.NodeExample("node4")
 
 	tests := []eventTest{
 		{
 			event: watch.Modified,
-			item:  &node,
+			item:  &node1,
 		},
 		{
 			event: watch.Added,
-			item:  &node,
+			item:  &node2,
 		},
 		{
 			event: watch.Modified,
-			item:  &node,
+			item:  &node3,
 		},
 		{
 			event: watch.Deleted,
-			item:  &node,
+			item:  &node4,
 		},
 	}
 
