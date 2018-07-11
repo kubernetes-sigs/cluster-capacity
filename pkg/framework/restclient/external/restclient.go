@@ -428,7 +428,9 @@ func (c *RESTClient) Do(req *http.Request) (*http.Response, error) {
 	if c.Err != nil {
 		return nil, c.Err
 	}
+	c.watcherReadGettersMux.Lock()
 	c.Req = req
+	c.watcherReadGettersMux.Unlock()
 	// //localhost/pods?resourceVersion=0
 	parts := splitPath(req.URL.Path)
 	if len(parts) < 1 {
@@ -477,7 +479,9 @@ func (c *RESTClient) Do(req *http.Request) (*http.Response, error) {
 			return nil, fmt.Errorf("Unable to create watcher for %s\n", parts[0])
 		}
 		//var t io.ReadCloser = body
+		c.watcherReadGettersMux.Lock()
 		c.Resp = &http.Response{StatusCode: 200, Header: header, Body: (io.ReadCloser)(body)}
+		c.watcherReadGettersMux.Unlock()
 
 	} else {
 		// l = len(parts)
@@ -538,10 +542,15 @@ func (c *RESTClient) Do(req *http.Request) (*http.Response, error) {
 		default:
 			return nil, fmt.Errorf("Cluster capacity RESTClient not implemented: unable to decode query url: %v", req.URL.Path)
 		}
+		c.watcherReadGettersMux.Lock()
 		c.Resp = &http.Response{StatusCode: 200, Header: header, Body: *body}
+		c.watcherReadGettersMux.Unlock()
 	}
 
-	return c.Resp, nil
+	c.watcherReadGettersMux.RLock()
+	tmp := c.Resp
+	c.watcherReadGettersMux.RUnlock()
+	return tmp, nil
 }
 
 func NewRESTClient(resourceStore store.ResourceStore, name string) *RESTClient {
