@@ -18,6 +18,7 @@
 | Memory | Amount of memory pod requires | false    | string |         |
 
 ##FailReasons
+
 | Name         | Description                                                                         | Required | Schema   | Default |
 |--------------|-------------------------------------------------------------------------------------|----------|----------|---------|
 | FailType     | Reason another instance of pod couldn't be scheduled                                | false    | string   |         |
