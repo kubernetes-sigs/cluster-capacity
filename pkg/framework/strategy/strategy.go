@@ -52,7 +52,7 @@ func (s *predictiveStrategy) addPod(pod *v1.Pod) error {
 	// mark the pod as running rather than keeping the phase empty
 	pod.Status.Phase = v1.PodRunning
 
-	// here asuming the pod is already in the resource storage
+	// here assuming the pod is already in the resource storage
 	// so the update is needed to emit update event in case a handler is registered
 	err := s.resourceStore.Update("pods", metav1.Object(pod))
 	if err != nil {
