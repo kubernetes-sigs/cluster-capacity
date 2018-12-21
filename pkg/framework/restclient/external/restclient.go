@@ -41,6 +41,7 @@ import (
 	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
 	ewatch "github.com/kubernetes-incubator/cluster-capacity/pkg/framework/watch"
+	"time"
 )
 
 type ObjectFieldsAccessor struct {
@@ -296,7 +297,7 @@ func (c *RESTClient) request(verb string) *restclient.Request {
 		serializers.Framer = info.StreamSerializer.Framer
 	}
 
-	return restclient.NewRequest(c, verb, &url.URL{Host: "localhost"}, "", config, serializers, nil, nil)
+	return restclient.NewRequest(c, verb, &url.URL{Host: "localhost"}, "", config, serializers, nil, nil, 30*time.Second)
 }
 
 // splitPath returns the segments for a URL path.

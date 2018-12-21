@@ -28,7 +28,7 @@ func NodeExample(name string) v1.Node {
 		TypeMeta:   metav1.TypeMeta{Kind: "Node", APIVersion: "v1"},
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "test", ResourceVersion: "123"},
 		Spec: v1.NodeSpec{
-			ExternalID: "ext",
+			ProviderID: "ext",
 		},
 	}
 }
@@ -40,7 +40,7 @@ func PodExample(name string) v1.Pod {
 		Spec:       apitesting.V1DeepEqualSafePodSpec(),
 	}
 	pod.Spec.Containers = []v1.Container{}
-	pod.Spec.SchedulerName = "default-scheduler"
+	pod.Spec.SchedulerName = "cluster-capacity"
 	return pod
 }
 

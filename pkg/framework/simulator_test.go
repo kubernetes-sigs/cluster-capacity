@@ -1,19 +1,19 @@
-/*
-Copyright 2017 The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
+///*
+//Copyright 2017 The Kubernetes Authors.
+//
+//Licensed under the Apache License, Version 2.0 (the "License");
+//you may not use this file except in compliance with the License.
+//You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+//Unless required by applicable law or agreed to in writing, software
+//distributed under the License is distributed on an "AS IS" BASIS,
+//WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//See the License for the specific language governing permissions and
+//limitations under the License.
+//*/
+//
 package framework
 
 import (
@@ -25,11 +25,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apitesting "k8s.io/kubernetes/pkg/api/testing"
-	"k8s.io/kubernetes/pkg/apis/componentconfig"
 	"k8s.io/kubernetes/pkg/version"
-	sapps "k8s.io/kubernetes/plugin/cmd/kube-scheduler/app"
-
+	"k8s.io/utils/pointer"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
+	kubescheduleroptions "k8s.io/kubernetes/cmd/kube-scheduler/app/options"
+	kubeschedulerconfig "k8s.io/kubernetes/pkg/scheduler/apis/config"
+	kubeschedulerappconfig "k8s.io/kubernetes/cmd/kube-scheduler/app/config"
 )
 
 func getGeneralNode(nodeName string) *v1.Node {
@@ -84,16 +85,16 @@ func getGeneralNode(nodeName string) *v1.Node {
 				KubeProxyVersion:        version.Get().String(),
 			},
 			Capacity: v1.ResourceList{
-				v1.ResourceCPU:       *resource.NewMilliQuantity(1000, resource.DecimalSI),
-				v1.ResourceMemory:    *resource.NewQuantity(4E9, resource.BinarySI),
-				v1.ResourcePods:      *resource.NewQuantity(10, resource.DecimalSI),
-				v1.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
+				v1.ResourceCPU:    *resource.NewMilliQuantity(1000, resource.DecimalSI),
+				v1.ResourceMemory: *resource.NewQuantity(4E9, resource.BinarySI),
+				v1.ResourcePods:   *resource.NewQuantity(10, resource.DecimalSI),
+				//v1.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
 			},
 			Allocatable: v1.ResourceList{
-				v1.ResourceCPU:       *resource.NewMilliQuantity(0, resource.DecimalSI),
-				v1.ResourceMemory:    *resource.NewQuantity(0, resource.BinarySI),
-				v1.ResourcePods:      *resource.NewQuantity(0, resource.DecimalSI),
-				v1.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
+				v1.ResourceCPU:    *resource.NewMilliQuantity(0, resource.DecimalSI),
+				v1.ResourceMemory: *resource.NewQuantity(0, resource.BinarySI),
+				v1.ResourcePods:   *resource.NewQuantity(0, resource.DecimalSI),
+				//v1.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
 			},
 			Addresses: []v1.NodeAddress{
 				{Type: v1.NodeExternalIP, Address: "127.0.0.1"},
@@ -112,16 +113,16 @@ func TestPrediction(t *testing.T) {
 	// create first node with 2 cpus and 4GB, with some resources already consumed
 	node1 := getGeneralNode("test-node-1")
 	node1.Status.Capacity = v1.ResourceList{
-		v1.ResourceCPU:       *resource.NewMilliQuantity(2000, resource.DecimalSI),
-		v1.ResourceMemory:    *resource.NewQuantity(4E9, resource.BinarySI),
-		v1.ResourcePods:      *resource.NewQuantity(10, resource.DecimalSI),
-		v1.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
+		v1.ResourceCPU:    *resource.NewMilliQuantity(2000, resource.DecimalSI),
+		v1.ResourceMemory: *resource.NewQuantity(4E9, resource.BinarySI),
+		v1.ResourcePods:   *resource.NewQuantity(10, resource.DecimalSI),
+		//ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
 	}
 	node1.Status.Allocatable = v1.ResourceList{
-		v1.ResourceCPU:       *resource.NewMilliQuantity(300, resource.DecimalSI),
-		v1.ResourceMemory:    *resource.NewQuantity(1E9, resource.BinarySI),
-		v1.ResourcePods:      *resource.NewQuantity(3, resource.DecimalSI),
-		v1.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
+		v1.ResourceCPU:    *resource.NewMilliQuantity(300, resource.DecimalSI),
+		v1.ResourceMemory: *resource.NewQuantity(1E9, resource.BinarySI),
+		v1.ResourcePods:   *resource.NewQuantity(3, resource.DecimalSI),
+		//ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
 	}
 
 	if err := resourceStore.Add("nodes", metav1.Object(node1)); err != nil {
@@ -131,16 +132,16 @@ func TestPrediction(t *testing.T) {
 	// create second node with 2 cpus and 1GB, with some resources already consumed
 	node2 := getGeneralNode("test-node-2")
 	node2.Status.Capacity = v1.ResourceList{
-		v1.ResourceCPU:       *resource.NewMilliQuantity(1000, resource.DecimalSI),
-		v1.ResourceMemory:    *resource.NewQuantity(4E9, resource.BinarySI),
-		v1.ResourcePods:      *resource.NewQuantity(10, resource.DecimalSI),
-		v1.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
+		v1.ResourceCPU:    *resource.NewMilliQuantity(1000, resource.DecimalSI),
+		v1.ResourceMemory: *resource.NewQuantity(4E9, resource.BinarySI),
+		v1.ResourcePods:   *resource.NewQuantity(10, resource.DecimalSI),
+		//v1.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
 	}
 	node2.Status.Allocatable = v1.ResourceList{
-		v1.ResourceCPU:       *resource.NewMilliQuantity(400, resource.DecimalSI),
-		v1.ResourceMemory:    *resource.NewQuantity(2E9, resource.BinarySI),
-		v1.ResourcePods:      *resource.NewQuantity(3, resource.DecimalSI),
-		v1.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
+		v1.ResourceCPU:    *resource.NewMilliQuantity(400, resource.DecimalSI),
+		v1.ResourceMemory: *resource.NewQuantity(2E9, resource.BinarySI),
+		v1.ResourcePods:   *resource.NewQuantity(3, resource.DecimalSI),
+		//v1.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
 	}
 	if err := resourceStore.Add("nodes", metav1.Object(node2)); err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -148,16 +149,16 @@ func TestPrediction(t *testing.T) {
 	// create third node with 2 cpus and 4GB, with some resources already consumed
 	node3 := getGeneralNode("test-node-3")
 	node3.Status.Capacity = v1.ResourceList{
-		v1.ResourceCPU:       *resource.NewMilliQuantity(2000, resource.DecimalSI),
-		v1.ResourceMemory:    *resource.NewQuantity(4E9, resource.BinarySI),
-		v1.ResourcePods:      *resource.NewQuantity(10, resource.DecimalSI),
-		v1.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
+		v1.ResourceCPU:    *resource.NewMilliQuantity(2000, resource.DecimalSI),
+		v1.ResourceMemory: *resource.NewQuantity(4E9, resource.BinarySI),
+		v1.ResourcePods:   *resource.NewQuantity(10, resource.DecimalSI),
+		//ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
 	}
 	node3.Status.Allocatable = v1.ResourceList{
-		v1.ResourceCPU:       *resource.NewMilliQuantity(1200, resource.DecimalSI),
-		v1.ResourceMemory:    *resource.NewQuantity(1E9, resource.BinarySI),
-		v1.ResourcePods:      *resource.NewQuantity(3, resource.DecimalSI),
-		v1.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
+		v1.ResourceCPU:    *resource.NewMilliQuantity(1200, resource.DecimalSI),
+		v1.ResourceMemory: *resource.NewQuantity(1E9, resource.BinarySI),
+		v1.ResourcePods:   *resource.NewQuantity(3, resource.DecimalSI),
+		//ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
 	}
 	if err := resourceStore.Add("nodes", metav1.Object(node3)); err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -173,10 +174,10 @@ func TestPrediction(t *testing.T) {
 
 	limitResourceList[v1.ResourceCPU] = *resource.NewMilliQuantity(100, resource.DecimalSI)
 	limitResourceList[v1.ResourceMemory] = *resource.NewQuantity(5E6, resource.BinarySI)
-	limitResourceList[v1.ResourceNvidiaGPU] = *resource.NewQuantity(0, resource.DecimalSI)
+	limitResourceList[ResourceNvidiaGPU] = *resource.NewQuantity(0, resource.DecimalSI)
 	requestsResourceList[v1.ResourceCPU] = *resource.NewMilliQuantity(100, resource.DecimalSI)
 	requestsResourceList[v1.ResourceMemory] = *resource.NewQuantity(5E6, resource.BinarySI)
-	requestsResourceList[v1.ResourceNvidiaGPU] = *resource.NewQuantity(0, resource.DecimalSI)
+	requestsResourceList[ResourceNvidiaGPU] = *resource.NewQuantity(0, resource.DecimalSI)
 
 	// set pod's resource consumption
 	simulatedPod.Spec.Containers = []v1.Container{
@@ -190,11 +191,23 @@ func TestPrediction(t *testing.T) {
 
 	// 2. create predictor
 	// - create simple configuration file for scheduler (use the default values or from systemd env file if reasonable)
-	soptions, _ := sapps.NewOptions()
-	ksConfig := new(componentconfig.KubeSchedulerConfiguration)
-	ksConfig, _ = soptions.ApplyDefaults(ksConfig)
-	schedServer, _ := sapps.NewSchedulerServer(ksConfig, "http://localhost:8080")
-	cc, err := New(schedServer,
+	opts, err := kubescheduleroptions.NewOptions()
+	if err != nil {
+		t.Fatalf("unable to create scheduler options: %v", err)
+	}
+
+	// inject scheduler config config
+	opts.ComponentConfig = kubeschedulerconfig.KubeSchedulerConfiguration{
+		SchedulerName: v1.DefaultSchedulerName,
+		AlgorithmSource: kubeschedulerconfig.SchedulerAlgorithmSource{
+			Provider: pointer.StringPtr("DefaultProvider"),
+		},
+		HardPodAffinitySymmetricWeight: 1,
+	}
+
+	kubeSchedulerConfig, err := InitKubeSchedulerConfiguration(opts)
+
+	cc, err := New(kubeSchedulerConfig,
 		simulatedPod,
 		6,
 	)
@@ -222,4 +235,16 @@ func TestPrediction(t *testing.T) {
 	if cc.Report().Status.FailReason.FailType != "LimitReached" {
 		t.Errorf("Unexpected stop reason occured: %v, expecting: LimitReached", cc.Report().Status.FailReason.FailType)
 	}
+}
+
+func InitKubeSchedulerConfiguration(opts *kubescheduleroptions.Options) (*kubeschedulerappconfig.CompletedConfig, error) {
+	c := &kubeschedulerappconfig.Config{}
+	if err := opts.ApplyTo(c); err != nil {
+		return nil, fmt.Errorf("unable to get scheduler config: %v", err)
+	}
+
+	// Get the completed config
+	cc := c.Complete()
+
+	return &cc, nil
 }

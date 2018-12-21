@@ -26,7 +26,7 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
+	_ "k8s.io/kubernetes/pkg/scheduler/algorithmprovider"
 
 	"github.com/kubernetes-incubator/cluster-capacity/cmd/cluster-capacity/app/options"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework"
@@ -134,7 +134,7 @@ func Run(opt *options.ClusterCapacityOptions) error {
 }
 
 func runSimulator(s *options.ClusterCapacityConfig, syncWithClient bool) (*framework.ClusterCapacityReview, error) {
-	cc, err := framework.New(s.DefaultScheduler, s.Pod, s.Options.MaxLimit)
+	cc, err := framework.New(s.DefaultSchedulerConfig, s.Pod, s.Options.MaxLimit)
 	if err != nil {
 		return nil, err
 	}
