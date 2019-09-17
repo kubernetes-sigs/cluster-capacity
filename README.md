@@ -114,7 +114,7 @@ The json or yaml output is not versioned and is not guaranteed to be stable acro
 ## Running Cluster Capacity as a Job Inside of a Pod
 
 Running the cluster capacity tool as a job inside of a pod has the advantage of
-being able to be run multiple times without needing user intervention. 
+being able to be run multiple times without needing user intervention.
 
 Follow these example steps to run Cluster Capacity as a job:
 
@@ -126,32 +126,8 @@ $ docker build -t cluster-capacity-image .
 
 ### 2. Setup an authorized user with the necessary permissions
 
-#### A. Create a role:
 ```
-$ cat << EOF| kubectl create -f -
-kind: ClusterRole
-apiVersion: rbac.authorization.k8s.io/v1beta1
-metadata:
-  name: cluster-capacity-role
-rules:
-- apiGroups: [""]
-  resources: ["pods", "nodes", "persistentvolumeclaims", "persistentvolumes", "services"]
-  verbs: ["get", "watch", "list"]
-EOF
-```
-
-#### B. Create the service account which will be used to run the job:
-
-```
-$ kubectl create sa cluster-capacity-sa
-```
-
-#### C. Add the role to the service account:
-
-```
-$ kubectl create clusterrolebinding cluster-capacity-role \
-    --clusterrole=cluster-capacity-role \
-    --serviceaccount=default:cluster-capacity-sa
+$ kubectl apply -f config/rbac.yaml
 ```
 
 ### 3. Define and create the pod specification (pod.yaml):
