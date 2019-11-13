@@ -47,7 +47,11 @@ func (e *Recorder) Eventf(object runtime.Object, eventtype, reason, messageFmt s
 }
 
 func (e *Recorder) PastEventf(object runtime.Object, timestamp metav1.Time, eventtype, reason, messageFmt string, args ...interface{}) {
+	return
+}
 
+func (e *Recorder) AnnotatedEventf(object runtime.Object, annotations map[string]string, eventtype, reason, messageFmt string, args ...interface{}) {
+	return
 }
 
 // NewFakeRecorder creates new fake event recorder with event channel with

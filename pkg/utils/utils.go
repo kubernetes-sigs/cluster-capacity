@@ -24,7 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/kubernetes/pkg/api/legacyscheme"
-	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
+	_ "k8s.io/kubernetes/pkg/scheduler/algorithmprovider"
 )
 
 func PrintPod(pod *v1.Pod, format string) error {

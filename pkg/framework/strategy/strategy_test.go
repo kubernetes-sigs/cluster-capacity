@@ -31,6 +31,10 @@ import (
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
 )
 
+const (
+	ResourceNvidiaGPU v1.ResourceName = "nvdia.com/gpu"
+)
+
 func getTestNode(nodeName string) *v1.Node {
 	return &v1.Node{
 		ObjectMeta: metav1.ObjectMeta{Name: nodeName},
@@ -83,16 +87,16 @@ func getTestNode(nodeName string) *v1.Node {
 				KubeProxyVersion:        version.Get().String(),
 			},
 			Capacity: v1.ResourceList{
-				v1.ResourceCPU:       *resource.NewMilliQuantity(2000, resource.DecimalSI),
-				v1.ResourceMemory:    *resource.NewQuantity(10E9, resource.BinarySI),
-				v1.ResourcePods:      *resource.NewQuantity(0, resource.DecimalSI),
-				v1.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
+				v1.ResourceCPU:    *resource.NewMilliQuantity(2000, resource.DecimalSI),
+				v1.ResourceMemory: *resource.NewQuantity(10E9, resource.BinarySI),
+				v1.ResourcePods:   *resource.NewQuantity(0, resource.DecimalSI),
+				ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
 			},
 			Allocatable: v1.ResourceList{
-				v1.ResourceCPU:       *resource.NewMilliQuantity(300, resource.DecimalSI),
-				v1.ResourceMemory:    *resource.NewQuantity(20E6, resource.BinarySI),
-				v1.ResourcePods:      *resource.NewQuantity(0, resource.DecimalSI),
-				v1.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
+				v1.ResourceCPU:    *resource.NewMilliQuantity(300, resource.DecimalSI),
+				v1.ResourceMemory: *resource.NewQuantity(20E6, resource.BinarySI),
+				v1.ResourcePods:   *resource.NewQuantity(0, resource.DecimalSI),
+				ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
 			},
 			Addresses: []v1.NodeAddress{
 				{Type: v1.NodeExternalIP, Address: "127.0.0.1"},
@@ -116,16 +120,16 @@ func newScheduledPod() *v1.Pod {
 		{
 			Resources: v1.ResourceRequirements{
 				Limits: v1.ResourceList{
-					v1.ResourceCPU:       *resource.NewMilliQuantity(400, resource.DecimalSI),
-					v1.ResourceMemory:    *resource.NewQuantity(10E6, resource.BinarySI),
-					v1.ResourcePods:      *resource.NewQuantity(0, resource.DecimalSI),
-					v1.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
+					v1.ResourceCPU:    *resource.NewMilliQuantity(400, resource.DecimalSI),
+					v1.ResourceMemory: *resource.NewQuantity(10E6, resource.BinarySI),
+					v1.ResourcePods:   *resource.NewQuantity(0, resource.DecimalSI),
+					ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
 				},
 				Requests: v1.ResourceList{
-					v1.ResourceCPU:       *resource.NewMilliQuantity(400, resource.DecimalSI),
-					v1.ResourceMemory:    *resource.NewQuantity(10E6, resource.BinarySI),
-					v1.ResourcePods:      *resource.NewQuantity(0, resource.DecimalSI),
-					v1.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
+					v1.ResourceCPU:    *resource.NewMilliQuantity(400, resource.DecimalSI),
+					v1.ResourceMemory: *resource.NewQuantity(10E6, resource.BinarySI),
+					v1.ResourcePods:   *resource.NewQuantity(0, resource.DecimalSI),
+					ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
 				},
 			},
 		},
