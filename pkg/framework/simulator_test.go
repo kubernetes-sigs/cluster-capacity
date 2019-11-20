@@ -25,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	fakeclientset "k8s.io/client-go/kubernetes/fake"
-	kubeschedulerappconfig "k8s.io/kubernetes/cmd/kube-scheduler/app/config"
 	kubescheduleroptions "k8s.io/kubernetes/cmd/kube-scheduler/app/options"
 	apitesting "k8s.io/kubernetes/pkg/api/testing"
 	kubeschedulerconfig "k8s.io/kubernetes/pkg/scheduler/apis/config"
@@ -209,7 +208,7 @@ func TestPrediction(t *testing.T) {
 	}
 
 	// 3. run predictor
-	if err := cc.SyncWithClient(resourceStore); err != nil {
+	if err := cc.SyncWithClient(client); err != nil {
 		t.Errorf("Unable to sync resources: %v", err)
 	}
 	if err := cc.Run(); err != nil {
@@ -227,16 +226,4 @@ func TestPrediction(t *testing.T) {
 	if cc.Report().Status.FailReason.FailType != "LimitReached" {
 		t.Errorf("Unexpected stop reason occured: %v, expecting: LimitReached", cc.Report().Status.FailReason.FailType)
 	}
-}
-
-func InitKubeSchedulerConfiguration(opts *kubescheduleroptions.Options) (*kubeschedulerappconfig.CompletedConfig, error) {
-	c := &kubeschedulerappconfig.Config{}
-	if err := opts.ApplyTo(c); err != nil {
-		return nil, fmt.Errorf("unable to get scheduler config: %v", err)
-	}
-
-	// Get the completed config
-	cc := c.Complete()
-
-	return &cc, nil
 }

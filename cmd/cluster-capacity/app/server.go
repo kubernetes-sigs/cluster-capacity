@@ -20,12 +20,14 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/renstrom/dedent"
+	"github.com/lithammer/dedent"
 	"github.com/spf13/cobra"
 
 	clientset "k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	schedconfig "k8s.io/kubernetes/cmd/kube-scheduler/app/config"
+	schedoptions "k8s.io/kubernetes/cmd/kube-scheduler/app/options"
 	_ "k8s.io/kubernetes/pkg/scheduler/algorithmprovider"
 
 	"github.com/kubernetes-incubator/cluster-capacity/cmd/cluster-capacity/app/options"
@@ -82,18 +84,20 @@ func Validate(opt *options.ClusterCapacityOptions) error {
 func Run(opt *options.ClusterCapacityOptions) error {
 	conf := options.NewClusterCapacityConfig(opt)
 
-	err := conf.SetDefaultScheduler()
+	opts, err := schedoptions.NewOptions()
 	if err != nil {
-		return fmt.Errorf("Failed to create default scheduler server: %v ", err)
+		return fmt.Errorf("unable to create scheduler options: %v", err)
 	}
 
-	// TODO (avesh): Enable when support for multiple schedulers is implemented.
-	/*err = conf.ParseAdditionalSchedulerConfigs()
-	if err != nil {
-		return fmt.Errorf("Failed to parse config file: %v ", err)
-	}*/
+	// inject scheduler config file
+	opts.ConfigFile = conf.Options.DefaultSchedulerConfigFile
 
-	err = conf.ParseAPISpec()
+	cc, err := framework.InitKubeSchedulerConfiguration(opts)
+	if err != nil {
+		return fmt.Errorf("failed to init kube scheduler configuration: %v ", err)
+	}
+
+	err = conf.ParseAPISpec(cc)
 	if err != nil {
 		return fmt.Errorf("Failed to parse pod spec file: %v ", err)
 	}
@@ -123,7 +127,7 @@ func Run(opt *options.ClusterCapacityOptions) error {
 		return err
 	}
 
-	report, err := runSimulator(conf, true)
+	report, err := runSimulator(conf, cc)
 	if err != nil {
 		return err
 	}
@@ -133,24 +137,13 @@ func Run(opt *options.ClusterCapacityOptions) error {
 	return nil
 }
 
-func runSimulator(s *options.ClusterCapacityConfig, syncWithClient bool) (*framework.ClusterCapacityReview, error) {
-	cc, err := framework.New(s.DefaultSchedulerConfig, s.Pod, s.Options.MaxLimit)
+func runSimulator(s *options.ClusterCapacityConfig, kubeSchedulerConfig *schedconfig.CompletedConfig) (*framework.ClusterCapacityReview, error) {
+	cc, err := framework.New(kubeSchedulerConfig, s.Pod, s.Options.MaxLimit)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO (avesh): Enable when support for multiple schedulers is implemented.
-	/*for i := 0; i < len(s.Schedulers); i++ {
-		if err = cc.AddScheduler(s.Schedulers[i]); err != nil {
-			return nil, err
-		}
-	}*/
-
-	if syncWithClient {
-		err = cc.SyncWithClient(s.KubeClient)
-	} else {
-		err = cc.SyncWithStore(s.ResourceStore)
-	}
+	err = cc.SyncWithClient(s.KubeClient)
 	if err != nil {
 		return nil, err
 	}

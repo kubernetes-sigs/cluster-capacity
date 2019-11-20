@@ -21,7 +21,7 @@ import (
 
 	"k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
-	schedulercache "k8s.io/kubernetes/pkg/scheduler/cache"
+	schedulernodeinfo "k8s.io/kubernetes/pkg/scheduler/nodeinfo"
 )
 
 type Strategy interface {
@@ -39,7 +39,7 @@ type predictiveStrategy struct {
 	client kubernetes.Interface
 
 	// for each node keep its NodeInfo
-	nodeInfo map[string]*schedulercache.NodeInfo
+	nodeInfo map[string]*schedulernodeinfo.NodeInfo
 }
 
 func (s *predictiveStrategy) addPod(pod *v1.Pod) error {
@@ -54,7 +54,7 @@ func (s *predictiveStrategy) addPod(pod *v1.Pod) error {
 	// so the update is needed to emit update event in case a handler is registered
 	_, err := s.client.CoreV1().Pods(pod.Namespace).Update(pod)
 	if err != nil {
-		return fmt.Errorf("Unable to add new node: %v", err)
+		return fmt.Errorf("Unable to add new pod: %v", err)
 	}
 
 	return nil
