@@ -29,14 +29,13 @@ import (
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	clientset "k8s.io/client-go/kubernetes"
+	schedConfig "k8s.io/kubernetes/cmd/kube-scheduler/app/config"
+	schedOptions "k8s.io/kubernetes/cmd/kube-scheduler/app/options"
 	api "k8s.io/kubernetes/pkg/apis/core"
 	apiv1 "k8s.io/kubernetes/pkg/apis/core/v1"
 	"k8s.io/kubernetes/pkg/apis/core/validation"
-	schedConfig "k8s.io/kubernetes/cmd/kube-scheduler/app/config"
-	schedOptions "k8s.io/kubernetes/cmd/kube-scheduler/app/options"
 	"k8s.io/kubernetes/pkg/scheduler/algorithmprovider"
 
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/utils"
 )
 
@@ -45,7 +44,6 @@ type ClusterCapacityConfig struct {
 	KubeClient             clientset.Interface
 	Options                *ClusterCapacityOptions
 	DefaultSchedulerConfig *schedConfig.CompletedConfig
-	ResourceStore          store.ResourceStore
 }
 
 type ClusterCapacityOptions struct {

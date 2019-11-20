@@ -24,21 +24,18 @@ import (
 	"time"
 
 	"k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/informers"
 	storageinformers "k8s.io/client-go/informers/storage/v1"
 	externalclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/tools/cache"
 	kubeschedulerconfig "k8s.io/kubernetes/pkg/scheduler/apis/config"
 	//"k8s.io/kubernetes/pkg/controller"
-	"k8s.io/kubernetes/pkg/features"
+	fakeclientset "k8s.io/client-go/kubernetes/fake"
 	schedConfig "k8s.io/kubernetes/cmd/kube-scheduler/app/config"
+	"k8s.io/kubernetes/pkg/features"
 	"k8s.io/kubernetes/pkg/scheduler"
 	schedulerapi "k8s.io/kubernetes/pkg/scheduler/api"
 	latestschedulerapi "k8s.io/kubernetes/pkg/scheduler/api/latest"
@@ -48,10 +45,7 @@ import (
 	// register algorithm providers
 	_ "k8s.io/kubernetes/pkg/scheduler/algorithmprovider"
 
-	ccapi "github.com/kubernetes-incubator/cluster-capacity/pkg/api"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/record"
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/restclient/external"
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/strategy"
 )
 
@@ -60,13 +54,10 @@ const (
 )
 
 type ClusterCapacity struct {
-	// caches modified by emulation strategy
-	resourceStore store.ResourceStore
-
 	// emulation strategy
 	strategy strategy.Strategy
 
-	externalkubeclient *externalclientset.Clientset
+	externalkubeclient externalclientset.Interface
 
 	informerFactory informers.SharedInformerFactory
 
@@ -113,69 +104,124 @@ func (c *ClusterCapacity) Report() *ClusterCapacityReview {
 }
 
 func (c *ClusterCapacity) SyncWithClient(client externalclientset.Interface) error {
-	for _, resource := range c.resourceStore.Resources() {
-		listWatcher := cache.NewListWatchFromClient(client.Core().RESTClient(), resource.String(), metav1.NamespaceAll, fields.ParseSelectorOrDie(""))
+	podItems, err := client.CoreV1().Pods(metav1.NamespaceAll).List(metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to list pods: %v", err)
+	}
 
-		options := metav1.ListOptions{ResourceVersion: "0"}
-		list, err := listWatcher.List(options)
-		if err != nil {
-			return fmt.Errorf("Failed to list objects: %v", err)
-		}
-
-		listMetaInterface, err := meta.ListAccessor(list)
-		if err != nil {
-			return fmt.Errorf("Unable to understand list result %#v: %v", list, err)
-		}
-		resourceVersion := listMetaInterface.GetResourceVersion()
-
-		items, err := meta.ExtractList(list)
-		if err != nil {
-			return fmt.Errorf("Unable to understand list result %#v (%v)", list, err)
-		}
-		found := make([]interface{}, 0, len(items))
-		for _, item := range items {
-			found = append(found, item)
-		}
-		err = c.resourceStore.Replace(resource, found, resourceVersion)
-		if err != nil {
-			return fmt.Errorf("Unable to store %s list result: %v", resource, err)
+	for _, item := range podItems.Items {
+		if _, err := c.externalkubeclient.CoreV1().Pods(item.Namespace).Create(&item); err != nil {
+			return fmt.Errorf("unable to copy pod: %v", err)
 		}
 	}
-	return nil
-}
 
-func (c *ClusterCapacity) SyncWithStore(resourceStore store.ResourceStore) error {
-	for _, resource := range resourceStore.Resources() {
-		err := c.resourceStore.Replace(resource, resourceStore.List(resource), "0")
-		if err != nil {
-			return fmt.Errorf("Resource replace error: %v\n", err)
+	nodeItems, err := client.CoreV1().Nodes().List(metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to list nodes: %v", err)
+	}
+
+	for _, item := range nodeItems.Items {
+		if _, err := c.externalkubeclient.CoreV1().Nodes().Create(&item); err != nil {
+			return fmt.Errorf("unable to copy node: %v", err)
 		}
 	}
+
+	serviceItems, err := client.CoreV1().Services(metav1.NamespaceAll).List(metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to list services: %v", err)
+	}
+
+	for _, item := range serviceItems.Items {
+		if _, err := c.externalkubeclient.CoreV1().Services(item.Namespace).Create(&item); err != nil {
+			return fmt.Errorf("unable to copy service: %v", err)
+		}
+	}
+
+	pvcItems, err := client.CoreV1().PersistentVolumeClaims(metav1.NamespaceAll).List(metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to list pvcs: %v", err)
+	}
+
+	for _, item := range pvcItems.Items {
+		if _, err := c.externalkubeclient.CoreV1().PersistentVolumeClaims(item.Namespace).Create(&item); err != nil {
+			return fmt.Errorf("unable to copy pvc: %v", err)
+		}
+	}
+
+	rcItems, err := client.CoreV1().ReplicationControllers(metav1.NamespaceAll).List(metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to list RCs: %v", err)
+	}
+
+	for _, item := range rcItems.Items {
+		if _, err := c.externalkubeclient.CoreV1().ReplicationControllers(item.Namespace).Create(&item); err != nil {
+			return fmt.Errorf("unable to copy RC: %v", err)
+		}
+	}
+
+	pdbItems, err := client.PolicyV1beta1().PodDisruptionBudgets(metav1.NamespaceAll).List(metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to list PDBs: %v", err)
+	}
+
+	for _, item := range pdbItems.Items {
+		if _, err := c.externalkubeclient.PolicyV1beta1().PodDisruptionBudgets(item.Namespace).Create(&item); err != nil {
+			return fmt.Errorf("unable to copy PDB: %v", err)
+		}
+	}
+
+	replicaSetItems, err := client.AppsV1().ReplicaSets(metav1.NamespaceAll).List(metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to list replicas sets: %v", err)
+	}
+
+	for _, item := range replicaSetItems.Items {
+		if _, err := c.externalkubeclient.AppsV1().ReplicaSets(item.Namespace).Create(&item); err != nil {
+			return fmt.Errorf("unable to copy replica set: %v", err)
+		}
+	}
+
+	statefulSetItems, err := client.AppsV1().StatefulSets(metav1.NamespaceAll).List(metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to list stateful sets: %v", err)
+	}
+
+	for _, item := range statefulSetItems.Items {
+		if _, err := c.externalkubeclient.AppsV1().StatefulSets(item.Namespace).Create(&item); err != nil {
+			return fmt.Errorf("unable to copy stateful set: %v", err)
+		}
+	}
+
+	storageClassesItems, err := client.StorageV1().StorageClasses().List(metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to list storage classes: %v", err)
+	}
+
+	for _, item := range storageClassesItems.Items {
+		if _, err := c.externalkubeclient.StorageV1().StorageClasses().Create(&item); err != nil {
+			return fmt.Errorf("unable to copy storage class: %v", err)
+		}
+	}
+
 	return nil
 }
 
 func (c *ClusterCapacity) Bind(binding *v1.Binding, schedulerName string) error {
 	// run the pod through strategy
-	key := &v1.Pod{
-		ObjectMeta: metav1.ObjectMeta{Name: binding.Name, Namespace: binding.Namespace},
-	}
-	pod, exists, err := c.resourceStore.Get(ccapi.Pods, runtime.Object(key))
+	pod, err := c.externalkubeclient.CoreV1().Pods(binding.Namespace).Get(binding.Name, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("Unable to bind: %v", err)
 	}
-	if !exists {
-		return fmt.Errorf("Unable to bind, pod %v not found", pod)
-	}
-	updatedPod := *pod.(*v1.Pod)
+	updatedPod := pod.DeepCopy()
 	updatedPod.Spec.NodeName = binding.Target.Name
 	updatedPod.Status.Phase = v1.PodRunning
 
 	// TODO(jchaloup): rename Add to Update as this actually updates the scheduled pod
-	if err := c.strategy.Add(&updatedPod); err != nil {
+	if err := c.strategy.Add(updatedPod); err != nil {
 		return fmt.Errorf("Unable to recompute new cluster state: %v", err)
 	}
 
-	c.status.Pods = append(c.status.Pods, &updatedPod)
+	c.status.Pods = append(c.status.Pods, updatedPod)
 	go func() {
 		<-c.schedulerConfigs[schedulerName].Recorder.(*record.Recorder).Events
 	}()
@@ -242,7 +288,8 @@ func (c *ClusterCapacity) nextPod() error {
 	c.simulated++
 	c.lastSimulatedPod = &pod
 
-	return c.resourceStore.Add(ccapi.Pods, runtime.Object(&pod))
+	_, err := c.externalkubeclient.CoreV1().Pods(pod.Namespace).Create(&pod)
+	return err
 }
 
 func (c *ClusterCapacity) Run() error {
@@ -332,34 +379,14 @@ func (c *ClusterCapacity) createScheduler(s *schedConfig.CompletedConfig) (*sche
 // The analysis is completely independent of apiserver so no need
 // for kubeconfig nor for apiserver url
 func New(completedConf *schedConfig.CompletedConfig, simulatedPod *v1.Pod, maxPods int) (*ClusterCapacity, error) {
-	resourceStore := store.NewResourceStore()
-	restClient := external.NewRESTClient(resourceStore, "core")
+	client := fakeclientset.NewSimpleClientset()
 
 	cc := &ClusterCapacity{
-		resourceStore:      resourceStore,
-		strategy:           strategy.NewPredictiveStrategy(resourceStore),
-		externalkubeclient: externalclientset.New(restClient),
+		strategy:           strategy.NewPredictiveStrategy(client),
+		externalkubeclient: client,
 		simulatedPod:       simulatedPod,
 		simulated:          0,
 		maxSimulated:       maxPods,
-	}
-
-	for _, resource := range resourceStore.Resources() {
-		// The resource variable would be shared among all [Add|Update|Delete]Func functions
-		// and resource would be set to the last item in resources list.
-		// Thus, it needs to be stored to a local variable in each iteration.
-		rt := resource
-		resourceStore.RegisterEventHandler(rt, cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				restClient.EmitObjectWatchEvent(rt, watch.Added, obj.(runtime.Object))
-			},
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				restClient.EmitObjectWatchEvent(rt, watch.Modified, newObj.(runtime.Object))
-			},
-			DeleteFunc: func(obj interface{}) {
-				restClient.EmitObjectWatchEvent(rt, watch.Deleted, obj.(runtime.Object))
-			},
-		})
 	}
 
 	// Replace InformerFactory

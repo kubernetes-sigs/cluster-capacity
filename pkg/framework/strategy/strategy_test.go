@@ -28,7 +28,7 @@ import (
 	apitesting "k8s.io/kubernetes/pkg/api/testing"
 	"k8s.io/kubernetes/pkg/version"
 
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
+	fakeclientset "k8s.io/client-go/kubernetes/fake"
 )
 
 const (
@@ -142,14 +142,13 @@ func newScheduledPod() *v1.Pod {
 }
 
 func TestAddPodStrategy(t *testing.T) {
-	// 1. create resource storage and fill it with a fake node
-	resourceStore := store.NewResourceStore()
-	resourceStore.Add("nodes", getTestNode(testStrategyNode))
-
-	predictiveStrategy := NewPredictiveStrategy(resourceStore)
+	// 1. create fake node
+	fakeNode := getTestNode(testStrategyNode)
 
 	// 2. create fake pod with some consumed resources assigned to the fake fake
 	scheduledPod := newScheduledPod()
+	client := fakeclientset.NewSimpleClientset(fakeNode, scheduledPod)
+	predictiveStrategy := NewPredictiveStrategy(client)
 
 	// 3. run the strategy to retrieve the node from the resource store recomputing the node's allocatable
 	err := predictiveStrategy.Add(scheduledPod)
@@ -158,15 +157,12 @@ func TestAddPodStrategy(t *testing.T) {
 	}
 
 	// 4. check both the update node and the pod is stored back into the resource store
-	foundPod, exists, err := resourceStore.Get("pods", metav1.Object(scheduledPod))
+	foundPod, err := client.CoreV1().Pods(scheduledPod.Namespace).Get(scheduledPod.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Unexpected error when retrieving scheduled pod: %v", err)
 	}
-	if !exists {
-		t.Errorf("Unable to find scheduled pod: %v", err)
-	}
 
-	actualPod := foundPod.(*v1.Pod)
+	actualPod := foundPod.DeepCopy()
 	if !reflect.DeepEqual(scheduledPod, actualPod) {
 		t.Errorf("Unexpected object: expected: %#v\n actual: %#v", scheduledPod, actualPod)
 	}
@@ -175,15 +171,12 @@ func TestAddPodStrategy(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: testStrategyNode},
 	}
 
-	foundNode, exists, err := resourceStore.Get("nodes", metav1.Object(node))
+	foundNode, err := client.CoreV1().Nodes().Get(node.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Unexpected error when retrieving scheduled node: %v", err)
 	}
-	if !exists {
-		t.Errorf("Unable to find scheduled node: %v", err)
-	}
 
-	actualNode := foundNode.(*v1.Node)
+	actualNode := foundNode.DeepCopy()
 	if reflect.DeepEqual(node, actualNode) {
 		t.Errorf("Expected %q node to be modified", testStrategyNode)
 	}

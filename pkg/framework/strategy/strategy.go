@@ -20,10 +20,8 @@ import (
 	"fmt"
 
 	"k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	schedulercache "k8s.io/kubernetes/pkg/scheduler/cache"
-
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
 )
 
 type Strategy interface {
@@ -38,7 +36,7 @@ type Strategy interface {
 }
 
 type predictiveStrategy struct {
-	resourceStore store.ResourceStore
+	client kubernetes.Interface
 
 	// for each node keep its NodeInfo
 	nodeInfo map[string]*schedulercache.NodeInfo
@@ -54,7 +52,7 @@ func (s *predictiveStrategy) addPod(pod *v1.Pod) error {
 
 	// here assuming the pod is already in the resource storage
 	// so the update is needed to emit update event in case a handler is registered
-	err := s.resourceStore.Update("pods", metav1.Object(pod))
+	_, err := s.client.CoreV1().Pods(pod.Namespace).Update(pod)
 	if err != nil {
 		return fmt.Errorf("Unable to add new node: %v", err)
 	}
@@ -82,8 +80,8 @@ func (s *predictiveStrategy) Delete(obj interface{}) error {
 	return fmt.Errorf("Not implemented yet")
 }
 
-func NewPredictiveStrategy(resourceStore store.ResourceStore) *predictiveStrategy {
+func NewPredictiveStrategy(client kubernetes.Interface) *predictiveStrategy {
 	return &predictiveStrategy{
-		resourceStore: resourceStore,
+		client: client,
 	}
 }
