@@ -37,64 +37,64 @@ const (
 
 type ClusterCapacityReview struct {
 	metav1.TypeMeta
-	Spec   ClusterCapacityReviewSpec
-	Status ClusterCapacityReviewStatus
+	Spec   ClusterCapacityReviewSpec   `json:"spec"`
+	Status ClusterCapacityReviewStatus `json:"status"`
 }
 
 type ClusterCapacityReviewSpec struct {
 	// the pod desired for scheduling
-	Templates []v1.Pod
+	Templates []v1.Pod `json:"templates"`
 
 	// desired number of replicas that should be scheduled
 	// +optional
-	Replicas int32
+	Replicas int32 `json:"replicas"`
 
-	PodRequirements []*Requirements
+	PodRequirements []*Requirements `json:"podRequirements"`
 }
 
 type ClusterCapacityReviewStatus struct {
-	CreationTimestamp time.Time
+	CreationTimestamp time.Time `json:"creationTimestamp"`
 	// actual number of replicas that could schedule
-	Replicas int32
+	Replicas int32 `json:"replicas"`
 
-	FailReason *ClusterCapacityReviewScheduleFailReason
+	FailReason *ClusterCapacityReviewScheduleFailReason `json:"failReason"`
 
 	// per node information about the scheduling simulation
-	Pods []*ClusterCapacityReviewResult
+	Pods []*ClusterCapacityReviewResult `json:"pods"`
 }
 
 type ClusterCapacityReviewResult struct {
-	PodName string
+	PodName string `json:"podName"`
 	// numbers of replicas on nodes
-	ReplicasOnNodes []*ReplicasOnNode
+	ReplicasOnNodes []*ReplicasOnNode `json:"replicasOnNodes"`
 	// reason why no more pods could schedule (if any on this node)
-	FailSummary []FailReasonSummary
+	FailSummary []FailReasonSummary `json:"failSummary"`
 }
 
 type ReplicasOnNode struct {
-	NodeName string
-	Replicas int
+	NodeName string `json:"nodeName"`
+	Replicas int    `json:"replicas"`
 }
 
 type FailReasonSummary struct {
-	Reason string
-	Count  int
+	Reason string `json:"reason"`
+	Count  int    `json:"count"`
 }
 
 type Resources struct {
-	PrimaryResources v1.ResourceList
-	ScalarResources  map[v1.ResourceName]int64
+	PrimaryResources v1.ResourceList           `json:"primaryResources"`
+	ScalarResources  map[v1.ResourceName]int64 `json:"scalarResources"`
 }
 
 type Requirements struct {
-	PodName       string
-	Resources     *Resources
-	NodeSelectors map[string]string
+	PodName       string            `json:"podName"`
+	Resources     *Resources        `json:"resources"`
+	NodeSelectors map[string]string `json:"nodeSelectors"`
 }
 
 type ClusterCapacityReviewScheduleFailReason struct {
-	FailType    string
-	FailMessage string
+	FailType    string `json:"failType"`
+	FailMessage string `json:"failMessage"`
 }
 
 func getMainFailReason(message string) *ClusterCapacityReviewScheduleFailReason {

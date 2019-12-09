@@ -1,42 +1,44 @@
-[prune]
-  go-tests = true
-  unused-packages = true
-
-[[constraint]]
+[[override]]
   name = "k8s.io/api"
-  version = "kubernetes-1.13.5"
-
-[[constraint]]
-  name = "k8s.io/apimachinery"
-  version = "kubernetes-1.13.5"
-
-[[constraint]]
-  name = "k8s.io/apiserver"
-  version = "kubernetes-1.13.5"
+  version = "kubernetes-1.15.3"
 
 [[override]]
-  name = "k8s.io/apiextensions-apiserver"
-  version = "kubernetes-1.13.5"
+  name = "k8s.io/apiserver"
+  version = "kubernetes-1.15.3"
+
+[[override]]
+  name = "k8s.io/apimachinery"
+  version = "kubernetes-1.15.3"
+
+[[override]]
+  name = "k8s.io/client-go"
+  version = "kubernetes-1.15.3"
 
 [[override]]
   name = "k8s.io/kube-scheduler"
-  version = "kubernetes-1.13.5"
-
-[[override]]
-  version = "v0.9.0"
-  name = "github.com/prometheus/client_golang"
-
-
-[[override]]
-  revision = "c59034cc13d587f5ef4e85ca0ade0c1866ae8e1d"
-  name = "k8s.io/kube-openapi"
-
-
-[[constraint]]
-  name = "k8s.io/client-go"
-  version = "kubernetes-1.13.5"
+  version = "kubernetes-1.15.3"
 
 [[constraint]]
   name = "k8s.io/kubernetes"
-  source = "git@github.com:ringtail/kubernetes.git"
-  branch = "release-1.13-cache"
+  # version = "v1.15.3"
+  revision = "2d3c76f9091b6bec110a5e63777c332469e0cba2"
+
+[[override]]
+  name = "github.com/prometheus/client_golang"
+  version = "v0.9.2"
+
+[[override]]
+  name = "sigs.k8s.io/structured-merge-diff"
+  revision = "e85c7b244fd2cc57bb829d73a061f93a441e63ce"
+
+[[override]]
+  name = "k8s.io/kube-openapi"
+  revision = "b3a7cee44a305be0a69e1b9ac03018307287e1b0"
+
+[[override]]
+  name = "github.com/coreos/etcd"
+  revision = "v3.3.13"
+
+[[override]]
+  name = "k8s.io/apiextensions-apiserver"
+  revision = "kubernetes-1.15.3"

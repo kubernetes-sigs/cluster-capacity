@@ -33,7 +33,7 @@ var (
 // Retrieve a namespace pod constructed from the namespace limitations.
 // Limitations cover pod resource limits and node selector if available
 func RetrieveNamespacePod(client clientset.Interface, namespace string) (*v1.Pod, error) {
-	ns, err := client.Core().Namespaces().Get(namespace, metav1.GetOptions{})
+	ns, err := client.CoreV1().Namespaces().Get(namespace, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("Namespace %v not found: %v", namespace, err)
 	}
@@ -57,7 +57,7 @@ func RetrieveNamespacePod(client clientset.Interface, namespace string) (*v1.Pod
 	}
 
 	// Iterate through all limit ranges and pick the minimum of all related to pod constraints
-	limits, err := client.Core().LimitRanges(namespace).List(metav1.ListOptions{})
+	limits, err := client.CoreV1().LimitRanges(namespace).List(metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("Could not retrieve limit ranges for %v namespaces: %v", namespace, err)
 	}
