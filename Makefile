@@ -13,7 +13,7 @@
 # limitations under the License.
 
 build:
-	go build -o hypercc github.com/kubernetes-incubator/cluster-capacity/cmd/hypercc
+	go build -o hypercc sigs.k8s.io/cluster-capacity/cmd/hypercc
 	ln -sf hypercc cluster-capacity
 	ln -sf hypercc genpod
 run:

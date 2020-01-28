@@ -23,8 +23,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	capp "github.com/kubernetes-incubator/cluster-capacity/cmd/cluster-capacity/app"
-	gapp "github.com/kubernetes-incubator/cluster-capacity/cmd/genpod/app"
+	capp "sigs.k8s.io/cluster-capacity/cmd/cluster-capacity/app"
+	gapp "sigs.k8s.io/cluster-capacity/cmd/genpod/app"
 )
 
 func main() {

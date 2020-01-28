@@ -2,8 +2,8 @@
 
  - Have a running kubernetes environment - You can use e.g ``$ hack/local-up-cluster.sh`` in cloned local [kubernetes repository](https://github.com/kubernetes/kubernetes)
 
- - If your kubernetes cluster doesn't have limit ranges and requests specified you can do it by specifying limitrange object. If you just want to try cluster-capacity, you can use 
- [Example limit range file](https://github.com/kubernetes-incubator/cluster-capacity/blob/master/doc/example-limit-range.yaml)
+ - If your kubernetes cluster doesn't have limit ranges and requests specified you can do it by specifying limitrange object. If you just want to try cluster-capacity, you can use
+ [Example limit range file](https://github.com/kubernetes-sigs/cluster-capacity/blob/master/doc/example-limit-range.yaml)
 
  - Make sure the kubernetes default service has the correct port and the traffic from the VIP is forwarded to running Apiserver (e.g. ``kubernetes`` service on VIP ``10.0.0.1`` and port ``443`` with Apiserver running on ``127.0.0.1:6443``).
 ```
@@ -12,7 +12,7 @@ $ kubectl patch svc kubernetes -p '[{"op": "replace", "path": "/spec/ports/0/por
 # update iptables to forward the kubernetes service to the Apiserver
 $ sudo iptables -t nat -A PREROUTING -d 10.0.0.1 -p tcp --dport 6443 -j DNAT --to-destination 127.0.0.1
 ```
- 
+
  - Create pod object:
 ```sh
 $ cat cluster-capacity-pod.yaml
@@ -47,16 +47,15 @@ $ kubectl expose pod cluster-capacity --port=8081
 ```
 
  - Get endpoint URL
- 
+
 ```sh
 $ kubectl get endpoints cluster-capacity
 ```
 
- - Now you should be able to see cluster status: 
+ - Now you should be able to see cluster status:
 
 ```sh
 curl http://<endpoint>/capacity/status
 ```
 
- - For more information of how to access acquired data any see [API operations](https://github.com/kubernetes-incubator/cluster-capacity/blob/master/doc/api-operations.md)
- 
+ - For more information of how to access acquired data any see [API operations](https://github.com/kubernetes-sigs/cluster-capacity/blob/master/doc/api-operations.md)

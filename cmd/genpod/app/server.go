@@ -28,9 +28,9 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	_ "k8s.io/kubernetes/pkg/scheduler/algorithmprovider"
 
-	"github.com/kubernetes-incubator/cluster-capacity/cmd/genpod/app/options"
-	nspod "github.com/kubernetes-incubator/cluster-capacity/pkg/client"
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/utils"
+	"sigs.k8s.io/cluster-capacity/cmd/genpod/app/options"
+	nspod "sigs.k8s.io/cluster-capacity/pkg/client"
+	"sigs.k8s.io/cluster-capacity/pkg/utils"
 )
 
 func NewGenPodCommand() *cobra.Command {

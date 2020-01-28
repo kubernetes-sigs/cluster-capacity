@@ -1,7 +1,7 @@
 # Cluster capacity analysis framework
-[![Build Status](https://travis-ci.org/kubernetes-incubator/cluster-capacity.svg?branch=master)](https://travis-ci.org/kubernetes-incubator/cluster-capacity)
+[![Build Status](https://travis-ci.org/kubernetes-sigs/cluster-capacity.svg?branch=master)](https://travis-ci.org/kubernetes-sigs/cluster-capacity)
 
-Implementation of [cluster capacity analysis](https://github.com/kubernetes-incubator/cluster-capacity/blob/master/doc/cluster-capacity.md).
+Implementation of [cluster capacity analysis](https://github.com/kubernetes-sigs/cluster-capacity/blob/master/doc/cluster-capacity.md).
 
 ## Intro
 
@@ -22,8 +22,8 @@ in terms of a number of instances of a pod with given requirements that can be s
 Build the framework:
 
 ```sh
-$ cd $GOPATH/src/github.com/kubernetes-incubator
-$ git clone https://github.com/kubernetes-incubator/cluster-capacity
+$ cd $GOPATH/src/sigs.k8s.io
+$ git clone https://github.com/kubernetes-sigs/cluster-capacity
 $ cd cluster-capacity
 $ make build
 ```
