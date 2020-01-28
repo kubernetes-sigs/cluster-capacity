@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/kubernetes-incubator/cluster-capacity/cmd/genpod/app"
+	"sigs.k8s.io/cluster-capacity/cmd/genpod/app"
 )
 
 func main() {

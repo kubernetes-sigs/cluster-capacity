@@ -49,9 +49,9 @@ import (
 
 	kuberecord "k8s.io/client-go/tools/record"
 
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/record"
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/strategy"
 	uuid "github.com/satori/go.uuid"
+	"sigs.k8s.io/cluster-capacity/pkg/framework/record"
+	"sigs.k8s.io/cluster-capacity/pkg/framework/strategy"
 )
 
 const (

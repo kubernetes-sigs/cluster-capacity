@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/kubernetes-incubator/cluster-capacity/cmd/cluster-capacity/app"
+	"sigs.k8s.io/cluster-capacity/cmd/cluster-capacity/app"
 )
 
 func main() {

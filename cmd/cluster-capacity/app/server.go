@@ -30,9 +30,9 @@ import (
 	schedoptions "k8s.io/kubernetes/cmd/kube-scheduler/app/options"
 	_ "k8s.io/kubernetes/pkg/scheduler/algorithmprovider"
 
-	"github.com/kubernetes-incubator/cluster-capacity/cmd/cluster-capacity/app/options"
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework"
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/utils"
+	"sigs.k8s.io/cluster-capacity/cmd/cluster-capacity/app/options"
+	"sigs.k8s.io/cluster-capacity/pkg/framework"
+	"sigs.k8s.io/cluster-capacity/pkg/utils"
 )
 
 var (
