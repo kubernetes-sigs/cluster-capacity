@@ -122,6 +122,23 @@ aliases:
     - mikedanese
     - WanLinghao
 
+  # SIG Release
+  sig-release-approvers:
+    - calebamiles # SIG Chair
+    - justaugustus # SIG Chair
+    - tpepper # SIG Chair
+  release-engineering-approvers:
+    - calebamiles # SIG Chair
+    - justaugustus # SIG Chair
+    - tpepper # SIG Chair / Patch Release Team
+  release-engineering-reviewers:
+    - aleksandra-malinowska # Patch Release Team
+    - calebamiles # SIG Chair
+    - feiskyer # Patch Release Team
+    - hoegaarden # Patch Release Team
+    - justaugustus # SIG Chair
+    - tpepper # SIG Chair / Patch Release Team
+
   sig-storage-reviewers:
     - saad-ali
     - childsb
@@ -132,14 +149,17 @@ aliases:
     - wojtek-t
     - ravisantoshgudimetla
     - Huang-Wei
+    - ahg-g
   sig-scheduling:
     - bsalamat
     - k82cn
     - resouer
     - ravisantoshgudimetla
-    - misterikkit
     - Huang-Wei
     - wgliang
+    - ahg-g
+    - draveness
+    - hex108
 
   sig-cli-maintainers:
     - adohe
@@ -202,6 +222,7 @@ aliases:
     - yifan-gu
     - yujuhong
     - krmayankk
+    - mattjmcnaughton
   sig-network-approvers:
     - bowei
     - caseydavenport
@@ -227,6 +248,7 @@ aliases:
     - rramkumar1
     - cmluciano
     - m1093782566
+    - andrewsykim
   sig-apps-approvers:
     - kow3ns
     - janetkuo
@@ -341,7 +363,6 @@ aliases:
     - janetkuo
     - justinsb
     - pwittrock
-    - roberthbailey
     - ncdc
     - tallclair
     - yifan-gu
@@ -439,7 +460,7 @@ aliases:
     - prydonius       # Apps
     - pwittrock       # CLI
     - quinton-hoole   # Multicluster
-    - roberthbailey   # Cluster Lifecycle
+    - justinsb        # Cluster Lifecycle
     - saad-ali        # Storage
     - seans3          # CLI
     - soltysh         # CLI

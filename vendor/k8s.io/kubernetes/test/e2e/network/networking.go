@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/kubernetes/pkg/master/ports"
 	"k8s.io/kubernetes/test/e2e/framework"
+	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 
 	"github.com/onsi/ginkgo"
 )
@@ -38,23 +39,25 @@ var _ = SIGDescribe("Networking", func() {
 		ginkgo.By("Executing a successful http request from the external internet")
 		resp, err := http.Get("http://google.com")
 		if err != nil {
-			framework.Failf("Unable to connect/talk to the internet: %v", err)
+			e2elog.Failf("Unable to connect/talk to the internet: %v", err)
 		}
 		if resp.StatusCode != http.StatusOK {
-			framework.Failf("Unexpected error code, expected 200, got, %v (%v)", resp.StatusCode, resp)
+			e2elog.Failf("Unexpected error code, expected 200, got, %v (%v)", resp.StatusCode, resp)
 		}
 	})
 
 	ginkgo.It("should provide Internet connection for containers [Feature:Networking-IPv4]", func() {
-		ginkgo.By("Running container which tries to ping 8.8.8.8")
+		ginkgo.By("Running container which tries to connect to 8.8.8.8")
 		framework.ExpectNoError(
-			framework.CheckConnectivityToHost(f, "", "ping-test", "8.8.8.8", framework.IPv4PingCommand, 30))
+			framework.CheckConnectivityToHost(f, "", "connectivity-test", "8.8.8.8", 53, 30))
 	})
 
-	ginkgo.It("should provide Internet connection for containers [Feature:Networking-IPv6][Experimental]", func() {
-		ginkgo.By("Running container which tries to ping 2001:4860:4860::8888")
+	ginkgo.It("should provide Internet connection for containers [Feature:Networking-IPv6][Experimental][LinuxOnly]", func() {
+		// IPv6 is not supported on Windows.
+		framework.SkipIfNodeOSDistroIs("windows")
+		ginkgo.By("Running container which tries to connect to 2001:4860:4860::8888")
 		framework.ExpectNoError(
-			framework.CheckConnectivityToHost(f, "", "ping-test", "2001:4860:4860::8888", framework.IPv6PingCommand, 30))
+			framework.CheckConnectivityToHost(f, "", "connectivity-test", "2001:4860:4860::8888", 53, 30))
 	})
 
 	// First test because it has no dependencies on variables created later on.
@@ -79,7 +82,7 @@ var _ = SIGDescribe("Networking", func() {
 				AbsPath(test.path).
 				DoRaw()
 			if err != nil {
-				framework.Failf("ginkgo.Failed: %v\nBody: %s", err, string(data))
+				e2elog.Failf("ginkgo.Failed: %v\nBody: %s", err, string(data))
 			}
 		}
 	})
@@ -97,8 +100,7 @@ var _ = SIGDescribe("Networking", func() {
 		config.GetSelfURLStatusCode(ports.ProxyStatusPort, "/proxyMode", "200")
 	})
 
-	// TODO: Remove [Slow] when this has had enough bake time to prove presubmit worthiness.
-	ginkgo.Describe("Granular Checks: Services [Slow]", func() {
+	ginkgo.Describe("Granular Checks: Services", func() {
 
 		ginkgo.It("should function for pod-Service: http", func() {
 			config := framework.NewNetworkingTestConfig(f)
@@ -207,13 +209,13 @@ var _ = SIGDescribe("Networking", func() {
 			// Check if number of endpoints returned are exactly one.
 			eps, err := config.GetEndpointsFromTestContainer("http", config.SessionAffinityService.Spec.ClusterIP, framework.ClusterHTTPPort, framework.SessionAffinityChecks)
 			if err != nil {
-				framework.Failf("ginkgo.Failed to get endpoints from test container, error: %v", err)
+				e2elog.Failf("ginkgo.Failed to get endpoints from test container, error: %v", err)
 			}
 			if len(eps) == 0 {
-				framework.Failf("Unexpected no endpoints return")
+				e2elog.Failf("Unexpected no endpoints return")
 			}
 			if len(eps) > 1 {
-				framework.Failf("Unexpected endpoints return: %v, expect 1 endpoints", eps)
+				e2elog.Failf("Unexpected endpoints return: %v, expect 1 endpoints", eps)
 			}
 		})
 
@@ -224,13 +226,13 @@ var _ = SIGDescribe("Networking", func() {
 			// Check if number of endpoints returned are exactly one.
 			eps, err := config.GetEndpointsFromTestContainer("udp", config.SessionAffinityService.Spec.ClusterIP, framework.ClusterUDPPort, framework.SessionAffinityChecks)
 			if err != nil {
-				framework.Failf("ginkgo.Failed to get endpoints from test container, error: %v", err)
+				e2elog.Failf("ginkgo.Failed to get endpoints from test container, error: %v", err)
 			}
 			if len(eps) == 0 {
-				framework.Failf("Unexpected no endpoints return")
+				e2elog.Failf("Unexpected no endpoints return")
 			}
 			if len(eps) > 1 {
-				framework.Failf("Unexpected endpoints return: %v, expect 1 endpoints", eps)
+				e2elog.Failf("Unexpected endpoints return: %v, expect 1 endpoints", eps)
 			}
 		})
 	})

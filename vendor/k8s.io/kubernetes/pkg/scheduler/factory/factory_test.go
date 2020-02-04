@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/clock"
@@ -476,10 +476,9 @@ func TestInvalidFactoryArgs(t *testing.T) {
 
 }
 
-func newConfigFactory(client clientset.Interface, hardPodAffinitySymmetricWeight int32, stopCh <-chan struct{}) Configurator {
+func newConfigFactory(client clientset.Interface, hardPodAffinitySymmetricWeight int32, stopCh <-chan struct{}) *Configurator {
 	informerFactory := informers.NewSharedInformerFactory(client, 0)
 	return NewConfigFactory(&ConfigFactoryArgs{
-		v1.DefaultSchedulerName,
 		client,
 		informerFactory.Core().V1().Nodes(),
 		informerFactory.Core().V1().Pods(),
@@ -491,6 +490,7 @@ func newConfigFactory(client clientset.Interface, hardPodAffinitySymmetricWeight
 		informerFactory.Core().V1().Services(),
 		informerFactory.Policy().V1beta1().PodDisruptionBudgets(),
 		informerFactory.Storage().V1().StorageClasses(),
+		informerFactory.Storage().V1beta1().CSINodes(),
 		hardPodAffinitySymmetricWeight,
 		disablePodPreemption,
 		schedulerapi.DefaultPercentageOfNodesToScore,
@@ -607,7 +607,7 @@ func testGetBinderFunc(expectedBinderType, podName string, extenders []algorithm
 		},
 	}
 
-	f := &configFactory{}
+	f := &Configurator{}
 	binderFunc := getBinderFunc(f.client, extenders)
 	binder := binderFunc(pod)
 

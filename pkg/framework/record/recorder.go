@@ -21,7 +21,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 )
 
 type Event struct {
@@ -40,9 +40,9 @@ func (e *Recorder) Event(object runtime.Object, eventtype, reason, message strin
 	}
 }
 
-func (e *Recorder) Eventf(object runtime.Object, eventtype, reason, messageFmt string, args ...interface{}) {
+func (e *Recorder) Eventf(regarding runtime.Object, related runtime.Object, eventtype, reason, action, note string, args ...interface{}) {
 	if e.Events != nil {
-		e.Events <- Event{eventtype, reason, fmt.Sprintf(messageFmt, args...)}
+		e.Events <- Event{eventtype, reason, fmt.Sprintf(note, args...)}
 	}
 }
 
@@ -62,4 +62,4 @@ func NewRecorder(bufferSize int) *Recorder {
 	}
 }
 
-var _ record.EventRecorder = &Recorder{}
+var _ events.EventRecorder = &Recorder{}

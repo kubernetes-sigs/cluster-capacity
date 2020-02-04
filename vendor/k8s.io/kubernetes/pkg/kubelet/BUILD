@@ -80,6 +80,7 @@ go_library(
         "//pkg/kubelet/runtimeclass:go_default_library",
         "//pkg/kubelet/secret:go_default_library",
         "//pkg/kubelet/server:go_default_library",
+        "//pkg/kubelet/server/metrics:go_default_library",
         "//pkg/kubelet/server/portforward:go_default_library",
         "//pkg/kubelet/server/remotecommand:go_default_library",
         "//pkg/kubelet/server/stats:go_default_library",
@@ -111,6 +112,7 @@ go_library(
         "//pkg/volume/csi:go_default_library",
         "//pkg/volume/util:go_default_library",
         "//pkg/volume/util/exec:go_default_library",
+        "//pkg/volume/util/hostutil:go_default_library",
         "//pkg/volume/util/subpath:go_default_library",
         "//pkg/volume/util/types:go_default_library",
         "//pkg/volume/util/volumepathhandler:go_default_library",
@@ -219,6 +221,7 @@ go_test(
         "//pkg/volume/hostpath:go_default_library",
         "//pkg/volume/testing:go_default_library",
         "//pkg/volume/util:go_default_library",
+        "//pkg/volume/util/hostutil:go_default_library",
         "//pkg/volume/util/subpath:go_default_library",
         "//staging/src/k8s.io/api/core/v1:go_default_library",
         "//staging/src/k8s.io/apimachinery/pkg/api/equality:go_default_library",
@@ -251,6 +254,9 @@ go_test(
         "//vendor/github.com/stretchr/testify/assert:go_default_library",
         "//vendor/github.com/stretchr/testify/require:go_default_library",
     ] + select({
+        "@io_bazel_rules_go//go/platform:android": [
+            "//staging/src/k8s.io/cri-api/pkg/apis/runtime/v1alpha2:go_default_library",
+        ],
         "@io_bazel_rules_go//go/platform:linux": [
             "//staging/src/k8s.io/cri-api/pkg/apis/runtime/v1alpha2:go_default_library",
         ],

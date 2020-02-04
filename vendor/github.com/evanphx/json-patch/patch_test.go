@@ -187,6 +187,11 @@ var Cases = []Case{
 		`{ "foo": [["bar"], "bar"]}`,
 	},
 	{
+		`{ "foo": null}`,
+		`[{"op": "copy", "path": "/bar", "from": "/foo"}]`,
+		`{ "foo": null, "bar": null}`,
+	},
+	{
 		`{ "foo": ["bar","qux","baz"]}`,
 		`[ { "op": "remove", "path": "/foo/-2"}]`,
 		`{ "foo": ["bar", "baz"]}`,
@@ -332,6 +337,15 @@ var BadCases = []BadCase{
 		`{ "foo": [ "all", "grass", "cows", "eat" ] }`,
 		`[ { "op": "move", "from": "/foo/1", "path": "/foo/4" } ]`,
 	},
+	{
+		`{ "baz": "qux" }`,
+		`[ { "op": "replace", "path": "/foo", "value": "bar" } ]`,
+	},
+	// Can't copy from non-existent "from" key.
+	{
+		`{ "foo": "bar"}`,
+		`[{"op": "copy", "path": "/qux", "from": "/baz"}]`,
+	},
 }
 
 // This is not thread safe, so we cannot run patch tests in parallel.
@@ -459,6 +473,18 @@ var TestCases = []TestCase{
 		false,
 		"/foo",
 	},
+	{
+		`{ "foo": "bar" }`,
+		`[ { "op": "test", "path": "/baz", "value": "bar" } ]`,
+		false,
+		"/baz",
+	},
+	{
+		`{ "foo": "bar" }`,
+		`[ { "op": "test", "path": "/baz", "value": null } ]`,
+		true,
+		"/baz",
+	},
 }
 
 func TestAllTest(t *testing.T) {
@@ -474,6 +500,95 @@ func TestAllTest(t *testing.T) {
 			if err.Error() != expected {
 				t.Errorf("Testing failed as expected but invalid message: expected [%s], got [%s]", expected, err)
 			}
+		}
+	}
+}
+
+func TestAdd(t *testing.T) {
+	testCases := []struct {
+		name                   string
+		key                    string
+		val                    lazyNode
+		arr                    partialArray
+		rejectNegativeIndicies bool
+		err                    string
+	}{
+		{
+			name: "should work",
+			key:  "0",
+			val:  lazyNode{},
+			arr:  partialArray{},
+		},
+		{
+			name: "index too large",
+			key:  "1",
+			val:  lazyNode{},
+			arr:  partialArray{},
+			err:  "Unable to access invalid index: 1: invalid index referenced",
+		},
+		{
+			name: "negative should work",
+			key:  "-1",
+			val:  lazyNode{},
+			arr:  partialArray{},
+		},
+		{
+			name: "negative too small",
+			key:  "-2",
+			val:  lazyNode{},
+			arr:  partialArray{},
+			err:  "Unable to access invalid index: -2: invalid index referenced",
+		},
+		{
+			name: "negative but negative disabled",
+			key:  "-1",
+			val:  lazyNode{},
+			arr:  partialArray{},
+			rejectNegativeIndicies: true,
+			err: "Unable to access invalid index: -1: invalid index referenced",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			SupportNegativeIndices = !tc.rejectNegativeIndicies
+			key := tc.key
+			arr := &tc.arr
+			val := &tc.val
+			err := arr.add(key, val)
+			if err == nil && tc.err != "" {
+				t.Errorf("Expected error but got none! %v", tc.err)
+			} else if err != nil && tc.err == "" {
+				t.Errorf("Did not expect error but go: %v", err)
+			} else if err != nil && err.Error() != tc.err {
+				t.Errorf("Expected error %v but got error %v", tc.err, err)
+			}
+		})
+	}
+}
+
+type EqualityCase struct {
+	a, b  string
+	equal bool
+}
+
+var EqualityCases = []EqualityCase{
+	EqualityCase{
+		`{"foo": "bar"}`,
+		`{"foo": "bar", "baz": "qux"}`,
+		false,
+	},
+}
+
+func TestEquality(t *testing.T) {
+	for _, tc := range EqualityCases {
+		got := Equal([]byte(tc.a), []byte(tc.b))
+		if got != tc.equal {
+			t.Errorf("Expected Equal(%s, %s) to return %t, but got %t", tc.a, tc.b, tc.equal, got)
+		}
+
+		got = Equal([]byte(tc.b), []byte(tc.a))
+		if got != tc.equal {
+			t.Errorf("Expected Equal(%s, %s) to return %t, but got %t", tc.b, tc.a, tc.equal, got)
 		}
 	}
 }

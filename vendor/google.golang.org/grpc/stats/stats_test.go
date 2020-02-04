@@ -58,9 +58,7 @@ var (
 	errorID int32 = 32202
 )
 
-type testServer struct {
-	testpb.UnimplementedTestServiceServer
-}
+type testServer struct{}
 
 func (s *testServer) UnaryCall(ctx context.Context, in *testpb.SimpleRequest) (*testpb.SimpleResponse, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
@@ -404,8 +402,8 @@ const (
 	outPayload
 	outHeader
 	// TODO: test outTrailer ?
-	connBegin
-	connEnd
+	connbegin
+	connend
 )
 
 func checkBegin(t *testing.T, d *gotData, e *expectedData) {
@@ -1040,17 +1038,17 @@ func checkClientStats(t *testing.T, got []*gotData, expect *expectedData, checkF
 			checkFuncs[end].f(t, s, expect)
 			checkFuncs[end].c--
 		case *stats.ConnBegin:
-			if checkFuncs[connBegin].c <= 0 {
+			if checkFuncs[connbegin].c <= 0 {
 				t.Fatalf("unexpected stats: %T", s.s)
 			}
-			checkFuncs[connBegin].f(t, s, expect)
-			checkFuncs[connBegin].c--
+			checkFuncs[connbegin].f(t, s, expect)
+			checkFuncs[connbegin].c--
 		case *stats.ConnEnd:
-			if checkFuncs[connEnd].c <= 0 {
+			if checkFuncs[connend].c <= 0 {
 				t.Fatalf("unexpected stats: %T", s.s)
 			}
-			checkFuncs[connEnd].f(t, s, expect)
-			checkFuncs[connEnd].c--
+			checkFuncs[connend].f(t, s, expect)
+			checkFuncs[connend].c--
 		default:
 			t.Fatalf("unexpected stats: %T", s.s)
 		}

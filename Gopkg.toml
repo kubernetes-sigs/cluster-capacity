@@ -1,27 +1,27 @@
 [[override]]
   name = "k8s.io/api"
-  version = "kubernetes-1.15.3"
+  version = "kubernetes-1.16.6"
 
 [[override]]
   name = "k8s.io/apiserver"
-  version = "kubernetes-1.15.3"
+  version = "kubernetes-1.16.6"
 
 [[override]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.15.3"
+  version = "kubernetes-1.16.6"
 
 [[override]]
   name = "k8s.io/client-go"
-  version = "kubernetes-1.15.3"
+  version = "kubernetes-1.16.6"
 
 [[override]]
   name = "k8s.io/kube-scheduler"
-  version = "kubernetes-1.15.3"
+  version = "kubernetes-1.16.6"
 
 [[constraint]]
   name = "k8s.io/kubernetes"
-  # version = "v1.15.3"
-  revision = "2d3c76f9091b6bec110a5e63777c332469e0cba2"
+  # version = "v1.16.6"
+  revision = "72c30166b2105cd7d3350f2c28a219e6abcd79eb"
 
 [[override]]
   name = "github.com/prometheus/client_golang"
@@ -29,16 +29,24 @@
 
 [[override]]
   name = "sigs.k8s.io/structured-merge-diff"
-  revision = "e85c7b244fd2cc57bb829d73a061f93a441e63ce"
+  revision = "978ad1ec166f83b8380e28ec8b8d7cecca0bd01d"
 
 [[override]]
   name = "k8s.io/kube-openapi"
-  revision = "b3a7cee44a305be0a69e1b9ac03018307287e1b0"
+  revision = "743ec37842bffe49dd4221d9026f30fb1d5adbc4"
+
+[[override]]
+  name = "k8s.io/csi-translation-lib"
+  version = "kubernetes-1.16.6"
 
 [[override]]
   name = "github.com/coreos/etcd"
-  revision = "v3.3.13"
+  revision = "v3.3.17"
 
 [[override]]
   name = "k8s.io/apiextensions-apiserver"
-  revision = "kubernetes-1.15.3"
+  revision = "kubernetes-1.16.6"
+
+[[override]]
+  name = "google.golang.org/grpc"
+  revision = "v1.23.0"

@@ -23,12 +23,13 @@ import (
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
-	storage "k8s.io/api/storage/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
+	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 	"k8s.io/kubernetes/test/e2e/storage/utils"
 )
@@ -39,7 +40,7 @@ var _ = utils.SIGDescribe("Mounted flexvolume volume expand [Slow] [Feature:Expa
 		ns                string
 		err               error
 		pvc               *v1.PersistentVolumeClaim
-		resizableSc       *storage.StorageClass
+		resizableSc       *storagev1.StorageClass
 		nodeName          string
 		isNodeLabeled     bool
 		nodeKeyValueLabel map[string]string
@@ -60,7 +61,7 @@ var _ = utils.SIGDescribe("Mounted flexvolume volume expand [Slow] [Feature:Expa
 
 		nodeList = framework.GetReadySchedulableNodesOrDie(f.ClientSet)
 		if len(nodeList.Items) == 0 {
-			framework.Failf("unable to find ready and schedulable Node")
+			e2elog.Failf("unable to find ready and schedulable Node")
 		}
 		nodeName = nodeList.Items[0].Name
 
@@ -81,15 +82,17 @@ var _ = utils.SIGDescribe("Mounted flexvolume volume expand [Slow] [Feature:Expa
 			Provisioner:          "flex-expand",
 		}
 
-		resizableSc, err = createStorageClass(test, ns, "resizing", c)
+		resizableSc, err = c.StorageV1().StorageClasses().Create(newStorageClass(test, ns, "resizing"))
 		if err != nil {
 			fmt.Printf("storage class creation error: %v\n", err)
 		}
 		framework.ExpectNoError(err, "Error creating resizable storage class: %v", err)
 		gomega.Expect(*resizableSc.AllowVolumeExpansion).To(gomega.BeTrue())
 
-		pvc = getClaim("2Gi", ns)
-		pvc.Spec.StorageClassName = &resizableSc.Name
+		pvc = framework.MakePersistentVolumeClaim(framework.PersistentVolumeClaimConfig{
+			StorageClassName: &(resizableSc.Name),
+			ClaimSize:        "2Gi",
+		}, ns)
 		pvc, err = c.CoreV1().PersistentVolumeClaims(pvc.Namespace).Create(pvc)
 		framework.ExpectNoError(err, "Error creating pvc: %v", err)
 
@@ -106,7 +109,7 @@ var _ = utils.SIGDescribe("Mounted flexvolume volume expand [Slow] [Feature:Expa
 
 		if c != nil {
 			if errs := framework.PVPVCCleanup(c, ns, nil, pvc); len(errs) > 0 {
-				framework.Failf("AfterEach: Failed to delete PVC and/or PV. Errors: %v", utilerrors.NewAggregate(errs))
+				e2elog.Failf("AfterEach: Failed to delete PVC and/or PV. Errors: %v", utilerrors.NewAggregate(errs))
 			}
 			pvc, nodeName, isNodeLabeled, nodeLabelValue = nil, "", false, ""
 			nodeKeyValueLabel = make(map[string]string)
@@ -114,6 +117,8 @@ var _ = utils.SIGDescribe("Mounted flexvolume volume expand [Slow] [Feature:Expa
 	})
 
 	ginkgo.It("should be resizable when mounted", func() {
+		framework.SkipUnlessSSHKeyPresent()
+
 		driver := "dummy-attachable"
 
 		node := nodeList.Items[0]
@@ -141,13 +146,13 @@ var _ = utils.SIGDescribe("Mounted flexvolume volume expand [Slow] [Feature:Expa
 
 		pvs, err = framework.WaitForPVClaimBoundPhase(c, pvcClaims, framework.ClaimProvisionTimeout)
 		framework.ExpectNoError(err, "Failed waiting for PVC to be bound %v", err)
-		gomega.Expect(len(pvs)).To(gomega.Equal(1))
+		framework.ExpectEqual(len(pvs), 1)
 
 		var pod *v1.Pod
 		ginkgo.By("Creating pod")
-		pod, err = framework.CreateNginxPod(c, ns, nodeKeyValueLabel, pvcClaims)
+		pod, err = e2epod.CreateNginxPod(c, ns, nodeKeyValueLabel, pvcClaims)
 		framework.ExpectNoError(err, "Failed to create pod %v", err)
-		defer framework.DeletePodWithWait(f, c, pod)
+		defer e2epod.DeletePodWithWait(c, pod)
 
 		ginkgo.By("Waiting for pod to go to 'running' state")
 		err = f.WaitForPodRunning(pod.ObjectMeta.Name)
@@ -155,24 +160,25 @@ var _ = utils.SIGDescribe("Mounted flexvolume volume expand [Slow] [Feature:Expa
 
 		ginkgo.By("Expanding current pvc")
 		newSize := resource.MustParse("6Gi")
-		pvc, err = expandPVCSize(pvc, newSize, c)
+		newPVC, err := testsuites.ExpandPVCSize(pvc, newSize, c)
 		framework.ExpectNoError(err, "While updating pvc for more size")
+		pvc = newPVC
 		gomega.Expect(pvc).NotTo(gomega.BeNil())
 
 		pvcSize := pvc.Spec.Resources.Requests[v1.ResourceStorage]
 		if pvcSize.Cmp(newSize) != 0 {
-			framework.Failf("error updating pvc size %q", pvc.Name)
+			e2elog.Failf("error updating pvc size %q", pvc.Name)
 		}
 
 		ginkgo.By("Waiting for cloudprovider resize to finish")
-		err = waitForControllerVolumeResize(pvc, c, totalResizeWaitPeriod)
+		err = testsuites.WaitForControllerVolumeResize(pvc, c, totalResizeWaitPeriod)
 		framework.ExpectNoError(err, "While waiting for pvc resize to finish")
 
 		ginkgo.By("Waiting for file system resize to finish")
-		pvc, err = waitForFSResize(pvc, c)
+		pvc, err = testsuites.WaitForFSResize(pvc, c)
 		framework.ExpectNoError(err, "while waiting for fs resize to finish")
 
 		pvcConditions := pvc.Status.Conditions
-		gomega.Expect(len(pvcConditions)).To(gomega.Equal(0), "pvc should not have conditions")
+		framework.ExpectEqual(len(pvcConditions), 0, "pvc should not have conditions")
 	})
 })

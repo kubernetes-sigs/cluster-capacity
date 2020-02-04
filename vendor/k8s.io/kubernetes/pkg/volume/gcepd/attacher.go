@@ -1,3 +1,5 @@
+// +build !providerless
+
 /*
 Copyright 2016 The Kubernetes Authors.
 
@@ -27,7 +29,7 @@ import (
 	"strconv"
 	"time"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog"
@@ -382,6 +384,14 @@ func (detacher *gcePersistentDiskDetacher) Detach(volumeName string, nodeName ty
 }
 
 func (detacher *gcePersistentDiskDetacher) UnmountDevice(deviceMountPath string) error {
+	if runtime.GOOS == "windows" {
+		// Flush data cache for windows because it does not do so automatically during unmount device
+		exec := detacher.host.GetExec(gcePersistentDiskPluginName)
+		err := volumeutil.WriteVolumeCache(deviceMountPath, exec)
+		if err != nil {
+			return err
+		}
+	}
 	return mount.CleanupMountPoint(deviceMountPath, detacher.host.GetMounter(gcePersistentDiskPluginName), false)
 }
 

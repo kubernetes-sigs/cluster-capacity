@@ -30,11 +30,13 @@ import (
 	"time"
 
 	"github.com/onsi/ginkgo"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
+	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	"k8s.io/kubernetes/test/e2e/framework/volume"
 	"k8s.io/kubernetes/test/e2e/storage/testpatterns"
 	"k8s.io/kubernetes/test/e2e/storage/utils"
@@ -73,6 +75,12 @@ func InitVolumeIOTestSuite() TestSuite {
 
 func (t *volumeIOTestSuite) getTestSuiteInfo() TestSuiteInfo {
 	return t.tsInfo
+}
+
+func (t *volumeIOTestSuite) skipRedundantSuite(driver TestDriver, pattern testpatterns.TestPattern) {
+	skipVolTypePatterns(pattern, driver, testpatterns.NewVolTypeMap(
+		testpatterns.PreprovisionedPV,
+		testpatterns.InlineVolume))
 }
 
 func (t *volumeIOTestSuite) defineTests(driver TestDriver, pattern testpatterns.TestPattern) {
@@ -308,7 +316,7 @@ func testVolumeIO(f *framework.Framework, cs clientset.Interface, config volume.
 	defer func() {
 		deleteFile(clientPod, ddInput)
 		ginkgo.By(fmt.Sprintf("deleting client pod %q...", clientPod.Name))
-		e := framework.DeletePodWithWait(f, cs, clientPod)
+		e := e2epod.DeletePodWithWait(cs, clientPod)
 		if e != nil {
 			e2elog.Logf("client pod failed to delete: %v", e)
 			if err == nil { // delete err is returned if err is not set
@@ -320,7 +328,7 @@ func testVolumeIO(f *framework.Framework, cs clientset.Interface, config volume.
 		}
 	}()
 
-	err = framework.WaitForPodRunningInNamespace(cs, clientPod)
+	err = e2epod.WaitForPodRunningInNamespace(cs, clientPod)
 	if err != nil {
 		return fmt.Errorf("client pod %q not running: %v", clientPod.Name, err)
 	}

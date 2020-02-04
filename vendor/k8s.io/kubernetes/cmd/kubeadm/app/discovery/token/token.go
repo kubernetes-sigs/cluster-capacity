@@ -24,20 +24,19 @@ import (
 
 	"github.com/pkg/errors"
 
-	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	certutil "k8s.io/client-go/util/cert"
 	bootstrapapi "k8s.io/cluster-bootstrap/token/api"
+	bootstrap "k8s.io/cluster-bootstrap/token/jws"
 	"k8s.io/klog"
 	kubeadmapi "k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm"
 	kubeadmapiv1beta2 "k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm/v1beta2"
 	"k8s.io/kubernetes/cmd/kubeadm/app/constants"
 	kubeconfigutil "k8s.io/kubernetes/cmd/kubeadm/app/util/kubeconfig"
 	"k8s.io/kubernetes/cmd/kubeadm/app/util/pubkeypin"
-	"k8s.io/kubernetes/pkg/controller/bootstrap"
 )
 
 // BootstrapUser defines bootstrap user name
@@ -74,16 +73,11 @@ func RetrieveValidatedConfigInfo(cfg *kubeadmapi.JoinConfiguration) (*clientcmda
 		klog.V(1).Infof("[discovery] Created cluster-info discovery client, requesting info from %q\n", insecureBootstrapConfig.Clusters[clusterName].Server)
 
 		// Make an initial insecure connection to get the cluster-info ConfigMap
-		var insecureClusterInfo *v1.ConfigMap
-		wait.PollImmediateInfinite(constants.DiscoveryRetryInterval, func() (bool, error) {
-			var err error
-			insecureClusterInfo, err = insecureClient.CoreV1().ConfigMaps(metav1.NamespacePublic).Get(bootstrapapi.ConfigMapClusterInfo, metav1.GetOptions{})
-			if err != nil {
-				klog.V(1).Infof("[discovery] Failed to request cluster info, will try again: [%s]\n", err)
-				return false, nil
-			}
-			return true, nil
-		})
+		insecureClusterInfo, err := insecureClient.CoreV1().ConfigMaps(metav1.NamespacePublic).Get(bootstrapapi.ConfigMapClusterInfo, metav1.GetOptions{})
+		if err != nil {
+			klog.V(1).Infof("[discovery] Failed to request cluster info: [%s]\n", err)
+			return nil, err
+		}
 
 		// Validate the MAC on the kubeconfig from the ConfigMap and load it
 		insecureKubeconfigString, ok := insecureClusterInfo.Data[bootstrapapi.KubeConfigKey]
@@ -138,16 +132,11 @@ func RetrieveValidatedConfigInfo(cfg *kubeadmapi.JoinConfiguration) (*clientcmda
 		}
 
 		klog.V(1).Infof("[discovery] Requesting info from %q again to validate TLS against the pinned public key\n", insecureBootstrapConfig.Clusters[clusterName].Server)
-		var secureClusterInfo *v1.ConfigMap
-		wait.PollImmediateInfinite(constants.DiscoveryRetryInterval, func() (bool, error) {
-			var err error
-			secureClusterInfo, err = secureClient.CoreV1().ConfigMaps(metav1.NamespacePublic).Get(bootstrapapi.ConfigMapClusterInfo, metav1.GetOptions{})
-			if err != nil {
-				klog.V(1).Infof("[discovery] Failed to request cluster info, will try again: [%s]\n", err)
-				return false, nil
-			}
-			return true, nil
-		})
+		secureClusterInfo, err := secureClient.CoreV1().ConfigMaps(metav1.NamespacePublic).Get(bootstrapapi.ConfigMapClusterInfo, metav1.GetOptions{})
+		if err != nil {
+			klog.V(1).Infof("[discovery] Failed to request cluster info: [%s]\n", err)
+			return nil, err
+		}
 
 		// Pull the kubeconfig from the securely-obtained ConfigMap and validate that it's the same as what we found the first time
 		secureKubeconfigBytes := []byte(secureClusterInfo.Data[bootstrapapi.KubeConfigKey])

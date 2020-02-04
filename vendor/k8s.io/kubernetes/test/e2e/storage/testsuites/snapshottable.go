@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/onsi/ginkgo"
-	"github.com/onsi/gomega"
 
 	v1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -45,15 +44,6 @@ var (
 	snapshotContentGVR = schema.GroupVersionResource{Group: snapshotGroup, Version: "v1alpha1", Resource: "volumesnapshotcontents"}
 )
 
-type SnapshotClassTest struct {
-	Name           string
-	CloudProviders []string
-	Snapshotter    string
-	Parameters     map[string]string
-	NodeName       string
-	NodeSelector   map[string]string // NodeSelector for the pod
-}
-
 type snapshottableTestSuite struct {
 	tsInfo TestSuiteInfo
 }
@@ -76,6 +66,9 @@ func (s *snapshottableTestSuite) getTestSuiteInfo() TestSuiteInfo {
 	return s.tsInfo
 }
 
+func (s *snapshottableTestSuite) skipRedundantSuite(driver TestDriver, pattern testpatterns.TestPattern) {
+}
+
 func (s *snapshottableTestSuite) defineTests(driver TestDriver, pattern testpatterns.TestPattern) {
 	var (
 		sDriver SnapshottableTestDriver
@@ -84,11 +77,11 @@ func (s *snapshottableTestSuite) defineTests(driver TestDriver, pattern testpatt
 
 	ginkgo.BeforeEach(func() {
 		// Check preconditions.
-		gomega.Expect(pattern.SnapshotType).To(gomega.Equal(testpatterns.DynamicCreatedSnapshot))
+		framework.ExpectEqual(pattern.SnapshotType, testpatterns.DynamicCreatedSnapshot)
 		dInfo := driver.GetDriverInfo()
 		ok := false
 		sDriver, ok = driver.(SnapshottableTestDriver)
-		if !dInfo.Capabilities[CapDataSource] || !ok {
+		if !dInfo.Capabilities[CapSnapshotDataSource] || !ok {
 			framework.Skipf("Driver %q does not support snapshots - skipping", dInfo.Name)
 		}
 		dDriver, ok = driver.(DynamicPVTestDriver)
@@ -117,9 +110,11 @@ func (s *snapshottableTestSuite) defineTests(driver TestDriver, pattern testpatt
 			framework.Skipf("Driver %q does not define Dynamic Provision StorageClass - skipping", driver.GetDriverInfo().Name)
 		}
 
-		claimSize := dDriver.GetClaimSize()
-		pvc := getClaim(claimSize, config.Framework.Namespace.Name)
-		pvc.Spec.StorageClassName = &class.Name
+		pvc := framework.MakePersistentVolumeClaim(framework.PersistentVolumeClaimConfig{
+			ClaimSize:        dDriver.GetClaimSize(),
+			StorageClassName: &(class.Name),
+		}, config.Framework.Namespace.Name)
+
 		e2elog.Logf("In creating storage class object and pvc object for driver - sc: %v, pvc: %v", class, pvc)
 
 		ginkgo.By("creating a StorageClass " + class.Name)
@@ -138,7 +133,7 @@ func (s *snapshottableTestSuite) defineTests(driver TestDriver, pattern testpatt
 			// typically this claim has already been deleted
 			err = cs.CoreV1().PersistentVolumeClaims(pvc.Namespace).Delete(pvc.Name, nil)
 			if err != nil && !apierrs.IsNotFound(err) {
-				framework.Failf("Error deleting claim %q. Error: %v", pvc.Name, err)
+				e2elog.Failf("Error deleting claim %q. Error: %v", pvc.Name, err)
 			}
 		}()
 		err = framework.WaitForPersistentVolumeClaimPhase(v1.ClaimBound, cs, pvc.Namespace, pvc.Name, framework.Poll, framework.ClaimProvisionTimeout)
@@ -171,7 +166,7 @@ func (s *snapshottableTestSuite) defineTests(driver TestDriver, pattern testpatt
 			// typically this snapshot has already been deleted
 			err = dc.Resource(snapshotGVR).Namespace(snapshot.GetNamespace()).Delete(snapshot.GetName(), nil)
 			if err != nil && !apierrs.IsNotFound(err) {
-				framework.Failf("Error deleting snapshot %q. Error: %v", pvc.Name, err)
+				e2elog.Failf("Error deleting snapshot %q. Error: %v", pvc.Name, err)
 			}
 		}()
 		err = WaitForSnapshotReady(dc, snapshot.GetNamespace(), snapshot.GetName(), framework.Poll, framework.SnapshotCreateTimeout)
@@ -194,10 +189,10 @@ func (s *snapshottableTestSuite) defineTests(driver TestDriver, pattern testpatt
 
 		// Check SnapshotContent properties
 		ginkgo.By("checking the SnapshotContent")
-		gomega.Expect(snapshotContentSpec["snapshotClassName"]).To(gomega.Equal(vsc.GetName()))
-		gomega.Expect(volumeSnapshotRef["name"]).To(gomega.Equal(snapshot.GetName()))
-		gomega.Expect(volumeSnapshotRef["namespace"]).To(gomega.Equal(snapshot.GetNamespace()))
-		gomega.Expect(persistentVolumeRef["name"]).To(gomega.Equal(pv.Name))
+		framework.ExpectEqual(snapshotContentSpec["snapshotClassName"], vsc.GetName())
+		framework.ExpectEqual(volumeSnapshotRef["name"], snapshot.GetName())
+		framework.ExpectEqual(volumeSnapshotRef["namespace"], snapshot.GetNamespace())
+		framework.ExpectEqual(persistentVolumeRef["name"], pv.Name)
 	})
 }
 

@@ -25,26 +25,33 @@ import (
 	"github.com/go-openapi/spec"
 	"github.com/go-openapi/swag"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // mimics what the go-openapi/load does
 var (
-	yamlLoader = swag.YAMLDoc
 	rex        = regexp.MustCompile(`"\$ref":\s*"(.+)"`)
+	testLoader func(string) (json.RawMessage, error)
 )
 
+func init() {
+	testLoader = func(path string) (json.RawMessage, error) {
+		if swag.YAMLMatcher(path) {
+			return swag.YAMLDoc(path)
+		}
+		data, err := swag.LoadFromFileOrHTTP(path)
+		if err != nil {
+			return nil, err
+		}
+		return json.RawMessage(data), nil
+	}
+}
 func loadOrFail(t *testing.T, path string) *spec.Swagger {
-	raw, erl := yamlLoader(path)
-	if erl != nil {
-		t.Logf("can't load fixture %s: %v", path, erl)
-		t.FailNow()
-		return nil
-	}
+	raw, err := testLoader(path)
+	require.NoErrorf(t, err, "can't load fixture %s: %v", path, err)
 	swspec := new(spec.Swagger)
-	if err := json.Unmarshal(raw, swspec); err != nil {
-		t.FailNow()
-		return nil
-	}
+	err = json.Unmarshal(raw, swspec)
+	require.NoError(t, err)
 	return swspec
 }
 
@@ -54,22 +61,17 @@ func Test_Issue1429(t *testing.T) {
 	defer func() {
 		spec.PathLoader = prevPathLoader
 	}()
-	spec.PathLoader = yamlLoader
+	spec.PathLoader = testLoader
 	path := filepath.Join("fixtures", "bugs", "1429", "swagger.yaml")
 
 	// load and full expand
 	sp := loadOrFail(t, path)
 	err := spec.ExpandSpec(sp, &spec.ExpandOptions{RelativeBase: path, SkipSchemas: false})
-	if !assert.NoError(t, err) {
-		t.FailNow()
-		return
-	}
+	require.NoError(t, err)
 
 	// assert well expanded
-	if !assert.Truef(t, (sp.Paths != nil && sp.Paths.Paths != nil), "expected paths to be available in fixture") {
-		t.FailNow()
-		return
-	}
+	require.Truef(t, (sp.Paths != nil && sp.Paths.Paths != nil), "expected paths to be available in fixture")
+
 	for _, pi := range sp.Paths.Paths {
 		for _, param := range pi.Get.Parameters {
 			if assert.NotNilf(t, param.Schema, "expected param schema not to be nil") {
@@ -96,16 +98,11 @@ func Test_Issue1429(t *testing.T) {
 	// reload and SkipSchemas: true
 	sp = loadOrFail(t, path)
 	err = spec.ExpandSpec(sp, &spec.ExpandOptions{RelativeBase: path, SkipSchemas: true})
-	if !assert.NoError(t, err) {
-		t.FailNow()
-		return
-	}
+	require.NoError(t, err)
 
 	// assert well resolved
-	if !assert.Truef(t, (sp.Paths != nil && sp.Paths.Paths != nil), "expected paths to be available in fixture") {
-		t.FailNow()
-		return
-	}
+	require.Truef(t, (sp.Paths != nil && sp.Paths.Paths != nil), "expected paths to be available in fixture")
+
 	for _, pi := range sp.Paths.Paths {
 		for _, param := range pi.Get.Parameters {
 			if assert.NotNilf(t, param.Schema, "expected param schema not to be nil") {
@@ -154,20 +151,17 @@ func Test_MoreLocalExpansion(t *testing.T) {
 	defer func() {
 		spec.PathLoader = prevPathLoader
 	}()
-	spec.PathLoader = yamlLoader
+	spec.PathLoader = testLoader
 	path := filepath.Join("fixtures", "local_expansion", "spec2.yaml")
 
 	// load and full expand
 	sp := loadOrFail(t, path)
 	err := spec.ExpandSpec(sp, &spec.ExpandOptions{RelativeBase: path, SkipSchemas: false})
-	if !assert.NoError(t, err) {
-		t.FailNow()
-		return
-	}
+	require.NoError(t, err)
+
 	// asserts all $ref expanded
 	jazon, _ := json.MarshalIndent(sp, "", " ")
 	assert.NotContains(t, jazon, `"$ref"`)
-	//t.Log(string(jazon))
 }
 
 func Test_Issue69(t *testing.T) {
@@ -179,10 +173,8 @@ func Test_Issue69(t *testing.T) {
 	// load and expand
 	sp := loadOrFail(t, path)
 	err := spec.ExpandSpec(sp, &spec.ExpandOptions{RelativeBase: path, SkipSchemas: false})
-	if !assert.NoError(t, err) {
-		t.FailNow()
-		return
-	}
+	require.NoError(t, err)
+
 	// asserts all $ref expanded
 	jazon, _ := json.MarshalIndent(sp, "", " ")
 
@@ -202,7 +194,7 @@ func Test_Issue1621(t *testing.T) {
 	defer func() {
 		spec.PathLoader = prevPathLoader
 	}()
-	spec.PathLoader = yamlLoader
+	spec.PathLoader = testLoader
 	path := filepath.Join("fixtures", "bugs", "1621", "fixture-1621.yaml")
 
 	// expand with relative path
@@ -210,10 +202,8 @@ func Test_Issue1621(t *testing.T) {
 	sp := loadOrFail(t, path)
 
 	err := spec.ExpandSpec(sp, &spec.ExpandOptions{RelativeBase: path, SkipSchemas: false})
-	if !assert.NoError(t, err) {
-		t.FailNow()
-		return
-	}
+	require.NoError(t, err)
+
 	// asserts all $ref expanded
 	jazon, _ := json.MarshalIndent(sp, "", " ")
 	m := rex.FindAllStringSubmatch(string(jazon), -1)
@@ -228,10 +218,8 @@ func Test_Issue1614(t *testing.T) {
 	// load and expand
 	sp := loadOrFail(t, path)
 	err := spec.ExpandSpec(sp, &spec.ExpandOptions{RelativeBase: path, SkipSchemas: false})
-	if !assert.NoError(t, err) {
-		t.FailNow()
-		return
-	}
+	require.NoError(t, err)
+
 	// asserts all $ref expanded
 	jazon, _ := json.MarshalIndent(sp, "", " ")
 
@@ -248,10 +236,8 @@ func Test_Issue1614(t *testing.T) {
 	// now with option CircularRefAbsolute
 	sp = loadOrFail(t, path)
 	err = spec.ExpandSpec(sp, &spec.ExpandOptions{RelativeBase: path, SkipSchemas: false, AbsoluteCircularRef: true})
-	if !assert.NoError(t, err) {
-		t.FailNow()
-		return
-	}
+	require.NoError(t, err)
+
 	// asserts all $ref expanded
 	jazon, _ = json.MarshalIndent(sp, "", " ")
 
@@ -266,4 +252,25 @@ func Test_Issue1614(t *testing.T) {
 				"expected $ref to be inlined, got: %s", matched[0])
 		}
 	}
+}
+
+func Test_Issue2113(t *testing.T) {
+	prevPathLoader := spec.PathLoader
+	defer func() {
+		spec.PathLoader = prevPathLoader
+	}()
+	spec.PathLoader = testLoader
+	// this checks expansion with nested specs
+	path := filepath.Join("fixtures", "bugs", "2113", "base.yaml")
+
+	// load and expand
+	sp := loadOrFail(t, path)
+	err := spec.ExpandSpec(sp, &spec.ExpandOptions{RelativeBase: path, SkipSchemas: false})
+	require.NoError(t, err)
+	// asserts all $ref expanded
+	jazon, _ := json.MarshalIndent(sp, "", " ")
+
+	// assert all $ref match have been expanded
+	m := rex.FindAllStringSubmatch(string(jazon), -1)
+	assert.Emptyf(t, m, "expected all $ref to be expanded")
 }

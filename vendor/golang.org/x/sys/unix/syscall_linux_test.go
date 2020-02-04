@@ -158,43 +158,6 @@ func TestUtime(t *testing.T) {
 	}
 }
 
-func TestUtimesNanoAt(t *testing.T) {
-	defer chtmpdir(t)()
-
-	symlink := "symlink1"
-	os.Remove(symlink)
-	err := os.Symlink("nonexisting", symlink)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	ts := []unix.Timespec{
-		{Sec: 1111, Nsec: 2222},
-		{Sec: 3333, Nsec: 4444},
-	}
-	err = unix.UtimesNanoAt(unix.AT_FDCWD, symlink, ts, unix.AT_SYMLINK_NOFOLLOW)
-	if err != nil {
-		t.Fatalf("UtimesNanoAt: %v", err)
-	}
-
-	var st unix.Stat_t
-	err = unix.Lstat(symlink, &st)
-	if err != nil {
-		t.Fatalf("Lstat: %v", err)
-	}
-
-	// Only check Mtim, Atim might not be supported by the underlying filesystem
-	expected := ts[1]
-	if st.Mtim.Nsec == 0 {
-		// Some filesystems only support 1-second time stamp resolution
-		// and will always set Nsec to 0.
-		expected.Nsec = 0
-	}
-	if st.Mtim != expected {
-		t.Errorf("UtimesNanoAt: wrong mtime: expected %v, got %v", expected, st.Mtim)
-	}
-}
-
 func TestRlimitAs(t *testing.T) {
 	// disable GC during to avoid flaky test
 	defer debug.SetGCPercent(debug.SetGCPercent(-1))
@@ -239,12 +202,15 @@ func TestRlimitAs(t *testing.T) {
 
 func TestPselect(t *testing.T) {
 	for {
-		_, err := unix.Pselect(0, nil, nil, nil, &unix.Timespec{Sec: 0, Nsec: 0}, nil)
+		n, err := unix.Pselect(0, nil, nil, nil, &unix.Timespec{Sec: 0, Nsec: 0}, nil)
 		if err == unix.EINTR {
 			t.Logf("Pselect interrupted")
 			continue
 		} else if err != nil {
 			t.Fatalf("Pselect: %v", err)
+		}
+		if n != 0 {
+			t.Fatalf("Pselect: got %v ready file descriptors, expected 0", n)
 		}
 		break
 	}
@@ -254,13 +220,16 @@ func TestPselect(t *testing.T) {
 	var took time.Duration
 	for {
 		start := time.Now()
-		_, err := unix.Pselect(0, nil, nil, nil, &ts, nil)
+		n, err := unix.Pselect(0, nil, nil, nil, &ts, nil)
 		took = time.Since(start)
 		if err == unix.EINTR {
 			t.Logf("Pselect interrupted after %v", took)
 			continue
 		} else if err != nil {
 			t.Fatalf("Pselect: %v", err)
+		}
+		if n != 0 {
+			t.Fatalf("Pselect: got %v ready file descriptors, expected 0", n)
 		}
 		break
 	}
@@ -678,5 +647,19 @@ func TestEpoll(t *testing.T) {
 	got := int(events[0].Fd)
 	if got != fd {
 		t.Errorf("EpollWait: wrong Fd in event: got %v, expected %v", got, fd)
+	}
+}
+
+func TestPrctlRetInt(t *testing.T) {
+	err := unix.Prctl(unix.PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)
+	if err != nil {
+		t.Skipf("Prctl: %v, skipping test", err)
+	}
+	v, err := unix.PrctlRetInt(unix.PR_GET_NO_NEW_PRIVS, 0, 0, 0, 0)
+	if err != nil {
+		t.Fatalf("failed to perform prctl: %v", err)
+	}
+	if v != 1 {
+		t.Fatalf("unexpected return from prctl; got %v, expected %v", v, 1)
 	}
 }

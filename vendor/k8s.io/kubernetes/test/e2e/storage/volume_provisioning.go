@@ -18,6 +18,7 @@ package storage
 
 import (
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -28,18 +29,16 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 
-	apierrs "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/sets"
-
 	v1 "k8s.io/api/core/v1"
-	rbacv1beta1 "k8s.io/api/rbac/v1beta1"
-	storage "k8s.io/api/storage/v1"
-	storagebeta "k8s.io/api/storage/v1beta1"
+	rbacv1 "k8s.io/api/rbac/v1"
+	storagev1 "k8s.io/api/storage/v1"
+	storagev1beta1 "k8s.io/api/storage/v1beta1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/authentication/serviceaccount"
 	clientset "k8s.io/client-go/kubernetes"
@@ -48,6 +47,7 @@ import (
 	"k8s.io/kubernetes/test/e2e/framework"
 	"k8s.io/kubernetes/test/e2e/framework/auth"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
+	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	"k8s.io/kubernetes/test/e2e/framework/providers/gce"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 	"k8s.io/kubernetes/test/e2e/storage/utils"
@@ -70,28 +70,28 @@ func checkZoneFromLabelAndAffinity(pv *v1.PersistentVolume, zone string, matchZo
 func checkZonesFromLabelAndAffinity(pv *v1.PersistentVolume, zones sets.String, matchZones bool) {
 	ginkgo.By("checking PV's zone label and node affinity terms match expected zone")
 	if pv == nil {
-		framework.Failf("nil pv passed")
+		e2elog.Failf("nil pv passed")
 	}
 	pvLabel, ok := pv.Labels[v1.LabelZoneFailureDomain]
 	if !ok {
-		framework.Failf("label %s not found on PV", v1.LabelZoneFailureDomain)
+		e2elog.Failf("label %s not found on PV", v1.LabelZoneFailureDomain)
 	}
 
 	zonesFromLabel, err := volumehelpers.LabelZonesToSet(pvLabel)
 	if err != nil {
-		framework.Failf("unable to parse zone labels %s: %v", pvLabel, err)
+		e2elog.Failf("unable to parse zone labels %s: %v", pvLabel, err)
 	}
 	if matchZones && !zonesFromLabel.Equal(zones) {
-		framework.Failf("value[s] of %s label for PV: %v does not match expected zone[s]: %v", v1.LabelZoneFailureDomain, zonesFromLabel, zones)
+		e2elog.Failf("value[s] of %s label for PV: %v does not match expected zone[s]: %v", v1.LabelZoneFailureDomain, zonesFromLabel, zones)
 	}
 	if !matchZones && !zonesFromLabel.IsSuperset(zones) {
-		framework.Failf("value[s] of %s label for PV: %v does not contain expected zone[s]: %v", v1.LabelZoneFailureDomain, zonesFromLabel, zones)
+		e2elog.Failf("value[s] of %s label for PV: %v does not contain expected zone[s]: %v", v1.LabelZoneFailureDomain, zonesFromLabel, zones)
 	}
 	if pv.Spec.NodeAffinity == nil {
-		framework.Failf("node affinity not found in PV spec %v", pv.Spec)
+		e2elog.Failf("node affinity not found in PV spec %v", pv.Spec)
 	}
 	if len(pv.Spec.NodeAffinity.Required.NodeSelectorTerms) == 0 {
-		framework.Failf("node selector terms not found in PV spec %v", pv.Spec)
+		e2elog.Failf("node selector terms not found in PV spec %v", pv.Spec)
 	}
 
 	for _, term := range pv.Spec.NodeAffinity.Required.NodeSelectorTerms {
@@ -103,15 +103,15 @@ func checkZonesFromLabelAndAffinity(pv *v1.PersistentVolume, zones sets.String, 
 			keyFound = true
 			zonesFromNodeAffinity := sets.NewString(r.Values...)
 			if matchZones && !zonesFromNodeAffinity.Equal(zones) {
-				framework.Failf("zones from NodeAffinity of PV: %v does not equal expected zone[s]: %v", zonesFromNodeAffinity, zones)
+				e2elog.Failf("zones from NodeAffinity of PV: %v does not equal expected zone[s]: %v", zonesFromNodeAffinity, zones)
 			}
 			if !matchZones && !zonesFromNodeAffinity.IsSuperset(zones) {
-				framework.Failf("zones from NodeAffinity of PV: %v does not contain expected zone[s]: %v", zonesFromNodeAffinity, zones)
+				e2elog.Failf("zones from NodeAffinity of PV: %v does not contain expected zone[s]: %v", zonesFromNodeAffinity, zones)
 			}
 			break
 		}
 		if !keyFound {
-			framework.Failf("label %s not found in term %v", v1.LabelZoneFailureDomain, term)
+			e2elog.Failf("label %s not found in term %v", v1.LabelZoneFailureDomain, term)
 		}
 	}
 }
@@ -225,20 +225,23 @@ func testZonalDelayedBinding(c clientset.Interface, ns string, specifyAllowedTop
 		ginkgo.By(action)
 		var claims []*v1.PersistentVolumeClaim
 		for i := 0; i < pvcCount; i++ {
-			claim := newClaim(test, ns, suffix)
-			claim.Spec.StorageClassName = &test.Class.Name
+			claim := framework.MakePersistentVolumeClaim(framework.PersistentVolumeClaimConfig{
+				ClaimSize:        test.ClaimSize,
+				StorageClassName: &test.Class.Name,
+				VolumeMode:       &test.VolumeMode,
+			}, ns)
 			claims = append(claims, claim)
 		}
 		pvs, node := test.TestBindingWaitForFirstConsumerMultiPVC(claims, nil /* node selector */, false /* expect unschedulable */)
 		if node == nil {
-			framework.Failf("unexpected nil node found")
+			e2elog.Failf("unexpected nil node found")
 		}
 		zone, ok := node.Labels[v1.LabelZoneFailureDomain]
 		if !ok {
-			framework.Failf("label %s not found on Node", v1.LabelZoneFailureDomain)
+			e2elog.Failf("label %s not found on Node", v1.LabelZoneFailureDomain)
 		}
 		if specifyAllowedTopology && topoZone != zone {
-			framework.Failf("zone specified in allowedTopologies: %s does not match zone of node where PV got provisioned: %s", topoZone, zone)
+			e2elog.Failf("zone specified in allowedTopologies: %s does not match zone of node where PV got provisioned: %s", topoZone, zone)
 		}
 		for _, pv := range pvs {
 			checkZoneFromLabelAndAffinity(pv, zone, true)
@@ -276,7 +279,7 @@ var _ = utils.SIGDescribe("Dynamic Provisioning", func() {
 					ClaimSize:    "1.5Gi",
 					ExpectedSize: "2Gi",
 					PvCheck: func(claim *v1.PersistentVolumeClaim) {
-						volume := testsuites.PVWriteReadSingleNodeCheck(c, claim, framework.NodeSelection{})
+						volume := testsuites.PVWriteReadSingleNodeCheck(c, claim, e2epod.NodeSelection{})
 						gomega.Expect(volume).NotTo(gomega.BeNil(), "get bound PV")
 
 						err := checkGCEPD(volume, "pd-ssd")
@@ -293,7 +296,7 @@ var _ = utils.SIGDescribe("Dynamic Provisioning", func() {
 					ClaimSize:    "1.5Gi",
 					ExpectedSize: "2Gi",
 					PvCheck: func(claim *v1.PersistentVolumeClaim) {
-						volume := testsuites.PVWriteReadSingleNodeCheck(c, claim, framework.NodeSelection{})
+						volume := testsuites.PVWriteReadSingleNodeCheck(c, claim, e2epod.NodeSelection{})
 						gomega.Expect(volume).NotTo(gomega.BeNil(), "get bound PV")
 
 						err := checkGCEPD(volume, "pd-standard")
@@ -312,7 +315,7 @@ var _ = utils.SIGDescribe("Dynamic Provisioning", func() {
 					ClaimSize:    "1.5Gi",
 					ExpectedSize: "2Gi",
 					PvCheck: func(claim *v1.PersistentVolumeClaim) {
-						volume := testsuites.PVWriteReadSingleNodeCheck(c, claim, framework.NodeSelection{})
+						volume := testsuites.PVWriteReadSingleNodeCheck(c, claim, e2epod.NodeSelection{})
 						gomega.Expect(volume).NotTo(gomega.BeNil(), "get bound PV")
 
 						err := checkAWSEBS(volume, "gp2", false)
@@ -330,7 +333,7 @@ var _ = utils.SIGDescribe("Dynamic Provisioning", func() {
 					ClaimSize:    "3.5Gi",
 					ExpectedSize: "4Gi", // 4 GiB is minimum for io1
 					PvCheck: func(claim *v1.PersistentVolumeClaim) {
-						volume := testsuites.PVWriteReadSingleNodeCheck(c, claim, framework.NodeSelection{})
+						volume := testsuites.PVWriteReadSingleNodeCheck(c, claim, e2epod.NodeSelection{})
 						gomega.Expect(volume).NotTo(gomega.BeNil(), "get bound PV")
 
 						err := checkAWSEBS(volume, "io1", false)
@@ -347,7 +350,7 @@ var _ = utils.SIGDescribe("Dynamic Provisioning", func() {
 					ClaimSize:    "500Gi", // minimum for sc1
 					ExpectedSize: "500Gi",
 					PvCheck: func(claim *v1.PersistentVolumeClaim) {
-						volume := testsuites.PVWriteReadSingleNodeCheck(c, claim, framework.NodeSelection{})
+						volume := testsuites.PVWriteReadSingleNodeCheck(c, claim, e2epod.NodeSelection{})
 						gomega.Expect(volume).NotTo(gomega.BeNil(), "get bound PV")
 
 						err := checkAWSEBS(volume, "sc1", false)
@@ -364,7 +367,7 @@ var _ = utils.SIGDescribe("Dynamic Provisioning", func() {
 					ClaimSize:    "500Gi", // minimum for st1
 					ExpectedSize: "500Gi",
 					PvCheck: func(claim *v1.PersistentVolumeClaim) {
-						volume := testsuites.PVWriteReadSingleNodeCheck(c, claim, framework.NodeSelection{})
+						volume := testsuites.PVWriteReadSingleNodeCheck(c, claim, e2epod.NodeSelection{})
 						gomega.Expect(volume).NotTo(gomega.BeNil(), "get bound PV")
 
 						err := checkAWSEBS(volume, "st1", false)
@@ -381,7 +384,7 @@ var _ = utils.SIGDescribe("Dynamic Provisioning", func() {
 					ClaimSize:    "1Gi",
 					ExpectedSize: "1Gi",
 					PvCheck: func(claim *v1.PersistentVolumeClaim) {
-						volume := testsuites.PVWriteReadSingleNodeCheck(c, claim, framework.NodeSelection{})
+						volume := testsuites.PVWriteReadSingleNodeCheck(c, claim, e2epod.NodeSelection{})
 						gomega.Expect(volume).NotTo(gomega.BeNil(), "get bound PV")
 
 						err := checkAWSEBS(volume, "gp2", true)
@@ -397,7 +400,7 @@ var _ = utils.SIGDescribe("Dynamic Provisioning", func() {
 					ClaimSize:      "1.5Gi",
 					ExpectedSize:   "2Gi",
 					PvCheck: func(claim *v1.PersistentVolumeClaim) {
-						testsuites.PVWriteReadSingleNodeCheck(c, claim, framework.NodeSelection{})
+						testsuites.PVWriteReadSingleNodeCheck(c, claim, e2epod.NodeSelection{})
 					},
 				},
 				{
@@ -411,7 +414,7 @@ var _ = utils.SIGDescribe("Dynamic Provisioning", func() {
 					ClaimSize:    "1.5Gi",
 					ExpectedSize: "2Gi",
 					PvCheck: func(claim *v1.PersistentVolumeClaim) {
-						testsuites.PVWriteReadSingleNodeCheck(c, claim, framework.NodeSelection{})
+						testsuites.PVWriteReadSingleNodeCheck(c, claim, e2epod.NodeSelection{})
 					},
 				},
 				// vSphere generic test
@@ -423,7 +426,7 @@ var _ = utils.SIGDescribe("Dynamic Provisioning", func() {
 					ClaimSize:      "1.5Gi",
 					ExpectedSize:   "1.5Gi",
 					PvCheck: func(claim *v1.PersistentVolumeClaim) {
-						testsuites.PVWriteReadSingleNodeCheck(c, claim, framework.NodeSelection{})
+						testsuites.PVWriteReadSingleNodeCheck(c, claim, e2epod.NodeSelection{})
 					},
 				},
 				// Azure
@@ -435,7 +438,7 @@ var _ = utils.SIGDescribe("Dynamic Provisioning", func() {
 					ClaimSize:      "1Gi",
 					ExpectedSize:   "1Gi",
 					PvCheck: func(claim *v1.PersistentVolumeClaim) {
-						testsuites.PVWriteReadSingleNodeCheck(c, claim, framework.NodeSelection{})
+						testsuites.PVWriteReadSingleNodeCheck(c, claim, e2epod.NodeSelection{})
 					},
 				},
 			}
@@ -458,8 +461,11 @@ var _ = utils.SIGDescribe("Dynamic Provisioning", func() {
 				suffix := fmt.Sprintf("%d", i)
 				test.Client = c
 				test.Class = newStorageClass(test, ns, suffix)
-				test.Claim = newClaim(test, ns, suffix)
-				test.Claim.Spec.StorageClassName = &test.Class.Name
+				test.Claim = framework.MakePersistentVolumeClaim(framework.PersistentVolumeClaimConfig{
+					ClaimSize:        test.ClaimSize,
+					StorageClassName: &test.Class.Name,
+					VolumeMode:       &test.VolumeMode,
+				}, ns)
 				test.TestDynamicProvisioning()
 			}
 
@@ -474,7 +480,11 @@ var _ = utils.SIGDescribe("Dynamic Provisioning", func() {
 
 				betaTest.Client = c
 				betaTest.Class = nil
-				betaTest.Claim = newClaim(*betaTest, ns, "beta")
+				betaTest.Claim = framework.MakePersistentVolumeClaim(framework.PersistentVolumeClaimConfig{
+					ClaimSize:        betaTest.ClaimSize,
+					StorageClassName: &class.Name,
+					VolumeMode:       &betaTest.VolumeMode,
+				}, ns)
 				betaTest.Claim.Spec.StorageClassName = &(class.Name)
 				(*betaTest).TestDynamicProvisioning()
 			}
@@ -494,7 +504,7 @@ var _ = utils.SIGDescribe("Dynamic Provisioning", func() {
 				ClaimSize:    "1Gi",
 				ExpectedSize: "1Gi",
 				PvCheck: func(claim *v1.PersistentVolumeClaim) {
-					volume := testsuites.PVWriteReadSingleNodeCheck(c, claim, framework.NodeSelection{})
+					volume := testsuites.PVWriteReadSingleNodeCheck(c, claim, e2epod.NodeSelection{})
 					gomega.Expect(volume).NotTo(gomega.BeNil(), "get bound PV")
 
 					err := checkGCEPD(volume, "pd-standard")
@@ -504,8 +514,11 @@ var _ = utils.SIGDescribe("Dynamic Provisioning", func() {
 			test.Class = newStorageClass(test, ns, "reclaimpolicy")
 			retain := v1.PersistentVolumeReclaimRetain
 			test.Class.ReclaimPolicy = &retain
-			test.Claim = newClaim(test, ns, "reclaimpolicy")
-			test.Claim.Spec.StorageClassName = &test.Class.Name
+			test.Claim = framework.MakePersistentVolumeClaim(framework.PersistentVolumeClaimConfig{
+				ClaimSize:        test.ClaimSize,
+				StorageClassName: &test.Class.Name,
+				VolumeMode:       &test.VolumeMode,
+			}, ns)
 			pv := test.TestDynamicProvisioning()
 
 			ginkgo.By(fmt.Sprintf("waiting for the provisioned PV %q to enter phase %s", pv.Name, v1.VolumeReleased))
@@ -563,8 +576,11 @@ var _ = utils.SIGDescribe("Dynamic Provisioning", func() {
 			defer deleteStorageClass(c, sc.Name)
 
 			ginkgo.By("Creating a claim and expecting it to timeout")
-			pvc := newClaim(test, ns, suffix)
-			pvc.Spec.StorageClassName = &sc.Name
+			pvc := framework.MakePersistentVolumeClaim(framework.PersistentVolumeClaimConfig{
+				ClaimSize:        test.ClaimSize,
+				StorageClassName: &sc.Name,
+				VolumeMode:       &test.VolumeMode,
+			}, ns)
 			pvc, err = c.CoreV1().PersistentVolumeClaims(ns).Create(pvc)
 			framework.ExpectNoError(err)
 			defer func() {
@@ -601,9 +617,13 @@ var _ = utils.SIGDescribe("Dynamic Provisioning", func() {
 
 			// To increase chance of detection, attempt multiple iterations
 			for i := 0; i < raceAttempts; i++ {
-				suffix := fmt.Sprintf("race-%d", i)
-				claim := newClaim(test, ns, suffix)
-				claim.Spec.StorageClassName = &class.Name
+				prefix := fmt.Sprintf("race-%d", i)
+				claim := framework.MakePersistentVolumeClaim(framework.PersistentVolumeClaimConfig{
+					NamePrefix:       prefix,
+					ClaimSize:        test.ClaimSize,
+					StorageClassName: &class.Name,
+					VolumeMode:       &test.VolumeMode,
+				}, ns)
 				tmpClaim, err := framework.CreatePVC(c, ns, claim)
 				framework.ExpectNoError(err)
 				framework.ExpectNoError(framework.DeletePersistentVolumeClaim(c, tmpClaim.Name, ns))
@@ -621,7 +641,7 @@ var _ = utils.SIGDescribe("Dynamic Provisioning", func() {
 				for i, pv := range residualPVs {
 					e2elog.Logf("\t%d) %s", i+1, pv.Name)
 				}
-				framework.Failf("Expected 0 PersistentVolumes remaining. Found %d", len(residualPVs))
+				e2elog.Failf("Expected 0 PersistentVolumes remaining. Found %d", len(residualPVs))
 			}
 			e2elog.Logf("0 PersistentVolumes remain.")
 		})
@@ -638,31 +658,25 @@ var _ = utils.SIGDescribe("Dynamic Provisioning", func() {
 			framework.ExpectNoError(err)
 
 			ginkgo.By("creating PV")
-			pv := &v1.PersistentVolume{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "volume-idempotent-delete-",
+			pv := framework.MakePersistentVolume(framework.PersistentVolumeConfig{
+				NamePrefix: "volume-idempotent-delete-",
+				// Use Retain to keep the PV, the test will change it to Delete
+				// when the time comes.
+				ReclaimPolicy: v1.PersistentVolumeReclaimRetain,
+				AccessModes: []v1.PersistentVolumeAccessMode{
+					v1.ReadWriteOnce,
 				},
-				Spec: v1.PersistentVolumeSpec{
-					// Use Retain to keep the PV, the test will change it to Delete
-					// when the time comes.
-					PersistentVolumeReclaimPolicy: v1.PersistentVolumeReclaimRetain,
-					AccessModes: []v1.PersistentVolumeAccessMode{
-						v1.ReadWriteOnce,
-					},
-					Capacity: v1.ResourceList{
-						v1.ResourceName(v1.ResourceStorage): resource.MustParse("1Gi"),
-					},
-					// PV is bound to non-existing PVC, so it's reclaim policy is
-					// executed immediately
-					ClaimRef: &v1.ObjectReference{
-						Kind:       "PersistentVolumeClaim",
-						APIVersion: "v1",
-						UID:        types.UID("01234567890"),
-						Namespace:  ns,
-						Name:       "dummy-claim-name",
+				Capacity: "1Gi",
+				// PV is bound to non-existing PVC, so it's reclaim policy is
+				// executed immediately
+				Prebind: &v1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "dummy-claim-name",
+						Namespace: ns,
+						UID:       types.UID("01234567890"),
 					},
 				},
-			}
+			})
 			switch framework.TestContext.Provider {
 			case "aws":
 				pv.Spec.PersistentVolumeSource = v1.PersistentVolumeSource{
@@ -706,21 +720,21 @@ var _ = utils.SIGDescribe("Dynamic Provisioning", func() {
 			// external dynamic provisioner pods need additional permissions provided by the
 			// persistent-volume-provisioner clusterrole and a leader-locking role
 			serviceAccountName := "default"
-			subject := rbacv1beta1.Subject{
-				Kind:      rbacv1beta1.ServiceAccountKind,
+			subject := rbacv1.Subject{
+				Kind:      rbacv1.ServiceAccountKind,
 				Namespace: ns,
 				Name:      serviceAccountName,
 			}
 
-			err := auth.BindClusterRole(c.RbacV1beta1(), "system:persistent-volume-provisioner", ns, subject)
+			err := auth.BindClusterRole(c.RbacV1(), "system:persistent-volume-provisioner", ns, subject)
 			framework.ExpectNoError(err)
 
 			roleName := "leader-locking-nfs-provisioner"
-			_, err = f.ClientSet.RbacV1beta1().Roles(ns).Create(&rbacv1beta1.Role{
+			_, err = f.ClientSet.RbacV1().Roles(ns).Create(&rbacv1.Role{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: roleName,
 				},
-				Rules: []rbacv1beta1.PolicyRule{{
+				Rules: []rbacv1.PolicyRule{{
 					APIGroups: []string{""},
 					Resources: []string{"endpoints"},
 					Verbs:     []string{"get", "list", "watch", "create", "update", "patch"},
@@ -728,17 +742,17 @@ var _ = utils.SIGDescribe("Dynamic Provisioning", func() {
 			})
 			framework.ExpectNoError(err, "Failed to create leader-locking role")
 
-			err = auth.BindRoleInNamespace(c.RbacV1beta1(), roleName, ns, subject)
+			err = auth.BindRoleInNamespace(c.RbacV1(), roleName, ns, subject)
 			framework.ExpectNoError(err)
 
-			err = auth.WaitForAuthorizationUpdate(c.AuthorizationV1beta1(),
+			err = auth.WaitForAuthorizationUpdate(c.AuthorizationV1(),
 				serviceaccount.MakeUsername(ns, serviceAccountName),
 				"", "get", schema.GroupResource{Group: "storage.k8s.io", Resource: "storageclasses"}, true)
 			framework.ExpectNoError(err, "Failed to update authorization")
 
 			ginkgo.By("creating an external dynamic provisioner pod")
 			pod := utils.StartExternalProvisioner(c, ns, externalPluginName)
-			defer framework.DeletePodOrFail(c, ns, pod.Name)
+			defer e2epod.DeletePodOrFail(c, ns, pod.Name)
 
 			ginkgo.By("creating a StorageClass")
 			test := testsuites.StorageClassTest{
@@ -749,8 +763,11 @@ var _ = utils.SIGDescribe("Dynamic Provisioning", func() {
 				ExpectedSize: "1500Mi",
 			}
 			test.Class = newStorageClass(test, ns, "external")
-			test.Claim = newClaim(test, ns, "external")
-			test.Claim.Spec.StorageClassName = &test.Class.Name
+			test.Claim = framework.MakePersistentVolumeClaim(framework.PersistentVolumeClaimConfig{
+				ClaimSize:        test.ClaimSize,
+				StorageClassName: &test.Class.Name,
+				VolumeMode:       &test.VolumeMode,
+			}, ns)
 
 			ginkgo.By("creating a claim with a external provisioning annotation")
 			test.TestDynamicProvisioning()
@@ -769,7 +786,10 @@ var _ = utils.SIGDescribe("Dynamic Provisioning", func() {
 				ExpectedSize: "2Gi",
 			}
 
-			test.Claim = newClaim(test, ns, "default")
+			test.Claim = framework.MakePersistentVolumeClaim(framework.PersistentVolumeClaimConfig{
+				ClaimSize:  test.ClaimSize,
+				VolumeMode: &test.VolumeMode,
+			}, ns)
 			test.TestDynamicProvisioning()
 		})
 
@@ -778,7 +798,7 @@ var _ = utils.SIGDescribe("Dynamic Provisioning", func() {
 			framework.SkipUnlessProviderIs("openstack", "gce", "aws", "gke", "vsphere", "azure")
 			scName, scErr := framework.GetDefaultStorageClassName(c)
 			if scErr != nil {
-				framework.Failf(scErr.Error())
+				e2elog.Failf(scErr.Error())
 			}
 			test := testsuites.StorageClassTest{
 				Name:      "default",
@@ -791,7 +811,10 @@ var _ = utils.SIGDescribe("Dynamic Provisioning", func() {
 			updateDefaultStorageClass(c, scName, "false")
 
 			ginkgo.By("creating a claim with default storageclass and expecting it to timeout")
-			claim := newClaim(test, ns, "default")
+			claim := framework.MakePersistentVolumeClaim(framework.PersistentVolumeClaimConfig{
+				ClaimSize:  test.ClaimSize,
+				VolumeMode: &test.VolumeMode,
+			}, ns)
 			claim, err := c.CoreV1().PersistentVolumeClaims(ns).Create(claim)
 			framework.ExpectNoError(err)
 			defer func() {
@@ -804,7 +827,7 @@ var _ = utils.SIGDescribe("Dynamic Provisioning", func() {
 			e2elog.Logf(err.Error())
 			claim, err = c.CoreV1().PersistentVolumeClaims(ns).Get(claim.Name, metav1.GetOptions{})
 			framework.ExpectNoError(err)
-			gomega.Expect(claim.Status.Phase).To(gomega.Equal(v1.ClaimPending))
+			framework.ExpectEqual(claim.Status.Phase, v1.ClaimPending)
 		})
 
 		// Modifying the default storage class can be disruptive to other tests that depend on it
@@ -812,7 +835,7 @@ var _ = utils.SIGDescribe("Dynamic Provisioning", func() {
 			framework.SkipUnlessProviderIs("openstack", "gce", "aws", "gke", "vsphere", "azure")
 			scName, scErr := framework.GetDefaultStorageClassName(c)
 			if scErr != nil {
-				framework.Failf(scErr.Error())
+				e2elog.Failf(scErr.Error())
 			}
 			test := testsuites.StorageClassTest{
 				Name:      "default",
@@ -825,7 +848,10 @@ var _ = utils.SIGDescribe("Dynamic Provisioning", func() {
 			updateDefaultStorageClass(c, scName, "")
 
 			ginkgo.By("creating a claim with default storageclass and expecting it to timeout")
-			claim := newClaim(test, ns, "default")
+			claim := framework.MakePersistentVolumeClaim(framework.PersistentVolumeClaimConfig{
+				ClaimSize:  test.ClaimSize,
+				VolumeMode: &test.VolumeMode,
+			}, ns)
 			claim, err := c.CoreV1().PersistentVolumeClaims(ns).Create(claim)
 			framework.ExpectNoError(err)
 			defer func() {
@@ -838,7 +864,7 @@ var _ = utils.SIGDescribe("Dynamic Provisioning", func() {
 			e2elog.Logf(err.Error())
 			claim, err = c.CoreV1().PersistentVolumeClaims(ns).Get(claim.Name, metav1.GetOptions{})
 			framework.ExpectNoError(err)
-			gomega.Expect(claim.Status.Phase).To(gomega.Equal(v1.ClaimPending))
+			framework.ExpectEqual(claim.Status.Phase, v1.ClaimPending)
 		})
 	})
 
@@ -847,7 +873,7 @@ var _ = utils.SIGDescribe("Dynamic Provisioning", func() {
 			framework.SkipIfProviderIs("gke")
 			ginkgo.By("creating a Gluster DP server Pod")
 			pod := startGlusterDpServerPod(c, ns)
-			serverURL := "http://" + pod.Status.PodIP + ":8081"
+			serverURL := "http://" + net.JoinHostPort(pod.Status.PodIP, "8081")
 			ginkgo.By("creating a StorageClass")
 			test := testsuites.StorageClassTest{
 				Client:       c,
@@ -861,8 +887,11 @@ var _ = utils.SIGDescribe("Dynamic Provisioning", func() {
 			test.Class = newStorageClass(test, ns, suffix)
 
 			ginkgo.By("creating a claim object with a suffix for gluster dynamic provisioner")
-			test.Claim = newClaim(test, ns, suffix)
-			test.Claim.Spec.StorageClassName = &test.Class.Name
+			test.Claim = framework.MakePersistentVolumeClaim(framework.PersistentVolumeClaimConfig{
+				ClaimSize:        test.ClaimSize,
+				StorageClassName: &test.Class.Name,
+				VolumeMode:       &test.VolumeMode,
+			}, ns)
 
 			test.TestDynamicProvisioning()
 		})
@@ -889,15 +918,18 @@ var _ = utils.SIGDescribe("Dynamic Provisioning", func() {
 			}()
 
 			ginkgo.By("creating a claim object with a suffix for gluster dynamic provisioner")
-			claim := newClaim(test, ns, suffix)
-			claim.Spec.StorageClassName = &class.Name
+			claim := framework.MakePersistentVolumeClaim(framework.PersistentVolumeClaimConfig{
+				ClaimSize:        test.ClaimSize,
+				StorageClassName: &class.Name,
+				VolumeMode:       &test.VolumeMode,
+			}, ns)
 			claim, err = c.CoreV1().PersistentVolumeClaims(claim.Namespace).Create(claim)
 			framework.ExpectNoError(err)
 			defer func() {
 				e2elog.Logf("deleting claim %q/%q", claim.Namespace, claim.Name)
 				err = c.CoreV1().PersistentVolumeClaims(claim.Namespace).Delete(claim.Name, nil)
 				if err != nil && !apierrs.IsNotFound(err) {
-					framework.Failf("Error deleting claim %q. Error: %v", claim.Name, err)
+					e2elog.Failf("Error deleting claim %q. Error: %v", claim.Name, err)
 				}
 			}()
 
@@ -967,8 +999,11 @@ var _ = utils.SIGDescribe("Dynamic Provisioning", func() {
 				test.Class = newStorageClass(test, ns, suffix)
 				zone := getRandomClusterZone(c)
 				addSingleZoneAllowedTopologyToStorageClass(c, test.Class, zone)
-				test.Claim = newClaim(test, ns, suffix)
-				test.Claim.Spec.StorageClassName = &test.Class.Name
+				test.Claim = framework.MakePersistentVolumeClaim(framework.PersistentVolumeClaimConfig{
+					ClaimSize:        test.ClaimSize,
+					StorageClassName: &test.Class.Name,
+					VolumeMode:       &test.VolumeMode,
+				}, ns)
 				pv := test.TestDynamicProvisioning()
 				checkZoneFromLabelAndAffinity(pv, zone, true)
 			}
@@ -985,7 +1020,7 @@ var _ = utils.SIGDescribe("Dynamic Provisioning", func() {
 func verifyDefaultStorageClass(c clientset.Interface, scName string, expectedDefault bool) {
 	sc, err := c.StorageV1().StorageClasses().Get(scName, metav1.GetOptions{})
 	framework.ExpectNoError(err)
-	gomega.Expect(storageutil.IsDefaultAnnotation(sc.ObjectMeta)).To(gomega.Equal(expectedDefault))
+	framework.ExpectEqual(storageutil.IsDefaultAnnotation(sc.ObjectMeta), expectedDefault)
 }
 
 func updateDefaultStorageClass(c clientset.Interface, scName string, defaultStr string) {
@@ -1013,36 +1048,6 @@ func updateDefaultStorageClass(c clientset.Interface, scName string, defaultStr 
 	verifyDefaultStorageClass(c, scName, expectedDefault)
 }
 
-func getClaim(claimSize string, ns string) *v1.PersistentVolumeClaim {
-	claim := v1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "pvc-",
-			Namespace:    ns,
-		},
-		Spec: v1.PersistentVolumeClaimSpec{
-			AccessModes: []v1.PersistentVolumeAccessMode{
-				v1.ReadWriteOnce,
-			},
-			Resources: v1.ResourceRequirements{
-				Requests: v1.ResourceList{
-					v1.ResourceName(v1.ResourceStorage): resource.MustParse(claimSize),
-				},
-			},
-		},
-	}
-
-	return &claim
-}
-
-func newClaim(t testsuites.StorageClassTest, ns, suffix string) *v1.PersistentVolumeClaim {
-	claim := getClaim(t.ClaimSize, ns)
-	if t.VolumeMode == v1.PersistentVolumeBlock {
-		blockVolumeMode := v1.PersistentVolumeBlock
-		claim.Spec.VolumeMode = &blockVolumeMode
-	}
-	return claim
-}
-
 func getDefaultPluginName() string {
 	switch {
 	case framework.ProviderIs("gke"), framework.ProviderIs("gce"):
@@ -1059,7 +1064,7 @@ func getDefaultPluginName() string {
 	return ""
 }
 
-func addSingleZoneAllowedTopologyToStorageClass(c clientset.Interface, sc *storage.StorageClass, zone string) {
+func addSingleZoneAllowedTopologyToStorageClass(c clientset.Interface, sc *storagev1.StorageClass, zone string) {
 	term := v1.TopologySelectorTerm{
 		MatchLabelExpressions: []v1.TopologySelectorLabelRequirement{
 			{
@@ -1071,7 +1076,7 @@ func addSingleZoneAllowedTopologyToStorageClass(c clientset.Interface, sc *stora
 	sc.AllowedTopologies = append(sc.AllowedTopologies, term)
 }
 
-func newStorageClass(t testsuites.StorageClassTest, ns string, suffix string) *storage.StorageClass {
+func newStorageClass(t testsuites.StorageClassTest, ns string, suffix string) *storagev1.StorageClass {
 	pluginName := t.Provisioner
 	if pluginName == "" {
 		pluginName = getDefaultPluginName()
@@ -1079,9 +1084,9 @@ func newStorageClass(t testsuites.StorageClassTest, ns string, suffix string) *s
 	if suffix == "" {
 		suffix = "sc"
 	}
-	bindingMode := storage.VolumeBindingImmediate
+	bindingMode := storagev1.VolumeBindingImmediate
 	if t.DelayBinding {
-		bindingMode = storage.VolumeBindingWaitForFirstConsumer
+		bindingMode = storagev1.VolumeBindingWaitForFirstConsumer
 	}
 	sc := getStorageClass(pluginName, t.Parameters, &bindingMode, ns, suffix)
 	if t.AllowVolumeExpansion {
@@ -1093,15 +1098,15 @@ func newStorageClass(t testsuites.StorageClassTest, ns string, suffix string) *s
 func getStorageClass(
 	provisioner string,
 	parameters map[string]string,
-	bindingMode *storage.VolumeBindingMode,
+	bindingMode *storagev1.VolumeBindingMode,
 	ns string,
 	suffix string,
-) *storage.StorageClass {
+) *storagev1.StorageClass {
 	if bindingMode == nil {
-		defaultBindingMode := storage.VolumeBindingImmediate
+		defaultBindingMode := storagev1.VolumeBindingImmediate
 		bindingMode = &defaultBindingMode
 	}
-	return &storage.StorageClass{
+	return &storagev1.StorageClass{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "StorageClass",
 		},
@@ -1116,7 +1121,7 @@ func getStorageClass(
 }
 
 // TODO: remove when storage.k8s.io/v1beta1 is removed.
-func newBetaStorageClass(t testsuites.StorageClassTest, suffix string) *storagebeta.StorageClass {
+func newBetaStorageClass(t testsuites.StorageClassTest, suffix string) *storagev1beta1.StorageClass {
 	pluginName := t.Provisioner
 
 	if pluginName == "" {
@@ -1126,7 +1131,7 @@ func newBetaStorageClass(t testsuites.StorageClassTest, suffix string) *storageb
 		suffix = "default"
 	}
 
-	return &storagebeta.StorageClass{
+	return &storagev1beta1.StorageClass{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "StorageClass",
 		},
@@ -1154,7 +1159,7 @@ func startGlusterDpServerPod(c clientset.Interface, ns string) *v1.Pod {
 			Containers: []v1.Container{
 				{
 					Name:  "glusterdynamic-provisioner",
-					Image: "docker.io/humblec/glusterdynamic-provisioner:v1.0",
+					Image: "docker.io/gluster/glusterdynamic-provisioner:v1.0",
 					Args: []string{
 						"-config=" + "/etc/heketi/heketi.json",
 					},
@@ -1179,7 +1184,7 @@ func startGlusterDpServerPod(c clientset.Interface, ns string) *v1.Pod {
 	provisionerPod, err := podClient.Create(provisionerPod)
 	framework.ExpectNoError(err, "Failed to create %s pod: %v", provisionerPod.Name, err)
 
-	framework.ExpectNoError(framework.WaitForPodRunningInNamespace(c, provisionerPod))
+	framework.ExpectNoError(e2epod.WaitForPodRunningInNamespace(c, provisionerPod))
 
 	ginkgo.By("locating the provisioner pod")
 	pod, err := podClient.Get(provisionerPod.Name, metav1.GetOptions{})
@@ -1231,7 +1236,7 @@ func deleteProvisionedVolumesAndDisks(c clientset.Interface, pvs []*v1.Persisten
 func getRandomClusterZone(c clientset.Interface) string {
 	zones, err := framework.GetClusterZones(c)
 	framework.ExpectNoError(err)
-	gomega.Expect(len(zones)).ToNot(gomega.Equal(0))
+	framework.ExpectNotEqual(len(zones), 0)
 
 	zonesList := zones.UnsortedList()
 	return zonesList[rand.Intn(zones.Len())]

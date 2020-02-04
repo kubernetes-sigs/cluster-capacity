@@ -45,9 +45,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/jsonpb"
 	. "github.com/golang/protobuf/proto"
 	pb3 "github.com/golang/protobuf/proto/proto3_proto"
 	. "github.com/golang/protobuf/proto/test_proto"
+	descriptorpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
 )
 
 var globalO *Buffer
@@ -1500,7 +1502,7 @@ func TestJSON(t *testing.T) {
 		t.Fatalf("got %s, want %s", received, m)
 	}
 
-	// Test unmarshalling of JSON with symbolic enum name.
+	// Test unmarshaling of JSON with symbolic enum name.
 	const old = `{"count":4,"pet":["bunny","kitty"],"inner":{"host":"cauchy"},"bikeshed":"GREEN"}`
 	received.Reset()
 	if err := json.Unmarshal([]byte(old), received); err != nil {
@@ -2489,4 +2491,34 @@ func BenchmarkUnmarshalUnrecognizedFields(b *testing.B) {
 		p2.SetBuf(p.Bytes())
 		p2.Unmarshal(pbd)
 	}
+}
+
+// TestRace tests whether there are races among the different marshalers.
+func TestRace(t *testing.T) {
+	m := &descriptorpb.FileDescriptorProto{
+		Options: &descriptorpb.FileOptions{
+			GoPackage: String("path/to/my/package"),
+		},
+	}
+
+	wg := &sync.WaitGroup{}
+	defer wg.Wait()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		Marshal(m)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		(&jsonpb.Marshaler{}).MarshalToString(m)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		m.String()
+	}()
 }

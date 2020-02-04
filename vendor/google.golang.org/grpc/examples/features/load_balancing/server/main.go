@@ -27,8 +27,9 @@ import (
 	"sync"
 
 	"google.golang.org/grpc"
-
-	pb "google.golang.org/grpc/examples/features/proto/echo"
+	"google.golang.org/grpc/codes"
+	ecpb "google.golang.org/grpc/examples/features/proto/echo"
+	"google.golang.org/grpc/status"
 )
 
 var (
@@ -36,12 +37,20 @@ var (
 )
 
 type ecServer struct {
-	pb.UnimplementedEchoServer
 	addr string
 }
 
-func (s *ecServer) UnaryEcho(ctx context.Context, req *pb.EchoRequest) (*pb.EchoResponse, error) {
-	return &pb.EchoResponse{Message: fmt.Sprintf("%s (from %s)", req.Message, s.addr)}, nil
+func (s *ecServer) UnaryEcho(ctx context.Context, req *ecpb.EchoRequest) (*ecpb.EchoResponse, error) {
+	return &ecpb.EchoResponse{Message: fmt.Sprintf("%s (from %s)", req.Message, s.addr)}, nil
+}
+func (s *ecServer) ServerStreamingEcho(*ecpb.EchoRequest, ecpb.Echo_ServerStreamingEchoServer) error {
+	return status.Errorf(codes.Unimplemented, "not implemented")
+}
+func (s *ecServer) ClientStreamingEcho(ecpb.Echo_ClientStreamingEchoServer) error {
+	return status.Errorf(codes.Unimplemented, "not implemented")
+}
+func (s *ecServer) BidirectionalStreamingEcho(ecpb.Echo_BidirectionalStreamingEchoServer) error {
+	return status.Errorf(codes.Unimplemented, "not implemented")
 }
 
 func startServer(addr string) {
@@ -50,7 +59,7 @@ func startServer(addr string) {
 		log.Fatalf("failed to listen: %v", err)
 	}
 	s := grpc.NewServer()
-	pb.RegisterEchoServer(s, &ecServer{addr: addr})
+	ecpb.RegisterEchoServer(s, &ecServer{addr: addr})
 	log.Printf("serving on %s\n", addr)
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)

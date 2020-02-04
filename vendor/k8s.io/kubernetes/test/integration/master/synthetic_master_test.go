@@ -306,30 +306,36 @@ func TestObjectSizeResponses(t *testing.T) {
 	client := clientset.NewForConfigOrDie(&restclient.Config{Host: s.URL})
 
 	const DeploymentMegabyteSize = 100000
-	const DeploymentTwoMegabyteSize = 1000000
+	const DeploymentTwoMegabyteSize = 175000
+	const DeploymentThreeMegabyteSize = 250000
 
 	expectedMsgFor1MB := `etcdserver: request is too large`
 	expectedMsgFor2MB := `rpc error: code = ResourceExhausted desc = trying to send message larger than max`
+	expectedMsgFor3MB := `Request entity too large: limit is 3145728`
 	expectedMsgForLargeAnnotation := `metadata.annotations: Too long: must have at most 262144 characters`
 
-	deployment1 := constructBody("a", DeploymentMegabyteSize, "labels", t)    // >1 MB file
-	deployment2 := constructBody("a", DeploymentTwoMegabyteSize, "labels", t) // >2 MB file
+	deployment1 := constructBody("a", DeploymentMegabyteSize, "labels", t)      // >1 MB file
+	deployment2 := constructBody("a", DeploymentTwoMegabyteSize, "labels", t)   // >2 MB file
+	deployment3 := constructBody("a", DeploymentThreeMegabyteSize, "labels", t) // >3 MB file
 
-	deployment3 := constructBody("a", DeploymentMegabyteSize, "annotations", t)
+	deployment4 := constructBody("a", DeploymentMegabyteSize, "annotations", t)
 
-	deployment4 := constructBody("sample/sample", DeploymentMegabyteSize, "finalizers", t)    // >1 MB file
-	deployment5 := constructBody("sample/sample", DeploymentTwoMegabyteSize, "finalizers", t) // >2 MB file
+	deployment5 := constructBody("sample/sample", DeploymentMegabyteSize, "finalizers", t)      // >1 MB file
+	deployment6 := constructBody("sample/sample", DeploymentTwoMegabyteSize, "finalizers", t)   // >2 MB file
+	deployment7 := constructBody("sample/sample", DeploymentThreeMegabyteSize, "finalizers", t) // >3 MB file
 
 	requests := []struct {
 		size             string
 		deploymentObject *appsv1.Deployment
 		expectedMessage  string
 	}{
-		{"1 MB", deployment1, expectedMsgFor1MB},
-		{"2 MB", deployment2, expectedMsgFor2MB},
-		{"1 MB", deployment3, expectedMsgForLargeAnnotation},
-		{"1 MB", deployment4, expectedMsgFor1MB},
-		{"2 MB", deployment5, expectedMsgFor2MB},
+		{"1 MB labels", deployment1, expectedMsgFor1MB},
+		{"2 MB labels", deployment2, expectedMsgFor2MB},
+		{"3 MB labels", deployment3, expectedMsgFor3MB},
+		{"1 MB annotations", deployment4, expectedMsgForLargeAnnotation},
+		{"1 MB finalizers", deployment5, expectedMsgFor1MB},
+		{"2 MB finalizers", deployment6, expectedMsgFor2MB},
+		{"3 MB finalizers", deployment7, expectedMsgFor3MB},
 	}
 
 	for _, r := range requests {
@@ -523,15 +529,9 @@ func TestAppsGroupBackwardCompatibility(t *testing.T) {
 		expectedStatusCodes map[int]bool
 		expectedVersion     string
 	}{
-		// Post to extensions endpoint and get back from both: extensions and apps
-		{"POST", extensionsPath("deployments", metav1.NamespaceDefault, ""), deploymentExtensions, integration.Code201, ""},
-		{"GET", extensionsPath("deployments", metav1.NamespaceDefault, "test-deployment1"), "", integration.Code200, "extensions/v1beta1"},
-		{"GET", appsPath("deployments", metav1.NamespaceDefault, "test-deployment1"), "", integration.Code200, "apps/v1"},
-		{"DELETE", extensionsPath("deployments", metav1.NamespaceDefault, "test-deployment1"), "", integration.Code200, "extensions/v1beta1"},
-		// Post to apps endpoint and get back from both: apps and extensions
+		// Post to apps endpoint and get back from apps
 		{"POST", appsPath("deployments", metav1.NamespaceDefault, ""), deploymentApps, integration.Code201, ""},
 		{"GET", appsPath("deployments", metav1.NamespaceDefault, "test-deployment2"), "", integration.Code200, "apps/v1"},
-		{"GET", extensionsPath("deployments", metav1.NamespaceDefault, "test-deployment2"), "", integration.Code200, "extensions/v1beta1"},
 		// set propagationPolicy=Orphan to force the object to be returned so we can check the apiVersion (otherwise, we just get a status object back)
 		{"DELETE", appsPath("deployments", metav1.NamespaceDefault, "test-deployment2") + "?propagationPolicy=Orphan", "", integration.Code200, "apps/v1"},
 	}

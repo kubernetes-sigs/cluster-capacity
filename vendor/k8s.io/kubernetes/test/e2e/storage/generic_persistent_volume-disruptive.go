@@ -18,12 +18,12 @@ package storage
 
 import (
 	"github.com/onsi/ginkgo"
-	"github.com/onsi/gomega"
 
 	v1 "k8s.io/api/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
+	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 	"k8s.io/kubernetes/test/e2e/storage/utils"
 )
@@ -91,16 +91,21 @@ func createPodPVCFromSC(f *framework.Framework, c clientset.Interface, ns string
 		Name:      "default",
 		ClaimSize: "2Gi",
 	}
-	pvc := newClaim(test, ns, "default")
+	pvc := framework.MakePersistentVolumeClaim(framework.PersistentVolumeClaimConfig{
+		ClaimSize:  test.ClaimSize,
+		VolumeMode: &test.VolumeMode,
+	}, ns)
 	pvc, err = c.CoreV1().PersistentVolumeClaims(pvc.Namespace).Create(pvc)
 	framework.ExpectNoError(err, "Error creating pvc")
 	pvcClaims := []*v1.PersistentVolumeClaim{pvc}
 	pvs, err := framework.WaitForPVClaimBoundPhase(c, pvcClaims, framework.ClaimProvisionTimeout)
 	framework.ExpectNoError(err, "Failed waiting for PVC to be bound %v", err)
-	gomega.Expect(len(pvs)).To(gomega.Equal(1))
+	framework.ExpectEqual(len(pvs), 1)
 
 	ginkgo.By("Creating a pod with dynamically provisioned volume")
-	pod, err := framework.CreateNginxPod(c, ns, nil, pvcClaims)
+	pod, err := e2epod.CreateSecPod(c, ns, pvcClaims, nil,
+		false, "", false, false, framework.SELinuxLabel,
+		nil, framework.PodStartTimeout)
 	framework.ExpectNoError(err, "While creating pods for kubelet restart test")
 	return pod, pvc, pvs[0]
 }

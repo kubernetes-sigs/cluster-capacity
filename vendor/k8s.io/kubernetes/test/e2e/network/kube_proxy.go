@@ -29,15 +29,17 @@ import (
 
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
+	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
+	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	e2essh "k8s.io/kubernetes/test/e2e/framework/ssh"
-	"k8s.io/kubernetes/test/images/net/nat"
+	"k8s.io/kubernetes/test/images/agnhost/net/nat"
 	imageutils "k8s.io/kubernetes/test/utils/image"
 
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 )
 
-var kubeProxyE2eImage = imageutils.GetE2EImage(imageutils.Net)
+var kubeProxyE2eImage = imageutils.GetE2EImage(imageutils.Agnhost)
 
 var _ = SIGDescribe("Network", func() {
 	const (
@@ -51,7 +53,7 @@ var _ = SIGDescribe("Network", func() {
 
 	ginkgo.It("should set TCP CLOSE_WAIT timeout", func() {
 		nodes := framework.GetReadySchedulableNodesOrDie(fr.ClientSet)
-		ips := framework.CollectAddresses(nodes, v1.NodeInternalIP)
+		ips := e2enode.CollectAddresses(nodes, v1.NodeInternalIP)
 
 		if len(nodes.Items) < 2 {
 			framework.Skipf(
@@ -102,8 +104,8 @@ var _ = SIGDescribe("Network", func() {
 						Name:            "e2e-net-client",
 						Image:           kubeProxyE2eImage,
 						ImagePullPolicy: "Always",
-						Command: []string{
-							"/net", "-serve", fmt.Sprintf("0.0.0.0:%d", testDaemonHTTPPort),
+						Args: []string{
+							"net", "--serve", fmt.Sprintf("0.0.0.0:%d", testDaemonHTTPPort),
 						},
 					},
 				},
@@ -124,10 +126,10 @@ var _ = SIGDescribe("Network", func() {
 						Name:            "e2e-net-server",
 						Image:           kubeProxyE2eImage,
 						ImagePullPolicy: "Always",
-						Command: []string{
-							"/net",
-							"-runner", "nat-closewait-server",
-							"-options",
+						Args: []string{
+							"net",
+							"--runner", "nat-closewait-server",
+							"--options",
 							fmt.Sprintf(`{"LocalAddr":"0.0.0.0:%v", "PostFindTimeoutSeconds":%v}`,
 								testDaemonTCPPort,
 								postFinTimeoutSeconds),
@@ -265,6 +267,9 @@ var _ = SIGDescribe("Network", func() {
 		_, err := fr.ClientSet.CoreV1().Pods(fr.Namespace.Name).Create(serverPod)
 		framework.ExpectNoError(err)
 
+		err = e2epod.WaitForPodsRunningReady(fr.ClientSet, fr.Namespace.Name, 1, 0, framework.PodReadyBeforeTimeout, map[string]string{})
+		framework.ExpectNoError(err)
+
 		ginkgo.By("Server pod created")
 
 		svc := &v1.Service{
@@ -295,7 +300,7 @@ var _ = SIGDescribe("Network", func() {
 				Containers: []v1.Container{
 					{
 						Name:  "startup-script",
-						Image: "gcr.io/google-containers/startup-script:v1",
+						Image: imageutils.GetE2EImage(imageutils.StartupScript),
 						Command: []string{
 							"bash", "-c", "while true; do sleep 2; nc boom-server 9000& done",
 						},

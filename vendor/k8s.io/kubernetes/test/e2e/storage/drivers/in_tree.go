@@ -46,7 +46,7 @@ import (
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
-	rbacv1beta1 "k8s.io/api/rbac/v1beta1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -56,6 +56,7 @@ import (
 	"k8s.io/kubernetes/test/e2e/framework"
 	"k8s.io/kubernetes/test/e2e/framework/auth"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
+	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	"k8s.io/kubernetes/test/e2e/framework/volume"
 	"k8s.io/kubernetes/test/e2e/storage/testpatterns"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
@@ -100,6 +101,7 @@ func InitNFSDriver() testsuites.TestDriver {
 				testsuites.CapPersistence: true,
 				testsuites.CapExec:        true,
 				testsuites.CapRWX:         true,
+				testsuites.CapMultiPODs:   true,
 			},
 		},
 	}
@@ -156,11 +158,11 @@ func (n *nfsDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTestConf
 
 	// TODO(mkimuram): cluster-admin gives too much right but system:persistent-volume-provisioner
 	// is not enough. We should create new clusterrole for testing.
-	err := auth.BindClusterRole(cs.RbacV1beta1(), "cluster-admin", ns.Name,
-		rbacv1beta1.Subject{Kind: rbacv1beta1.ServiceAccountKind, Namespace: ns.Name, Name: "default"})
+	err := auth.BindClusterRole(cs.RbacV1(), "cluster-admin", ns.Name,
+		rbacv1.Subject{Kind: rbacv1.ServiceAccountKind, Namespace: ns.Name, Name: "default"})
 	framework.ExpectNoError(err)
 
-	err = auth.WaitForAuthorizationUpdate(cs.AuthorizationV1beta1(),
+	err = auth.WaitForAuthorizationUpdate(cs.AuthorizationV1(),
 		serviceaccount.MakeUsername(ns.Name, "default"),
 		"", "get", schema.GroupResource{Group: "storage.k8s.io", Resource: "storageclasses"}, true)
 	framework.ExpectNoError(err, "Failed to update authorization: %v", err)
@@ -173,9 +175,9 @@ func (n *nfsDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTestConf
 			Prefix:    "nfs",
 			Framework: f,
 		}, func() {
-			framework.ExpectNoError(framework.DeletePodWithWait(f, cs, n.externalProvisionerPod))
+			framework.ExpectNoError(e2epod.DeletePodWithWait(cs, n.externalProvisionerPod))
 			clusterRoleBindingName := ns.Name + "--" + "cluster-admin"
-			cs.RbacV1beta1().ClusterRoleBindings().Delete(clusterRoleBindingName, metav1.NewDeleteOptions(0))
+			cs.RbacV1().ClusterRoleBindings().Delete(clusterRoleBindingName, metav1.NewDeleteOptions(0))
 		}
 }
 
@@ -201,7 +203,7 @@ func (n *nfsDriver) CreateVolume(config *testsuites.PerTestConfig, volType testp
 	case testpatterns.DynamicPV:
 		// Do nothing
 	default:
-		framework.Failf("Unsupported volType:%v is specified", volType)
+		e2elog.Failf("Unsupported volType:%v is specified", volType)
 	}
 	return nil
 }
@@ -240,6 +242,7 @@ func InitGlusterFSDriver() testsuites.TestDriver {
 				testsuites.CapPersistence: true,
 				testsuites.CapExec:        true,
 				testsuites.CapRWX:         true,
+				testsuites.CapMultiPODs:   true,
 			},
 		},
 	}
@@ -316,14 +319,14 @@ func (v *glusterVolume) DeleteVolume() {
 	err := cs.CoreV1().Endpoints(ns.Name).Delete(name, nil)
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			framework.Failf("Gluster delete endpoints failed: %v", err)
+			e2elog.Failf("Gluster delete endpoints failed: %v", err)
 		}
 		e2elog.Logf("Gluster endpoints %q not found, assuming deleted", name)
 	}
 	e2elog.Logf("Deleting Gluster server pod %q...", v.serverPod.Name)
-	err = framework.DeletePodWithWait(f, cs, v.serverPod)
+	err = e2epod.DeletePodWithWait(cs, v.serverPod)
 	if err != nil {
-		framework.Failf("Gluster server pod delete failed: %v", err)
+		e2elog.Failf("Gluster server pod delete failed: %v", err)
 	}
 }
 
@@ -364,6 +367,7 @@ func InitISCSIDriver() testsuites.TestDriver {
 				testsuites.CapFsGroup:     true,
 				testsuites.CapBlock:       true,
 				testsuites.CapExec:        true,
+				testsuites.CapMultiPODs:   true,
 			},
 		},
 	}
@@ -477,6 +481,7 @@ func InitRbdDriver() testsuites.TestDriver {
 				testsuites.CapFsGroup:     true,
 				testsuites.CapBlock:       true,
 				testsuites.CapExec:        true,
+				testsuites.CapMultiPODs:   true,
 			},
 		},
 	}
@@ -600,6 +605,7 @@ func InitCephFSDriver() testsuites.TestDriver {
 				testsuites.CapPersistence: true,
 				testsuites.CapExec:        true,
 				testsuites.CapRWX:         true,
+				testsuites.CapMultiPODs:   true,
 			},
 		},
 	}
@@ -696,7 +702,9 @@ func InitHostPathDriver() testsuites.TestDriver {
 				"", // Default fsType
 			),
 			Capabilities: map[testsuites.Capability]bool{
-				testsuites.CapPersistence: true,
+				testsuites.CapPersistence:      true,
+				testsuites.CapMultiPODs:        true,
+				testsuites.CapSingleNodeVolume: true,
 			},
 		},
 	}
@@ -769,7 +777,9 @@ func InitHostPathSymlinkDriver() testsuites.TestDriver {
 				"", // Default fsType
 			),
 			Capabilities: map[testsuites.Capability]bool{
-				testsuites.CapPersistence: true,
+				testsuites.CapPersistence:      true,
+				testsuites.CapMultiPODs:        true,
+				testsuites.CapSingleNodeVolume: true,
 			},
 		},
 	}
@@ -861,10 +871,10 @@ func (h *hostPathSymlinkDriver) CreateVolume(config *testsuites.PerTestConfig, v
 	pod, err := f.ClientSet.CoreV1().Pods(f.Namespace.Name).Create(prepPod)
 	framework.ExpectNoError(err, "while creating hostPath init pod")
 
-	err = framework.WaitForPodSuccessInNamespace(f.ClientSet, pod.Name, pod.Namespace)
+	err = e2epod.WaitForPodSuccessInNamespace(f.ClientSet, pod.Name, pod.Namespace)
 	framework.ExpectNoError(err, "while waiting for hostPath init pod to succeed")
 
-	err = framework.DeletePodWithWait(f, f.ClientSet, pod)
+	err = e2epod.DeletePodWithWait(f.ClientSet, pod)
 	framework.ExpectNoError(err, "while deleting hostPath init pod")
 	return &hostPathSymlinkVolume{
 		sourcePath: sourcePath,
@@ -883,10 +893,10 @@ func (v *hostPathSymlinkVolume) DeleteVolume() {
 	pod, err := f.ClientSet.CoreV1().Pods(f.Namespace.Name).Create(v.prepPod)
 	framework.ExpectNoError(err, "while creating hostPath teardown pod")
 
-	err = framework.WaitForPodSuccessInNamespace(f.ClientSet, pod.Name, pod.Namespace)
+	err = e2epod.WaitForPodSuccessInNamespace(f.ClientSet, pod.Name, pod.Namespace)
 	framework.ExpectNoError(err, "while waiting for hostPath teardown pod to succeed")
 
-	err = framework.DeletePodWithWait(f, f.ClientSet, pod)
+	err = e2epod.DeletePodWithWait(f.ClientSet, pod)
 	framework.ExpectNoError(err, "while deleting hostPath teardown pod")
 }
 
@@ -910,7 +920,8 @@ func InitEmptydirDriver() testsuites.TestDriver {
 				"", // Default fsType
 			),
 			Capabilities: map[testsuites.Capability]bool{
-				testsuites.CapExec: true,
+				testsuites.CapExec:             true,
+				testsuites.CapSingleNodeVolume: true,
 			},
 		},
 	}
@@ -980,6 +991,9 @@ func InitCinderDriver() testsuites.TestDriver {
 				testsuites.CapPersistence: true,
 				testsuites.CapFsGroup:     true,
 				testsuites.CapExec:        true,
+				// Cinder supports volume limits, but the test creates large
+				// number of volumes and times out test suites.
+				testsuites.CapVolumeLimits: false,
 			},
 		},
 	}
@@ -1079,7 +1093,7 @@ func (c *cinderDriver) CreateVolume(config *testsuites.PerTestConfig, volType te
 		break
 	}
 	e2elog.Logf("Volume ID: %s", volumeID)
-	gomega.Expect(volumeID).NotTo(gomega.Equal(""))
+	framework.ExpectNotEqual(volumeID, "")
 	return &cinderVolume{
 		volumeName: volumeName,
 		volumeID:   volumeID,
@@ -1144,10 +1158,16 @@ func InitGcePdDriver() testsuites.TestDriver {
 			SupportedFsType:      supportedTypes,
 			SupportedMountOption: sets.NewString("debug", "nouid32"),
 			Capabilities: map[testsuites.Capability]bool{
-				testsuites.CapPersistence: true,
-				testsuites.CapFsGroup:     true,
-				testsuites.CapBlock:       true,
-				testsuites.CapExec:        true,
+				testsuites.CapPersistence:         true,
+				testsuites.CapFsGroup:             true,
+				testsuites.CapBlock:               true,
+				testsuites.CapExec:                true,
+				testsuites.CapMultiPODs:           true,
+				testsuites.CapControllerExpansion: true,
+				testsuites.CapNodeExpansion:       true,
+				// GCE supports volume limits, but the test creates large
+				// number of volumes and times out test suites.
+				testsuites.CapVolumeLimits: false,
 			},
 		},
 	}
@@ -1277,6 +1297,7 @@ func InitVSphereDriver() testsuites.TestDriver {
 				testsuites.CapPersistence: true,
 				testsuites.CapFsGroup:     true,
 				testsuites.CapExec:        true,
+				testsuites.CapMultiPODs:   true,
 			},
 		},
 	}
@@ -1400,6 +1421,10 @@ func InitAzureDriver() testsuites.TestDriver {
 				testsuites.CapFsGroup:     true,
 				testsuites.CapBlock:       true,
 				testsuites.CapExec:        true,
+				testsuites.CapMultiPODs:   true,
+				// Azure supports volume limits, but the test creates large
+				// number of volumes and times out test suites.
+				testsuites.CapVolumeLimits: false,
 			},
 		},
 	}
@@ -1490,17 +1515,18 @@ func (v *azureVolume) DeleteVolume() {
 
 // AWS
 type awsDriver struct {
-	volumeName string
-
 	driverInfo testsuites.DriverInfo
+}
+
+type awsVolume struct {
+	volumeName string
 }
 
 var _ testsuites.TestDriver = &awsDriver{}
 
-// TODO: Fix authorization error in attach operation and uncomment below
-//var _ testsuites.PreprovisionedVolumeTestDriver = &awsDriver{}
-//var _ testsuites.InlineVolumeTestDriver = &awsDriver{}
-//var _ testsuites.PreprovisionedPVTestDriver = &awsDriver{}
+var _ testsuites.PreprovisionedVolumeTestDriver = &awsDriver{}
+var _ testsuites.InlineVolumeTestDriver = &awsDriver{}
+var _ testsuites.PreprovisionedPVTestDriver = &awsDriver{}
 var _ testsuites.DynamicPVTestDriver = &awsDriver{}
 
 // InitAwsDriver returns awsDriver that implements TestDriver interface
@@ -1512,14 +1538,24 @@ func InitAwsDriver() testsuites.TestDriver {
 			MaxFileSize:      testpatterns.FileSizeMedium,
 			SupportedFsType: sets.NewString(
 				"", // Default fsType
+				"ext2",
 				"ext3",
+				"ext4",
+				"xfs",
+				"ntfs",
 			),
 			SupportedMountOption: sets.NewString("debug", "nouid32"),
 			Capabilities: map[testsuites.Capability]bool{
-				testsuites.CapPersistence: true,
-				testsuites.CapFsGroup:     true,
-				testsuites.CapBlock:       true,
-				testsuites.CapExec:        true,
+				testsuites.CapPersistence:         true,
+				testsuites.CapFsGroup:             true,
+				testsuites.CapBlock:               true,
+				testsuites.CapExec:                true,
+				testsuites.CapMultiPODs:           true,
+				testsuites.CapControllerExpansion: true,
+				testsuites.CapNodeExpansion:       true,
+				// AWS supports volume limits, but the test creates large
+				// number of volumes and times out test suites.
+				testsuites.CapVolumeLimits: false,
 			},
 		},
 	}
@@ -1533,12 +1569,12 @@ func (a *awsDriver) SkipUnsupportedTest(pattern testpatterns.TestPattern) {
 	framework.SkipUnlessProviderIs("aws")
 }
 
-// TODO: Fix authorization error in attach operation and uncomment below
-/*
 func (a *awsDriver) GetVolumeSource(readOnly bool, fsType string, volume testsuites.TestVolume) *v1.VolumeSource {
+	av, ok := volume.(*awsVolume)
+	gomega.Expect(ok).To(gomega.BeTrue(), "Failed to cast test volume to AWS test volume")
 	volSource := v1.VolumeSource{
 		AWSElasticBlockStore: &v1.AWSElasticBlockStoreVolumeSource{
-			VolumeID: a.volumeName,
+			VolumeID: av.volumeName,
 			ReadOnly: readOnly,
 		},
 	}
@@ -1549,18 +1585,19 @@ func (a *awsDriver) GetVolumeSource(readOnly bool, fsType string, volume testsui
 }
 
 func (a *awsDriver) GetPersistentVolumeSource(readOnly bool, fsType string, volume testsuites.TestVolume) (*v1.PersistentVolumeSource, *v1.VolumeNodeAffinity) {
+	av, ok := volume.(*awsVolume)
+	gomega.Expect(ok).To(gomega.BeTrue(), "Failed to cast test volume to AWS test volume")
 	pvSource := v1.PersistentVolumeSource{
 		AWSElasticBlockStore: &v1.AWSElasticBlockStoreVolumeSource{
-			VolumeID: a.volumeName,
+			VolumeID: av.volumeName,
 			ReadOnly: readOnly,
 		},
 	}
 	if fsType != "" {
 		pvSource.AWSElasticBlockStore.FSType = fsType
 	}
-	return &pvSource
+	return &pvSource, nil
 }
-*/
 
 func (a *awsDriver) GetDynamicProvisionStorageClass(config *testsuites.PerTestConfig, fsType string) *storagev1.StorageClass {
 	provisioner := "kubernetes.io/aws-ebs"
@@ -1570,8 +1607,9 @@ func (a *awsDriver) GetDynamicProvisionStorageClass(config *testsuites.PerTestCo
 	}
 	ns := config.Framework.Namespace.Name
 	suffix := fmt.Sprintf("%s-sc", a.driverInfo.Name)
+	delayedBinding := storagev1.VolumeBindingWaitForFirstConsumer
 
-	return testsuites.GetStorageClass(provisioner, parameters, nil, ns, suffix)
+	return testsuites.GetStorageClass(provisioner, parameters, &delayedBinding, ns, suffix)
 }
 
 func (a *awsDriver) GetClaimSize() string {
@@ -1579,26 +1617,38 @@ func (a *awsDriver) GetClaimSize() string {
 }
 
 func (a *awsDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTestConfig, func()) {
-	return &testsuites.PerTestConfig{
+	config := &testsuites.PerTestConfig{
 		Driver:    a,
 		Prefix:    "aws",
 		Framework: f,
-	}, func() {}
+	}
+	if framework.NodeOSDistroIs("windows") {
+		config.ClientNodeSelector = map[string]string{
+			"beta.kubernetes.io/os": "windows",
+		}
+	}
+	return config, func() {}
 }
 
-// TODO: Fix authorization error in attach operation and uncomment below
-/*
 func (a *awsDriver) CreateVolume(config *testsuites.PerTestConfig, volType testpatterns.TestVolType) testsuites.TestVolume {
+	if volType == testpatterns.InlineVolume {
+		// PD will be created in framework.TestContext.CloudConfig.Zone zone,
+		// so pods should be also scheduled there.
+		config.ClientNodeSelector = map[string]string{
+			v1.LabelZoneFailureDomain: framework.TestContext.CloudConfig.Zone,
+		}
+	}
 	ginkgo.By("creating a test aws volume")
-	var err error
-	a.volumeName, err = framework.CreatePDWithRetry()
-	framework.ExpectNoError(err))
+	vname, err := framework.CreatePDWithRetry()
+	framework.ExpectNoError(err)
+	return &awsVolume{
+		volumeName: vname,
+	}
 }
 
-DeleteVolume() {
-	framework.DeletePDWithRetry(a.volumeName)
+func (v *awsVolume) DeleteVolume() {
+	framework.DeletePDWithRetry(v.volumeName)
 }
-*/
 
 // local
 type localDriver struct {
@@ -1619,17 +1669,21 @@ type localVolume struct {
 var (
 	// capabilities
 	defaultLocalVolumeCapabilities = map[testsuites.Capability]bool{
-		testsuites.CapPersistence: true,
-		testsuites.CapFsGroup:     true,
-		testsuites.CapBlock:       false,
-		testsuites.CapExec:        true,
+		testsuites.CapPersistence:      true,
+		testsuites.CapFsGroup:          true,
+		testsuites.CapBlock:            false,
+		testsuites.CapExec:             true,
+		testsuites.CapMultiPODs:        true,
+		testsuites.CapSingleNodeVolume: true,
 	}
 	localVolumeCapabitilies = map[utils.LocalVolumeType]map[testsuites.Capability]bool{
 		utils.LocalVolumeBlock: {
-			testsuites.CapPersistence: true,
-			testsuites.CapFsGroup:     true,
-			testsuites.CapBlock:       true,
-			testsuites.CapExec:        true,
+			testsuites.CapPersistence:      true,
+			testsuites.CapFsGroup:          true,
+			testsuites.CapBlock:            true,
+			testsuites.CapExec:             true,
+			testsuites.CapMultiPODs:        true,
+			testsuites.CapSingleNodeVolume: true,
 		},
 	}
 	// fstype
@@ -1737,7 +1791,7 @@ func (l *localDriver) CreateVolume(config *testsuites.PerTestConfig, volType tes
 			ltr:    l.ltrMgr.Create(node, l.volumeType, nil),
 		}
 	default:
-		framework.Failf("Unsupported volType: %v is specified", volType)
+		e2elog.Failf("Unsupported volType: %v is specified", volType)
 	}
 	return nil
 }
@@ -1749,11 +1803,11 @@ func (v *localVolume) DeleteVolume() {
 func (l *localDriver) nodeAffinityForNode(node *v1.Node) *v1.VolumeNodeAffinity {
 	nodeKey := "kubernetes.io/hostname"
 	if node.Labels == nil {
-		framework.Failf("Node does not have labels")
+		e2elog.Failf("Node does not have labels")
 	}
 	nodeValue, found := node.Labels[nodeKey]
 	if !found {
-		framework.Failf("Node does not have required label %q", nodeKey)
+		e2elog.Failf("Node does not have required label %q", nodeKey)
 	}
 	return &v1.VolumeNodeAffinity{
 		Required: &v1.NodeSelector{

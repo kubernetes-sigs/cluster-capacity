@@ -30,15 +30,15 @@ import (
 	"time"
 
 	"golang.org/x/net/http2"
-	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
-	internalbackoff "google.golang.org/grpc/internal/backoff"
+	"google.golang.org/grpc/internal/backoff"
 	"google.golang.org/grpc/internal/transport"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/naming"
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/resolver/manual"
+	_ "google.golang.org/grpc/resolver/passthrough"
 	"google.golang.org/grpc/testdata"
 )
 
@@ -655,39 +655,22 @@ func (s) TestCredentialsMisuse(t *testing.T) {
 }
 
 func (s) TestWithBackoffConfigDefault(t *testing.T) {
-	testBackoffConfigSet(t, internalbackoff.DefaultExponential)
+	testBackoffConfigSet(t, &DefaultBackoffConfig)
 }
 
 func (s) TestWithBackoffConfig(t *testing.T) {
 	b := BackoffConfig{MaxDelay: DefaultBackoffConfig.MaxDelay / 2}
-	bc := backoff.DefaultConfig
-	bc.MaxDelay = b.MaxDelay
-	wantBackoff := internalbackoff.Exponential{Config: bc}
-	testBackoffConfigSet(t, wantBackoff, WithBackoffConfig(b))
+	expected := b
+	testBackoffConfigSet(t, &expected, WithBackoffConfig(b))
 }
 
 func (s) TestWithBackoffMaxDelay(t *testing.T) {
 	md := DefaultBackoffConfig.MaxDelay / 2
-	bc := backoff.DefaultConfig
-	bc.MaxDelay = md
-	wantBackoff := internalbackoff.Exponential{Config: bc}
-	testBackoffConfigSet(t, wantBackoff, WithBackoffMaxDelay(md))
+	expected := BackoffConfig{MaxDelay: md}
+	testBackoffConfigSet(t, &expected, WithBackoffMaxDelay(md))
 }
 
-func (s) TestWithConnectParams(t *testing.T) {
-	bd := 2 * time.Second
-	mltpr := 2.0
-	jitter := 0.0
-	bc := backoff.Config{BaseDelay: bd, Multiplier: mltpr, Jitter: jitter}
-
-	crt := ConnectParams{Backoff: bc}
-	// MaxDelay is not set in the ConnectParams. So it should not be set on
-	// internalbackoff.Exponential as well.
-	wantBackoff := internalbackoff.Exponential{Config: bc}
-	testBackoffConfigSet(t, wantBackoff, WithConnectParams(crt))
-}
-
-func testBackoffConfigSet(t *testing.T, wantBackoff internalbackoff.Exponential, opts ...DialOption) {
+func testBackoffConfigSet(t *testing.T, expected *BackoffConfig, opts ...DialOption) {
 	opts = append(opts, WithInsecure())
 	conn, err := Dial("passthrough:///foo:80", opts...)
 	if err != nil {
@@ -699,27 +682,16 @@ func testBackoffConfigSet(t *testing.T, wantBackoff internalbackoff.Exponential,
 		t.Fatalf("backoff config not set")
 	}
 
-	gotBackoff, ok := conn.dopts.bs.(internalbackoff.Exponential)
+	actual, ok := conn.dopts.bs.(backoff.Exponential)
 	if !ok {
 		t.Fatalf("unexpected type of backoff config: %#v", conn.dopts.bs)
 	}
 
-	if gotBackoff != wantBackoff {
-		t.Fatalf("unexpected backoff config on connection: %v, want %v", gotBackoff, wantBackoff)
+	expectedValue := backoff.Exponential{
+		MaxDelay: expected.MaxDelay,
 	}
-}
-
-func (s) TestConnectParamsWithMinConnectTimeout(t *testing.T) {
-	// Default value specified for minConnectTimeout in the spec is 20 seconds.
-	mct := 1 * time.Minute
-	conn, err := Dial("passthrough:///foo:80", WithInsecure(), WithConnectParams(ConnectParams{MinConnectTimeout: mct}))
-	if err != nil {
-		t.Fatalf("unexpected error dialing connection: %v", err)
-	}
-	defer conn.Close()
-
-	if got := conn.dopts.minConnectTimeout(); got != mct {
-		t.Errorf("unexpect minConnectTimeout on the connection: %v, want %v", got, mct)
+	if actual != expectedValue {
+		t.Fatalf("unexpected backoff config on connection: %v, want %v", actual, expected)
 	}
 }
 
@@ -779,7 +751,7 @@ func (s) TestResolverServiceConfigBeforeAddressNotPanic(t *testing.T) {
 
 	// SwitchBalancer before NewAddress. There was no balancer created, this
 	// makes sure we don't call close on nil balancerWrapper.
-	r.UpdateState(resolver.State{ServiceConfig: parseCfg(r, `{"loadBalancingPolicy": "round_robin"}`)}) // This should not panic.
+	r.UpdateState(resolver.State{ServiceConfig: parseCfg(`{"loadBalancingPolicy": "round_robin"}`)}) // This should not panic.
 
 	time.Sleep(time.Second) // Sleep to make sure the service config is handled by ClientConn.
 }
@@ -795,7 +767,7 @@ func (s) TestResolverServiceConfigWhileClosingNotPanic(t *testing.T) {
 		}
 		// Send a new service config while closing the ClientConn.
 		go cc.Close()
-		go r.UpdateState(resolver.State{ServiceConfig: parseCfg(r, `{"loadBalancingPolicy": "round_robin"}`)}) // This should not panic.
+		go r.UpdateState(resolver.State{ServiceConfig: parseCfg(`{"loadBalancingPolicy": "round_robin"}`)}) // This should not panic.
 	}
 }
 
@@ -888,7 +860,7 @@ func (s) TestDisableServiceConfigOption(t *testing.T) {
 		t.Fatalf("Dial(%s, _) = _, %v, want _, <nil>", addr, err)
 	}
 	defer cc.Close()
-	r.UpdateState(resolver.State{ServiceConfig: parseCfg(r, `{
+	r.UpdateState(resolver.State{ServiceConfig: parseCfg(`{
     "methodConfig": [
         {
             "name": [
@@ -1180,29 +1152,29 @@ func testInvalidDefaultServiceConfig(t *testing.T) {
 	}
 }
 
-func testDefaultServiceConfigWhenResolverServiceConfigDisabled(t *testing.T, r *manual.Resolver, addr string, js string) {
+func testDefaultServiceConfigWhenResolverServiceConfigDisabled(t *testing.T, r resolver.Resolver, addr string, js string) {
 	cc, err := Dial(addr, WithInsecure(), WithDisableServiceConfig(), WithDefaultServiceConfig(js))
 	if err != nil {
 		t.Fatalf("Dial(%s, _) = _, %v, want _, <nil>", addr, err)
 	}
 	defer cc.Close()
 	// Resolver service config gets ignored since resolver service config is disabled.
-	r.UpdateState(resolver.State{
+	r.(*manual.Resolver).UpdateState(resolver.State{
 		Addresses:     []resolver.Address{{Addr: addr}},
-		ServiceConfig: parseCfg(r, "{}"),
+		ServiceConfig: parseCfg("{}"),
 	})
 	if !verifyWaitForReadyEqualsTrue(cc) {
 		t.Fatal("default service config failed to be applied after 1s")
 	}
 }
 
-func testDefaultServiceConfigWhenResolverDoesNotReturnServiceConfig(t *testing.T, r *manual.Resolver, addr string, js string) {
+func testDefaultServiceConfigWhenResolverDoesNotReturnServiceConfig(t *testing.T, r resolver.Resolver, addr string, js string) {
 	cc, err := Dial(addr, WithInsecure(), WithDefaultServiceConfig(js))
 	if err != nil {
 		t.Fatalf("Dial(%s, _) = _, %v, want _, <nil>", addr, err)
 	}
 	defer cc.Close()
-	r.UpdateState(resolver.State{
+	r.(*manual.Resolver).UpdateState(resolver.State{
 		Addresses: []resolver.Address{{Addr: addr}},
 	})
 	if !verifyWaitForReadyEqualsTrue(cc) {
@@ -1210,14 +1182,15 @@ func testDefaultServiceConfigWhenResolverDoesNotReturnServiceConfig(t *testing.T
 	}
 }
 
-func testDefaultServiceConfigWhenResolverReturnInvalidServiceConfig(t *testing.T, r *manual.Resolver, addr string, js string) {
+func testDefaultServiceConfigWhenResolverReturnInvalidServiceConfig(t *testing.T, r resolver.Resolver, addr string, js string) {
 	cc, err := Dial(addr, WithInsecure(), WithDefaultServiceConfig(js))
 	if err != nil {
 		t.Fatalf("Dial(%s, _) = _, %v, want _, <nil>", addr, err)
 	}
 	defer cc.Close()
-	r.UpdateState(resolver.State{
-		Addresses: []resolver.Address{{Addr: addr}},
+	r.(*manual.Resolver).UpdateState(resolver.State{
+		Addresses:     []resolver.Address{{Addr: addr}},
+		ServiceConfig: nil,
 	})
 	if !verifyWaitForReadyEqualsTrue(cc) {
 		t.Fatal("default service config failed to be applied after 1s")

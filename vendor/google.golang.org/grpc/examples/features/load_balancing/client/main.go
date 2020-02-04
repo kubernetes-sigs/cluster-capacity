@@ -59,7 +59,6 @@ func main() {
 		fmt.Sprintf("%s:///%s", exampleScheme, exampleServiceName),
 		// grpc.WithBalancerName("pick_first"), // "pick_first" is the default, so this DialOption is not necessary.
 		grpc.WithInsecure(),
-		grpc.WithBlock(),
 	)
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
@@ -76,7 +75,6 @@ func main() {
 		fmt.Sprintf("%s:///%s", exampleScheme, exampleServiceName),
 		grpc.WithBalancerName("round_robin"), // This sets the initial balancing policy.
 		grpc.WithInsecure(),
-		grpc.WithBlock(),
 	)
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
