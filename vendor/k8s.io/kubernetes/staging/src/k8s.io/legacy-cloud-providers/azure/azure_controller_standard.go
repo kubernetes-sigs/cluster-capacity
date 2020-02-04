@@ -1,3 +1,5 @@
+// +build !providerless
+
 /*
 Copyright 2018 The Kubernetes Authors.
 
@@ -20,16 +22,16 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-03-01/compute"
-	"k8s.io/klog"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-07-01/compute"
 
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog"
 )
 
 // AttachDisk attaches a vhd to vm
 // the vhd must exist, can be identified by diskName, diskURI, and lun.
 func (as *availabilitySet) AttachDisk(isManagedDisk bool, diskName, diskURI string, nodeName types.NodeName, lun int32, cachingMode compute.CachingTypes) error {
-	vm, err := as.getVirtualMachine(nodeName)
+	vm, err := as.getVirtualMachine(nodeName, cacheReadTypeDefault)
 	if err != nil {
 		return err
 	}
@@ -100,7 +102,7 @@ func (as *availabilitySet) AttachDisk(isManagedDisk bool, diskName, diskURI stri
 // DetachDisk detaches a disk from host
 // the vhd can be identified by diskName or diskURI
 func (as *availabilitySet) DetachDisk(diskName, diskURI string, nodeName types.NodeName) (*http.Response, error) {
-	vm, err := as.getVirtualMachine(nodeName)
+	vm, err := as.getVirtualMachine(nodeName, cacheReadTypeDefault)
 	if err != nil {
 		// if host doesn't exist, no need to detach
 		klog.Warningf("azureDisk - cannot find node %s, skip detaching disk(%s, %s)", nodeName, diskName, diskURI)
@@ -118,9 +120,9 @@ func (as *availabilitySet) DetachDisk(diskName, diskURI string, nodeName types.N
 
 	bFoundDisk := false
 	for i, disk := range disks {
-		if disk.Lun != nil && (disk.Name != nil && diskName != "" && *disk.Name == diskName) ||
-			(disk.Vhd != nil && disk.Vhd.URI != nil && diskURI != "" && *disk.Vhd.URI == diskURI) ||
-			(disk.ManagedDisk != nil && diskURI != "" && *disk.ManagedDisk.ID == diskURI) {
+		if disk.Lun != nil && (disk.Name != nil && diskName != "" && strings.EqualFold(*disk.Name, diskName)) ||
+			(disk.Vhd != nil && disk.Vhd.URI != nil && diskURI != "" && strings.EqualFold(*disk.Vhd.URI, diskURI)) ||
+			(disk.ManagedDisk != nil && diskURI != "" && strings.EqualFold(*disk.ManagedDisk.ID, diskURI)) {
 			// found the disk
 			klog.V(2).Infof("azureDisk - detach disk: name %q uri %q", diskName, diskURI)
 			disks = append(disks[:i], disks[i+1:]...)
@@ -153,8 +155,8 @@ func (as *availabilitySet) DetachDisk(diskName, diskURI string, nodeName types.N
 }
 
 // GetDataDisks gets a list of data disks attached to the node.
-func (as *availabilitySet) GetDataDisks(nodeName types.NodeName) ([]compute.DataDisk, error) {
-	vm, err := as.getVirtualMachine(nodeName)
+func (as *availabilitySet) GetDataDisks(nodeName types.NodeName, crt cacheReadType) ([]compute.DataDisk, error) {
+	vm, err := as.getVirtualMachine(nodeName, crt)
 	if err != nil {
 		return nil, err
 	}

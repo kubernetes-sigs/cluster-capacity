@@ -32,11 +32,10 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	ecpb "google.golang.org/grpc/examples/features/proto/echo"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/testdata"
-
-	pb "google.golang.org/grpc/examples/features/proto/echo"
 )
 
 var (
@@ -51,16 +50,22 @@ func logger(format string, a ...interface{}) {
 	fmt.Printf("LOG:\t"+format+"\n", a...)
 }
 
-type server struct {
-	pb.UnimplementedEchoServer
-}
+type server struct{}
 
-func (s *server) UnaryEcho(ctx context.Context, in *pb.EchoRequest) (*pb.EchoResponse, error) {
+func (s *server) UnaryEcho(ctx context.Context, in *ecpb.EchoRequest) (*ecpb.EchoResponse, error) {
 	fmt.Printf("unary echoing message %q\n", in.Message)
-	return &pb.EchoResponse{Message: in.Message}, nil
+	return &ecpb.EchoResponse{Message: in.Message}, nil
 }
 
-func (s *server) BidirectionalStreamingEcho(stream pb.Echo_BidirectionalStreamingEchoServer) error {
+func (s *server) ServerStreamingEcho(in *ecpb.EchoRequest, stream ecpb.Echo_ServerStreamingEchoServer) error {
+	return status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (s *server) ClientStreamingEcho(stream ecpb.Echo_ClientStreamingEchoServer) error {
+	return status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (s *server) BidirectionalStreamingEcho(stream ecpb.Echo_BidirectionalStreamingEchoServer) error {
 	for {
 		in, err := stream.Recv()
 		if err != nil {
@@ -71,7 +76,7 @@ func (s *server) BidirectionalStreamingEcho(stream pb.Echo_BidirectionalStreamin
 			return err
 		}
 		fmt.Printf("bidi echoing message %q\n", in.Message)
-		stream.Send(&pb.EchoResponse{Message: in.Message})
+		stream.Send(&ecpb.EchoResponse{Message: in.Message})
 	}
 }
 
@@ -157,7 +162,7 @@ func main() {
 	s := grpc.NewServer(grpc.Creds(creds), grpc.UnaryInterceptor(unaryInterceptor), grpc.StreamInterceptor(streamInterceptor))
 
 	// Register EchoServer on the server.
-	pb.RegisterEchoServer(s, &server{})
+	ecpb.RegisterEchoServer(s, &server{})
 
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)

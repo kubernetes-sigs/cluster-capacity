@@ -104,7 +104,6 @@ var (
 )
 
 type testServer struct {
-	testpb.UnimplementedTestServiceServer
 	te *test
 }
 

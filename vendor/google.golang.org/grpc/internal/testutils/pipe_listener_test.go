@@ -27,7 +27,7 @@ import (
 
 func TestPipeListener(t *testing.T) {
 	pl := testutils.NewPipeListener()
-	recvdBytes := make(chan []byte, 1)
+	recvdBytes := make(chan []byte)
 	const want = "hello world"
 
 	go func() {

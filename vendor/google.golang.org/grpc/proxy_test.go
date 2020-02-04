@@ -119,16 +119,16 @@ func testHTTPConnect(t *testing.T, proxyURLModify func(*url.URL) *url.URL, proxy
 
 	msg := []byte{4, 3, 5, 2}
 	recvBuf := make([]byte, len(msg))
-	done := make(chan error)
+	done := make(chan struct{})
 	go func() {
 		in, err := blis.Accept()
 		if err != nil {
-			done <- err
+			t.Errorf("failed to accept: %v", err)
 			return
 		}
 		defer in.Close()
 		in.Read(recvBuf)
-		done <- nil
+		close(done)
 	}()
 
 	// Overwrite the function in the test and restore them in defer.
@@ -154,9 +154,7 @@ func testHTTPConnect(t *testing.T, proxyURLModify func(*url.URL) *url.URL, proxy
 
 	// Send msg on the connection.
 	c.Write(msg)
-	if err := <-done; err != nil {
-		t.Fatalf("failed to accept: %v", err)
-	}
+	<-done
 
 	// Check received msg.
 	if string(recvBuf) != string(msg) {

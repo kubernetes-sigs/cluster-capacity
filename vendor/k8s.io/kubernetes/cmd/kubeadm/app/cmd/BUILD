@@ -47,7 +47,7 @@ go_library(
         "//cmd/kubeadm/app/util/config:go_default_library",
         "//cmd/kubeadm/app/util/kubeconfig:go_default_library",
         "//cmd/kubeadm/app/util/runtime:go_default_library",
-        "//pkg/version:go_default_library",
+        "//cmd/kubeadm/app/version:go_default_library",
         "//staging/src/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//staging/src/k8s.io/apimachinery/pkg/fields:go_default_library",
         "//staging/src/k8s.io/apimachinery/pkg/util/duration:go_default_library",

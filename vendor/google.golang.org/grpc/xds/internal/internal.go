@@ -20,7 +20,7 @@ package internal
 import (
 	"fmt"
 
-	corepb "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	basepb "google.golang.org/grpc/xds/internal/proto/envoy/api/v2/core/base"
 )
 
 // Locality is xds.Locality without XXX fields, so it can be used as map
@@ -41,8 +41,8 @@ func (lamk Locality) String() string {
 }
 
 // ToProto convert Locality to the proto representation.
-func (lamk Locality) ToProto() *corepb.Locality {
-	return &corepb.Locality{
+func (lamk Locality) ToProto() *basepb.Locality {
+	return &basepb.Locality{
 		Region:  lamk.Region,
 		Zone:    lamk.Zone,
 		SubZone: lamk.SubZone,

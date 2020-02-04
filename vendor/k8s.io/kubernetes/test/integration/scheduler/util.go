@@ -38,15 +38,14 @@ import (
 	"k8s.io/client-go/informers"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
-	clientv1core "k8s.io/client-go/kubernetes/typed/core/v1"
 	corelisters "k8s.io/client-go/listers/core/v1"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/scale"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/events"
 	"k8s.io/kubernetes/pkg/api/legacyscheme"
 	podutil "k8s.io/kubernetes/pkg/api/v1/pod"
-	"k8s.io/kubernetes/pkg/controller"
 	"k8s.io/kubernetes/pkg/controller/disruption"
 	"k8s.io/kubernetes/pkg/scheduler"
 	schedulerconfig "k8s.io/kubernetes/pkg/scheduler/apis/config"
@@ -62,19 +61,19 @@ import (
 )
 
 type testContext struct {
-	closeFn                framework.CloseFunc
-	httpServer             *httptest.Server
-	ns                     *v1.Namespace
-	clientSet              *clientset.Clientset
-	informerFactory        informers.SharedInformerFactory
-	schedulerConfigFactory factory.Configurator
-	schedulerConfig        *factory.Config
-	scheduler              *scheduler.Scheduler
-	stopCh                 chan struct{}
+	closeFn             framework.CloseFunc
+	httpServer          *httptest.Server
+	ns                  *v1.Namespace
+	clientSet           *clientset.Clientset
+	informerFactory     informers.SharedInformerFactory
+	schedulerConfigArgs *factory.ConfigFactoryArgs
+	schedulerConfig     *factory.Config
+	scheduler           *scheduler.Scheduler
+	stopCh              chan struct{}
 }
 
 // createConfiguratorWithPodInformer creates a configurator for scheduler.
-func createConfiguratorWithPodInformer(
+func createConfiguratorArgsWithPodInformer(
 	schedulerName string,
 	clientSet clientset.Interface,
 	podInformer coreinformers.PodInformer,
@@ -83,9 +82,8 @@ func createConfiguratorWithPodInformer(
 	plugins *schedulerconfig.Plugins,
 	pluginConfig []schedulerconfig.PluginConfig,
 	stopCh <-chan struct{},
-) factory.Configurator {
-	return factory.NewConfigFactory(&factory.ConfigFactoryArgs{
-		SchedulerName:                  schedulerName,
+) *factory.ConfigFactoryArgs {
+	return &factory.ConfigFactoryArgs{
 		Client:                         clientSet,
 		NodeInformer:                   informerFactory.Core().V1().Nodes(),
 		PodInformer:                    podInformer,
@@ -97,6 +95,7 @@ func createConfiguratorWithPodInformer(
 		ServiceInformer:                informerFactory.Core().V1().Services(),
 		PdbInformer:                    informerFactory.Policy().V1beta1().PodDisruptionBudgets(),
 		StorageClassInformer:           informerFactory.Storage().V1().StorageClasses(),
+		CSINodeInformer:                informerFactory.Storage().V1beta1().CSINodes(),
 		Registry:                       pluginRegistry,
 		Plugins:                        plugins,
 		PluginConfig:                   pluginConfig,
@@ -105,7 +104,7 @@ func createConfiguratorWithPodInformer(
 		PercentageOfNodesToScore:       schedulerapi.DefaultPercentageOfNodesToScore,
 		BindTimeoutSeconds:             600,
 		StopCh:                         stopCh,
-	})
+	}
 }
 
 // initTestMasterAndScheduler initializes a test environment and creates a master with default
@@ -156,8 +155,7 @@ func initTestScheduler(
 	setPodInformer bool,
 	policy *schedulerapi.Policy,
 ) *testContext {
-	// Pod preemption is enabled by default scheduler configuration, but preemption only happens when PodPriority
-	// feature gate is enabled at the same time.
+	// Pod preemption is enabled by default scheduler configuration.
 	return initTestSchedulerWithOptions(t, context, setPodInformer, policy, schedulerframework.NewRegistry(),
 		nil, []schedulerconfig.PluginConfig{}, false, time.Second)
 }
@@ -187,16 +185,17 @@ func initTestSchedulerWithOptions(
 		podInformer = context.informerFactory.Core().V1().Pods()
 	}
 
-	context.schedulerConfigFactory = createConfiguratorWithPodInformer(
+	context.schedulerConfigArgs = createConfiguratorArgsWithPodInformer(
 		v1.DefaultSchedulerName, context.clientSet, podInformer, context.informerFactory, pluginRegistry, plugins,
 		pluginConfig, context.stopCh)
+	configFactory := factory.NewConfigFactory(context.schedulerConfigArgs)
 
 	var err error
 
 	if policy != nil {
-		context.schedulerConfig, err = context.schedulerConfigFactory.CreateFromConfig(*policy)
+		context.schedulerConfig, err = configFactory.CreateFromConfig(*policy)
 	} else {
-		context.schedulerConfig, err = context.schedulerConfigFactory.Create()
+		context.schedulerConfig, err = configFactory.Create()
 	}
 
 	if err != nil {
@@ -205,6 +204,13 @@ func initTestSchedulerWithOptions(
 
 	// set DisablePreemption option
 	context.schedulerConfig.DisablePreemption = disablePreemption
+	eventBroadcaster := events.NewBroadcaster(&events.EventSinkImpl{
+		Interface: context.clientSet.EventsV1beta1().Events(""),
+	})
+	context.schedulerConfig.Recorder = eventBroadcaster.NewRecorder(
+		legacyscheme.Scheme,
+		v1.DefaultSchedulerName,
+	)
 
 	context.scheduler = scheduler.NewFromConfig(context.schedulerConfig)
 
@@ -216,22 +222,17 @@ func initTestSchedulerWithOptions(
 		context.informerFactory.Core().V1().PersistentVolumeClaims(),
 		context.informerFactory.Core().V1().Services(),
 		context.informerFactory.Storage().V1().StorageClasses(),
+		context.informerFactory.Storage().V1beta1().CSINodes(),
 	)
 
 	// set setPodInformer if provided.
 	if setPodInformer {
 		go podInformer.Informer().Run(context.schedulerConfig.StopEverything)
-		controller.WaitForCacheSync("scheduler", context.schedulerConfig.StopEverything, podInformer.Informer().HasSynced)
+		cache.WaitForNamedCacheSync("scheduler", context.schedulerConfig.StopEverything, podInformer.Informer().HasSynced)
 	}
 
-	eventBroadcaster := record.NewBroadcaster()
-	context.schedulerConfig.Recorder = eventBroadcaster.NewRecorder(
-		legacyscheme.Scheme,
-		v1.EventSource{Component: v1.DefaultSchedulerName},
-	)
-	eventBroadcaster.StartRecordingToSink(&clientv1core.EventSinkImpl{
-		Interface: context.clientSet.CoreV1().Events(""),
-	})
+	stopCh := make(chan struct{})
+	eventBroadcaster.StartRecordingToSink(stopCh)
 
 	context.informerFactory.Start(context.schedulerConfig.StopEverything)
 	context.informerFactory.WaitForCacheSync(context.schedulerConfig.StopEverything)
@@ -332,9 +333,6 @@ func waitForReflection(t *testing.T, nodeLister corelisters.NodeLister, key stri
 func nodeHasLabels(cs clientset.Interface, nodeName string, labels map[string]string) wait.ConditionFunc {
 	return func() (bool, error) {
 		node, err := cs.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
-		if errors.IsNotFound(err) {
-			return false, nil
-		}
 		if err != nil {
 			// This could be a connection error so we want to retry.
 			return false, nil
@@ -414,7 +412,8 @@ func nodeTainted(cs clientset.Interface, nodeName string, taints []v1.Taint) wai
 			return false, err
 		}
 
-		if len(taints) != len(node.Spec.Taints) {
+		// node.Spec.Taints may have more taints
+		if len(taints) > len(node.Spec.Taints) {
 			return false, nil
 		}
 
@@ -426,6 +425,17 @@ func nodeTainted(cs clientset.Interface, nodeName string, taints []v1.Taint) wai
 
 		return true, nil
 	}
+}
+
+func addTaintToNode(cs clientset.Interface, nodeName string, taint v1.Taint) error {
+	node, err := cs.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	copy := node.DeepCopy()
+	copy.Spec.Taints = append(copy.Spec.Taints, taint)
+	_, err = cs.CoreV1().Nodes().Update(copy)
+	return err
 }
 
 // waitForNodeTaints waits for a node to have the target taints and returns
@@ -600,9 +610,6 @@ func podIsGettingEvicted(c clientset.Interface, podNamespace, podName string) wa
 func podScheduled(c clientset.Interface, podNamespace, podName string) wait.ConditionFunc {
 	return func() (bool, error) {
 		pod, err := c.CoreV1().Pods(podNamespace).Get(podName, metav1.GetOptions{})
-		if errors.IsNotFound(err) {
-			return false, nil
-		}
 		if err != nil {
 			// This could be a connection error so we want to retry.
 			return false, nil
@@ -614,14 +621,31 @@ func podScheduled(c clientset.Interface, podNamespace, podName string) wait.Cond
 	}
 }
 
+// podScheduledIn returns true if a given pod is placed onto one of the expected nodes.
+func podScheduledIn(c clientset.Interface, podNamespace, podName string, nodeNames []string) wait.ConditionFunc {
+	return func() (bool, error) {
+		pod, err := c.CoreV1().Pods(podNamespace).Get(podName, metav1.GetOptions{})
+		if err != nil {
+			// This could be a connection error so we want to retry.
+			return false, nil
+		}
+		if pod.Spec.NodeName == "" {
+			return false, nil
+		}
+		for _, nodeName := range nodeNames {
+			if pod.Spec.NodeName == nodeName {
+				return true, nil
+			}
+		}
+		return false, nil
+	}
+}
+
 // podUnschedulable returns a condition function that returns true if the given pod
 // gets unschedulable status.
 func podUnschedulable(c clientset.Interface, podNamespace, podName string) wait.ConditionFunc {
 	return func() (bool, error) {
 		pod, err := c.CoreV1().Pods(podNamespace).Get(podName, metav1.GetOptions{})
-		if errors.IsNotFound(err) {
-			return false, nil
-		}
 		if err != nil {
 			// This could be a connection error so we want to retry.
 			return false, nil
@@ -638,9 +662,6 @@ func podUnschedulable(c clientset.Interface, podNamespace, podName string) wait.
 func podSchedulingError(c clientset.Interface, podNamespace, podName string) wait.ConditionFunc {
 	return func() (bool, error) {
 		pod, err := c.CoreV1().Pods(podNamespace).Get(podName, metav1.GetOptions{})
-		if errors.IsNotFound(err) {
-			return false, nil
-		}
 		if err != nil {
 			// This could be a connection error so we want to retry.
 			return false, nil
@@ -707,7 +728,7 @@ func waitForPDBsStable(context *testContext, pdbs []*policy.PodDisruptionBudget,
 // waitCachedPodsStable waits until scheduler cache has the given pods.
 func waitCachedPodsStable(context *testContext, pods []*v1.Pod) error {
 	return wait.Poll(time.Second, 30*time.Second, func() (bool, error) {
-		cachedPods, err := context.scheduler.Config().SchedulerCache.List(labels.Everything())
+		cachedPods, err := context.scheduler.SchedulerCache.List(labels.Everything())
 		if err != nil {
 			return false, err
 		}
@@ -719,7 +740,7 @@ func waitCachedPodsStable(context *testContext, pods []*v1.Pod) error {
 			if err1 != nil {
 				return false, err1
 			}
-			cachedPod, err2 := context.scheduler.Config().SchedulerCache.GetPod(actualPod)
+			cachedPod, err2 := context.scheduler.SchedulerCache.GetPod(actualPod)
 			if err2 != nil || cachedPod == nil {
 				return false, err2
 			}
@@ -731,6 +752,10 @@ func waitCachedPodsStable(context *testContext, pods []*v1.Pod) error {
 // deletePod deletes the given pod in the given namespace.
 func deletePod(cs clientset.Interface, podName string, nsName string) error {
 	return cs.CoreV1().Pods(nsName).Delete(podName, metav1.NewDeleteOptions(0))
+}
+
+func getPod(cs clientset.Interface, podName string, podNamespace string) (*v1.Pod, error) {
+	return cs.CoreV1().Pods(podNamespace).Get(podName, metav1.GetOptions{})
 }
 
 // cleanupPods deletes the given pods and waits for them to be actually deleted.

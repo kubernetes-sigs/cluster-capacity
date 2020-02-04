@@ -28,19 +28,18 @@ import (
 	kubeconfigphase "k8s.io/kubernetes/cmd/kubeadm/app/phases/kubeconfig"
 	kubeadmutil "k8s.io/kubernetes/cmd/kubeadm/app/util"
 	configutil "k8s.io/kubernetes/cmd/kubeadm/app/util/config"
-	"k8s.io/kubernetes/pkg/util/normalizer"
 )
 
 var (
-	kubeconfigLongDesc = normalizer.LongDesc(`
+	kubeconfigLongDesc = cmdutil.LongDesc(`
 	Kubeconfig file utilities.
 	` + cmdutil.AlphaDisclaimer)
 
-	userKubeconfigLongDesc = normalizer.LongDesc(`
+	userKubeconfigLongDesc = cmdutil.LongDesc(`
 	Output a kubeconfig file for an additional user.
 	` + cmdutil.AlphaDisclaimer)
 
-	userKubeconfigExample = normalizer.Examples(`
+	userKubeconfigExample = cmdutil.Examples(`
 	# Output a kubeconfig file for an additional user named foo
 	kubeadm alpha kubeconfig user --client-name=foo
 	`)
@@ -100,7 +99,7 @@ func newCmdUserKubeConfig(out io.Writer) *cobra.Command {
 	// Add ClusterConfiguration backed flags to the command
 	cmd.Flags().StringVar(&clusterCfg.CertificatesDir, options.CertificatesDir, clusterCfg.CertificatesDir, "The path where certificates are stored")
 
-	// Add ClusterConfiguration backed flags to the command
+	// Add InitConfiguration backed flags to the command
 	cmd.Flags().StringVar(&initCfg.LocalAPIEndpoint.AdvertiseAddress, options.APIServerAdvertiseAddress, initCfg.LocalAPIEndpoint.AdvertiseAddress, "The IP address the API server is accessible on")
 	cmd.Flags().Int32Var(&initCfg.LocalAPIEndpoint.BindPort, options.APIServerBindPort, initCfg.LocalAPIEndpoint.BindPort, "The port the API server is accessible on")
 

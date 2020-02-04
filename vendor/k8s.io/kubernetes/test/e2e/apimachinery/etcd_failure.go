@@ -44,6 +44,7 @@ var _ = SIGDescribe("Etcd failure [Disruptive]", func() {
 		// ... so the provider check should be identical to the intersection of
 		// providers that provide those capabilities.
 		framework.SkipUnlessProviderIs("gce")
+		framework.SkipUnlessSSHKeyPresent()
 
 		err := framework.RunRC(testutils.RCConfig{
 			Client:    f.ClientSet,
@@ -101,7 +102,7 @@ func masterExec(cmd string) {
 	framework.ExpectNoError(err, "failed to SSH to host %s on provider %s and run command: %q", host, framework.TestContext.Provider, cmd)
 	if result.Code != 0 {
 		e2essh.LogResult(result)
-		framework.Failf("master exec command returned non-zero")
+		e2elog.Failf("master exec command returned non-zero")
 	}
 }
 

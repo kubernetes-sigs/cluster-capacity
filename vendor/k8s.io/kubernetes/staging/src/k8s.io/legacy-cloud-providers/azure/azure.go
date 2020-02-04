@@ -1,3 +1,5 @@
+// +build !providerless
+
 /*
 Copyright 2016 The Kubernetes Authors.
 
@@ -25,6 +27,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-07-01/compute"
+	"github.com/Azure/go-autorest/autorest"
+	"github.com/Azure/go-autorest/autorest/azure"
+
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -40,10 +46,6 @@ import (
 	"k8s.io/klog"
 	"k8s.io/legacy-cloud-providers/azure/auth"
 	"sigs.k8s.io/yaml"
-
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-03-01/compute"
-	"github.com/Azure/go-autorest/autorest"
-	"github.com/Azure/go-autorest/autorest/azure"
 )
 
 const (
@@ -80,6 +82,11 @@ var (
 
 // Config holds the configuration parsed from the --cloud-config flag
 // All fields are required unless otherwise specified
+// NOTE: Cloud config files should follow the same Kubernetes deprecation policy as
+// flags or CLIs. Config fields should not change behavior in incompatible ways and
+// should be deprecated for at least 2 release prior to removing.
+// See https://kubernetes.io/docs/reference/using-api/deprecation-policy/#deprecating-a-flag-or-cli
+// for more details.
 type Config struct {
 	auth.AzureAuthConfig
 
@@ -159,6 +166,13 @@ type Config struct {
 
 	// The cloud configure type for Azure cloud provider. Supported values are file, secret and merge.
 	CloudConfigType cloudConfigType `json:"cloudConfigType,omitempty" yaml:"cloudConfigType,omitempty"`
+
+	// LoadBalancerName determines the specific name of the load balancer user want to use, working with
+	// LoadBalancerResourceGroup
+	LoadBalancerName string `json:"loadBalancerName,omitempty" yaml:"loadBalancerName,omitempty"`
+	// LoadBalancerResourceGroup determines the specific resource group of the load balancer user want to use, working
+	// with LoadBalancerName
+	LoadBalancerResourceGroup string `json:"loadBalancerResourceGroup,omitempty" yaml:"loadBalancerResourceGroup,omitempty"`
 }
 
 var _ cloudprovider.Interface = (*Cloud)(nil)
@@ -184,7 +198,7 @@ type Cloud struct {
 	DisksClient             DisksClient
 	SnapshotsClient         *compute.SnapshotsClient
 	FileClient              FileClient
-	resourceRequestBackoff  wait.Backoff
+	ResourceRequestBackoff  wait.Backoff
 	metadata                *InstanceMetadataService
 	vmSet                   VMSet
 
@@ -419,7 +433,7 @@ func (az *Cloud) InitializeCloudFromConfig(config *Config, fromSecret bool) erro
 
 	az.Config = *config
 	az.Environment = *env
-	az.resourceRequestBackoff = resourceRequestBackoff
+	az.ResourceRequestBackoff = resourceRequestBackoff
 	az.metadata, err = NewInstanceMetadataService(metadataURL)
 	if err != nil {
 		return err
@@ -584,6 +598,7 @@ func initDiskControllers(az *Cloud) error {
 		resourceGroup:         az.ResourceGroup,
 		subscriptionID:        az.SubscriptionID,
 		cloud:                 az,
+		vmLockMap:             newLockMap(),
 	}
 
 	az.BlobDiskController = &BlobDiskController{common: common}

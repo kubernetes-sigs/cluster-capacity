@@ -33,6 +33,7 @@ import (
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
 	"k8s.io/kubernetes/test/e2e/framework/metrics"
+	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 	"k8s.io/kubernetes/test/e2e/storage/utils"
 )
@@ -57,19 +58,22 @@ var _ = utils.SIGDescribe("[Serial] Volume metrics", func() {
 		framework.SkipUnlessProviderIs("gce", "gke", "aws")
 		defaultScName, err = framework.GetDefaultStorageClassName(c)
 		if err != nil {
-			framework.Failf(err.Error())
+			e2elog.Failf(err.Error())
 		}
 		test := testsuites.StorageClassTest{
 			Name:      "default",
 			ClaimSize: "2Gi",
 		}
 
-		pvc = newClaim(test, ns, "default")
+		pvc = framework.MakePersistentVolumeClaim(framework.PersistentVolumeClaimConfig{
+			ClaimSize:  test.ClaimSize,
+			VolumeMode: &test.VolumeMode,
+		}, ns)
 
 		metricsGrabber, err = metrics.NewMetricsGrabber(c, nil, true, false, true, false, false)
 
 		if err != nil {
-			framework.Failf("Error creating metrics grabber : %v", err)
+			e2elog.Failf("Error creating metrics grabber : %v", err)
 		}
 	})
 
@@ -107,24 +111,24 @@ var _ = utils.SIGDescribe("[Serial] Volume metrics", func() {
 
 		pvc, err = c.CoreV1().PersistentVolumeClaims(pvc.Namespace).Create(pvc)
 		framework.ExpectNoError(err)
-		gomega.Expect(pvc).ToNot(gomega.Equal(nil))
+		framework.ExpectNotEqual(pvc, nil)
 
 		claims := []*v1.PersistentVolumeClaim{pvc}
 
-		pod := framework.MakePod(ns, nil, claims, false, "")
+		pod := e2epod.MakePod(ns, nil, claims, false, "")
 		pod, err = c.CoreV1().Pods(ns).Create(pod)
 		framework.ExpectNoError(err)
 
-		err = framework.WaitForPodRunningInNamespace(c, pod)
-		framework.ExpectNoError(framework.WaitForPodRunningInNamespace(c, pod), "Error starting pod ", pod.Name)
+		err = e2epod.WaitForPodRunningInNamespace(c, pod)
+		framework.ExpectNoError(e2epod.WaitForPodRunningInNamespace(c, pod), "Error starting pod %s", pod.Name)
 
 		e2elog.Logf("Deleting pod %q/%q", pod.Namespace, pod.Name)
-		framework.ExpectNoError(framework.DeletePodWithWait(f, c, pod))
+		framework.ExpectNoError(e2epod.DeletePodWithWait(c, pod))
 
 		updatedStorageMetrics := waitForDetachAndGrabMetrics(storageOpMetrics, metricsGrabber)
 
-		gomega.Expect(len(updatedStorageMetrics.latencyMetrics)).ToNot(gomega.Equal(0), "Error fetching c-m updated storage metrics")
-		gomega.Expect(len(updatedStorageMetrics.statusMetrics)).ToNot(gomega.Equal(0), "Error fetching c-m updated storage metrics")
+		framework.ExpectNotEqual(len(updatedStorageMetrics.latencyMetrics), 0, "Error fetching c-m updated storage metrics")
+		framework.ExpectNotEqual(len(updatedStorageMetrics.statusMetrics), 0, "Error fetching c-m updated storage metrics")
 
 		volumeOperations := []string{"volume_provision", "volume_detach", "volume_attach"}
 
@@ -165,27 +169,27 @@ var _ = utils.SIGDescribe("[Serial] Volume metrics", func() {
 		pvc.Spec.StorageClassName = &invalidSc.Name
 		pvc, err = c.CoreV1().PersistentVolumeClaims(pvc.Namespace).Create(pvc)
 		framework.ExpectNoError(err, "failed to create PVC %s/%s", pvc.Namespace, pvc.Name)
-		gomega.Expect(pvc).ToNot(gomega.Equal(nil))
+		framework.ExpectNotEqual(pvc, nil)
 
 		claims := []*v1.PersistentVolumeClaim{pvc}
 
 		ginkgo.By("Creating a pod and expecting it to fail")
-		pod := framework.MakePod(ns, nil, claims, false, "")
+		pod := e2epod.MakePod(ns, nil, claims, false, "")
 		pod, err = c.CoreV1().Pods(ns).Create(pod)
 		framework.ExpectNoError(err, "failed to create Pod %s/%s", pod.Namespace, pod.Name)
 
-		err = framework.WaitTimeoutForPodRunningInNamespace(c, pod.Name, pod.Namespace, framework.PodStartShortTimeout)
+		err = e2epod.WaitTimeoutForPodRunningInNamespace(c, pod.Name, pod.Namespace, framework.PodStartShortTimeout)
 		framework.ExpectError(err)
 
 		e2elog.Logf("Deleting pod %q/%q", pod.Namespace, pod.Name)
-		framework.ExpectNoError(framework.DeletePodWithWait(f, c, pod))
+		framework.ExpectNoError(e2epod.DeletePodWithWait(c, pod))
 
 		ginkgo.By("Checking failure metrics")
 		updatedControllerMetrics, err := metricsGrabber.GrabFromControllerManager()
 		framework.ExpectNoError(err, "failed to get controller manager metrics")
 		updatedStorageMetrics := getControllerStorageMetrics(updatedControllerMetrics)
 
-		gomega.Expect(len(updatedStorageMetrics.statusMetrics)).ToNot(gomega.Equal(0), "Error fetching c-m updated storage metrics")
+		framework.ExpectNotEqual(len(updatedStorageMetrics.statusMetrics), 0, "Error fetching c-m updated storage metrics")
 		verifyMetricCount(storageOpMetrics, updatedStorageMetrics, "volume_provision", true)
 	})
 
@@ -193,15 +197,15 @@ var _ = utils.SIGDescribe("[Serial] Volume metrics", func() {
 		var err error
 		pvc, err = c.CoreV1().PersistentVolumeClaims(pvc.Namespace).Create(pvc)
 		framework.ExpectNoError(err)
-		gomega.Expect(pvc).ToNot(gomega.Equal(nil))
+		framework.ExpectNotEqual(pvc, nil)
 
 		claims := []*v1.PersistentVolumeClaim{pvc}
-		pod := framework.MakePod(ns, nil, claims, false, "")
+		pod := e2epod.MakePod(ns, nil, claims, false, "")
 		pod, err = c.CoreV1().Pods(ns).Create(pod)
 		framework.ExpectNoError(err)
 
-		err = framework.WaitForPodRunningInNamespace(c, pod)
-		framework.ExpectNoError(framework.WaitForPodRunningInNamespace(c, pod), "Error starting pod ", pod.Name)
+		err = e2epod.WaitForPodRunningInNamespace(c, pod)
+		framework.ExpectNoError(e2epod.WaitForPodRunningInNamespace(c, pod), "Error starting pod ", pod.Name)
 
 		pod, err = c.CoreV1().Pods(ns).Get(pod.Name, metav1.GetOptions{})
 		framework.ExpectNoError(err)
@@ -243,22 +247,22 @@ var _ = utils.SIGDescribe("[Serial] Volume metrics", func() {
 		}
 
 		e2elog.Logf("Deleting pod %q/%q", pod.Namespace, pod.Name)
-		framework.ExpectNoError(framework.DeletePodWithWait(f, c, pod))
+		framework.ExpectNoError(e2epod.DeletePodWithWait(c, pod))
 	})
 
 	ginkgo.It("should create metrics for total time taken in volume operations in P/V Controller", func() {
 		var err error
 		pvc, err = c.CoreV1().PersistentVolumeClaims(pvc.Namespace).Create(pvc)
 		framework.ExpectNoError(err)
-		gomega.Expect(pvc).ToNot(gomega.Equal(nil))
+		framework.ExpectNotEqual(pvc, nil)
 
 		claims := []*v1.PersistentVolumeClaim{pvc}
-		pod := framework.MakePod(ns, nil, claims, false, "")
+		pod := e2epod.MakePod(ns, nil, claims, false, "")
 		pod, err = c.CoreV1().Pods(ns).Create(pod)
 		framework.ExpectNoError(err)
 
-		err = framework.WaitForPodRunningInNamespace(c, pod)
-		framework.ExpectNoError(framework.WaitForPodRunningInNamespace(c, pod), "Error starting pod ", pod.Name)
+		err = e2epod.WaitForPodRunningInNamespace(c, pod)
+		framework.ExpectNoError(e2epod.WaitForPodRunningInNamespace(c, pod), "Error starting pod ", pod.Name)
 
 		pod, err = c.CoreV1().Pods(ns).Get(pod.Name, metav1.GetOptions{})
 		framework.ExpectNoError(err)
@@ -274,22 +278,22 @@ var _ = utils.SIGDescribe("[Serial] Volume metrics", func() {
 		gomega.Expect(valid).To(gomega.BeTrue(), "Invalid metric in P/V Controller metrics: %q", metricKey)
 
 		e2elog.Logf("Deleting pod %q/%q", pod.Namespace, pod.Name)
-		framework.ExpectNoError(framework.DeletePodWithWait(f, c, pod))
+		framework.ExpectNoError(e2epod.DeletePodWithWait(c, pod))
 	})
 
 	ginkgo.It("should create volume metrics in Volume Manager", func() {
 		var err error
 		pvc, err = c.CoreV1().PersistentVolumeClaims(pvc.Namespace).Create(pvc)
 		framework.ExpectNoError(err)
-		gomega.Expect(pvc).ToNot(gomega.Equal(nil))
+		framework.ExpectNotEqual(pvc, nil)
 
 		claims := []*v1.PersistentVolumeClaim{pvc}
-		pod := framework.MakePod(ns, nil, claims, false, "")
+		pod := e2epod.MakePod(ns, nil, claims, false, "")
 		pod, err = c.CoreV1().Pods(ns).Create(pod)
 		framework.ExpectNoError(err)
 
-		err = framework.WaitForPodRunningInNamespace(c, pod)
-		framework.ExpectNoError(framework.WaitForPodRunningInNamespace(c, pod), "Error starting pod ", pod.Name)
+		err = e2epod.WaitForPodRunningInNamespace(c, pod)
+		framework.ExpectNoError(e2epod.WaitForPodRunningInNamespace(c, pod), "Error starting pod ", pod.Name)
 
 		pod, err = c.CoreV1().Pods(ns).Get(pod.Name, metav1.GetOptions{})
 		framework.ExpectNoError(err)
@@ -304,17 +308,17 @@ var _ = utils.SIGDescribe("[Serial] Volume metrics", func() {
 		gomega.Expect(valid).To(gomega.BeTrue(), "Invalid metric in Volume Manager metrics: %q", totalVolumesKey)
 
 		e2elog.Logf("Deleting pod %q/%q", pod.Namespace, pod.Name)
-		framework.ExpectNoError(framework.DeletePodWithWait(f, c, pod))
+		framework.ExpectNoError(e2epod.DeletePodWithWait(c, pod))
 	})
 
 	ginkgo.It("should create metrics for total number of volumes in A/D Controller", func() {
 		var err error
 		pvc, err = c.CoreV1().PersistentVolumeClaims(pvc.Namespace).Create(pvc)
 		framework.ExpectNoError(err)
-		gomega.Expect(pvc).ToNot(gomega.Equal(nil))
+		framework.ExpectNotEqual(pvc, nil)
 
 		claims := []*v1.PersistentVolumeClaim{pvc}
-		pod := framework.MakePod(ns, nil, claims, false, "")
+		pod := e2epod.MakePod(ns, nil, claims, false, "")
 
 		// Get metrics
 		controllerMetrics, err := metricsGrabber.GrabFromControllerManager()
@@ -325,8 +329,8 @@ var _ = utils.SIGDescribe("[Serial] Volume metrics", func() {
 		// Create pod
 		pod, err = c.CoreV1().Pods(ns).Create(pod)
 		framework.ExpectNoError(err)
-		err = framework.WaitForPodRunningInNamespace(c, pod)
-		framework.ExpectNoError(framework.WaitForPodRunningInNamespace(c, pod), "Error starting pod ", pod.Name)
+		err = e2epod.WaitForPodRunningInNamespace(c, pod)
+		framework.ExpectNoError(e2epod.WaitForPodRunningInNamespace(c, pod), "Error starting pod ", pod.Name)
 		pod, err = c.CoreV1().Pods(ns).Get(pod.Name, metav1.GetOptions{})
 		framework.ExpectNoError(err)
 
@@ -364,7 +368,7 @@ var _ = utils.SIGDescribe("[Serial] Volume metrics", func() {
 		}
 
 		e2elog.Logf("Deleting pod %q/%q", pod.Namespace, pod.Name)
-		framework.ExpectNoError(framework.DeletePodWithWait(f, c, pod))
+		framework.ExpectNoError(e2epod.DeletePodWithWait(c, pod))
 	})
 
 	// Test for pv controller metrics, concretely: bound/unbound pv/pvc count.
@@ -414,8 +418,7 @@ var _ = utils.SIGDescribe("[Serial] Volume metrics", func() {
 		// should be 4, and the elements should be bound pv count, unbound pv count, bound
 		// pvc count, unbound pvc count in turn.
 		validator := func(metricValues []map[string]int64) {
-			gomega.Expect(len(metricValues)).To(gomega.Equal(4),
-				"Wrong metric size: %d", len(metricValues))
+			framework.ExpectEqual(len(metricValues), 4, "Wrong metric size: %d", len(metricValues))
 
 			controllerMetrics, err := metricsGrabber.GrabFromControllerManager()
 			framework.ExpectNoError(err, "Error getting c-m metricValues: %v", err)
@@ -430,8 +433,7 @@ var _ = utils.SIGDescribe("[Serial] Volume metrics", func() {
 				// test suit are equal to expectValues.
 				actualValues := calculateRelativeValues(originMetricValues[i],
 					getPVControllerMetrics(controllerMetrics, metric.name, metric.dimension))
-				gomega.Expect(actualValues).To(gomega.Equal(expectValues),
-					"Wrong pv controller metric %s(%s): wanted %v, got %v",
+				framework.ExpectEqual(actualValues, expectValues, "Wrong pv controller metric %s(%s): wanted %v, got %v",
 					metric.name, metric.dimension, expectValues, actualValues)
 			}
 		}
@@ -455,10 +457,10 @@ var _ = utils.SIGDescribe("[Serial] Volume metrics", func() {
 
 		ginkgo.AfterEach(func() {
 			if err := framework.DeletePersistentVolume(c, pv.Name); err != nil {
-				framework.Failf("Error deleting pv: %v", err)
+				e2elog.Failf("Error deleting pv: %v", err)
 			}
 			if err := framework.DeletePersistentVolumeClaim(c, pvc.Name, pvc.Namespace); err != nil {
-				framework.Failf("Error deleting pvc: %v", err)
+				e2elog.Failf("Error deleting pvc: %v", err)
 			}
 
 			// Clear original metric values.
@@ -659,7 +661,7 @@ func findVolumeStatMetric(metricKeyName string, namespace string, pvcName string
 			}
 		}
 	}
-	gomega.Expect(errCount).To(gomega.Equal(0), "Found invalid samples")
+	framework.ExpectEqual(errCount, 0, "Found invalid samples")
 	return found
 }
 

@@ -21,9 +21,9 @@ import (
 
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
-	apps "k8s.io/api/apps/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	storage "k8s.io/api/storage/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -33,6 +33,7 @@ import (
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2edeploy "k8s.io/kubernetes/test/e2e/framework/deployment"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
+	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 	"k8s.io/kubernetes/test/e2e/storage/utils"
 )
@@ -43,7 +44,7 @@ var _ = utils.SIGDescribe("Mounted volume expand", func() {
 		ns                string
 		err               error
 		pvc               *v1.PersistentVolumeClaim
-		resizableSc       *storage.StorageClass
+		resizableSc       *storagev1.StorageClass
 		nodeName          string
 		isNodeLabeled     bool
 		nodeKeyValueLabel map[string]string
@@ -62,7 +63,7 @@ var _ = utils.SIGDescribe("Mounted volume expand", func() {
 		if len(nodeList.Items) != 0 {
 			nodeName = nodeList.Items[0].Name
 		} else {
-			framework.Failf("Unable to find ready and schedulable Node")
+			e2elog.Failf("Unable to find ready and schedulable Node")
 		}
 
 		nodeKey = "mounted_volume_expand"
@@ -81,12 +82,15 @@ var _ = utils.SIGDescribe("Mounted volume expand", func() {
 			AllowVolumeExpansion: true,
 			DelayBinding:         true,
 		}
-		resizableSc, err = createStorageClass(test, ns, "resizing", c)
+		resizableSc, err = c.StorageV1().StorageClasses().Create(newStorageClass(test, ns, "resizing"))
 		framework.ExpectNoError(err, "Error creating resizable storage class")
 		gomega.Expect(*resizableSc.AllowVolumeExpansion).To(gomega.BeTrue())
 
-		pvc = newClaim(test, ns, "default")
-		pvc.Spec.StorageClassName = &resizableSc.Name
+		pvc = framework.MakePersistentVolumeClaim(framework.PersistentVolumeClaimConfig{
+			ClaimSize:        test.ClaimSize,
+			StorageClassName: &(resizableSc.Name),
+			VolumeMode:       &test.VolumeMode,
+		}, ns)
 		pvc, err = c.CoreV1().PersistentVolumeClaims(pvc.Namespace).Create(pvc)
 		framework.ExpectNoError(err, "Error creating pvc")
 	})
@@ -102,7 +106,7 @@ var _ = utils.SIGDescribe("Mounted volume expand", func() {
 
 		if c != nil {
 			if errs := framework.PVPVCCleanup(c, ns, nil, pvc); len(errs) > 0 {
-				framework.Failf("AfterEach: Failed to delete PVC and/or PV. Errors: %v", utilerrors.NewAggregate(errs))
+				e2elog.Failf("AfterEach: Failed to delete PVC and/or PV. Errors: %v", utilerrors.NewAggregate(errs))
 			}
 			pvc, nodeName, isNodeLabeled, nodeLabelValue = nil, "", false, ""
 			nodeKeyValueLabel = make(map[string]string)
@@ -124,21 +128,22 @@ var _ = utils.SIGDescribe("Mounted volume expand", func() {
 		ginkgo.By("Checking for bound PVC")
 		pvs, err := framework.WaitForPVClaimBoundPhase(c, pvcClaims, framework.ClaimProvisionTimeout)
 		framework.ExpectNoError(err, "Failed waiting for PVC to be bound %v", err)
-		gomega.Expect(len(pvs)).To(gomega.Equal(1))
+		framework.ExpectEqual(len(pvs), 1)
 
 		ginkgo.By("Expanding current pvc")
 		newSize := resource.MustParse("6Gi")
-		pvc, err = expandPVCSize(pvc, newSize, c)
+		newPVC, err := testsuites.ExpandPVCSize(pvc, newSize, c)
 		framework.ExpectNoError(err, "While updating pvc for more size")
+		pvc = newPVC
 		gomega.Expect(pvc).NotTo(gomega.BeNil())
 
 		pvcSize := pvc.Spec.Resources.Requests[v1.ResourceStorage]
 		if pvcSize.Cmp(newSize) != 0 {
-			framework.Failf("error updating pvc size %q", pvc.Name)
+			e2elog.Failf("error updating pvc size %q", pvc.Name)
 		}
 
 		ginkgo.By("Waiting for cloudprovider resize to finish")
-		err = waitForControllerVolumeResize(pvc, c, totalResizeWaitPeriod)
+		err = testsuites.WaitForControllerVolumeResize(pvc, c, totalResizeWaitPeriod)
 		framework.ExpectNoError(err, "While waiting for pvc resize to finish")
 
 		ginkgo.By("Getting a pod from deployment")
@@ -147,7 +152,7 @@ var _ = utils.SIGDescribe("Mounted volume expand", func() {
 		pod := podList.Items[0]
 
 		ginkgo.By("Deleting the pod from deployment")
-		err = framework.DeletePodWithWait(f, c, &pod)
+		err = e2epod.DeletePodWithWait(c, &pod)
 		framework.ExpectNoError(err, "while deleting pod for resizing")
 
 		ginkgo.By("Waiting for deployment to create new pod")
@@ -155,15 +160,15 @@ var _ = utils.SIGDescribe("Mounted volume expand", func() {
 		framework.ExpectNoError(err, "While waiting for pod to be recreated")
 
 		ginkgo.By("Waiting for file system resize to finish")
-		pvc, err = waitForFSResize(pvc, c)
+		pvc, err = testsuites.WaitForFSResize(pvc, c)
 		framework.ExpectNoError(err, "while waiting for fs resize to finish")
 
 		pvcConditions := pvc.Status.Conditions
-		gomega.Expect(len(pvcConditions)).To(gomega.Equal(0), "pvc should not have conditions")
+		framework.ExpectEqual(len(pvcConditions), 0, "pvc should not have conditions")
 	})
 })
 
-func waitForDeploymentToRecreatePod(client clientset.Interface, deployment *apps.Deployment) (v1.Pod, error) {
+func waitForDeploymentToRecreatePod(client clientset.Interface, deployment *appsv1.Deployment) (v1.Pod, error) {
 	var runningPod v1.Pod
 	waitErr := wait.PollImmediate(10*time.Second, 5*time.Minute, func() (bool, error) {
 		podList, err := e2edeploy.GetPodsForDeployment(client, deployment)

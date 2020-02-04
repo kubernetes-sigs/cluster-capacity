@@ -37,16 +37,13 @@ type parseTestCase struct {
 }
 
 func runParseTests(t *testing.T, testCases []parseTestCase) {
-	t.Helper()
 	for _, c := range testCases {
-		scpr := parseServiceConfig(c.scjs)
-		var sc *ServiceConfig
-		sc, _ = scpr.Config.(*ServiceConfig)
+		sc, err := parseServiceConfig(c.scjs)
 		if !c.wantErr {
 			c.wantSC.rawJSONString = c.scjs
 		}
-		if c.wantErr != (scpr.Err != nil) || !reflect.DeepEqual(sc, c.wantSC) {
-			t.Fatalf("parseServiceConfig(%s) = %+v, %v, want %+v, %v", c.scjs, sc, scpr.Err, c.wantSC, c.wantErr)
+		if c.wantErr != (err != nil) || !reflect.DeepEqual(sc, c.wantSC) {
+			t.Fatalf("parseServiceConfig(%s) = %+v, %v, want %+v, %v", c.scjs, sc, err, c.wantSC, c.wantErr)
 		}
 	}
 }
@@ -90,23 +87,6 @@ func (s) TestParseLBConfig(t *testing.T) {
 				lbConfig: &lbConfig{name: "pbb", cfg: pbbData{Foo: "hi"}},
 			},
 			false,
-		},
-	}
-	runParseTests(t, testcases)
-}
-
-func (s) TestParseNoLBConfigSupported(t *testing.T) {
-	// We have a loadBalancingConfig field but will not encounter a supported
-	// policy.  The config will be considered invalid in this case.
-	testcases := []parseTestCase{
-		{
-			scjs: `{
-    "loadBalancingConfig": [{"not_a_balancer1": {} }, {"not_a_balancer2": {}}]
-}`,
-			wantErr: true,
-		}, {
-			scjs:    `{"loadBalancingConfig": []}`,
-			wantErr: true,
 		},
 	}
 	runParseTests(t, testcases)

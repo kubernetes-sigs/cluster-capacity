@@ -21,6 +21,7 @@ go_library(
         "//pkg/features:go_default_library",
         "//pkg/util/mount:go_default_library",
         "//pkg/volume/util/fs:go_default_library",
+        "//pkg/volume/util/hostutil:go_default_library",
         "//pkg/volume/util/recyclerclient:go_default_library",
         "//pkg/volume/util/subpath:go_default_library",
         "//staging/src/k8s.io/api/authentication/v1:go_default_library",
@@ -57,6 +58,9 @@ go_test(
         "//staging/src/k8s.io/apimachinery/pkg/types:go_default_library",
         "//staging/src/k8s.io/client-go/util/testing:go_default_library",
     ] + select({
+        "@io_bazel_rules_go//go/platform:android": [
+            "//vendor/golang.org/x/sys/unix:go_default_library",
+        ],
         "@io_bazel_rules_go//go/platform:linux": [
             "//vendor/golang.org/x/sys/unix:go_default_library",
         ],
@@ -94,7 +98,6 @@ filegroup(
         "//pkg/volume/iscsi:all-srcs",
         "//pkg/volume/local:all-srcs",
         "//pkg/volume/nfs:all-srcs",
-        "//pkg/volume/photon_pd:all-srcs",
         "//pkg/volume/portworx:all-srcs",
         "//pkg/volume/projected:all-srcs",
         "//pkg/volume/quobyte:all-srcs",

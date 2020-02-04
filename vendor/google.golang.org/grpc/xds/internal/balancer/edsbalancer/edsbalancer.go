@@ -25,10 +25,6 @@ import (
 	"strconv"
 	"sync"
 
-	xdspb "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	corepb "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	endpointpb "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
-	typepb "github.com/envoyproxy/go-control-plane/envoy/type"
 	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/balancer/roundrobin"
 	"google.golang.org/grpc/balancer/weightedroundrobin"
@@ -39,6 +35,9 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/xds/internal"
 	"google.golang.org/grpc/xds/internal/balancer/lrs"
+	edspb "google.golang.org/grpc/xds/internal/proto/envoy/api/v2/eds"
+	endpointpb "google.golang.org/grpc/xds/internal/proto/envoy/api/v2/endpoint/endpoint"
+	percentpb "google.golang.org/grpc/xds/internal/proto/envoy/type/percent"
 )
 
 type localityConfig struct {
@@ -88,6 +87,11 @@ func NewXDSBalancer(cc balancer.ClientConn, loadStore lrs.Store) *EDSBalancer {
 //
 // HandleChildPolicy and HandleEDSResponse must be called by the same goroutine.
 func (xdsB *EDSBalancer) HandleChildPolicy(name string, config json.RawMessage) {
+	// name could come from cdsResp.GetLbPolicy().String(). LbPolicy.String()
+	// are all UPPER_CASE with underscore.
+	//
+	// No conversion is needed here because balancer package converts all names
+	// into lower_case before registering/looking up.
 	xdsB.updateSubBalancerName(name)
 	// TODO: (eds) send balancer config to the new child balancers.
 }
@@ -118,7 +122,7 @@ func (xdsB *EDSBalancer) updateSubBalancerName(subBalancerName string) {
 
 // updateDrops compares new drop policies with the old. If they are different,
 // it updates the drop policies and send ClientConn an updated picker.
-func (xdsB *EDSBalancer) updateDrops(dropPolicies []*xdspb.ClusterLoadAssignment_Policy_DropOverload) {
+func (xdsB *EDSBalancer) updateDrops(dropPolicies []*edspb.ClusterLoadAssignment_Policy_DropOverload) {
 	var (
 		newDrops     []*dropper
 		dropsChanged bool
@@ -130,11 +134,11 @@ func (xdsB *EDSBalancer) updateDrops(dropPolicies []*xdspb.ClusterLoadAssignment
 			denominator uint32
 		)
 		switch percentage.GetDenominator() {
-		case typepb.FractionalPercent_HUNDRED:
+		case percentpb.FractionalPercent_HUNDRED:
 			denominator = 100
-		case typepb.FractionalPercent_TEN_THOUSAND:
+		case percentpb.FractionalPercent_TEN_THOUSAND:
 			denominator = 10000
-		case typepb.FractionalPercent_MILLION:
+		case percentpb.FractionalPercent_MILLION:
 			denominator = 1000000
 		}
 		newDrops = append(newDrops, newDropper(numerator, denominator, dropPolicy.GetCategory()))
@@ -166,13 +170,12 @@ func (xdsB *EDSBalancer) updateDrops(dropPolicies []*xdspb.ClusterLoadAssignment
 // HandleEDSResponse handles the EDS response and creates/deletes localities and
 // SubConns. It also handles drops.
 //
-// HandleChildPolicy and HandleEDSResponse must be called by the same goroutine.
-func (xdsB *EDSBalancer) HandleEDSResponse(edsResp *xdspb.ClusterLoadAssignment) {
+// HandleCDSResponse and HandleEDSResponse must be called by the same goroutine.
+func (xdsB *EDSBalancer) HandleEDSResponse(edsResp *edspb.ClusterLoadAssignment) {
 	// Create balancer group if it's never created (this is the first EDS
 	// response).
 	if xdsB.bg == nil {
 		xdsB.bg = newBalancerGroup(xdsB, xdsB.loadStore)
-		xdsB.bg.start()
 	}
 
 	// TODO: Unhandled fields from EDS response:
@@ -224,14 +227,6 @@ func (xdsB *EDSBalancer) HandleEDSResponse(edsResp *xdspb.ClusterLoadAssignment)
 		newWeight := locality.GetLoadBalancingWeight().GetValue()
 		var newAddrs []resolver.Address
 		for _, lbEndpoint := range locality.GetLbEndpoints() {
-			// Filter out all "unhealthy" endpoints (unknown and
-			// healthy are both considered to be healthy:
-			// https://www.envoyproxy.io/docs/envoy/latest/api-v2/api/v2/core/health_check.proto#envoy-api-enum-core-healthstatus).
-			if lbEndpoint.GetHealthStatus() != corepb.HealthStatus_HEALTHY &&
-				lbEndpoint.GetHealthStatus() != corepb.HealthStatus_UNKNOWN {
-				continue
-			}
-
 			socketAddress := lbEndpoint.GetEndpoint().GetAddress().GetSocketAddress()
 			address := resolver.Address{
 				Addr: net.JoinHostPort(socketAddress.GetAddress(), strconv.Itoa(int(socketAddress.GetPortValue()))),

@@ -1,3 +1,5 @@
+// +build !providerless
+
 /*
 Copyright 2017 The Kubernetes Authors.
 
@@ -19,10 +21,10 @@ package azure
 import (
 	"net/http"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-03-01/compute"
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-07-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-07-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2019-06-01/network"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	cloudprovider "k8s.io/cloud-provider"
 )
@@ -68,8 +70,11 @@ type VMSet interface {
 	// DetachDisk detaches a vhd from host. The vhd can be identified by diskName or diskURI.
 	DetachDisk(diskName, diskURI string, nodeName types.NodeName) (*http.Response, error)
 	// GetDataDisks gets a list of data disks attached to the node.
-	GetDataDisks(nodeName types.NodeName) ([]compute.DataDisk, error)
+	GetDataDisks(nodeName types.NodeName, crt cacheReadType) ([]compute.DataDisk, error)
 
 	// GetPowerStatusByNodeName returns the power state of the specified node.
 	GetPowerStatusByNodeName(name string) (string, error)
+
+	// GetPrivateIPsByNodeName returns a slice of all private ips assigned to node (ipv6 and ipv4)
+	GetPrivateIPsByNodeName(name string) ([]string, error)
 }

@@ -99,6 +99,7 @@ type initOptions struct {
 	externalClusterCfg      *kubeadmapiv1beta2.ClusterConfiguration
 	uploadCerts             bool
 	skipCertificateKeyPrint bool
+	kustomizeDir            string
 }
 
 // compile-time assert that the local data object satisfies the phases data interface.
@@ -120,6 +121,7 @@ type initData struct {
 	outputWriter            io.Writer
 	uploadCerts             bool
 	skipCertificateKeyPrint bool
+	kustomizeDir            string
 }
 
 // NewCmdInit returns "kubeadm init" command.
@@ -230,6 +232,11 @@ func AddClusterConfigFlags(flagSet *flag.FlagSet, cfg *kubeadmapiv1beta2.Cluster
 		`Use alternative domain for services, e.g. "myorg.internal".`,
 	)
 
+	flagSet.StringVar(
+		&cfg.ControlPlaneEndpoint, options.ControlPlaneEndpoint, cfg.ControlPlaneEndpoint,
+		`Specify a stable IP address or DNS name for the control plane.`,
+	)
+
 	options.AddKubernetesVersionFlag(flagSet, &cfg.KubernetesVersion)
 
 	flagSet.StringVar(
@@ -264,14 +271,10 @@ func AddInitOtherFlags(flagSet *flag.FlagSet, initOptions *initOptions) {
 		"Upload control-plane certificates to the kubeadm-certs Secret.",
 	)
 	flagSet.BoolVar(
-		&initOptions.uploadCerts, options.ExperimentalUploadCerts, initOptions.uploadCerts,
-		"Upload control-plane certificates to the kubeadm-certs Secret.",
-	)
-	flagSet.MarkDeprecated(options.ExperimentalUploadCerts, fmt.Sprintf("use --%s instead", options.UploadCerts))
-	flagSet.BoolVar(
 		&initOptions.skipCertificateKeyPrint, options.SkipCertificateKeyPrint, initOptions.skipCertificateKeyPrint,
 		"Don't print the key used to encrypt the control-plane certificates.",
 	)
+	options.AddKustomizePodsFlag(flagSet, &initOptions.kustomizeDir)
 }
 
 // newInitOptions returns a struct ready for being used for creating cmd init flags.
@@ -404,6 +407,7 @@ func newInitData(cmd *cobra.Command, args []string, options *initOptions, out io
 		outputWriter:            out,
 		uploadCerts:             options.uploadCerts,
 		skipCertificateKeyPrint: options.skipCertificateKeyPrint,
+		kustomizeDir:            options.kustomizeDir,
 	}, nil
 }
 
@@ -530,6 +534,11 @@ func (d *initData) Tokens() []string {
 		tokens = append(tokens, bt.Token.String())
 	}
 	return tokens
+}
+
+// KustomizeDir returns the folder where kustomize patches for static pod manifest are stored
+func (d *initData) KustomizeDir() string {
+	return d.kustomizeDir
 }
 
 func printJoinCommand(out io.Writer, adminKubeConfigPath, token string, i *initData) error {

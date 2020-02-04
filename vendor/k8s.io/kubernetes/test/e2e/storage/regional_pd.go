@@ -28,7 +28,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	storage "k8s.io/api/storage/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -40,6 +40,7 @@ import (
 	podutil "k8s.io/kubernetes/pkg/api/v1/pod"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
+	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 	"k8s.io/kubernetes/test/e2e/storage/utils"
 	imageutils "k8s.io/kubernetes/test/utils/image"
@@ -111,7 +112,7 @@ func testVolumeProvisioning(c clientset.Interface, ns string) {
 			ClaimSize:    repdMinSize,
 			ExpectedSize: repdMinSize,
 			PvCheck: func(claim *v1.PersistentVolumeClaim) {
-				volume := testsuites.PVWriteReadSingleNodeCheck(c, claim, framework.NodeSelection{})
+				volume := testsuites.PVWriteReadSingleNodeCheck(c, claim, e2epod.NodeSelection{})
 				gomega.Expect(volume).NotTo(gomega.BeNil())
 
 				err := checkGCEPD(volume, "pd-standard")
@@ -132,7 +133,7 @@ func testVolumeProvisioning(c clientset.Interface, ns string) {
 			ClaimSize:    repdMinSize,
 			ExpectedSize: repdMinSize,
 			PvCheck: func(claim *v1.PersistentVolumeClaim) {
-				volume := testsuites.PVWriteReadSingleNodeCheck(c, claim, framework.NodeSelection{})
+				volume := testsuites.PVWriteReadSingleNodeCheck(c, claim, e2epod.NodeSelection{})
 				gomega.Expect(volume).NotTo(gomega.BeNil())
 
 				err := checkGCEPD(volume, "pd-standard")
@@ -148,8 +149,11 @@ func testVolumeProvisioning(c clientset.Interface, ns string) {
 	for _, test := range tests {
 		test.Client = c
 		test.Class = newStorageClass(test, ns, "" /* suffix */)
-		test.Claim = newClaim(test, ns, "" /* suffix */)
-		test.Claim.Spec.StorageClassName = &test.Class.Name
+		test.Claim = framework.MakePersistentVolumeClaim(framework.PersistentVolumeClaimConfig{
+			ClaimSize:        test.ClaimSize,
+			StorageClassName: &(test.Class.Name),
+			VolumeMode:       &test.VolumeMode,
+		}, ns)
 		test.TestDynamicProvisioning()
 	}
 }
@@ -169,9 +173,12 @@ func testZonalFailover(c clientset.Interface, ns string) {
 		ExpectedSize: repdMinSize,
 	}
 	class := newStorageClass(testSpec, ns, "" /* suffix */)
-	claimTemplate := newClaim(testSpec, ns, "" /* suffix */)
-	claimTemplate.Name = pvcName
-	claimTemplate.Spec.StorageClassName = &class.Name
+	claimTemplate := framework.MakePersistentVolumeClaim(framework.PersistentVolumeClaimConfig{
+		NamePrefix:       pvcName,
+		ClaimSize:        testSpec.ClaimSize,
+		StorageClassName: &(class.Name),
+		VolumeMode:       &testSpec.VolumeMode,
+	}, ns)
 	statefulSet, service, regionalPDLabels := newStatefulSet(claimTemplate, ns)
 
 	ginkgo.By("creating a StorageClass " + class.Name)
@@ -268,17 +275,15 @@ func testZonalFailover(c clientset.Interface, ns string) {
 	}
 
 	ginkgo.By("verifying the same PVC is used by the new pod")
-	gomega.Expect(getPVC(c, ns, regionalPDLabels).Name).To(gomega.Equal(pvc.Name),
-		"The same PVC should be used after failover.")
+	framework.ExpectEqual(getPVC(c, ns, regionalPDLabels).Name, pvc.Name, "The same PVC should be used after failover.")
 
 	ginkgo.By("verifying the container output has 2 lines, indicating the pod has been created twice using the same regional PD.")
-	logs, err := framework.GetPodLogs(c, ns, pod.Name, "")
+	logs, err := e2epod.GetPodLogs(c, ns, pod.Name, "")
 	framework.ExpectNoError(err,
 		"Error getting logs from pod %s in namespace %s", pod.Name, ns)
 	lineCount := len(strings.Split(strings.TrimSpace(logs), "\n"))
 	expectedLineCount := 2
-	gomega.Expect(lineCount).To(gomega.Equal(expectedLineCount),
-		"Line count of the written file should be %d.", expectedLineCount)
+	framework.ExpectEqual(lineCount, expectedLineCount, "Line count of the written file should be %d.", expectedLineCount)
 
 }
 
@@ -333,17 +338,20 @@ func testRegionalDelayedBinding(c clientset.Interface, ns string, pvcCount int) 
 	test.Class = newStorageClass(test, ns, suffix)
 	var claims []*v1.PersistentVolumeClaim
 	for i := 0; i < pvcCount; i++ {
-		claim := newClaim(test, ns, suffix)
-		claim.Spec.StorageClassName = &test.Class.Name
+		claim := framework.MakePersistentVolumeClaim(framework.PersistentVolumeClaimConfig{
+			ClaimSize:        test.ClaimSize,
+			StorageClassName: &(test.Class.Name),
+			VolumeMode:       &test.VolumeMode,
+		}, ns)
 		claims = append(claims, claim)
 	}
 	pvs, node := test.TestBindingWaitForFirstConsumerMultiPVC(claims, nil /* node selector */, false /* expect unschedulable */)
 	if node == nil {
-		framework.Failf("unexpected nil node found")
+		e2elog.Failf("unexpected nil node found")
 	}
 	zone, ok := node.Labels[v1.LabelZoneFailureDomain]
 	if !ok {
-		framework.Failf("label %s not found on Node", v1.LabelZoneFailureDomain)
+		e2elog.Failf("label %s not found on Node", v1.LabelZoneFailureDomain)
 	}
 	for _, pv := range pvs {
 		checkZoneFromLabelAndAffinity(pv, zone, false)
@@ -367,8 +375,12 @@ func testRegionalAllowedTopologies(c clientset.Interface, ns string) {
 	test.Class = newStorageClass(test, ns, suffix)
 	zones := getTwoRandomZones(c)
 	addAllowedTopologiesToStorageClass(c, test.Class, zones)
-	test.Claim = newClaim(test, ns, suffix)
-	test.Claim.Spec.StorageClassName = &test.Class.Name
+	test.Claim = framework.MakePersistentVolumeClaim(framework.PersistentVolumeClaimConfig{
+		NamePrefix:       pvcName,
+		ClaimSize:        test.ClaimSize,
+		StorageClassName: &(test.Class.Name),
+		VolumeMode:       &test.VolumeMode,
+	}, ns)
 
 	pv := test.TestDynamicProvisioning()
 	checkZonesFromLabelAndAffinity(pv, sets.NewString(zones...), true)
@@ -393,17 +405,20 @@ func testRegionalAllowedTopologiesWithDelayedBinding(c clientset.Interface, ns s
 	addAllowedTopologiesToStorageClass(c, test.Class, topoZones)
 	var claims []*v1.PersistentVolumeClaim
 	for i := 0; i < pvcCount; i++ {
-		claim := newClaim(test, ns, suffix)
-		claim.Spec.StorageClassName = &test.Class.Name
+		claim := framework.MakePersistentVolumeClaim(framework.PersistentVolumeClaimConfig{
+			ClaimSize:        test.ClaimSize,
+			StorageClassName: &(test.Class.Name),
+			VolumeMode:       &test.VolumeMode,
+		}, ns)
 		claims = append(claims, claim)
 	}
 	pvs, node := test.TestBindingWaitForFirstConsumerMultiPVC(claims, nil /* node selector */, false /* expect unschedulable */)
 	if node == nil {
-		framework.Failf("unexpected nil node found")
+		e2elog.Failf("unexpected nil node found")
 	}
 	nodeZone, ok := node.Labels[v1.LabelZoneFailureDomain]
 	if !ok {
-		framework.Failf("label %s not found on Node", v1.LabelZoneFailureDomain)
+		e2elog.Failf("label %s not found on Node", v1.LabelZoneFailureDomain)
 	}
 	zoneFound := false
 	for _, zone := range topoZones {
@@ -413,7 +428,7 @@ func testRegionalAllowedTopologiesWithDelayedBinding(c clientset.Interface, ns s
 		}
 	}
 	if !zoneFound {
-		framework.Failf("zones specified in AllowedTopologies: %v does not contain zone of node where PV got provisioned: %s", topoZones, nodeZone)
+		e2elog.Failf("zones specified in AllowedTopologies: %v does not contain zone of node where PV got provisioned: %s", topoZones, nodeZone)
 	}
 	for _, pv := range pvs {
 		checkZonesFromLabelAndAffinity(pv, sets.NewString(topoZones...), true)
@@ -425,7 +440,7 @@ func getPVC(c clientset.Interface, ns string, pvcLabels map[string]string) *v1.P
 	options := metav1.ListOptions{LabelSelector: selector.String()}
 	pvcList, err := c.CoreV1().PersistentVolumeClaims(ns).List(options)
 	framework.ExpectNoError(err)
-	gomega.Expect(len(pvcList.Items)).To(gomega.Equal(1), "There should be exactly 1 PVC matched.")
+	framework.ExpectEqual(len(pvcList.Items), 1, "There should be exactly 1 PVC matched.")
 
 	return &pvcList.Items[0]
 }
@@ -435,12 +450,12 @@ func getPod(c clientset.Interface, ns string, podLabels map[string]string) *v1.P
 	options := metav1.ListOptions{LabelSelector: selector.String()}
 	podList, err := c.CoreV1().Pods(ns).List(options)
 	framework.ExpectNoError(err)
-	gomega.Expect(len(podList.Items)).To(gomega.Equal(1), "There should be exactly 1 pod matched.")
+	framework.ExpectEqual(len(podList.Items), 1, "There should be exactly 1 pod matched.")
 
 	return &podList.Items[0]
 }
 
-func addAllowedTopologiesToStorageClass(c clientset.Interface, sc *storage.StorageClass, zones []string) {
+func addAllowedTopologiesToStorageClass(c clientset.Interface, sc *storagev1.StorageClass, zones []string) {
 	term := v1.TopologySelectorTerm{
 		MatchLabelExpressions: []v1.TopologySelectorLabelRequirement{
 			{

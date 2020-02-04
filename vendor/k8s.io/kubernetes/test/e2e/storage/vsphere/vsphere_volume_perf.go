@@ -23,10 +23,11 @@ import (
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
-	storageV1 "k8s.io/api/storage/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2elog "k8s.io/kubernetes/test/e2e/framework/log"
+	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	"k8s.io/kubernetes/test/e2e/storage/utils"
 )
 
@@ -89,7 +90,7 @@ var _ = utils.SIGDescribe("vcp-performance [Feature:vsphere]", func() {
 
 	ginkgo.It("vcp performance tests", func() {
 		scList := getTestStorageClasses(client, policyName, datastoreName)
-		defer func(scList []*storageV1.StorageClass) {
+		defer func(scList []*storagev1.StorageClass) {
 			for _, sc := range scList {
 				client.StorageV1().StorageClasses().Delete(sc.Name, nil)
 			}
@@ -113,7 +114,7 @@ var _ = utils.SIGDescribe("vcp-performance [Feature:vsphere]", func() {
 	})
 })
 
-func getTestStorageClasses(client clientset.Interface, policyName, datastoreName string) []*storageV1.StorageClass {
+func getTestStorageClasses(client clientset.Interface, policyName, datastoreName string) []*storagev1.StorageClass {
 	const (
 		storageclass1 = "sc-default"
 		storageclass2 = "sc-vsan"
@@ -121,30 +122,30 @@ func getTestStorageClasses(client clientset.Interface, policyName, datastoreName
 		storageclass4 = "sc-user-specified-ds"
 	)
 	scNames := []string{storageclass1, storageclass2, storageclass3, storageclass4}
-	scArrays := make([]*storageV1.StorageClass, len(scNames))
+	scArrays := make([]*storagev1.StorageClass, len(scNames))
 	for index, scname := range scNames {
 		// Create vSphere Storage Class
 		ginkgo.By(fmt.Sprintf("Creating Storage Class : %v", scname))
-		var sc *storageV1.StorageClass
+		var sc *storagev1.StorageClass
 		var err error
 		switch scname {
 		case storageclass1:
-			sc, err = client.StorageV1().StorageClasses().Create(getVSphereStorageClassSpec(storageclass1, nil, nil))
+			sc, err = client.StorageV1().StorageClasses().Create(getVSphereStorageClassSpec(storageclass1, nil, nil, ""))
 		case storageclass2:
 			var scVSanParameters map[string]string
 			scVSanParameters = make(map[string]string)
 			scVSanParameters[Policy_HostFailuresToTolerate] = "1"
-			sc, err = client.StorageV1().StorageClasses().Create(getVSphereStorageClassSpec(storageclass2, scVSanParameters, nil))
+			sc, err = client.StorageV1().StorageClasses().Create(getVSphereStorageClassSpec(storageclass2, scVSanParameters, nil, ""))
 		case storageclass3:
 			var scSPBMPolicyParameters map[string]string
 			scSPBMPolicyParameters = make(map[string]string)
 			scSPBMPolicyParameters[SpbmStoragePolicy] = policyName
-			sc, err = client.StorageV1().StorageClasses().Create(getVSphereStorageClassSpec(storageclass3, scSPBMPolicyParameters, nil))
+			sc, err = client.StorageV1().StorageClasses().Create(getVSphereStorageClassSpec(storageclass3, scSPBMPolicyParameters, nil, ""))
 		case storageclass4:
 			var scWithDSParameters map[string]string
 			scWithDSParameters = make(map[string]string)
 			scWithDSParameters[Datastore] = datastoreName
-			scWithDatastoreSpec := getVSphereStorageClassSpec(storageclass4, scWithDSParameters, nil)
+			scWithDatastoreSpec := getVSphereStorageClassSpec(storageclass4, scWithDSParameters, nil, "")
 			sc, err = client.StorageV1().StorageClasses().Create(scWithDatastoreSpec)
 		}
 		gomega.Expect(sc).NotTo(gomega.BeNil())
@@ -155,7 +156,7 @@ func getTestStorageClasses(client clientset.Interface, policyName, datastoreName
 }
 
 // invokeVolumeLifeCyclePerformance peforms full volume life cycle management and records latency for each operation
-func invokeVolumeLifeCyclePerformance(f *framework.Framework, client clientset.Interface, namespace string, sc []*storageV1.StorageClass, volumesPerPod int, volumeCount int, nodeSelectorList []*NodeSelector) (latency map[string]float64) {
+func invokeVolumeLifeCyclePerformance(f *framework.Framework, client clientset.Interface, namespace string, sc []*storagev1.StorageClass, volumesPerPod int, volumeCount int, nodeSelectorList []*NodeSelector) (latency map[string]float64) {
 	var (
 		totalpvclaims [][]*v1.PersistentVolumeClaim
 		totalpvs      [][]*v1.PersistentVolume
@@ -189,11 +190,11 @@ func invokeVolumeLifeCyclePerformance(f *framework.Framework, client clientset.I
 	start = time.Now()
 	for i, pvclaims := range totalpvclaims {
 		nodeSelector := nodeSelectorList[i%len(nodeSelectorList)]
-		pod, err := framework.CreatePod(client, namespace, map[string]string{nodeSelector.labelKey: nodeSelector.labelValue}, pvclaims, false, "")
+		pod, err := e2epod.CreatePod(client, namespace, map[string]string{nodeSelector.labelKey: nodeSelector.labelValue}, pvclaims, false, "")
 		framework.ExpectNoError(err)
 		totalpods = append(totalpods, pod)
 
-		defer framework.DeletePodWithWait(f, client, pod)
+		defer e2epod.DeletePodWithWait(client, pod)
 	}
 	elapsed = time.Since(start)
 	latency[AttachOp] = elapsed.Seconds()
@@ -205,7 +206,7 @@ func invokeVolumeLifeCyclePerformance(f *framework.Framework, client clientset.I
 	ginkgo.By("Deleting pods")
 	start = time.Now()
 	for _, pod := range totalpods {
-		err := framework.DeletePodWithWait(f, client, pod)
+		err := e2epod.DeletePodWithWait(client, pod)
 		framework.ExpectNoError(err)
 	}
 	elapsed = time.Since(start)
