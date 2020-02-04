@@ -27,6 +27,12 @@ import (
 	_ "k8s.io/kubernetes/pkg/scheduler/algorithmprovider"
 )
 
+func init() {
+	if err := v1.AddToScheme(legacyscheme.Scheme); err != nil {
+		fmt.Printf("err: %v\n", err)
+	}
+}
+
 func PrintPod(pod *v1.Pod, format string) error {
 	var contentType string
 	switch format {

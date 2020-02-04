@@ -33,6 +33,7 @@ import (
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	policyinformers "k8s.io/client-go/informers/policy/v1beta1"
 	storageinformers "k8s.io/client-go/informers/storage/v1"
+	storageinformersv1beta1 "k8s.io/client-go/informers/storage/v1beta1"
 	externalclientset "k8s.io/client-go/kubernetes"
 	fakeclientset "k8s.io/client-go/kubernetes/fake"
 	schedconfig "k8s.io/kubernetes/cmd/kube-scheduler/app/config"
@@ -47,7 +48,7 @@ import (
 	"k8s.io/kubernetes/pkg/scheduler/factory"
 	framework "k8s.io/kubernetes/pkg/scheduler/framework/v1alpha1"
 
-	kuberecord "k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 
 	uuid "github.com/satori/go.uuid"
 	"sigs.k8s.io/cluster-capacity/pkg/framework/record"
@@ -73,12 +74,12 @@ type ClusterCapacity struct {
 	serviceInformer               corev1informers.ServiceInformer
 	pdbInformer                   policyinformers.PodDisruptionBudgetInformer
 	storageClassInformer          storageinformers.StorageClassInformer
+	csiNodeInformer               storageinformersv1beta1.CSINodeInformer
 
 	informerFactory informers.SharedInformerFactory
 
 	// schedulers
 	schedulers           map[string]*scheduler.Scheduler
-	schedulerConfigs     map[string]*factory.Config
 	defaultSchedulerName string
 	defaultSchedulerConf *schedconfig.CompletedConfig
 	// pod to schedule
@@ -240,7 +241,7 @@ func (c *ClusterCapacity) Bind(binding *v1.Binding, schedulerName string) error 
 
 	c.status.Pods = append(c.status.Pods, updatedPod)
 	go func() {
-		<-c.schedulerConfigs[schedulerName].Recorder.(*record.Recorder).Events
+		<-c.schedulers[schedulerName].Recorder.(*record.Recorder).Events
 	}()
 
 	if c.maxSimulated > 0 && c.simulated >= c.maxSimulated {
@@ -388,6 +389,7 @@ func (c *ClusterCapacity) createScheduler(cc *schedconfig.CompletedConfig) (*sch
 		c.pvcInformer,
 		c.serviceInformer,
 		c.storageClassInformer,
+		c.csiNodeInformer,
 	)
 
 	return sched, nil
@@ -401,7 +403,6 @@ func (c *ClusterCapacity) createScheduler(cc *schedconfig.CompletedConfig) (*sch
 	}
 
 	c.schedulers[s.SchedulerName] = scheduler
-	c.schedulerConfigs[s.SchedulerName] = scheduler.Config()
 	return nil
 }*/
 
@@ -424,6 +425,7 @@ func New(kubeSchedulerConfig *schedconfig.CompletedConfig, simulatedPod *v1.Pod,
 		statefulSetInformer:           sharedInformerFactory.Apps().V1().StatefulSets(),
 		serviceInformer:               sharedInformerFactory.Core().V1().Services(),
 		pdbInformer:                   sharedInformerFactory.Policy().V1beta1().PodDisruptionBudgets(),
+		storageClassInformer:          sharedInformerFactory.Storage().V1().StorageClasses(),
 		simulatedPod:                  simulatedPod,
 		simulated:                     0,
 		maxSimulated:                  maxPods,
@@ -436,22 +438,20 @@ func New(kubeSchedulerConfig *schedconfig.CompletedConfig, simulatedPod *v1.Pod,
 	// TODO: make configurable?
 	algorithmprovider.ApplyFeatureGates()
 
-	if utilfeature.DefaultFeatureGate.Enabled(features.VolumeScheduling) {
-		cc.storageClassInformer = sharedInformerFactory.Storage().V1().StorageClasses()
+	if utilfeature.DefaultFeatureGate.Enabled(features.CSINodeInfo) {
+		cc.csiNodeInformer = sharedInformerFactory.Storage().V1beta1().CSINodes()
 	}
 
 	kubeSchedulerConfig.Client = client
 	kubeSchedulerConfig.InformerFactory = sharedInformerFactory
 	kubeSchedulerConfig.PodInformer = cc.podInformer
-	kubeSchedulerConfig.EventClient = client.CoreV1()
+	kubeSchedulerConfig.EventClient = client.EventsV1beta1()
 	kubeSchedulerConfig.Recorder = record.NewRecorder(10)
 
 	// Prepare event clients.
-	eventBroadcaster := kuberecord.NewBroadcaster()
-	kubeSchedulerConfig.Broadcaster = eventBroadcaster
+	kubeSchedulerConfig.Broadcaster = events.NewBroadcaster(&events.EventSinkImpl{Interface: kubeSchedulerConfig.EventClient.Events("")})
 
 	cc.schedulers = make(map[string]*scheduler.Scheduler)
-	cc.schedulerConfigs = make(map[string]*factory.Config)
 
 	scheduler, err := cc.createScheduler(kubeSchedulerConfig)
 	if err != nil {
@@ -459,7 +459,6 @@ func New(kubeSchedulerConfig *schedconfig.CompletedConfig, simulatedPod *v1.Pod,
 	}
 
 	cc.schedulers[kubeSchedulerConfig.ComponentConfig.SchedulerName] = scheduler
-	cc.schedulerConfigs[kubeSchedulerConfig.ComponentConfig.SchedulerName] = scheduler.Config()
 	cc.defaultSchedulerName = kubeSchedulerConfig.ComponentConfig.SchedulerName
 	return cc, nil
 }
@@ -473,7 +472,6 @@ func (c *ClusterCapacity) SchedulerConfigLocal(cc *schedconfig.CompletedConfig) 
 
 	// Set up the configurator which can create schedulers from configs.
 	configurator := factory.NewConfigFactory(&factory.ConfigFactoryArgs{
-		SchedulerName:                  cc.ComponentConfig.SchedulerName,
 		Client:                         cc.Client,
 		NodeInformer:                   c.nodeInformer,
 		PodInformer:                    c.podInformer,
