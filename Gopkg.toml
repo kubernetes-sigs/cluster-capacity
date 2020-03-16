@@ -50,3 +50,7 @@
 [[override]]
   name = "google.golang.org/grpc"
   revision = "v1.23.0"
+
+[prune]
+  go-tests = true
+  unused-packages = true
