@@ -17,6 +17,7 @@ limitations under the License.
 package strategy
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	goruntime "runtime"
@@ -25,8 +26,8 @@ import (
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/component-base/version"
 	apitesting "k8s.io/kubernetes/pkg/api/testing"
-	"k8s.io/kubernetes/pkg/version"
 
 	fakeclientset "k8s.io/client-go/kubernetes/fake"
 )
@@ -149,7 +150,7 @@ func TestAddPodStrategy(t *testing.T) {
 	}
 
 	// 4. check both the update node and the pod is stored back into the resource store
-	foundPod, err := client.CoreV1().Pods(scheduledPod.Namespace).Get(scheduledPod.Name, metav1.GetOptions{})
+	foundPod, err := client.CoreV1().Pods(scheduledPod.Namespace).Get(context.TODO(), scheduledPod.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Unexpected error when retrieving scheduled pod: %v", err)
 	}
@@ -163,7 +164,7 @@ func TestAddPodStrategy(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: testStrategyNode},
 	}
 
-	foundNode, err := client.CoreV1().Nodes().Get(node.Name, metav1.GetOptions{})
+	foundNode, err := client.CoreV1().Nodes().Get(context.TODO(), node.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Unexpected error when retrieving scheduled node: %v", err)
 	}

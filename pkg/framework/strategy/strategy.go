@@ -17,9 +17,11 @@ limitations under the License.
 package strategy
 
 import (
+	"context"
 	"fmt"
 
 	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	schedulernodeinfo "k8s.io/kubernetes/pkg/scheduler/nodeinfo"
 )
@@ -52,7 +54,7 @@ func (s *predictiveStrategy) addPod(pod *v1.Pod) error {
 
 	// here assuming the pod is already in the resource storage
 	// so the update is needed to emit update event in case a handler is registered
-	_, err := s.client.CoreV1().Pods(pod.Namespace).Update(pod)
+	_, err := s.client.CoreV1().Pods(pod.Namespace).Update(context.TODO(), pod, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("Unable to add new pod: %v", err)
 	}
