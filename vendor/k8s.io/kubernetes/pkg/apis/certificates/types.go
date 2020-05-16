@@ -42,6 +42,12 @@ type CertificateSigningRequestSpec struct {
 	// Base64-encoded PKCS#10 CSR data
 	Request []byte
 
+	// Requested signer for the request. It is a qualified name in the form:
+	// `scope-hostname.io/name`.
+	// Distribution of trust for signers happens out of band.
+	// You can select on this field using `spec.signerName`.
+	SignerName string
+
 	// usages specifies a set of usage contexts the key will be
 	// valid for.
 	// See: https://tools.ietf.org/html/rfc5280#section-4.2.1.3
@@ -118,27 +124,27 @@ type CertificateSigningRequestList struct {
 type KeyUsage string
 
 const (
-	UsageSigning            KeyUsage = "signing"
-	UsageDigitalSignature   KeyUsage = "digital signature"
-	UsageContentCommittment KeyUsage = "content commitment"
-	UsageKeyEncipherment    KeyUsage = "key encipherment"
-	UsageKeyAgreement       KeyUsage = "key agreement"
-	UsageDataEncipherment   KeyUsage = "data encipherment"
-	UsageCertSign           KeyUsage = "cert sign"
-	UsageCRLSign            KeyUsage = "crl sign"
-	UsageEncipherOnly       KeyUsage = "encipher only"
-	UsageDecipherOnly       KeyUsage = "decipher only"
-	UsageAny                KeyUsage = "any"
-	UsageServerAuth         KeyUsage = "server auth"
-	UsageClientAuth         KeyUsage = "client auth"
-	UsageCodeSigning        KeyUsage = "code signing"
-	UsageEmailProtection    KeyUsage = "email protection"
-	UsageSMIME              KeyUsage = "s/mime"
-	UsageIPsecEndSystem     KeyUsage = "ipsec end system"
-	UsageIPsecTunnel        KeyUsage = "ipsec tunnel"
-	UsageIPsecUser          KeyUsage = "ipsec user"
-	UsageTimestamping       KeyUsage = "timestamping"
-	UsageOCSPSigning        KeyUsage = "ocsp signing"
-	UsageMicrosoftSGC       KeyUsage = "microsoft sgc"
-	UsageNetscapSGC         KeyUsage = "netscape sgc"
+	UsageSigning           KeyUsage = "signing"
+	UsageDigitalSignature  KeyUsage = "digital signature"
+	UsageContentCommitment KeyUsage = "content commitment"
+	UsageKeyEncipherment   KeyUsage = "key encipherment"
+	UsageKeyAgreement      KeyUsage = "key agreement"
+	UsageDataEncipherment  KeyUsage = "data encipherment"
+	UsageCertSign          KeyUsage = "cert sign"
+	UsageCRLSign           KeyUsage = "crl sign"
+	UsageEncipherOnly      KeyUsage = "encipher only"
+	UsageDecipherOnly      KeyUsage = "decipher only"
+	UsageAny               KeyUsage = "any"
+	UsageServerAuth        KeyUsage = "server auth"
+	UsageClientAuth        KeyUsage = "client auth"
+	UsageCodeSigning       KeyUsage = "code signing"
+	UsageEmailProtection   KeyUsage = "email protection"
+	UsageSMIME             KeyUsage = "s/mime"
+	UsageIPsecEndSystem    KeyUsage = "ipsec end system"
+	UsageIPsecTunnel       KeyUsage = "ipsec tunnel"
+	UsageIPsecUser         KeyUsage = "ipsec user"
+	UsageTimestamping      KeyUsage = "timestamping"
+	UsageOCSPSigning       KeyUsage = "ocsp signing"
+	UsageMicrosoftSGC      KeyUsage = "microsoft sgc"
+	UsageNetscapeSGC       KeyUsage = "netscape sgc"
 )
