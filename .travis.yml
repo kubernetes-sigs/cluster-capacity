@@ -1,6 +1,6 @@
 language: go
 go:
-- 1.12
+- 1.13
 script:
 - mkdir -p ~/gopath/src/sigs.k8s.io/
 - mv ~/gopath/src/github.com/kubernetes-sigs/cluster-capacity ~/gopath/src/sigs.k8s.io/.
