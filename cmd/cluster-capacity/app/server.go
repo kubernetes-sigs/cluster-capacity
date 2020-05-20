@@ -17,6 +17,7 @@ limitations under the License.
 package app
 
 import (
+	"flag"
 	"fmt"
 	"os"
 
@@ -27,6 +28,7 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	aflag "k8s.io/component-base/cli/flag"
 	configv1alpha1 "k8s.io/component-base/config/v1alpha1"
 	kubeschedulerconfigv1alpha2 "k8s.io/kube-scheduler/config/v1alpha2"
 	schedconfig "k8s.io/kubernetes/cmd/kube-scheduler/app/config"
@@ -68,7 +70,12 @@ func NewClusterCapacityCommand() *cobra.Command {
 			}
 		},
 	}
-	opt.AddFlags(cmd.Flags())
+
+	flags := cmd.Flags()
+	flags.SetNormalizeFunc(aflag.WordSepNormalizeFunc)
+	flags.AddGoFlagSet(flag.CommandLine)
+	opt.AddFlags(flags)
+
 	return cmd
 }
 
