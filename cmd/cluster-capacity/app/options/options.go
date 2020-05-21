@@ -32,8 +32,6 @@ import (
 	api "k8s.io/kubernetes/pkg/apis/core"
 	apiv1 "k8s.io/kubernetes/pkg/apis/core/v1"
 	"k8s.io/kubernetes/pkg/apis/core/validation"
-
-	schedconfig "k8s.io/kubernetes/cmd/kube-scheduler/app/config"
 )
 
 type ClusterCapacityConfig struct {
@@ -75,7 +73,7 @@ func (s *ClusterCapacityOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVarP(&s.OutputFormat, "output", "o", s.OutputFormat, "Output format. One of: json|yaml (Note: output is not versioned or guaranteed to be stable across releases).")
 }
 
-func (s *ClusterCapacityConfig) ParseAPISpec(cc *schedconfig.CompletedConfig) error {
+func (s *ClusterCapacityConfig) ParseAPISpec(schedulerName string) error {
 	var spec io.Reader
 	var err error
 	if strings.HasPrefix(s.Options.PodSpecFile, "http://") || strings.HasPrefix(s.Options.PodSpecFile, "https://") {
@@ -109,7 +107,7 @@ func (s *ClusterCapacityConfig) ParseAPISpec(cc *schedconfig.CompletedConfig) er
 
 	// set pod's scheduler name to cluster-capacity
 	if versionedPod.Spec.SchedulerName == "" {
-		versionedPod.Spec.SchedulerName = cc.ComponentConfig.SchedulerName
+		versionedPod.Spec.SchedulerName = schedulerName
 	}
 
 	// hardcoded from kube api defaults and validation
@@ -133,7 +131,7 @@ func (s *ClusterCapacityConfig) ParseAPISpec(cc *schedconfig.CompletedConfig) er
 		return fmt.Errorf("unable to convert to internal version: %#v", err)
 
 	}
-	if errs := validation.ValidatePod(internalPod); len(errs) > 0 {
+	if errs := validation.ValidatePod(internalPod, validation.PodValidationOptions{}); len(errs) > 0 {
 		var errStrs []string
 		for _, err := range errs {
 			errStrs = append(errStrs, fmt.Sprintf("%v: %v", err.Type, err.Field))

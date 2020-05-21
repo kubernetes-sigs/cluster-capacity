@@ -17,41 +17,31 @@ limitations under the License.
 package framework
 
 import (
+	"context"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"sync"
 	"time"
 
 	"k8s.io/api/core/v1"
+	eventsv1beta1 "k8s.io/api/events/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/informers"
-	appsinformers "k8s.io/client-go/informers/apps/v1"
-	corev1informers "k8s.io/client-go/informers/core/v1"
-	policyinformers "k8s.io/client-go/informers/policy/v1beta1"
-	storageinformers "k8s.io/client-go/informers/storage/v1"
-	storageinformersv1beta1 "k8s.io/client-go/informers/storage/v1beta1"
 	externalclientset "k8s.io/client-go/kubernetes"
 	fakeclientset "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/kubernetes/scheme"
 	schedconfig "k8s.io/kubernetes/cmd/kube-scheduler/app/config"
 	schedoptions "k8s.io/kubernetes/cmd/kube-scheduler/app/options"
-	"k8s.io/kubernetes/pkg/features"
 	"k8s.io/kubernetes/pkg/scheduler"
-	"k8s.io/kubernetes/pkg/scheduler/algorithmprovider"
-	schedulerapi "k8s.io/kubernetes/pkg/scheduler/api"
-	latestschedulerapi "k8s.io/kubernetes/pkg/scheduler/api/latest"
-	kubeschedulerconfig "k8s.io/kubernetes/pkg/scheduler/apis/config"
-	"k8s.io/kubernetes/pkg/scheduler/core"
-	"k8s.io/kubernetes/pkg/scheduler/factory"
 	framework "k8s.io/kubernetes/pkg/scheduler/framework/v1alpha1"
+	"k8s.io/kubernetes/pkg/scheduler/profile"
 
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/events"
 
 	uuid "github.com/satori/go.uuid"
-	"sigs.k8s.io/cluster-capacity/pkg/framework/record"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/cluster-capacity/pkg/framework/strategy"
 )
 
@@ -63,20 +53,8 @@ type ClusterCapacity struct {
 	// emulation strategy
 	strategy strategy.Strategy
 
-	externalkubeclient            externalclientset.Interface
-	nodeInformer                  corev1informers.NodeInformer
-	podInformer                   corev1informers.PodInformer
-	pvInformer                    corev1informers.PersistentVolumeInformer
-	pvcInformer                   corev1informers.PersistentVolumeClaimInformer
-	replicationControllerInformer corev1informers.ReplicationControllerInformer
-	replicaSetInformer            appsinformers.ReplicaSetInformer
-	statefulSetInformer           appsinformers.StatefulSetInformer
-	serviceInformer               corev1informers.ServiceInformer
-	pdbInformer                   policyinformers.PodDisruptionBudgetInformer
-	storageClassInformer          storageinformers.StorageClassInformer
-	csiNodeInformer               storageinformersv1beta1.CSINodeInformer
-
-	informerFactory informers.SharedInformerFactory
+	externalkubeclient externalclientset.Interface
+	informerFactory    informers.SharedInformerFactory
 
 	// schedulers
 	schedulers           map[string]*scheduler.Scheduler
@@ -122,101 +100,101 @@ func (c *ClusterCapacity) Report() *ClusterCapacityReview {
 }
 
 func (c *ClusterCapacity) SyncWithClient(client externalclientset.Interface) error {
-	podItems, err := client.CoreV1().Pods(metav1.NamespaceAll).List(metav1.ListOptions{})
+	podItems, err := client.CoreV1().Pods(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to list pods: %v", err)
 	}
 
 	for _, item := range podItems.Items {
-		if _, err := c.externalkubeclient.CoreV1().Pods(item.Namespace).Create(&item); err != nil {
+		if _, err := c.externalkubeclient.CoreV1().Pods(item.Namespace).Create(context.TODO(), &item, metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("unable to copy pod: %v", err)
 		}
 	}
 
-	nodeItems, err := client.CoreV1().Nodes().List(metav1.ListOptions{})
+	nodeItems, err := client.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to list nodes: %v", err)
 	}
 
 	for _, item := range nodeItems.Items {
-		if _, err := c.externalkubeclient.CoreV1().Nodes().Create(&item); err != nil {
+		if _, err := c.externalkubeclient.CoreV1().Nodes().Create(context.TODO(), &item, metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("unable to copy node: %v", err)
 		}
 	}
 
-	serviceItems, err := client.CoreV1().Services(metav1.NamespaceAll).List(metav1.ListOptions{})
+	serviceItems, err := client.CoreV1().Services(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to list services: %v", err)
 	}
 
 	for _, item := range serviceItems.Items {
-		if _, err := c.externalkubeclient.CoreV1().Services(item.Namespace).Create(&item); err != nil {
+		if _, err := c.externalkubeclient.CoreV1().Services(item.Namespace).Create(context.TODO(), &item, metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("unable to copy service: %v", err)
 		}
 	}
 
-	pvcItems, err := client.CoreV1().PersistentVolumeClaims(metav1.NamespaceAll).List(metav1.ListOptions{})
+	pvcItems, err := client.CoreV1().PersistentVolumeClaims(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to list pvcs: %v", err)
 	}
 
 	for _, item := range pvcItems.Items {
-		if _, err := c.externalkubeclient.CoreV1().PersistentVolumeClaims(item.Namespace).Create(&item); err != nil {
+		if _, err := c.externalkubeclient.CoreV1().PersistentVolumeClaims(item.Namespace).Create(context.TODO(), &item, metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("unable to copy pvc: %v", err)
 		}
 	}
 
-	rcItems, err := client.CoreV1().ReplicationControllers(metav1.NamespaceAll).List(metav1.ListOptions{})
+	rcItems, err := client.CoreV1().ReplicationControllers(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to list RCs: %v", err)
 	}
 
 	for _, item := range rcItems.Items {
-		if _, err := c.externalkubeclient.CoreV1().ReplicationControllers(item.Namespace).Create(&item); err != nil {
+		if _, err := c.externalkubeclient.CoreV1().ReplicationControllers(item.Namespace).Create(context.TODO(), &item, metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("unable to copy RC: %v", err)
 		}
 	}
 
-	pdbItems, err := client.PolicyV1beta1().PodDisruptionBudgets(metav1.NamespaceAll).List(metav1.ListOptions{})
+	pdbItems, err := client.PolicyV1beta1().PodDisruptionBudgets(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to list PDBs: %v", err)
 	}
 
 	for _, item := range pdbItems.Items {
-		if _, err := c.externalkubeclient.PolicyV1beta1().PodDisruptionBudgets(item.Namespace).Create(&item); err != nil {
+		if _, err := c.externalkubeclient.PolicyV1beta1().PodDisruptionBudgets(item.Namespace).Create(context.TODO(), &item, metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("unable to copy PDB: %v", err)
 		}
 	}
 
-	replicaSetItems, err := client.AppsV1().ReplicaSets(metav1.NamespaceAll).List(metav1.ListOptions{})
+	replicaSetItems, err := client.AppsV1().ReplicaSets(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to list replicas sets: %v", err)
 	}
 
 	for _, item := range replicaSetItems.Items {
-		if _, err := c.externalkubeclient.AppsV1().ReplicaSets(item.Namespace).Create(&item); err != nil {
+		if _, err := c.externalkubeclient.AppsV1().ReplicaSets(item.Namespace).Create(context.TODO(), &item, metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("unable to copy replica set: %v", err)
 		}
 	}
 
-	statefulSetItems, err := client.AppsV1().StatefulSets(metav1.NamespaceAll).List(metav1.ListOptions{})
+	statefulSetItems, err := client.AppsV1().StatefulSets(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to list stateful sets: %v", err)
 	}
 
 	for _, item := range statefulSetItems.Items {
-		if _, err := c.externalkubeclient.AppsV1().StatefulSets(item.Namespace).Create(&item); err != nil {
+		if _, err := c.externalkubeclient.AppsV1().StatefulSets(item.Namespace).Create(context.TODO(), &item, metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("unable to copy stateful set: %v", err)
 		}
 	}
 
-	storageClassesItems, err := client.StorageV1().StorageClasses().List(metav1.ListOptions{})
+	storageClassesItems, err := client.StorageV1().StorageClasses().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to list storage classes: %v", err)
 	}
 
 	for _, item := range storageClassesItems.Items {
-		if _, err := c.externalkubeclient.StorageV1().StorageClasses().Create(&item); err != nil {
+		if _, err := c.externalkubeclient.StorageV1().StorageClasses().Create(context.TODO(), &item, metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("unable to copy storage class: %v", err)
 		}
 	}
@@ -224,25 +202,22 @@ func (c *ClusterCapacity) SyncWithClient(client externalclientset.Interface) err
 	return nil
 }
 
-func (c *ClusterCapacity) Bind(binding *v1.Binding, schedulerName string) error {
+func (c *ClusterCapacity) Bind(ctx context.Context, state *framework.CycleState, p *v1.Pod, nodeName string, schedulerName string) *framework.Status {
 	// run the pod through strategy
-	pod, err := c.externalkubeclient.CoreV1().Pods(binding.Namespace).Get(binding.Name, metav1.GetOptions{})
+	pod, err := c.externalkubeclient.CoreV1().Pods(p.Namespace).Get(context.TODO(), p.Name, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("Unable to bind: %v", err)
+		return framework.NewStatus(framework.Error, fmt.Sprintf("Unable to bind: %v", err))
 	}
 	updatedPod := pod.DeepCopy()
-	updatedPod.Spec.NodeName = binding.Target.Name
+	updatedPod.Spec.NodeName = nodeName
 	updatedPod.Status.Phase = v1.PodRunning
 
 	// TODO(jchaloup): rename Add to Update as this actually updates the scheduled pod
 	if err := c.strategy.Add(updatedPod); err != nil {
-		return fmt.Errorf("Unable to recompute new cluster state: %v", err)
+		return framework.NewStatus(framework.Error, fmt.Sprintf("Unable to recompute new cluster state: %v", err))
 	}
 
 	c.status.Pods = append(c.status.Pods, updatedPod)
-	go func() {
-		<-c.schedulers[schedulerName].Recorder.(*record.Recorder).Events
-	}()
 
 	if c.maxSimulated > 0 && c.simulated >= c.maxSimulated {
 		c.status.StopReason = fmt.Sprintf("LimitReached: Maximum number of pods simulated: %v", c.maxSimulated)
@@ -253,7 +228,7 @@ func (c *ClusterCapacity) Bind(binding *v1.Binding, schedulerName string) error 
 
 	// all good, create another pod
 	if err := c.nextPod(); err != nil {
-		return fmt.Errorf("Unable to create next pod to schedule: %v", err)
+		return framework.NewStatus(framework.Error, fmt.Sprintf("Unable to create next pod to schedule: %v", err))
 	}
 	return nil
 }
@@ -309,7 +284,7 @@ func (c *ClusterCapacity) nextPod() error {
 	c.simulated++
 	c.lastSimulatedPod = &pod
 
-	_, err := c.externalkubeclient.CoreV1().Pods(pod.Namespace).Create(&pod)
+	_, err := c.externalkubeclient.CoreV1().Pods(pod.Namespace).Create(context.TODO(), &pod, metav1.CreateOptions{})
 	return err
 }
 
@@ -318,9 +293,13 @@ func (c *ClusterCapacity) Run() error {
 	c.informerFactory.Start(c.informerStopCh)
 	c.informerFactory.WaitForCacheSync(c.informerStopCh)
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	// TODO(jchaloup): remove all pods that are not scheduled yet
 	for _, scheduler := range c.schedulers {
-		scheduler.Run()
+		go func() {
+			scheduler.Run(ctx)
+		}()
 	}
 	// wait some time before at least nodes are populated
 	// TODO(jchaloup); find a better way how to do this or at least decrease it to <100ms
@@ -328,71 +307,84 @@ func (c *ClusterCapacity) Run() error {
 	// create the first simulated pod
 	err := c.nextPod()
 	if err != nil {
+		cancel()
 		c.Close()
 		close(c.stop)
 		return fmt.Errorf("Unable to create next pod to schedule: %v", err)
 	}
 	<-c.stop
+	cancel()
 	close(c.stop)
-
 	return nil
 }
 
 type localBinderPodConditionUpdater struct {
-	SchedulerName string
-	C             *ClusterCapacity
+	schedulerName string
+	c             *ClusterCapacity
 }
 
-func (b *localBinderPodConditionUpdater) Bind(binding *v1.Binding) error {
-	return b.C.Bind(binding, b.SchedulerName)
+func (b *localBinderPodConditionUpdater) Name() string {
+	return "ClusterCapacityBinder"
 }
 
-func (b *localBinderPodConditionUpdater) Update(pod *v1.Pod, podCondition *v1.PodCondition) error {
-	return b.C.Update(pod, podCondition, b.SchedulerName)
+// TODO(jchaloup): Needs to be locked since the scheduler runs the binding phase in a go routine
+func (b *localBinderPodConditionUpdater) Bind(ctx context.Context, state *framework.CycleState, p *v1.Pod, nodeName string) *framework.Status {
+	return b.c.Bind(ctx, state, p, nodeName, b.schedulerName)
 }
 
-func (c *ClusterCapacity) createScheduler(cc *schedconfig.CompletedConfig) (*scheduler.Scheduler, error) {
-	c.informerFactory = cc.InformerFactory
+func (c *ClusterCapacity) NewBindPlugin(schedulerName string, configuration runtime.Object, f framework.FrameworkHandle) (framework.Plugin, error) {
+	return &localBinderPodConditionUpdater{
+		schedulerName: schedulerName,
+		c:             c,
+	}, nil
+}
 
-	schedulerConfig, err := c.SchedulerConfigLocal(cc)
-	if err != nil {
-		return nil, err
+func (c *ClusterCapacity) createScheduler(schedulerName string, cc *schedconfig.CompletedConfig) (*scheduler.Scheduler, error) {
+	outOfTreeRegistry := framework.Registry{
+		"ClusterCapacityBinder": func(configuration *runtime.Unknown, f framework.FrameworkHandle) (framework.Plugin, error) {
+			return c.NewBindPlugin(schedulerName, configuration, f)
+		},
 	}
 
-	// Replace the binder with simulator pod counter
-	lbpcu := &localBinderPodConditionUpdater{
-		SchedulerName: cc.ComponentConfig.SchedulerName,
-		C:             c,
-	}
-	schedulerConfig.GetBinder = func(pod *v1.Pod) factory.Binder {
-		return lbpcu
-	}
-	schedulerConfig.PodConditionUpdater = lbpcu
-	// pending merge of https://github.com/kubernetes/kubernetes/pull/44115
-	// we wrap how error handling is done to avoid extraneous logging
-	errorFn := schedulerConfig.Error
-	wrappedErrorFn := func(pod *v1.Pod, err error) {
-		if _, ok := err.(*core.FitError); !ok {
-			errorFn(pod, err)
-		}
-	}
-	schedulerConfig.Error = wrappedErrorFn
-	// Create the scheduler.
-	sched := scheduler.NewFromConfig(schedulerConfig)
-
-	scheduler.AddAllEventHandlers(
-		sched,
-		cc.ComponentConfig.SchedulerName,
-		c.nodeInformer,
-		c.podInformer,
-		c.pvInformer,
-		c.pvcInformer,
-		c.serviceInformer,
-		c.storageClassInformer,
-		c.csiNodeInformer,
+	c.informerFactory.Core().V1().Pods().Informer().AddEventHandler(
+		cache.FilteringResourceEventHandler{
+			FilterFunc: func(obj interface{}) bool {
+				if pod, ok := obj.(*v1.Pod); ok && pod.Spec.SchedulerName == schedulerName {
+					return true
+				}
+				return false
+			},
+			Handler: cache.ResourceEventHandlerFuncs{
+				UpdateFunc: func(oldObj, newObj interface{}) {
+					if pod, ok := newObj.(*v1.Pod); ok {
+						for _, podCondition := range pod.Status.Conditions {
+							if podCondition.Type == v1.PodScheduled {
+								c.Update(pod, &podCondition, schedulerName)
+							}
+						}
+					}
+				},
+			},
+		},
 	)
 
-	return sched, nil
+	// Create the scheduler.
+	return scheduler.New(
+		c.externalkubeclient,
+		c.informerFactory,
+		c.informerFactory.Core().V1().Pods(),
+		getRecorderFactory(cc),
+		c.schedulerCh,
+		scheduler.WithProfiles(cc.ComponentConfig.Profiles...),
+		scheduler.WithAlgorithmSource(cc.ComponentConfig.AlgorithmSource),
+		scheduler.WithPreemptionDisabled(cc.ComponentConfig.DisablePreemption),
+		scheduler.WithPercentageOfNodesToScore(cc.ComponentConfig.PercentageOfNodesToScore),
+		scheduler.WithBindTimeoutSeconds(cc.ComponentConfig.BindTimeoutSeconds),
+		scheduler.WithFrameworkOutOfTreeRegistry(outOfTreeRegistry),
+		scheduler.WithPodMaxBackoffSeconds(cc.ComponentConfig.PodMaxBackoffSeconds),
+		scheduler.WithPodInitialBackoffSeconds(cc.ComponentConfig.PodInitialBackoffSeconds),
+		scheduler.WithExtenders(cc.ComponentConfig.Extenders...),
+	)
 }
 
 // TODO(avesh): enable when support for multiple schedulers is added.
@@ -406,6 +398,17 @@ func (c *ClusterCapacity) createScheduler(cc *schedconfig.CompletedConfig) (*sch
 	return nil
 }*/
 
+func getRecorderFactory(cc *schedconfig.CompletedConfig) profile.RecorderFactory {
+	if _, err := cc.Client.Discovery().ServerResourcesForGroupVersion(eventsv1beta1.SchemeGroupVersion.String()); err == nil {
+		cc.Broadcaster = events.NewBroadcaster(&events.EventSinkImpl{Interface: cc.EventClient.Events("")})
+		return profile.NewRecorderFactory(cc.Broadcaster)
+	}
+	return func(name string) events.EventRecorder {
+		r := cc.CoreBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: name})
+		return record.NewEventRecorderAdapter(r)
+	}
+}
+
 // Create new cluster capacity analysis
 // The analysis is completely independent of apiserver so no need
 // for kubeconfig nor for apiserver url
@@ -413,162 +416,41 @@ func New(kubeSchedulerConfig *schedconfig.CompletedConfig, simulatedPod *v1.Pod,
 	client := fakeclientset.NewSimpleClientset()
 	sharedInformerFactory := informers.NewSharedInformerFactory(client, 0)
 
-	cc := &ClusterCapacity{
-		strategy:                      strategy.NewPredictiveStrategy(client),
-		externalkubeclient:            client,
-		nodeInformer:                  sharedInformerFactory.Core().V1().Nodes(),
-		podInformer:                   sharedInformerFactory.Core().V1().Pods(),
-		pvInformer:                    sharedInformerFactory.Core().V1().PersistentVolumes(),
-		pvcInformer:                   sharedInformerFactory.Core().V1().PersistentVolumeClaims(),
-		replicationControllerInformer: sharedInformerFactory.Core().V1().ReplicationControllers(),
-		replicaSetInformer:            sharedInformerFactory.Apps().V1().ReplicaSets(),
-		statefulSetInformer:           sharedInformerFactory.Apps().V1().StatefulSets(),
-		serviceInformer:               sharedInformerFactory.Core().V1().Services(),
-		pdbInformer:                   sharedInformerFactory.Policy().V1beta1().PodDisruptionBudgets(),
-		storageClassInformer:          sharedInformerFactory.Storage().V1().StorageClasses(),
-		simulatedPod:                  simulatedPod,
-		simulated:                     0,
-		maxSimulated:                  maxPods,
-		stop:                          make(chan struct{}),
-		informerStopCh:                make(chan struct{}),
-		schedulerCh:                   make(chan struct{}),
-	}
-
-	// Apply algorithms based on feature gates.
-	// TODO: make configurable?
-	algorithmprovider.ApplyFeatureGates()
-
-	if utilfeature.DefaultFeatureGate.Enabled(features.CSINodeInfo) {
-		cc.csiNodeInformer = sharedInformerFactory.Storage().V1beta1().CSINodes()
-	}
-
 	kubeSchedulerConfig.Client = client
-	kubeSchedulerConfig.InformerFactory = sharedInformerFactory
-	kubeSchedulerConfig.PodInformer = cc.podInformer
-	kubeSchedulerConfig.EventClient = client.EventsV1beta1()
-	kubeSchedulerConfig.Recorder = record.NewRecorder(10)
+	kubeSchedulerConfig.CoreBroadcaster = record.NewBroadcaster()
 
-	// Prepare event clients.
-	kubeSchedulerConfig.Broadcaster = events.NewBroadcaster(&events.EventSinkImpl{Interface: kubeSchedulerConfig.EventClient.Events("")})
+	cc := &ClusterCapacity{
+		strategy:           strategy.NewPredictiveStrategy(client),
+		externalkubeclient: client,
+		simulatedPod:       simulatedPod,
+		simulated:          0,
+		maxSimulated:       maxPods,
+		stop:               make(chan struct{}),
+		informerFactory:    sharedInformerFactory,
+		informerStopCh:     make(chan struct{}),
+		schedulerCh:        make(chan struct{}),
+	}
 
 	cc.schedulers = make(map[string]*scheduler.Scheduler)
 
-	scheduler, err := cc.createScheduler(kubeSchedulerConfig)
+	scheduler, err := cc.createScheduler(v1.DefaultSchedulerName, kubeSchedulerConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	cc.schedulers[kubeSchedulerConfig.ComponentConfig.SchedulerName] = scheduler
-	cc.defaultSchedulerName = kubeSchedulerConfig.ComponentConfig.SchedulerName
+	cc.schedulers[v1.DefaultSchedulerName] = scheduler
+	cc.defaultSchedulerName = v1.DefaultSchedulerName
 	return cc, nil
-}
-
-// SchedulerConfig creates the scheduler configuration.
-func (c *ClusterCapacity) SchedulerConfigLocal(cc *schedconfig.CompletedConfig) (*factory.Config, error) {
-	var bindTimeoutSeconds int64 = 1
-	if cc.ComponentConfig.BindTimeoutSeconds != nil {
-		bindTimeoutSeconds = *cc.ComponentConfig.BindTimeoutSeconds
-	}
-
-	// Set up the configurator which can create schedulers from configs.
-	configurator := factory.NewConfigFactory(&factory.ConfigFactoryArgs{
-		Client:                         cc.Client,
-		NodeInformer:                   c.nodeInformer,
-		PodInformer:                    c.podInformer,
-		PvInformer:                     c.pvInformer,
-		PvcInformer:                    c.pvcInformer,
-		ReplicationControllerInformer:  c.replicationControllerInformer,
-		ReplicaSetInformer:             c.replicaSetInformer,
-		StatefulSetInformer:            c.statefulSetInformer,
-		ServiceInformer:                c.serviceInformer,
-		PdbInformer:                    c.pdbInformer,
-		StorageClassInformer:           c.storageClassInformer,
-		HardPodAffinitySymmetricWeight: cc.ComponentConfig.HardPodAffinitySymmetricWeight,
-		DisablePreemption:              cc.ComponentConfig.DisablePreemption,
-		PercentageOfNodesToScore:       cc.ComponentConfig.PercentageOfNodesToScore,
-		BindTimeoutSeconds:             bindTimeoutSeconds,
-		Registry:                       framework.NewRegistry(),
-		Plugins:                        cc.ComponentConfig.Plugins,
-		PluginConfig:                   cc.ComponentConfig.PluginConfig,
-	})
-
-	var config *factory.Config
-	source := cc.ComponentConfig.AlgorithmSource
-	switch {
-	case source.Provider != nil:
-		// Create the config from a named algorithm provider.
-		sc, err := configurator.CreateFromProvider(*source.Provider)
-		if err != nil {
-			return nil, fmt.Errorf("couldn't create scheduler using provider %q: %v", *source.Provider, err)
-		}
-		config = sc
-	case source.Policy != nil:
-		// Create the config from a user specified policy source.
-		policy := &schedulerapi.Policy{}
-		switch {
-		case source.Policy.File != nil:
-			if err := initPolicyFromFile(source.Policy.File.Path, policy); err != nil {
-				return nil, err
-			}
-		case source.Policy.ConfigMap != nil:
-			if err := initPolicyFromConfigMap(cc.Client, source.Policy.ConfigMap, policy); err != nil {
-				return nil, err
-			}
-		}
-		sc, err := configurator.CreateFromConfig(*policy)
-		if err != nil {
-			return nil, fmt.Errorf("couldn't create scheduler from policy: %v", err)
-		}
-		config = sc
-	default:
-		return nil, fmt.Errorf("unsupported algorithm source: %v", source)
-	}
-	// Additional tweaks to the config produced by the configurator.
-	config.Recorder = cc.Recorder
-	config.DisablePreemption = cc.ComponentConfig.DisablePreemption
-	config.StopEverything = c.schedulerCh
-
-	return config, nil
-}
-
-// initPolicyFromFile initialize policy from file
-func initPolicyFromFile(policyFile string, policy *schedulerapi.Policy) error {
-	// Use a policy serialized in a file.
-	_, err := os.Stat(policyFile)
-	if err != nil {
-		return fmt.Errorf("missing policy config file %s", policyFile)
-	}
-	data, err := ioutil.ReadFile(policyFile)
-	if err != nil {
-		return fmt.Errorf("couldn't read policy config: %v", err)
-	}
-	err = runtime.DecodeInto(latestschedulerapi.Codec, []byte(data), policy)
-	if err != nil {
-		return fmt.Errorf("invalid policy: %v", err)
-	}
-	return nil
-}
-
-// initPolicyFromConfigMap initialize policy from configMap
-func initPolicyFromConfigMap(client externalclientset.Interface, policyRef *kubeschedulerconfig.SchedulerPolicyConfigMapSource, policy *schedulerapi.Policy) error {
-	// Use a policy serialized in a config map value.
-	policyConfigMap, err := client.CoreV1().ConfigMaps(policyRef.Namespace).Get(policyRef.Name, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("couldn't get policy config map %s/%s: %v", policyRef.Namespace, policyRef.Name, err)
-	}
-	data, found := policyConfigMap.Data[kubeschedulerconfig.SchedulerPolicyConfigMapKey]
-	if !found {
-		return fmt.Errorf("missing policy config map value at key %q", kubeschedulerconfig.SchedulerPolicyConfigMapKey)
-	}
-	err = runtime.DecodeInto(latestschedulerapi.Codec, []byte(data), policy)
-	if err != nil {
-		return fmt.Errorf("invalid policy: %v", err)
-	}
-	return nil
 }
 
 func InitKubeSchedulerConfiguration(opts *schedoptions.Options) (*schedconfig.CompletedConfig, error) {
 	c := &schedconfig.Config{}
+	// clear out all unnecesary options so no port is bound
+	// to allow running multiple instances in a row
+	opts.Deprecated = nil
+	opts.CombinedInsecureServing = nil
+	opts.SecureServing = nil
+	opts.ShowHiddenMetricsForVersion = ""
 	if err := opts.ApplyTo(c); err != nil {
 		return nil, fmt.Errorf("unable to get scheduler config: %v", err)
 	}
