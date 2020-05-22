@@ -1,4 +1,6 @@
-# Copyright 2017 The Kubernetes Authors.
+#!/usr/bin/env bash
+
+# Copyright 2020 The Kubernetes Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,25 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-build:
-	go build -o hypercc sigs.k8s.io/cluster-capacity/cmd/hypercc
-	ln -sf hypercc cluster-capacity
-	ln -sf hypercc genpod
+unset CDPATH
 
-run:
-	@./cluster-capacity --kubeconfig ~/.kube/config --podspec=examples/pod.yaml --verbose
+SCRIPT_ROOT=$(dirname "${BASH_SOURCE}")/../..
 
-verify-gofmt:
-	./hack/verify-gofmt.sh
-
-test-unit:
-	./hack/unit-test.sh
-
-test-integration:
-	./integration-tests.sh
-
-image:
-	docker build -t cluster-capacity .
-
-clean:
-	rm -f cluster-capacity genpod hypercc
+source "${SCRIPT_ROOT}/hack/lib/logging.sh"
+source "${SCRIPT_ROOT}/hack/lib/util.sh"
+source "${SCRIPT_ROOT}/hack/lib/golang.sh"
