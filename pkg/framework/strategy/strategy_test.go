@@ -81,13 +81,13 @@ func getTestNode(nodeName string) *v1.Node {
 			},
 			Capacity: v1.ResourceList{
 				v1.ResourceCPU:    *resource.NewMilliQuantity(2000, resource.DecimalSI),
-				v1.ResourceMemory: *resource.NewQuantity(10E9, resource.BinarySI),
+				v1.ResourceMemory: *resource.NewQuantity(10e9, resource.BinarySI),
 				v1.ResourcePods:   *resource.NewQuantity(0, resource.DecimalSI),
 				ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
 			},
 			Allocatable: v1.ResourceList{
 				v1.ResourceCPU:    *resource.NewMilliQuantity(300, resource.DecimalSI),
-				v1.ResourceMemory: *resource.NewQuantity(20E6, resource.BinarySI),
+				v1.ResourceMemory: *resource.NewQuantity(20e6, resource.BinarySI),
 				v1.ResourcePods:   *resource.NewQuantity(0, resource.DecimalSI),
 				ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
 			},
@@ -114,13 +114,13 @@ func newScheduledPod() *v1.Pod {
 			Resources: v1.ResourceRequirements{
 				Limits: v1.ResourceList{
 					v1.ResourceCPU:    *resource.NewMilliQuantity(400, resource.DecimalSI),
-					v1.ResourceMemory: *resource.NewQuantity(10E6, resource.BinarySI),
+					v1.ResourceMemory: *resource.NewQuantity(10e6, resource.BinarySI),
 					v1.ResourcePods:   *resource.NewQuantity(0, resource.DecimalSI),
 					ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
 				},
 				Requests: v1.ResourceList{
 					v1.ResourceCPU:    *resource.NewMilliQuantity(400, resource.DecimalSI),
-					v1.ResourceMemory: *resource.NewQuantity(10E6, resource.BinarySI),
+					v1.ResourceMemory: *resource.NewQuantity(10e6, resource.BinarySI),
 					v1.ResourcePods:   *resource.NewQuantity(0, resource.DecimalSI),
 					ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
 				},

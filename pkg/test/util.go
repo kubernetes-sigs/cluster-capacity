@@ -73,7 +73,7 @@ func PersistentVolumeExample(name string) v1.PersistentVolume {
 				v1.ResourceName(v1.ResourceStorage): resource.MustParse("10G"),
 			},
 			PersistentVolumeSource: v1.PersistentVolumeSource{
-			//HostPath: &v1.HostPathVolumeSource{Path: "/foo"},
+				//HostPath: &v1.HostPathVolumeSource{Path: "/foo"},
 			},
 			PersistentVolumeReclaimPolicy: "Retain",
 		},

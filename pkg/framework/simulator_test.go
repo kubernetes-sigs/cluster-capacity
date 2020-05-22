@@ -85,7 +85,7 @@ func getGeneralNode(nodeName string) *v1.Node {
 			},
 			Capacity: v1.ResourceList{
 				v1.ResourceCPU:    *resource.NewMilliQuantity(1000, resource.DecimalSI),
-				v1.ResourceMemory: *resource.NewQuantity(4E9, resource.BinarySI),
+				v1.ResourceMemory: *resource.NewQuantity(4e9, resource.BinarySI),
 				v1.ResourcePods:   *resource.NewQuantity(10, resource.DecimalSI),
 				//v1.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
 			},
@@ -111,13 +111,13 @@ func setupNodes() []*v1.Node {
 	node1 := getGeneralNode("test-node-1")
 	node1.Status.Capacity = v1.ResourceList{
 		v1.ResourceCPU:    *resource.NewMilliQuantity(2000, resource.DecimalSI),
-		v1.ResourceMemory: *resource.NewQuantity(4E9, resource.BinarySI),
+		v1.ResourceMemory: *resource.NewQuantity(4e9, resource.BinarySI),
 		v1.ResourcePods:   *resource.NewQuantity(10, resource.DecimalSI),
 		//ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
 	}
 	node1.Status.Allocatable = v1.ResourceList{
 		v1.ResourceCPU:    *resource.NewMilliQuantity(300, resource.DecimalSI),
-		v1.ResourceMemory: *resource.NewQuantity(1E9, resource.BinarySI),
+		v1.ResourceMemory: *resource.NewQuantity(1e9, resource.BinarySI),
 		v1.ResourcePods:   *resource.NewQuantity(3, resource.DecimalSI),
 		//ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
 	}
@@ -126,13 +126,13 @@ func setupNodes() []*v1.Node {
 	node2 := getGeneralNode("test-node-2")
 	node2.Status.Capacity = v1.ResourceList{
 		v1.ResourceCPU:    *resource.NewMilliQuantity(1000, resource.DecimalSI),
-		v1.ResourceMemory: *resource.NewQuantity(4E9, resource.BinarySI),
+		v1.ResourceMemory: *resource.NewQuantity(4e9, resource.BinarySI),
 		v1.ResourcePods:   *resource.NewQuantity(10, resource.DecimalSI),
 		//v1.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
 	}
 	node2.Status.Allocatable = v1.ResourceList{
 		v1.ResourceCPU:    *resource.NewMilliQuantity(400, resource.DecimalSI),
-		v1.ResourceMemory: *resource.NewQuantity(2E9, resource.BinarySI),
+		v1.ResourceMemory: *resource.NewQuantity(2e9, resource.BinarySI),
 		v1.ResourcePods:   *resource.NewQuantity(3, resource.DecimalSI),
 		//v1.ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
 	}
@@ -141,13 +141,13 @@ func setupNodes() []*v1.Node {
 	node3 := getGeneralNode("test-node-3")
 	node3.Status.Capacity = v1.ResourceList{
 		v1.ResourceCPU:    *resource.NewMilliQuantity(2000, resource.DecimalSI),
-		v1.ResourceMemory: *resource.NewQuantity(4E9, resource.BinarySI),
+		v1.ResourceMemory: *resource.NewQuantity(4e9, resource.BinarySI),
 		v1.ResourcePods:   *resource.NewQuantity(10, resource.DecimalSI),
 		//ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
 	}
 	node3.Status.Allocatable = v1.ResourceList{
 		v1.ResourceCPU:    *resource.NewMilliQuantity(1200, resource.DecimalSI),
-		v1.ResourceMemory: *resource.NewQuantity(1E9, resource.BinarySI),
+		v1.ResourceMemory: *resource.NewQuantity(1e9, resource.BinarySI),
 		v1.ResourcePods:   *resource.NewQuantity(3, resource.DecimalSI),
 		//ResourceNvidiaGPU: *resource.NewQuantity(0, resource.DecimalSI),
 	}
@@ -189,10 +189,10 @@ func TestPrediction(t *testing.T) {
 			requestsResourceList := make(map[v1.ResourceName]resource.Quantity)
 
 			limitResourceList[v1.ResourceCPU] = *resource.NewMilliQuantity(100, resource.DecimalSI)
-			limitResourceList[v1.ResourceMemory] = *resource.NewQuantity(5E6, resource.BinarySI)
+			limitResourceList[v1.ResourceMemory] = *resource.NewQuantity(5e6, resource.BinarySI)
 			limitResourceList[ResourceNvidiaGPU] = *resource.NewQuantity(0, resource.DecimalSI)
 			requestsResourceList[v1.ResourceCPU] = *resource.NewMilliQuantity(100, resource.DecimalSI)
-			requestsResourceList[v1.ResourceMemory] = *resource.NewQuantity(5E6, resource.BinarySI)
+			requestsResourceList[v1.ResourceMemory] = *resource.NewQuantity(5e6, resource.BinarySI)
 			requestsResourceList[ResourceNvidiaGPU] = *resource.NewQuantity(0, resource.DecimalSI)
 
 			var objs []runtime.Object
@@ -224,7 +224,7 @@ func TestPrediction(t *testing.T) {
 					Provider: pointer.StringPtr("DefaultProvider"),
 				},
 				Profiles: []kubeschedulerconfig.KubeSchedulerProfile{
-					kubeschedulerconfig.KubeSchedulerProfile{
+					{
 						SchedulerName: v1.DefaultSchedulerName,
 						Plugins: &kubeschedulerconfig.Plugins{
 							Bind: &kubeschedulerconfig.PluginSet{

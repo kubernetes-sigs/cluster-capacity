@@ -101,7 +101,7 @@ func Run(opt *options.ClusterCapacityOptions) error {
 	// Always set the list of bind plugins to ClusterCapacityBinder
 	if len(kcfg.Profiles) == 0 {
 		kcfg.Profiles = []kubeschedulerconfig.KubeSchedulerProfile{
-			kubeschedulerconfig.KubeSchedulerProfile{},
+			{},
 		}
 	}
 

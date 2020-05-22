@@ -1,4 +1,6 @@
-# Copyright 2017 The Kubernetes Authors.
+#!/usr/bin/env bash
+
+# Copyright 2020 The Kubernetes Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-#!/bin/sh
+set -o errexit
+set -o nounset
+set -o pipefail
 
-tests=$(for file in $(find . -iname "*_test.go" | grep -v "./vendor" | sed "s/\.//"); do test=$(dirname $file | sed "s/\.//"); echo "sigs.k8s.io/cluster-capacity$test"; done)
-go test $tests
+SCRIPT_ROOT=$(dirname "${BASH_SOURCE}")/..
+source "${SCRIPT_ROOT}/hack/lib/init.sh"
+
+go test \
+  sigs.k8s.io/cluster-capacity/cmd/... \
+  sigs.k8s.io/cluster-capacity/pkg/...
