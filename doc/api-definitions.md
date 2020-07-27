@@ -1,6 +1,6 @@
-#Definitions
+# Definitions
 
-##Report
+## Report
 
 | Name              | Description                                                                     | Required | Schema       | Default |
 |-------------------|---------------------------------------------------------------------------------|----------|--------------|---------|
@@ -10,14 +10,14 @@
 | NodesNumInstances | Map of node names and amount of pod instances which could be scheduled on them  | false    | JSON map     |         |
 | FailReasons       | Failure reports                                                                 | false    | FailReasons  |         |
 
-##PodResources
+## PodResources
 
 | Name   | Description                   | Required | Schema | Default |
 |--------|-------------------------------|----------|--------|---------|
 | Cpu    | Amount of cpu pod requires    | false    | string |         |
 | Memory | Amount of memory pod requires | false    | string |         |
 
-##FailReasons
+## FailReasons
 
 | Name         | Description                                                                         | Required | Schema   | Default |
 |--------------|-------------------------------------------------------------------------------------|----------|----------|---------|
