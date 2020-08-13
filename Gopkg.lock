@@ -531,7 +531,7 @@
   revision = "1151b9dac4a98d49ef7f80f07ddd826ff51e0b36"
 
 [[projects]]
-  digest = "1:66a2f252a58b4fbbad0e4e180e1d85a83c222b6bce09c3dcdef3dc87c72eda7c"
+  digest = "1:dd87aec186c054a90f96cb78e44d25b23b625c48f22bd79f7a68c7e35aa7caf4"
   name = "golang.org/x/text"
   packages = [
     "collate",
@@ -553,8 +553,8 @@
     "width",
   ]
   pruneopts = "UT"
-  revision = "342b2e1fbaa52c93f31447ad2c6abc048c63e475"
-  version = "v0.3.2"
+  revision = "23ae387dee1f90d29a23c0e87ee0b46038fbed0e"
+  version = "v0.3.3"
 
 [[projects]]
   branch = "master"
@@ -1486,11 +1486,6 @@
     "k8s.io/apimachinery/pkg/types",
     "k8s.io/apimachinery/pkg/util/yaml",
     "k8s.io/client-go/informers",
-    "k8s.io/client-go/informers/apps/v1",
-    "k8s.io/client-go/informers/core/v1",
-    "k8s.io/client-go/informers/policy/v1beta1",
-    "k8s.io/client-go/informers/storage/v1",
-    "k8s.io/client-go/informers/storage/v1beta1",
     "k8s.io/client-go/kubernetes",
     "k8s.io/client-go/kubernetes/fake",
     "k8s.io/client-go/kubernetes/scheme",
@@ -1499,6 +1494,7 @@
     "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/tools/events",
     "k8s.io/client-go/tools/record",
+    "k8s.io/component-base/cli/flag",
     "k8s.io/component-base/config/v1alpha1",
     "k8s.io/component-base/version",
     "k8s.io/kube-scheduler/config/v1alpha2",
