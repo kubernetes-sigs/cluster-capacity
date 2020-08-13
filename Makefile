@@ -29,6 +29,9 @@ test-unit:
 test-integration:
 	./integration-tests.sh
 
+test-e2e:
+	./test/run-e2e-tests.sh
+
 image:
 	docker build -t cluster-capacity .
 
