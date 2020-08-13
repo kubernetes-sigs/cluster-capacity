@@ -22,18 +22,17 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/api/core/v1"
-	eventsv1beta1 "k8s.io/api/events/v1beta1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/informers"
 	externalclientset "k8s.io/client-go/kubernetes"
 	fakeclientset "k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/kubernetes/scheme"
 	schedconfig "k8s.io/kubernetes/cmd/kube-scheduler/app/config"
 	schedoptions "k8s.io/kubernetes/cmd/kube-scheduler/app/options"
 	"k8s.io/kubernetes/pkg/scheduler"
+	frameworkruntime "k8s.io/kubernetes/pkg/scheduler/framework/runtime"
 	framework "k8s.io/kubernetes/pkg/scheduler/framework/v1alpha1"
 	"k8s.io/kubernetes/pkg/scheduler/profile"
 
@@ -41,7 +40,6 @@ import (
 	"k8s.io/client-go/tools/events"
 
 	uuid "github.com/satori/go.uuid"
-	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/cluster-capacity/pkg/framework/strategy"
 )
 
@@ -340,8 +338,8 @@ func (c *ClusterCapacity) NewBindPlugin(schedulerName string, configuration runt
 }
 
 func (c *ClusterCapacity) createScheduler(schedulerName string, cc *schedconfig.CompletedConfig) (*scheduler.Scheduler, error) {
-	outOfTreeRegistry := framework.Registry{
-		"ClusterCapacityBinder": func(configuration *runtime.Unknown, f framework.FrameworkHandle) (framework.Plugin, error) {
+	outOfTreeRegistry := frameworkruntime.Registry{
+		"ClusterCapacityBinder": func(configuration runtime.Object, f framework.FrameworkHandle) (framework.Plugin, error) {
 			return c.NewBindPlugin(schedulerName, configuration, f)
 		},
 	}
@@ -377,9 +375,7 @@ func (c *ClusterCapacity) createScheduler(schedulerName string, cc *schedconfig.
 		c.schedulerCh,
 		scheduler.WithProfiles(cc.ComponentConfig.Profiles...),
 		scheduler.WithAlgorithmSource(cc.ComponentConfig.AlgorithmSource),
-		scheduler.WithPreemptionDisabled(cc.ComponentConfig.DisablePreemption),
 		scheduler.WithPercentageOfNodesToScore(cc.ComponentConfig.PercentageOfNodesToScore),
-		scheduler.WithBindTimeoutSeconds(cc.ComponentConfig.BindTimeoutSeconds),
 		scheduler.WithFrameworkOutOfTreeRegistry(outOfTreeRegistry),
 		scheduler.WithPodMaxBackoffSeconds(cc.ComponentConfig.PodMaxBackoffSeconds),
 		scheduler.WithPodInitialBackoffSeconds(cc.ComponentConfig.PodInitialBackoffSeconds),
@@ -399,13 +395,8 @@ func (c *ClusterCapacity) createScheduler(schedulerName string, cc *schedconfig.
 }*/
 
 func getRecorderFactory(cc *schedconfig.CompletedConfig) profile.RecorderFactory {
-	if _, err := cc.Client.Discovery().ServerResourcesForGroupVersion(eventsv1beta1.SchemeGroupVersion.String()); err == nil {
-		cc.Broadcaster = events.NewBroadcaster(&events.EventSinkImpl{Interface: cc.EventClient.Events("")})
-		return profile.NewRecorderFactory(cc.Broadcaster)
-	}
 	return func(name string) events.EventRecorder {
-		r := cc.CoreBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: name})
-		return record.NewEventRecorderAdapter(r)
+		return cc.EventBroadcaster.NewRecorder(name)
 	}
 }
 
@@ -417,7 +408,6 @@ func New(kubeSchedulerConfig *schedconfig.CompletedConfig, simulatedPod *v1.Pod,
 	sharedInformerFactory := informers.NewSharedInformerFactory(client, 0)
 
 	kubeSchedulerConfig.Client = client
-	kubeSchedulerConfig.CoreBroadcaster = record.NewBroadcaster()
 
 	cc := &ClusterCapacity{
 		strategy:           strategy.NewPredictiveStrategy(client),
@@ -450,13 +440,15 @@ func InitKubeSchedulerConfiguration(opts *schedoptions.Options) (*schedconfig.Co
 	opts.Deprecated = nil
 	opts.CombinedInsecureServing = nil
 	opts.SecureServing = nil
-	opts.ShowHiddenMetricsForVersion = ""
 	if err := opts.ApplyTo(c); err != nil {
 		return nil, fmt.Errorf("unable to get scheduler config: %v", err)
 	}
 
 	// Get the completed config
 	cc := c.Complete()
+
+	// completely ignore the events
+	cc.EventBroadcaster = events.NewEventBroadcasterAdapter(fakeclientset.NewSimpleClientset())
 
 	return &cc, nil
 }

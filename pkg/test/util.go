@@ -17,10 +17,9 @@ limitations under the License.
 package test
 
 import (
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	apitesting "k8s.io/kubernetes/pkg/api/testing"
 )
 
 func NodeExample(name string) v1.Node {
@@ -34,10 +33,16 @@ func NodeExample(name string) v1.Node {
 }
 
 func PodExample(name string) v1.Pod {
+	grace := int64(30)
 	pod := v1.Pod{
 		TypeMeta:   metav1.TypeMeta{Kind: "Pod", APIVersion: "v1"},
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "test", ResourceVersion: "10"},
-		Spec:       apitesting.V1DeepEqualSafePodSpec(),
+		Spec: v1.PodSpec{
+			RestartPolicy:                 v1.RestartPolicyAlways,
+			DNSPolicy:                     v1.DNSClusterFirst,
+			TerminationGracePeriodSeconds: &grace,
+			SecurityContext:               &v1.PodSecurityContext{},
+		},
 	}
 	pod.Spec.Containers = []v1.Container{}
 	pod.Spec.SchedulerName = "cluster-capacity"

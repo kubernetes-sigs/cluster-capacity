@@ -26,7 +26,7 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	clientset "k8s.io/client-go/kubernetes"
 	api "k8s.io/kubernetes/pkg/apis/core"
@@ -131,7 +131,7 @@ func (s *ClusterCapacityConfig) ParseAPISpec(schedulerName string) error {
 		return fmt.Errorf("unable to convert to internal version: %#v", err)
 
 	}
-	if errs := validation.ValidatePod(internalPod, validation.PodValidationOptions{}); len(errs) > 0 {
+	if errs := validation.ValidatePodCreate(internalPod, validation.PodValidationOptions{}); len(errs) > 0 {
 		var errStrs []string
 		for _, err := range errs {
 			errStrs = append(errStrs, fmt.Sprintf("%v: %v", err.Type, err.Field))

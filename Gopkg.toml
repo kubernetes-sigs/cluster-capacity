@@ -1,39 +1,44 @@
 [[override]]
   name = "k8s.io/api"
-  version = "kubernetes-1.18.2"
+  version = "kubernetes-1.19.0-rc.4"
 
 [[override]]
   name = "k8s.io/apiserver"
-  version = "kubernetes-1.18.2"
+  version = "kubernetes-1.19.0-rc.4"
 
 [[override]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.18.2"
+  version = "kubernetes-1.19.0-rc.4"
 
 [[override]]
   name = "k8s.io/client-go"
-  version = "kubernetes-1.18.2"
+  version = "kubernetes-1.19.0-rc.4"
 
 [[override]]
   name = "k8s.io/kube-scheduler"
-  version = "kubernetes-1.18.2"
+  version = "kubernetes-1.19.0-rc.4"
+
+[[override]]
+  name = "k8s.io/component-base"
+  version = "kubernetes-1.19.0-rc.4"
 
 [[constraint]]
   name = "k8s.io/kubernetes"
-  # version = "v1.18.2"
-  revision = "52c56ce7a8272c798dbc29846288d7cd9fbae032"
+  # version = "v1.19.0-rc.4"
+  revision = "1afc53514032a44d091ae4a9f6e092171db9fe10"
 
 [[constraint]]
   name = "k8s.io/utils"
-  revision = "a9aa75ae1b89e1b992c33383f48e942d97e52dae"
+  revision = "d5654de09c73da55eb19ae4ab4f734f7a61747a6"
 
 [[override]]
   name = "k8s.io/klog"
-  version = "v1.0.0"
+  source = "github.com/ingvagabund/klog"
+  branch = "k8s-1.19.0-rc.4"
 
 [[override]]
   name = "github.com/prometheus/client_golang"
-  version = "v0.9.2"
+  version = "v1.7.1"
 
 [[override]]
   name = "sigs.k8s.io/structured-merge-diff"
@@ -42,24 +47,38 @@
   revision = "0748688655b33b0f65ddd7f026f9a00bbab62594"
 
 [[override]]
+  name = "github.com/cespare/xxhash"
+  # temporary solution until scheduler framework is fully migrate to a seperate community repository
+  source = "github.com/ingvagabund/xxhash"
+  branch = "kubernetes-1.19.0-rc.4"
+
+[[override]]
+  name = "github.com/googleapis/gnostic"
+  revision = "v0.4.1"
+
+[[override]]
   name = "k8s.io/kube-openapi"
-  revision = "bf4fb3bd569c8c84504d856598edbc66c10d8744"
+  revision = "656914f816f9f6bcb37ec2b40cb7c16fd9084d4c"
 
 [[override]]
   name = "k8s.io/csi-translation-lib"
-  version = "kubernetes-1.18.2"
+  version = "kubernetes-1.19.0-rc.4"
+
+[[override]]
+  name = "k8s.io/cloud-provider"
+  version = "kubernetes-1.19.0-rc.4"
 
 [[override]]
   name = "github.com/coreos/etcd"
-  revision = "v3.4.3"
+  revision = "v3.3.10"
 
 [[override]]
   name = "k8s.io/apiextensions-apiserver"
-  revision = "kubernetes-1.18.2"
+  revision = "kubernetes-1.19.0-rc.4"
 
 [[override]]
   name = "google.golang.org/grpc"
-  revision = "v1.23.0"
+  revision = "v1.27.0"
 
 [[override]]
   name = "golang.org/x/text"

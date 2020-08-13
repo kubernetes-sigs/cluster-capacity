@@ -61,6 +61,18 @@ func (v Version) String() string {
 	return string(b)
 }
 
+// FinalizeVersion discards prerelease and build number and only returns
+// major, minor and patch number.
+func (v Version) FinalizeVersion() string {
+	b := make([]byte, 0, 5)
+	b = strconv.AppendUint(b, v.Major, 10)
+	b = append(b, '.')
+	b = strconv.AppendUint(b, v.Minor, 10)
+	b = append(b, '.')
+	b = strconv.AppendUint(b, v.Patch, 10)
+	return string(b)
+}
+
 // Equals checks if v is equal to o.
 func (v Version) Equals(o Version) bool {
 	return (v.Compare(o) == 0)
@@ -163,29 +175,20 @@ func (v Version) Compare(o Version) int {
 
 // IncrementPatch increments the patch version
 func (v *Version) IncrementPatch() error {
-	if v.Major == 0 {
-		return fmt.Errorf("Patch version can not be incremented for %q", v.String())
-	}
-	v.Patch += 1
+	v.Patch++
 	return nil
 }
 
 // IncrementMinor increments the minor version
 func (v *Version) IncrementMinor() error {
-	if v.Major == 0 {
-		return fmt.Errorf("Minor version can not be incremented for %q", v.String())
-	}
-	v.Minor += 1
+	v.Minor++
 	v.Patch = 0
 	return nil
 }
 
 // IncrementMajor increments the major version
 func (v *Version) IncrementMajor() error {
-	if v.Major == 0 {
-		return fmt.Errorf("Major version can not be incremented for %q", v.String())
-	}
-	v.Major += 1
+	v.Major++
 	v.Minor = 0
 	v.Patch = 0
 	return nil
@@ -219,10 +222,10 @@ func (v Version) Validate() error {
 }
 
 // New is an alias for Parse and returns a pointer, parses version string and returns a validated Version or error
-func New(s string) (vp *Version, err error) {
+func New(s string) (*Version, error) {
 	v, err := Parse(s)
-	vp = &v
-	return
+	vp := &v
+	return vp, err
 }
 
 // Make is an alias for Parse, parses version string and returns a validated Version or error
@@ -243,7 +246,11 @@ func ParseTolerant(s string) (Version, error) {
 	// Remove leading zeros.
 	for i, p := range parts {
 		if len(p) > 1 {
-			parts[i] = strings.TrimPrefix(p, "0")
+			p = strings.TrimLeft(p, "0")
+			if len(p) == 0 || !strings.ContainsAny(p[0:1], "0123456789") {
+				p = "0" + p
+			}
+			parts[i] = p
 		}
 	}
 	// Fill up shortened versions.
@@ -452,4 +459,18 @@ func NewBuildVersion(s string) (string, error) {
 		return "", fmt.Errorf("Invalid character(s) found in build meta data %q", s)
 	}
 	return s, nil
+}
+
+// FinalizeVersion returns the major, minor and patch number only and discards
+// prerelease and build number.
+func FinalizeVersion(s string) (string, error) {
+	v, err := Parse(s)
+	if err != nil {
+		return "", err
+	}
+	v.Pre = nil
+	v.Build = nil
+
+	finalVer := v.String()
+	return finalVer, nil
 }

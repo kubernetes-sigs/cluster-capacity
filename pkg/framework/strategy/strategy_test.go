@@ -23,11 +23,10 @@ import (
 	goruntime "runtime"
 	"testing"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/component-base/version"
-	apitesting "k8s.io/kubernetes/pkg/api/testing"
 
 	fakeclientset "k8s.io/client-go/kubernetes/fake"
 )
@@ -103,9 +102,15 @@ func getTestNode(nodeName string) *v1.Node {
 var testStrategyNode string = "node1"
 
 func newScheduledPod() *v1.Pod {
+	grace := int64(30)
 	pod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{Name: "schedulerPod", Namespace: "test", ResourceVersion: "10"},
-		Spec:       apitesting.V1DeepEqualSafePodSpec(),
+		Spec: v1.PodSpec{
+			RestartPolicy:                 v1.RestartPolicyAlways,
+			DNSPolicy:                     v1.DNSClusterFirst,
+			TerminationGracePeriodSeconds: &grace,
+			SecurityContext:               &v1.PodSecurityContext{},
+		},
 	}
 
 	// set pod's resource consumption
