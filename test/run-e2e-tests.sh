@@ -28,8 +28,6 @@ if [ -n "$KIND_E2E" ]; then
     kind load docker-image kubernetes/pause
     kind get kubeconfig > /tmp/admin.conf
     export KUBECONFIG="/tmp/admin.conf"
-    mkdir -p ~/gopath/src/sigs.k8s.io/
-    mv ~/gopath/src/github.com/kubernetes-sigs/cluster-capacity ~/gopath/src/sigs.k8s.io/.
 fi
 
 PRJ_PREFIX="sigs.k8s.io/cluster-capacity"
