@@ -29,7 +29,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	kubescheduleroptions "k8s.io/kubernetes/cmd/kube-scheduler/app/options"
-	apitesting "k8s.io/kubernetes/pkg/api/testing"
 	kubeschedulerconfig "k8s.io/kubernetes/pkg/scheduler/apis/config"
 	"k8s.io/utils/pointer"
 
@@ -98,9 +97,15 @@ func initializeClient(t *testing.T) (clientset.Interface, chan struct{}) {
 }
 
 func buildSimulatedPod() *v1.Pod {
+	grace := int64(30)
 	simulatedPod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{Name: "simulated-pod", Namespace: "test-node-3", ResourceVersion: "10"},
-		Spec:       apitesting.V1DeepEqualSafePodSpec(),
+		Spec: v1.PodSpec{
+			RestartPolicy:                 v1.RestartPolicyAlways,
+			DNSPolicy:                     v1.DNSClusterFirst,
+			TerminationGracePeriodSeconds: &grace,
+			SecurityContext:               &v1.PodSecurityContext{},
+		},
 	}
 
 	limitResourceList := make(map[v1.ResourceName]resource.Quantity)

@@ -21,14 +21,13 @@ import (
 	goruntime "runtime"
 	"testing"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	fakeclientset "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/component-base/version"
 	kubescheduleroptions "k8s.io/kubernetes/cmd/kube-scheduler/app/options"
-	apitesting "k8s.io/kubernetes/pkg/api/testing"
 	kubeschedulerconfig "k8s.io/kubernetes/pkg/scheduler/apis/config"
 	"k8s.io/utils/pointer"
 )
@@ -180,9 +179,15 @@ func TestPrediction(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			// 1. create fake storage with initial data
+			grace := int64(30)
 			simulatedPod := &v1.Pod{
 				ObjectMeta: metav1.ObjectMeta{Name: "simulated-pod", Namespace: "test-node-3", ResourceVersion: "10"},
-				Spec:       apitesting.V1DeepEqualSafePodSpec(),
+				Spec: v1.PodSpec{
+					RestartPolicy:                 v1.RestartPolicyAlways,
+					DNSPolicy:                     v1.DNSClusterFirst,
+					TerminationGracePeriodSeconds: &grace,
+					SecurityContext:               &v1.PodSecurityContext{},
+				},
 			}
 
 			limitResourceList := make(map[v1.ResourceName]resource.Quantity)
