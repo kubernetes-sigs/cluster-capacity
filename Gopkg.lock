@@ -726,7 +726,7 @@
   version = "v2.3.0"
 
 [[projects]]
-  digest = "1:2715f19edd25bd30333ca1ab77b5dd1121ce43d72036f394bd53f6dfa47ed412"
+  digest = "1:7a9e461a240e658d5cb7ce7fd9e86e3efcc735ee870c4c6f767551ec5e9b05b4"
   name = "k8s.io/api"
   packages = [
     "admission/v1",
@@ -757,7 +757,6 @@
     "events/v1beta1",
     "extensions/v1beta1",
     "flowcontrol/v1alpha1",
-    "imagepolicy/v1alpha1",
     "networking/v1",
     "networking/v1beta1",
     "node/v1alpha1",
@@ -775,22 +774,19 @@
     "storage/v1beta1",
   ]
   pruneopts = "UT"
-  revision = "0624202b382a5d19dee7f4dbaf3c7e30fdd457ad"
-  version = "kubernetes-1.19.0-rc.4"
+  revision = "76916981c5f2be075856394f41cb6544c9062ffb"
+  version = "kubernetes-1.19.2"
 
 [[projects]]
-  digest = "1:62e9355d3a1ec07af116f2c59be60074cf1ef3b3bc1ee32570fe99e963ddf050"
+  digest = "1:df796bfdde9afc247e20ee094c0e9f69898fada97591b3a3e6adf93adcfb2aa0"
   name = "k8s.io/apimachinery"
   packages = [
-    "pkg/api/apitesting",
-    "pkg/api/apitesting/fuzzer",
     "pkg/api/equality",
     "pkg/api/errors",
     "pkg/api/meta",
     "pkg/api/resource",
     "pkg/api/validation",
     "pkg/api/validation/path",
-    "pkg/apis/meta/fuzzer",
     "pkg/apis/meta/internalversion",
     "pkg/apis/meta/internalversion/scheme",
     "pkg/apis/meta/internalversion/validation",
@@ -839,11 +835,11 @@
     "third_party/forked/golang/reflect",
   ]
   pruneopts = "UT"
-  revision = "7efdc26a675c98eb6fb86380451aa34c85858bb3"
-  version = "kubernetes-1.19.0-rc.4"
+  revision = "b63a0c883fbfc313249150449400788e5589ef23"
+  version = "kubernetes-1.19.2"
 
 [[projects]]
-  digest = "1:ce2b00da1aea44be308246a541f153aa5ceea1ef318278e5e779bce6cd24b0a6"
+  digest = "1:a4520aac7f7a8e4ce6df333c225481f7e495c5a82ae4b44f67625f6455dabb4c"
   name = "k8s.io/apiserver"
   packages = [
     "pkg/admission",
@@ -968,11 +964,11 @@
     "plugin/pkg/authorizer/webhook",
   ]
   pruneopts = "UT"
-  revision = "23194c3a15bc2f6366e2aacea95a6c4301d7f675"
-  version = "kubernetes-1.19.0-rc.4"
+  revision = "33b1fb2f66fb9d8c07f08f9bbbac6a2054056234"
+  version = "kubernetes-1.19.2"
 
 [[projects]]
-  digest = "1:37dada1b8be17f114e5f305475dcc6e95f0c0c0f7fd4e542f811ee72fe540953"
+  digest = "1:479c851dcc87f238c7bec765c12d21fcce6bee6cd86160628f00b307f489e57b"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -1188,11 +1184,11 @@
     "util/workqueue",
   ]
   pruneopts = "UT"
-  revision = "5521967004d84d9e6f89df86dfeb5977f993bcbd"
-  version = "kubernetes-1.19.0-rc.4"
+  revision = "1d4a1e824370be74d8c47751bf41c598372da7e4"
+  version = "kubernetes-1.19.2"
 
 [[projects]]
-  digest = "1:2a62950ee46aecaad7de767af9f873fce7742d822d88c6095af88feec7a6c115"
+  digest = "1:39550e8bd15e511d367e5682a8a4568e49ec94e8b81bb2c40dfea245736d70ae"
   name = "k8s.io/cloud-provider"
   packages = [
     ".",
@@ -1200,11 +1196,11 @@
     "volume/helpers",
   ]
   pruneopts = "UT"
-  revision = "8c9f1cb411c4b0d59467b6a0a9cb4c03ce37f9ea"
-  version = "kubernetes-1.19.0-rc.4"
+  revision = "de30713548e4d945ba9f5153fbce8965106ff113"
+  version = "kubernetes-1.19.2"
 
 [[projects]]
-  digest = "1:636165f9c859943e9a91a889010ff66b3ab4b569d8aeff3781c88c5b2f085a3c"
+  digest = "1:73b2271ee30002cd5c1b84ad3d043c7cbdb045de93fe70bdecc9b3e520787610"
   name = "k8s.io/component-base"
   packages = [
     "cli/flag",
@@ -1221,19 +1217,19 @@
     "version",
   ]
   pruneopts = "UT"
-  revision = "f8be41a29433be3515aa90f2df660de755408e1b"
-  version = "kubernetes-1.19.0-rc.4"
+  revision = "ea4d5eb7ec6256fe0510de29e86ca44f1ac219d2"
+  version = "kubernetes-1.19.2"
 
 [[projects]]
-  digest = "1:a074f4c24fa07fd11b69027b7ae05ea0c136d0bf3b2e9773ae4ac1c0f12f679d"
+  digest = "1:781b6abc67b4ff4d26beb60e4805c242f84b1b3aa05ec48ac7f3d7ce3bed48ea"
   name = "k8s.io/csi-translation-lib"
   packages = [
     ".",
     "plugins",
   ]
   pruneopts = "UT"
-  revision = "e742b92754d37faecd7638ddef9bf82e0d0d1756"
-  version = "kubernetes-1.19.0-rc.4"
+  revision = "14923711d3414e7095aa0cfdbfd04044487b8520"
+  version = "kubernetes-1.19.2"
 
 [[projects]]
   branch = "k8s-1.19.0-rc.4"
@@ -1245,7 +1241,7 @@
   source = "github.com/ingvagabund/klog"
 
 [[projects]]
-  digest = "1:f4edd93d51e4a6ec60ba6a859037755e80079353e5a2dc7106584ebabdbb8e29"
+  digest = "1:e98e3b7fd129a9e396511794c557792aadc7d28f3aeff7329220b6bbba3a90b4"
   name = "k8s.io/kube-openapi"
   packages = [
     "pkg/builder",
@@ -1256,7 +1252,7 @@
     "pkg/util/proto",
   ]
   pruneopts = "UT"
-  revision = "656914f816f9f6bcb37ec2b40cb7c16fd9084d4c"
+  revision = "8b50664794884a24628c737debe1572769e6ad24"
 
 [[projects]]
   digest = "1:e483a5fa181706d7382302359bcd62b7ceff22a326bae2dd94b3c0ce3fb6a6fd"
@@ -1267,124 +1263,27 @@
     "extender/v1",
   ]
   pruneopts = "UT"
-  revision = "ca5b7dcde4a2ed4e547783172e2d42c27a4a9df9"
-  version = "kubernetes-1.19.0-rc.4"
+  revision = "863343902982b1a46947e91c00c13304f79c313f"
+  version = "kubernetes-1.19.2"
 
 [[projects]]
-  digest = "1:aad62d9683002eb146979d2844984473c254fa5ac7b6de119e0ab48a80408568"
+  digest = "1:adb32883969694ea802f0412de5d7ebdc2b1ba604ef5597f032b12f68e0c89c6"
   name = "k8s.io/kubernetes"
   packages = [
     "cmd/kube-scheduler/app/config",
     "cmd/kube-scheduler/app/options",
     "pkg/api/legacyscheme",
     "pkg/api/service",
-    "pkg/api/testing",
     "pkg/api/v1/pod",
-    "pkg/apis/admission",
-    "pkg/apis/admission/install",
-    "pkg/apis/admission/v1",
-    "pkg/apis/admission/v1beta1",
-    "pkg/apis/admissionregistration",
-    "pkg/apis/admissionregistration/fuzzer",
-    "pkg/apis/admissionregistration/install",
-    "pkg/apis/admissionregistration/v1",
-    "pkg/apis/admissionregistration/v1beta1",
     "pkg/apis/apps",
-    "pkg/apis/apps/fuzzer",
-    "pkg/apis/apps/install",
-    "pkg/apis/apps/v1",
-    "pkg/apis/apps/v1beta1",
-    "pkg/apis/apps/v1beta2",
-    "pkg/apis/authentication",
-    "pkg/apis/authentication/install",
-    "pkg/apis/authentication/v1",
-    "pkg/apis/authentication/v1beta1",
-    "pkg/apis/authorization",
-    "pkg/apis/authorization/install",
-    "pkg/apis/authorization/v1",
-    "pkg/apis/authorization/v1beta1",
     "pkg/apis/autoscaling",
-    "pkg/apis/autoscaling/fuzzer",
-    "pkg/apis/autoscaling/install",
-    "pkg/apis/autoscaling/v1",
-    "pkg/apis/autoscaling/v2beta1",
-    "pkg/apis/autoscaling/v2beta2",
-    "pkg/apis/batch",
-    "pkg/apis/batch/fuzzer",
-    "pkg/apis/batch/install",
-    "pkg/apis/batch/v1",
-    "pkg/apis/batch/v1beta1",
-    "pkg/apis/batch/v2alpha1",
-    "pkg/apis/certificates",
-    "pkg/apis/certificates/fuzzer",
-    "pkg/apis/certificates/install",
-    "pkg/apis/certificates/v1",
-    "pkg/apis/certificates/v1beta1",
-    "pkg/apis/coordination",
-    "pkg/apis/coordination/install",
-    "pkg/apis/coordination/v1",
-    "pkg/apis/coordination/v1beta1",
     "pkg/apis/core",
-    "pkg/apis/core/fuzzer",
     "pkg/apis/core/helper",
-    "pkg/apis/core/install",
     "pkg/apis/core/pods",
     "pkg/apis/core/v1",
     "pkg/apis/core/v1/helper",
     "pkg/apis/core/validation",
-    "pkg/apis/discovery",
-    "pkg/apis/discovery/fuzzer",
-    "pkg/apis/discovery/install",
-    "pkg/apis/discovery/v1alpha1",
-    "pkg/apis/discovery/v1beta1",
-    "pkg/apis/events",
-    "pkg/apis/events/install",
-    "pkg/apis/events/v1",
-    "pkg/apis/events/v1beta1",
-    "pkg/apis/extensions",
-    "pkg/apis/extensions/fuzzer",
-    "pkg/apis/extensions/install",
-    "pkg/apis/extensions/v1beta1",
-    "pkg/apis/flowcontrol",
-    "pkg/apis/flowcontrol/install",
-    "pkg/apis/flowcontrol/v1alpha1",
-    "pkg/apis/imagepolicy",
-    "pkg/apis/imagepolicy/install",
-    "pkg/apis/imagepolicy/v1alpha1",
-    "pkg/apis/networking",
-    "pkg/apis/networking/fuzzer",
-    "pkg/apis/networking/install",
-    "pkg/apis/networking/v1",
-    "pkg/apis/networking/v1beta1",
-    "pkg/apis/node",
-    "pkg/apis/node/install",
-    "pkg/apis/node/v1alpha1",
-    "pkg/apis/node/v1beta1",
-    "pkg/apis/policy",
-    "pkg/apis/policy/fuzzer",
-    "pkg/apis/policy/install",
-    "pkg/apis/policy/v1beta1",
-    "pkg/apis/rbac",
-    "pkg/apis/rbac/fuzzer",
-    "pkg/apis/rbac/install",
-    "pkg/apis/rbac/v1",
-    "pkg/apis/rbac/v1alpha1",
-    "pkg/apis/rbac/v1beta1",
     "pkg/apis/scheduling",
-    "pkg/apis/scheduling/fuzzer",
-    "pkg/apis/scheduling/install",
-    "pkg/apis/scheduling/v1",
-    "pkg/apis/scheduling/v1alpha1",
-    "pkg/apis/scheduling/v1beta1",
-    "pkg/apis/settings",
-    "pkg/apis/settings/install",
-    "pkg/apis/settings/v1alpha1",
-    "pkg/apis/storage",
-    "pkg/apis/storage/fuzzer",
-    "pkg/apis/storage/install",
-    "pkg/apis/storage/v1",
-    "pkg/apis/storage/v1alpha1",
-    "pkg/apis/storage/v1beta1",
     "pkg/capabilities",
     "pkg/controller/volume/persistentvolume/util",
     "pkg/controller/volume/scheduling",
@@ -1484,17 +1383,18 @@
   version = "v0.0.11"
 
 [[projects]]
-  digest = "1:4371395e0b87fc3da0a13e285481d0166f2788d89202e931e9384fddf2c424b5"
+  branch = "master"
+  digest = "1:ef5308856a9d3f2b28895fea9d8f03e547e0ff09bd07b0bb98cebda9e7e5d558"
   name = "sigs.k8s.io/structured-merge-diff"
   packages = [
-    "v3/fieldpath",
-    "v3/merge",
-    "v3/schema",
-    "v3/typed",
-    "v3/value",
+    "v4/fieldpath",
+    "v4/merge",
+    "v4/schema",
+    "v4/typed",
+    "v4/value",
   ]
   pruneopts = "UT"
-  revision = "0748688655b33b0f65ddd7f026f9a00bbab62594"
+  revision = "002aa04d750e57bb62540843efa765496b0971d5"
   source = "github.com/ingvagabund/structured-merge-diff"
 
 [[projects]]
@@ -1515,7 +1415,6 @@
     "github.com/spf13/cobra",
     "github.com/spf13/pflag",
     "k8s.io/api/core/v1",
-    "k8s.io/api/events/v1beta1",
     "k8s.io/apimachinery/pkg/api/resource",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
     "k8s.io/apimachinery/pkg/labels",
@@ -1526,20 +1425,18 @@
     "k8s.io/client-go/informers",
     "k8s.io/client-go/kubernetes",
     "k8s.io/client-go/kubernetes/fake",
-    "k8s.io/client-go/kubernetes/scheme",
     "k8s.io/client-go/rest",
     "k8s.io/client-go/tools/cache",
     "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/tools/events",
-    "k8s.io/client-go/tools/record",
     "k8s.io/component-base/cli/flag",
     "k8s.io/component-base/config/v1alpha1",
+    "k8s.io/component-base/logs",
     "k8s.io/component-base/version",
     "k8s.io/kube-scheduler/config/v1beta1",
     "k8s.io/kubernetes/cmd/kube-scheduler/app/config",
     "k8s.io/kubernetes/cmd/kube-scheduler/app/options",
     "k8s.io/kubernetes/pkg/api/legacyscheme",
-    "k8s.io/kubernetes/pkg/api/testing",
     "k8s.io/kubernetes/pkg/apis/core",
     "k8s.io/kubernetes/pkg/apis/core/v1",
     "k8s.io/kubernetes/pkg/apis/core/v1/helper",
@@ -1548,6 +1445,7 @@
     "k8s.io/kubernetes/pkg/scheduler/algorithmprovider",
     "k8s.io/kubernetes/pkg/scheduler/apis/config",
     "k8s.io/kubernetes/pkg/scheduler/apis/config/scheme",
+    "k8s.io/kubernetes/pkg/scheduler/framework/runtime",
     "k8s.io/kubernetes/pkg/scheduler/framework/v1alpha1",
     "k8s.io/kubernetes/pkg/scheduler/profile",
     "k8s.io/utils/pointer",
