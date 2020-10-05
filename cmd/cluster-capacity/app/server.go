@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	aflag "k8s.io/component-base/cli/flag"
 	configv1alpha1 "k8s.io/component-base/config/v1alpha1"
+	"k8s.io/component-base/logs"
 	kubeschedulerconfigv1beta1 "k8s.io/kube-scheduler/config/v1beta1"
 	schedconfig "k8s.io/kubernetes/cmd/kube-scheduler/app/config"
 	schedoptions "k8s.io/kubernetes/cmd/kube-scheduler/app/options"
@@ -125,6 +126,7 @@ func Run(opt *options.ClusterCapacityOptions) error {
 	opts := &schedoptions.Options{
 		ComponentConfig: kcfg,
 		ConfigFile:      conf.Options.DefaultSchedulerConfigFile,
+		Logs:            logs.NewOptions(),
 	}
 
 	cc, err := framework.InitKubeSchedulerConfiguration(opts)
