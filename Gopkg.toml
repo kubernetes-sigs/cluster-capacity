@@ -1,30 +1,29 @@
 [[override]]
   name = "k8s.io/api"
-  version = "kubernetes-1.19.0-rc.4"
+  version = "kubernetes-1.19.2"
 
 [[override]]
   name = "k8s.io/apiserver"
-  version = "kubernetes-1.19.0-rc.4"
+  version = "kubernetes-1.19.2"
 
 [[override]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.19.0-rc.4"
+  version = "kubernetes-1.19.2"
 
 [[override]]
   name = "k8s.io/client-go"
-  version = "kubernetes-1.19.0-rc.4"
+  version = "kubernetes-1.19.2"
 
 [[override]]
   name = "k8s.io/kube-scheduler"
-  version = "kubernetes-1.19.0-rc.4"
+  version = "kubernetes-1.19.2"
 
 [[override]]
   name = "k8s.io/component-base"
-  version = "kubernetes-1.19.0-rc.4"
+  version = "kubernetes-1.19.2"
 
 [[constraint]]
   name = "k8s.io/kubernetes"
-  # version = "v1.19.0-rc.4"
   revision = "1afc53514032a44d091ae4a9f6e092171db9fe10"
 
 [[constraint]]
@@ -44,7 +43,7 @@
   name = "sigs.k8s.io/structured-merge-diff"
   # temporary solution until scheduler framework is fully migrate to a seperate community repository
   source = "github.com/ingvagabund/structured-merge-diff"
-  revision = "0748688655b33b0f65ddd7f026f9a00bbab62594"
+  branch = "master"
 
 [[override]]
   name = "github.com/cespare/xxhash"
@@ -58,15 +57,15 @@
 
 [[override]]
   name = "k8s.io/kube-openapi"
-  revision = "656914f816f9f6bcb37ec2b40cb7c16fd9084d4c"
+  revision = "8b50664794884a24628c737debe1572769e6ad24"
 
 [[override]]
   name = "k8s.io/csi-translation-lib"
-  version = "kubernetes-1.19.0-rc.4"
+  version = "kubernetes-1.19.2"
 
 [[override]]
   name = "k8s.io/cloud-provider"
-  version = "kubernetes-1.19.0-rc.4"
+  version = "kubernetes-1.19.2"
 
 [[override]]
   name = "github.com/coreos/etcd"
@@ -74,7 +73,7 @@
 
 [[override]]
   name = "k8s.io/apiextensions-apiserver"
-  revision = "kubernetes-1.19.0-rc.4"
+  revision = "kubernetes-1.19.2"
 
 [[override]]
   name = "google.golang.org/grpc"
