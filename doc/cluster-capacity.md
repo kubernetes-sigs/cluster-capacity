@@ -10,13 +10,13 @@ It estimates a number of instances of a given pod that are still schedulable in 
 Possible applications:
 
 * Detection of remaining schedulable resources per namespace or cluster
-* Load balacing of pods among federated clusters (e.g. federated cluster can have a lot of overall free resource for 40 pods but only 20 pods can be scheduled)
+* Load balancing of pods among federated clusters (e.g. federated cluster can have a lot of overall free resource for 40 pods but only 20 pods can be scheduled)
 * Monitoring of consumption of remaining schedulable resources
 
 # Framework
 
 The goal is to provide a framework that estimates a number of instances of a specified pod that would be scheduled in a cluster.
-The framework consists of a scheduler (created by the scheduler factory), loobpack REST client that intercepts requests
+The framework consists of a scheduler (created by the scheduler factory), loopback REST client that intercepts requests
 and local caches over which the estimation operates.
 Before each estimation is run, the framework captures the current state of the cluster.
 Once captured, the framework translates each REST request into corresponding local cache operation.
