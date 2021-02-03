@@ -510,8 +510,7 @@
   revision = "123391ffb6de907695e1066dc40c1ff09322aeb6"
 
 [[projects]]
-  branch = "master"
-  digest = "1:f242de1fa9929f6b54e5669ae80cdaf45d9162b1f062bbaca88ddc7300ba5972"
+  digest = "1:383545092b9d9d3eca71efae424df56cc82b85e0c7dd23552de7244f2b61b09b"
   name = "golang.org/x/net"
   packages = [
     "context",
@@ -525,7 +524,7 @@
     "websocket",
   ]
   pruneopts = "UT"
-  revision = "3edf25e44fccea9e11b919341e952fca722ef460"
+  revision = "69a78807bb2bb6d1599c68698c6b009505012083"
 
 [[projects]]
   branch = "master"
@@ -726,7 +725,7 @@
   version = "v2.3.0"
 
 [[projects]]
-  digest = "1:7a9e461a240e658d5cb7ce7fd9e86e3efcc735ee870c4c6f767551ec5e9b05b4"
+  digest = "1:8bc041ecdfef6d3e3336ec9fed13ed1f193d457ac96a99c37c07393a5f8be021"
   name = "k8s.io/api"
   packages = [
     "admission/v1",
@@ -774,11 +773,11 @@
     "storage/v1beta1",
   ]
   pruneopts = "UT"
-  revision = "76916981c5f2be075856394f41cb6544c9062ffb"
-  version = "kubernetes-1.19.2"
+  revision = "20fd6bc9f507109983b606524054afadc69bd10d"
+  version = "kubernetes-1.19.7"
 
 [[projects]]
-  digest = "1:df796bfdde9afc247e20ee094c0e9f69898fada97591b3a3e6adf93adcfb2aa0"
+  digest = "1:fcba7895ba792f21f212fef4396568e535787feacfbfb6692afb617c4d319938"
   name = "k8s.io/apimachinery"
   packages = [
     "pkg/api/equality",
@@ -835,11 +834,11 @@
     "third_party/forked/golang/reflect",
   ]
   pruneopts = "UT"
-  revision = "b63a0c883fbfc313249150449400788e5589ef23"
-  version = "kubernetes-1.19.2"
+  revision = "2f881bd9ad1b165fd6b94f446b096a87a0210641"
+  version = "kubernetes-1.19.7"
 
 [[projects]]
-  digest = "1:a4520aac7f7a8e4ce6df333c225481f7e495c5a82ae4b44f67625f6455dabb4c"
+  digest = "1:be0abc7a4c1be73a6df122ef10a3a9b6f7e3d10cbd636999748fb922c872d76c"
   name = "k8s.io/apiserver"
   packages = [
     "pkg/admission",
@@ -964,11 +963,11 @@
     "plugin/pkg/authorizer/webhook",
   ]
   pruneopts = "UT"
-  revision = "33b1fb2f66fb9d8c07f08f9bbbac6a2054056234"
-  version = "kubernetes-1.19.2"
+  revision = "93278010d5937deb65d0187b9907bee38ed20f94"
+  version = "kubernetes-1.19.7"
 
 [[projects]]
-  digest = "1:479c851dcc87f238c7bec765c12d21fcce6bee6cd86160628f00b307f489e57b"
+  digest = "1:5536d4d12ee8cc9e345d73af31a90f552dbbb59c0d2a7dc369b5ecfb9a4187c6"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -1184,11 +1183,11 @@
     "util/workqueue",
   ]
   pruneopts = "UT"
-  revision = "1d4a1e824370be74d8c47751bf41c598372da7e4"
-  version = "kubernetes-1.19.2"
+  revision = "c7a570ddfedd593495d663befa0f94bd127eac66"
+  version = "kubernetes-1.19.7"
 
 [[projects]]
-  digest = "1:39550e8bd15e511d367e5682a8a4568e49ec94e8b81bb2c40dfea245736d70ae"
+  digest = "1:1f125c6e1d34482f71c3b730273c30329bf2232ab54731702c50d67f7fc6e1f0"
   name = "k8s.io/cloud-provider"
   packages = [
     ".",
@@ -1196,8 +1195,8 @@
     "volume/helpers",
   ]
   pruneopts = "UT"
-  revision = "de30713548e4d945ba9f5153fbce8965106ff113"
-  version = "kubernetes-1.19.2"
+  revision = "4b3f414c4519a1eb66c1b4d9f39e08e457352a13"
+  version = "kubernetes-1.19.7"
 
 [[projects]]
   digest = "1:73b2271ee30002cd5c1b84ad3d043c7cbdb045de93fe70bdecc9b3e520787610"
@@ -1217,19 +1216,19 @@
     "version",
   ]
   pruneopts = "UT"
-  revision = "ea4d5eb7ec6256fe0510de29e86ca44f1ac219d2"
-  version = "kubernetes-1.19.2"
+  revision = "300bc2c8bb02f2d85e1e6681f7d41e278999a602"
+  version = "kubernetes-1.19.7"
 
 [[projects]]
-  digest = "1:781b6abc67b4ff4d26beb60e4805c242f84b1b3aa05ec48ac7f3d7ce3bed48ea"
+  digest = "1:11da96d81434067e2d9a7cc044f2c9c9eb4a377eb20a6a9d7ddb750d13f91249"
   name = "k8s.io/csi-translation-lib"
   packages = [
     ".",
     "plugins",
   ]
   pruneopts = "UT"
-  revision = "14923711d3414e7095aa0cfdbfd04044487b8520"
-  version = "kubernetes-1.19.2"
+  revision = "3d53af1f58b447a61629e302d709120c78a3c5d9"
+  version = "kubernetes-1.19.7"
 
 [[projects]]
   branch = "k8s-1.19.0-rc.4"
@@ -1263,8 +1262,8 @@
     "extender/v1",
   ]
   pruneopts = "UT"
-  revision = "863343902982b1a46947e91c00c13304f79c313f"
-  version = "kubernetes-1.19.2"
+  revision = "35aa139f0c2affe81354067266e5ea6cf253c665"
+  version = "kubernetes-1.19.7"
 
 [[projects]]
   digest = "1:adb32883969694ea802f0412de5d7ebdc2b1ba604ef5597f032b12f68e0c89c6"
