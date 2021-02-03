@@ -23,12 +23,12 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/kubernetes/pkg/apis/core/v1/helper"
+	schedutil "k8s.io/kubernetes/pkg/scheduler/util"
 )
 
 const (
@@ -130,7 +130,7 @@ func getResourceRequest(pod *v1.Pod) *Resources {
 				//	rQuantity.Add(*(result.PrimaryResources.NvidiaGPU()))
 				//	result.PrimaryResources[v1.ResourceNvidiaGPU] = rQuantity
 			default:
-				if helper.IsScalarResourceName(rName) {
+				if schedutil.IsScalarResourceName(rName) {
 					// Lazily allocate this map only if required.
 					if result.ScalarResources == nil {
 						result.ScalarResources = map[v1.ResourceName]int64{}

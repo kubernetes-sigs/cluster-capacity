@@ -1,30 +1,31 @@
 [[override]]
   name = "k8s.io/api"
-  version = "kubernetes-1.19.7"
+  version = "kubernetes-1.20.2"
 
 [[override]]
   name = "k8s.io/apiserver"
-  version = "kubernetes-1.19.7"
+  version = "kubernetes-1.20.2"
 
 [[override]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.19.7"
+  version = "kubernetes-1.20.2"
 
 [[override]]
   name = "k8s.io/client-go"
-  version = "kubernetes-1.19.7"
+  version = "kubernetes-1.20.2"
 
 [[override]]
   name = "k8s.io/kube-scheduler"
-  version = "kubernetes-1.19.7"
+  version = "kubernetes-1.20.2"
 
 [[override]]
   name = "k8s.io/component-base"
-  version = "kubernetes-1.19.7"
+  version = "kubernetes-1.20.2"
 
 [[constraint]]
   name = "k8s.io/kubernetes"
-  revision = "1afc53514032a44d091ae4a9f6e092171db9fe10"
+  # 1.20.2
+  revision = "faecb196815e248d3ecfb03c680a4507229c2a56"
 
 [[constraint]]
   name = "k8s.io/utils"
@@ -33,7 +34,7 @@
 [[override]]
   name = "k8s.io/klog"
   source = "github.com/ingvagabund/klog"
-  branch = "k8s-1.19.0-rc.4"
+  branch = "k8s-1.20.2"
 
 [[override]]
   name = "github.com/prometheus/client_golang"
@@ -43,7 +44,7 @@
   name = "sigs.k8s.io/structured-merge-diff"
   # temporary solution until scheduler framework is fully migrate to a seperate community repository
   source = "github.com/ingvagabund/structured-merge-diff"
-  branch = "master"
+  branch = "k8s-1.20.2"
 
 [[override]]
   name = "github.com/cespare/xxhash"
@@ -57,15 +58,16 @@
 
 [[override]]
   name = "k8s.io/kube-openapi"
-  revision = "8b50664794884a24628c737debe1572769e6ad24"
+  # Nov 13, 2020
+  revision = "d219536bb9fd63731fa65ca4b42f14bc2f10c61b"
 
 [[override]]
   name = "k8s.io/csi-translation-lib"
-  version = "kubernetes-1.19.7"
+  version = "kubernetes-1.20.2"
 
 [[override]]
   name = "k8s.io/cloud-provider"
-  version = "kubernetes-1.19.7"
+  version = "kubernetes-1.20.2"
 
 [[override]]
   name = "github.com/coreos/etcd"
@@ -73,7 +75,7 @@
 
 [[override]]
   name = "k8s.io/apiextensions-apiserver"
-  revision = "kubernetes-1.19.7"
+  revision = "kubernetes-1.20.2"
 
 [[override]]
   name = "google.golang.org/grpc"

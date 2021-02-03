@@ -39,23 +39,3 @@ spec:
     - containerPort: 8081
 $ kubectl create -f cluster-capacity-pod.yaml
 ```
-
- - We need to create proxy, so user can access server running in a pod. That can be done using [kubectl expose](http://kubernetes.io/docs/user-guide/kubectl/kubectl_expose/)
-
-```sh
-$ kubectl expose pod cluster-capacity --port=8081
-```
-
- - Get endpoint URL
-
-```sh
-$ kubectl get endpoints cluster-capacity
-```
-
- - Now you should be able to see cluster status:
-
-```sh
-curl http://<endpoint>/capacity/status
-```
-
- - For more information of how to access acquired data any see [API operations](https://github.com/kubernetes-sigs/cluster-capacity/blob/master/doc/api-operations.md)
