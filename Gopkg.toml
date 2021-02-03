@@ -87,6 +87,11 @@
   name = "golang.org/x/net"
   revision = "69a78807bb2bb6d1599c68698c6b009505012083"
 
+[[override]]
+  name = "github.com/gogo/protobuf"
+  # Fixes https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-3121
+  version = "v1.3.2"
+
 [prune]
   go-tests = true
   unused-packages = true
