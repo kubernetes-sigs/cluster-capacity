@@ -32,8 +32,8 @@ import (
 	schedconfig "k8s.io/kubernetes/cmd/kube-scheduler/app/config"
 	schedoptions "k8s.io/kubernetes/cmd/kube-scheduler/app/options"
 	"k8s.io/kubernetes/pkg/scheduler"
+	framework "k8s.io/kubernetes/pkg/scheduler/framework"
 	frameworkruntime "k8s.io/kubernetes/pkg/scheduler/framework/runtime"
-	framework "k8s.io/kubernetes/pkg/scheduler/framework/v1alpha1"
 	"k8s.io/kubernetes/pkg/scheduler/profile"
 
 	"k8s.io/client-go/tools/cache"
@@ -330,7 +330,7 @@ func (b *localBinderPodConditionUpdater) Bind(ctx context.Context, state *framew
 	return b.c.Bind(ctx, state, p, nodeName, b.schedulerName)
 }
 
-func (c *ClusterCapacity) NewBindPlugin(schedulerName string, configuration runtime.Object, f framework.FrameworkHandle) (framework.Plugin, error) {
+func (c *ClusterCapacity) NewBindPlugin(schedulerName string, configuration runtime.Object, f framework.Handle) (framework.Plugin, error) {
 	return &localBinderPodConditionUpdater{
 		schedulerName: schedulerName,
 		c:             c,
@@ -339,7 +339,7 @@ func (c *ClusterCapacity) NewBindPlugin(schedulerName string, configuration runt
 
 func (c *ClusterCapacity) createScheduler(schedulerName string, cc *schedconfig.CompletedConfig) (*scheduler.Scheduler, error) {
 	outOfTreeRegistry := frameworkruntime.Registry{
-		"ClusterCapacityBinder": func(configuration runtime.Object, f framework.FrameworkHandle) (framework.Plugin, error) {
+		"ClusterCapacityBinder": func(configuration runtime.Object, f framework.Handle) (framework.Plugin, error) {
 			return c.NewBindPlugin(schedulerName, configuration, f)
 		},
 	}
@@ -370,7 +370,6 @@ func (c *ClusterCapacity) createScheduler(schedulerName string, cc *schedconfig.
 	return scheduler.New(
 		c.externalkubeclient,
 		c.informerFactory,
-		c.informerFactory.Core().V1().Pods(),
 		getRecorderFactory(cc),
 		c.schedulerCh,
 		scheduler.WithProfiles(cc.ComponentConfig.Profiles...),
