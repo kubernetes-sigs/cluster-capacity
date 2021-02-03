@@ -1,26 +1,26 @@
 [[override]]
   name = "k8s.io/api"
-  version = "kubernetes-1.19.2"
+  version = "kubernetes-1.19.7"
 
 [[override]]
   name = "k8s.io/apiserver"
-  version = "kubernetes-1.19.2"
+  version = "kubernetes-1.19.7"
 
 [[override]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.19.2"
+  version = "kubernetes-1.19.7"
 
 [[override]]
   name = "k8s.io/client-go"
-  version = "kubernetes-1.19.2"
+  version = "kubernetes-1.19.7"
 
 [[override]]
   name = "k8s.io/kube-scheduler"
-  version = "kubernetes-1.19.2"
+  version = "kubernetes-1.19.7"
 
 [[override]]
   name = "k8s.io/component-base"
-  version = "kubernetes-1.19.2"
+  version = "kubernetes-1.19.7"
 
 [[constraint]]
   name = "k8s.io/kubernetes"
@@ -61,11 +61,11 @@
 
 [[override]]
   name = "k8s.io/csi-translation-lib"
-  version = "kubernetes-1.19.2"
+  version = "kubernetes-1.19.7"
 
 [[override]]
   name = "k8s.io/cloud-provider"
-  version = "kubernetes-1.19.2"
+  version = "kubernetes-1.19.7"
 
 [[override]]
   name = "github.com/coreos/etcd"
@@ -73,7 +73,7 @@
 
 [[override]]
   name = "k8s.io/apiextensions-apiserver"
-  revision = "kubernetes-1.19.2"
+  revision = "kubernetes-1.19.7"
 
 [[override]]
   name = "google.golang.org/grpc"
@@ -82,6 +82,15 @@
 [[override]]
   name = "golang.org/x/text"
   version = "v0.3.3"
+
+[[override]]
+  name = "golang.org/x/net"
+  revision = "69a78807bb2bb6d1599c68698c6b009505012083"
+
+[[override]]
+  name = "github.com/gogo/protobuf"
+  # Fixes https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-3121
+  version = "v1.3.2"
 
 [prune]
   go-tests = true
