@@ -11,7 +11,7 @@ kubeapiqps: 50
 kubeapiburst: 100
 schedulername: default-scheduler
 hardpodaffinitysymmetricweight: 1
-failuredomains: kubernetes.io/hostname,failure-domain.beta.kubernetes.io/zone,failure-domain.beta.kubernetes.io/region
+failuredomains: kubernetes.io/hostname,topology.kubernetes.io/zone,topology.kubernetes.io/region
 leaderelection:
   leaderelect: true
   leaseduration:

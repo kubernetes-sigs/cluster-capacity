@@ -16,10 +16,10 @@ Possible applications:
 # Framework
 
 The goal is to provide a framework that estimates a number of instances of a specified pod that would be scheduled in a cluster.
-The framework consists of a scheduler (created by the scheduler factory), loopback REST client that intercepts requests
+The framework consists of a scheduler (created by the scheduler factory) and loopback fake client that intercepts requests
 and local caches over which the estimation operates.
 Before each estimation is run, the framework captures the current state of the cluster.
-Once captured, the framework translates each REST request into corresponding local cache operation.
+Once captured, the framework translates each API request into corresponding local cache operation.
 Thus, the running cluster is free of any modification that would be caused by scheduling a pod into a node.
 Estimation is then collection and provided via available channels.
 
@@ -28,10 +28,9 @@ admission controller configuration is available as well.
 
 ## Configuration
 
-The framework configuration can be divided into three categories:
+The framework configuration can be divided into two categories:
 * analysis configuration
 * scheduler configuration
-* admissions configuration
 
 The analysis configuration covers:
 * location of kubeconfig file and address of running Apiserver (``kubeconfig`` and ``apiserver-config`` options)
@@ -39,15 +38,6 @@ The analysis configuration covers:
 * number of instances of a specified pod that cause analysis to be stopped prematurely when reached (``maxLimit`` option)
 * period of time between two consecutive runs of analysis (``period`` option)
 * mode of resource space exploration (``resource-space-mode`` option)
-
-The scheduler configuration covers:
-* location of scheduler configuration file (``default-config`` option)
-
-The admissions configuration covers:
-* location of Apiserver admission controller configuration (``apiserver-config`` option)
-
-When the ``period`` is specified, the framework is run in a watch mode and the continuous stream of estimations is provided via REST API.
-Once the scheduler, resp. admission configuration is set, it can not be changed during the framework execution.
 
 ## Scheduler
 
@@ -66,7 +56,7 @@ kubeapiqps: 50
 kubeapiburst: 100
 schedulername: default-scheduler
 hardpodaffinitysymmetricweight: 1
-failuredomains: kubernetes.io/hostname,failure-domain.beta.kubernetes.io/zone,failure-domain.beta.kubernetes.io/region
+failuredomains: kubernetes.io/hostname,topology.kubernetes.io/zone,topology.kubernetes.io/region
 leaderelection:
   leaderelect: true
   leaseduration:
@@ -79,27 +69,6 @@ leaderelection:
 
 To achieve the same behaviour as the scheduler running in a cluster,
 it is recommended to use the same scheduler configuration (including a list of enabled predicates and priority functions).
-
-## Admissions
-
-To enable admissions ``--apiserver-config`` option needs to be set to a location of a configuration file.
-The configuration file contains a subset of corresponding Apiserver options. E.g.:
-
-```yaml
-$ cat config/apiserver.yml
-authorizationMode: "AlwaysAllow"
-authorizationPolicyFile: ""
-authorizationWebhookConfigFile: ""
-authorizationWebhookCacheAuthorizedTtl: "5m0s"
-authorizationWebhookCacheUnauthorizedTtl: "30s"
-authorizationRbacSuperUser: ""
-admissionControl: "NamespaceLifecycle,LimitRanger,SecurityContextDeny,ServiceAccount,ResourceQuota,AlwaysPullImages"
-```
-
-The analysis explores the entire resource space by default.
-Since the ``ResourceQuota`` admission is namespace specific,
-it is disabled by default even if it is specified in the configuration file.
-To enable the admission the ``--resource-space-mode`` option needs to be set to ``ResourceSpacePartial``.
 
 # Cluster capacity analysis
 
@@ -155,7 +124,7 @@ Such as:
 
 Limit ranges can force a maximal amount of resources per pod or per container.
 Resource quota can limit a maximal amount of resource consumed by all pods in a namespace.
-Node selector can limit a set of nodes on which a pod can be scheduled. 
+Node selector can limit a set of nodes on which a pod can be scheduled.
 
 Some of the limitations are completely pod based (e.g. node selector, limit ranges).
 Some are enforced by scheduler predicates or by admissions (e.g. resource quota).
@@ -184,72 +153,6 @@ Termination reason: AdmissionControllerError: pods "small-pod-4" is forbidden: e
 
 Pod distribution among nodes:
     - 127.0.0.1: 4 instance(s)
-```
-
-## Watch mode
-
-In order to provide a continuous stream of estimations, the framework can be run in a watch mode (setting ``period`` flag).
-Once run, the estimations are available at ``http://localhost:8081/capacity/status?watch=true`` address.
-You can use ``curl`` to access the data:
-
-```sh
-$ curl http://localhost:8081/capacity/status?watch=true
-[
-  {
-   "Timestamp": "2016-11-16T08:30:33.079973497Z",
-   "PodRequirements": {
-    "Cpu": "200m",
-    "Memory": "100Mi"
-   },
-   "TotalInstances": 5,
-   "NodesNumInstances": {
-    "kube-node-2": 5
-   },
-   "FailReasons": {
-    "FailType": "FailedScheduling",
-    "FailMessage": "pod (cluster-capacity-stub-container-5) failed to fit in any node",
-    "NodeFailures": {
-     "kube-node-1": "MatchNodeSelector",
-     "kube-node-2": "Insufficient cpu"
-    }
-   }
-  },
-  {
-   "Timestamp": "2016-11-16T08:30:43.277040728Z",
-   "PodRequirements": {
-    "Cpu": "200m",
-    "Memory": "100Mi"
-   },
-   "TotalInstances": 5,
-   "NodesNumInstances": {
-    "kube-node-2": 5
-   },
-   "FailReasons": {
-    "FailType": "FailedScheduling",
-    "FailMessage": "pod (cluster-capacity-stub-container-5) failed to fit in any node",
-    "NodeFailures": {
-     "kube-node-1": "MatchNodeSelector",
-     "kube-node-2": "Insufficient cpu"
-    }
-   }
-  }
- ]
-...
-```
-
-Each estimation provides:
-* time of estimation: ``Timestamp`` property
-* pod specification: ``PodRequirements`` property
-* number of scheduled instances: ``TotalInstances`` property
-* distribution of pod instances among nodes: ``NodesNumInstances`` property
-* reason why the estimation stopped: ``FailReasons`` property
-
-The namespace node selector or limit ranges can change over time.
-To update the pod specification during framework execution, you can send a POST request to ``http://localhost:8081/capacity/pod``.
-E.g. with new specification in ``nspod.json`` you can run:
-
-```sh
-$ curl -T nspod.json -H "Content-Type: application/json" http://localhost:8081/capacity/pod
 ```
 
 ## Running the framework inside a pod
