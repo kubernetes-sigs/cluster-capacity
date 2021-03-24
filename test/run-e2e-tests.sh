@@ -31,11 +31,11 @@ if [ -n "$KIND_E2E" ]; then
 fi
 
 PRJ_PREFIX="sigs.k8s.io/cluster-capacity"
-go test ${PRJ_PREFIX}/test/e2e/ -v
+GO111MODULE=auto go test ${PRJ_PREFIX}/test/e2e/ -v
 
 # Just test the binary works with the default example pod spec
 # See https://github.com/kubernetes-sigs/cluster-capacity/pull/127 for more detail
-go build -o hypercc sigs.k8s.io/cluster-capacity/cmd/hypercc
+GO111MODULE=auto go build -o hypercc sigs.k8s.io/cluster-capacity/cmd/hypercc
 ln -sf hypercc cluster-capacity
 
 ./cluster-capacity --kubeconfig ~/.kube/config  --podspec examples/pod.yaml --verbose
