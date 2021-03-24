@@ -21,6 +21,6 @@ set -o pipefail
 SCRIPT_ROOT=$(dirname "${BASH_SOURCE}")/..
 source "${SCRIPT_ROOT}/hack/lib/init.sh"
 
-go test \
+GO111MODULE=auto go test \
   sigs.k8s.io/cluster-capacity/cmd/... \
   sigs.k8s.io/cluster-capacity/pkg/...
