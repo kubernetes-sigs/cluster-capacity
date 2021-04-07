@@ -775,8 +775,8 @@
     "storage/v1beta1",
   ]
   pruneopts = "UT"
-  revision = "ec3d28350d6e4dbef05e4f04491380de2b541e37"
-  version = "kubernetes-1.20.2"
+  revision = "ffaf1bd1b53e63793e4e08d4cc9702de0f6f8dce"
+  version = "kubernetes-1.20.5"
 
 [[projects]]
   digest = "1:347304bcc72c4ae8d2d51bacec3f88a92f12669c0b2573f0a657483f8fbdb908"
@@ -836,11 +836,11 @@
     "third_party/forked/golang/reflect",
   ]
   pruneopts = "UT"
-  revision = "2456ebdaba229616fab2161a615148884b46644b"
-  version = "kubernetes-1.20.2"
+  revision = "dd12c7a65e7f49c4e00b5bd5eb93de2fcbf7831d"
+  version = "kubernetes-1.20.5"
 
 [[projects]]
-  digest = "1:9b41ff760f746ab3a9d2ae82ebb4a0e2afa21d1990f3f146c9ad408aa3237b3d"
+  digest = "1:0435644baf3010af5be8b746fb8c185c4dff683fd118cdcac8001d011f3695ae"
   name = "k8s.io/apiserver"
   packages = [
     "pkg/admission",
@@ -968,8 +968,8 @@
     "plugin/pkg/authorizer/webhook",
   ]
   pruneopts = "UT"
-  revision = "67bae94ce9bfb9747f7d26adb40030d7e5f44aae"
-  version = "kubernetes-1.20.2"
+  revision = "2f0f715f75438ac1636e51b93823d1fab19537ff"
+  version = "kubernetes-1.20.5"
 
 [[projects]]
   digest = "1:b5b362655d28cc45fab8db552df67df7bd1792cce848b6ed9a9213270dd5f6db"
@@ -1196,11 +1196,11 @@
     "util/workqueue",
   ]
   pruneopts = "UT"
-  revision = "a1a652a556b5092f0f61b9c63a7ebfb814a7fa9d"
-  version = "kubernetes-1.20.2"
+  revision = "05b7f154ae6b5138e1ca4dfbbbdce7a01d8992b9"
+  version = "kubernetes-1.20.5"
 
 [[projects]]
-  digest = "1:e01d17f91ec2827aaed760d6437e3d438b91b592fd374dbb17903e589213b227"
+  digest = "1:4bf9e0cc07ad08d47692ba961c6f9f3011d1a4c5d6d713b409ef0f0dfc71b3c7"
   name = "k8s.io/cloud-provider"
   packages = [
     ".",
@@ -1208,8 +1208,8 @@
     "volume/helpers",
   ]
   pruneopts = "UT"
-  revision = "cdf70ca1d5a9cf34d1b3ad38758d3d8724c4d3d1"
-  version = "kubernetes-1.20.2"
+  revision = "c63b28e2009c7a86642a5d63e5fc25700fb65f00"
+  version = "kubernetes-1.20.5"
 
 [[projects]]
   digest = "1:7504ebe54204a7ba4d02670617bd701d6a77287439d567948811872d7044b07b"
@@ -1232,8 +1232,8 @@
     "version",
   ]
   pruneopts = "UT"
-  revision = "ac23c21e8fc178583dd3a1b8a5c5018d8acd4bdc"
-  version = "kubernetes-1.20.2"
+  revision = "89a88eb4638c4b5c6e3e1ca7abf6922db67b2bde"
+  version = "kubernetes-1.20.5"
 
 [[projects]]
   digest = "1:20ed259627bc9293e85ddb2545469c36cbdae17245531b00b2a25ee3482f9373"
@@ -1247,15 +1247,15 @@
   version = "v0.20.2"
 
 [[projects]]
-  digest = "1:de1871da7e0ac98e0b4193a290eea5fd048e3858ba7575c13c082c6a1d1003d1"
+  digest = "1:89b24e9fe227948c69d91827a02297721280e72abb534b3425ffb55e29b0bc94"
   name = "k8s.io/csi-translation-lib"
   packages = [
     ".",
     "plugins",
   ]
   pruneopts = "UT"
-  revision = "250252c417feb1d2659618489b7fdabc80454eb4"
-  version = "kubernetes-1.20.2"
+  revision = "7c8f2954cc7327ab4146ea819e58ce9d689a8af8"
+  version = "kubernetes-1.20.5"
 
 [[projects]]
   branch = "k8s-1.20.2"
@@ -1289,8 +1289,8 @@
     "extender/v1",
   ]
   pruneopts = "UT"
-  revision = "11dc3b1fad4bee174b329d2267ff4ce0c510ae6b"
-  version = "kubernetes-1.20.2"
+  revision = "ac7fe9a58fc5f69fac0504dbc79f86f2e7bbdece"
+  version = "kubernetes-1.20.5"
 
 [[projects]]
   digest = "1:7b1739740fe7974eb56c52ce1dd20b531f274e2d4204ccc2cc908af0b70138e1"
