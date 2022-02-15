@@ -12,18 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-#!/bin/bash
+#!/bin/bash -x
+set -o errexit
 
 # This just run e2e tests.
 if [ -n "$KIND_E2E" ]; then
     K8S_VERSION=${KUBERNETES_VERSION:-v1.18.2}
-    curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/${K8S_VERSION}/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
-    wget https://github.com/kubernetes-sigs/kind/releases/download/v0.8.1/kind-linux-amd64
+    wget https://github.com/kubernetes-sigs/kind/releases/download/v0.11.0/kind-linux-amd64
     chmod +x kind-linux-amd64
     mv kind-linux-amd64 kind
     export PATH=$PATH:$PWD
     kind create cluster --image kindest/node:${K8S_VERSION} --config=./hack/kind_config.yaml
-    export KUBECONFIG="$(kind get kubeconfig-path)"
     docker pull kubernetes/pause
     kind load docker-image kubernetes/pause
     kind get kubeconfig > /tmp/admin.conf

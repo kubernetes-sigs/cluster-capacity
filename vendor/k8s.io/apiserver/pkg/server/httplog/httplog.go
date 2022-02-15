@@ -188,8 +188,10 @@ func (rl *respLogger) LogArgs() []interface{} {
 		"srcIP", rl.req.RemoteAddr,
 		"resp", rl.status,
 	}
+
 	rl.mutex.Lock()
 	defer rl.mutex.Unlock()
+
 	if len(rl.statusStack) > 0 {
 		args = append(args, "statusStack", rl.statusStack)
 	}

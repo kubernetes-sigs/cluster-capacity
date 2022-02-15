@@ -232,7 +232,7 @@ func TestPrediction(t *testing.T) {
 					{
 						SchedulerName: v1.DefaultSchedulerName,
 						Plugins: &kubeschedulerconfig.Plugins{
-							Bind: &kubeschedulerconfig.PluginSet{
+							Bind: kubeschedulerconfig.PluginSet{
 								Enabled: []kubeschedulerconfig.Plugin{
 									{
 										Name: "ClusterCapacityBinder",
