@@ -18,20 +18,18 @@ package registry
 
 import (
 	"context"
-	"net/http"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 )
 
 type decoratedWatcher struct {
 	w         watch.Interface
-	decorator ObjectFunc
+	decorator func(runtime.Object)
 	cancel    context.CancelFunc
 	resultCh  chan watch.Event
 }
 
-func newDecoratedWatcher(ctx context.Context, w watch.Interface, decorator ObjectFunc) *decoratedWatcher {
+func newDecoratedWatcher(ctx context.Context, w watch.Interface, decorator func(runtime.Object)) *decoratedWatcher {
 	ctx, cancel := context.WithCancel(ctx)
 	d := &decoratedWatcher{
 		w:         w,
@@ -60,11 +58,7 @@ func (d *decoratedWatcher) run(ctx context.Context) {
 			}
 			switch recv.Type {
 			case watch.Added, watch.Modified, watch.Deleted, watch.Bookmark:
-				err := d.decorator(recv.Object)
-				if err != nil {
-					send = makeStatusErrorEvent(err)
-					break
-				}
+				d.decorator(recv.Object)
 				send = recv
 			case watch.Error:
 				send = recv
@@ -94,17 +88,4 @@ func (d *decoratedWatcher) Stop() {
 
 func (d *decoratedWatcher) ResultChan() <-chan watch.Event {
 	return d.resultCh
-}
-
-func makeStatusErrorEvent(err error) watch.Event {
-	status := &metav1.Status{
-		Status:  metav1.StatusFailure,
-		Message: err.Error(),
-		Code:    http.StatusInternalServerError,
-		Reason:  metav1.StatusReasonInternalError,
-	}
-	return watch.Event{
-		Type:   watch.Error,
-		Object: status,
-	}
 }

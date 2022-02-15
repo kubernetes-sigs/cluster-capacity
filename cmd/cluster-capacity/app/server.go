@@ -118,7 +118,7 @@ func Run(opt *options.ClusterCapacityOptions) error {
 		kcfg.Profiles[0].Plugins = &kubeschedulerconfig.Plugins{}
 	}
 
-	kcfg.Profiles[0].Plugins.Bind = &kubeschedulerconfig.PluginSet{
+	kcfg.Profiles[0].Plugins.Bind = kubeschedulerconfig.PluginSet{
 		Enabled:  []kubeschedulerconfig.Plugin{{Name: "ClusterCapacityBinder"}},
 		Disabled: []kubeschedulerconfig.Plugin{{Name: "DefaultBinder"}},
 	}
