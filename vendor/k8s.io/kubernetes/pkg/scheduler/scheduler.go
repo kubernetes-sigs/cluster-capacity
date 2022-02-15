@@ -55,6 +55,9 @@ const (
 	SchedulerError = "SchedulerError"
 	// Percentage of plugin metrics to be sampled.
 	pluginMetricsSamplePercent = 10
+	// Duration the scheduler will wait before expiring an assumed pod.
+	// See issue #106361 for more details about this parameter and its value.
+	durationToExpireAssumedPod = 2 * time.Minute
 )
 
 // Scheduler watches for new unscheduled pods. It attempts to find
@@ -202,8 +205,7 @@ func New(client clientset.Interface,
 		opt(&options)
 	}
 
-	schedulerCache := internalcache.New(30*time.Second, stopEverything)
-
+	schedulerCache := internalcache.New(durationToExpireAssumedPod, stopEverything)
 	registry := frameworkplugins.NewInTreeRegistry()
 	if err := registry.Merge(options.frameworkOutOfTreeRegistry); err != nil {
 		return nil, err
@@ -353,17 +355,17 @@ func truncateMessage(message string) string {
 
 func updatePod(client clientset.Interface, pod *v1.Pod, condition *v1.PodCondition, nominatedNode string) error {
 	klog.V(3).Infof("Updating pod condition for %s/%s to (%s==%s, Reason=%s)", pod.Namespace, pod.Name, condition.Type, condition.Status, condition.Reason)
-	podCopy := pod.DeepCopy()
+	podStatusCopy := pod.Status.DeepCopy()
 	// NominatedNodeName is updated only if we are trying to set it, and the value is
 	// different from the existing one.
-	if !podutil.UpdatePodCondition(&podCopy.Status, condition) &&
+	if !podutil.UpdatePodCondition(podStatusCopy, condition) &&
 		(len(nominatedNode) == 0 || pod.Status.NominatedNodeName == nominatedNode) {
 		return nil
 	}
 	if nominatedNode != "" {
-		podCopy.Status.NominatedNodeName = nominatedNode
+		podStatusCopy.NominatedNodeName = nominatedNode
 	}
-	return util.PatchPod(client, pod, podCopy)
+	return util.PatchPodStatus(client, pod, podStatusCopy)
 }
 
 // assume signals to the cache that a pod is already in the cache, so that binding can be asynchronous.
