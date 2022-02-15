@@ -13,6 +13,7 @@
 # limitations under the License.
 
 #!/bin/bash
+set -o errexit
 
 # This just run e2e tests.
 if [ -n "$KIND_E2E" ]; then
