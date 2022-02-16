@@ -28,9 +28,12 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	configv1alpha1 "k8s.io/component-base/config/v1alpha1"
+	"k8s.io/component-base/logs"
+	kubeschedulerconfigv1beta1 "k8s.io/kube-scheduler/config/v1beta1"
 	kubescheduleroptions "k8s.io/kubernetes/cmd/kube-scheduler/app/options"
 	kubeschedulerconfig "k8s.io/kubernetes/pkg/scheduler/apis/config"
-	"k8s.io/utils/pointer"
+	kubeschedulerscheme "k8s.io/kubernetes/pkg/scheduler/apis/config/scheme"
 
 	"sigs.k8s.io/cluster-capacity/pkg/framework"
 )
@@ -135,34 +138,35 @@ func TestLimitReached(t *testing.T) {
 	clientSet, stopCh := initializeClient(t)
 	defer close(stopCh)
 
-	opts, err := kubescheduleroptions.NewOptions()
-	if err != nil {
-		t.Fatalf("unable to create scheduler options: %v", err)
+	versionedCfg := kubeschedulerconfigv1beta1.KubeSchedulerConfiguration{}
+	versionedCfg.DebuggingConfiguration = *configv1alpha1.NewRecommendedDebuggingConfiguration()
+
+	kubeschedulerscheme.Scheme.Default(&versionedCfg)
+	kcfg := kubeschedulerconfig.KubeSchedulerConfiguration{}
+	if err := kubeschedulerscheme.Scheme.Convert(&versionedCfg, &kcfg, nil); err != nil {
+		t.Fatal(err)
 	}
 
-	opts.ComponentConfig = kubeschedulerconfig.KubeSchedulerConfiguration{
-		AlgorithmSource: kubeschedulerconfig.SchedulerAlgorithmSource{
-			Provider: pointer.StringPtr("DefaultProvider"),
-		},
-		Profiles: []kubeschedulerconfig.KubeSchedulerProfile{
-			{
-				SchedulerName: v1.DefaultSchedulerName,
-				Plugins: &kubeschedulerconfig.Plugins{
-					Bind: kubeschedulerconfig.PluginSet{
-						Enabled: []kubeschedulerconfig.Plugin{
-							{
-								Name: "ClusterCapacityBinder",
-							},
-						},
-						Disabled: []kubeschedulerconfig.Plugin{
-							{
-								Name: "DefaultBinder",
-							},
-						},
-					},
-				},
-			},
-		},
+	// inject scheduler config config
+	if len(kcfg.Profiles) == 0 {
+		kcfg.Profiles = []kubeschedulerconfig.KubeSchedulerProfile{
+			{},
+		}
+	}
+
+	kcfg.Profiles[0].SchedulerName = v1.DefaultSchedulerName
+	if kcfg.Profiles[0].Plugins == nil {
+		kcfg.Profiles[0].Plugins = &kubeschedulerconfig.Plugins{}
+	}
+
+	kcfg.Profiles[0].Plugins.Bind = kubeschedulerconfig.PluginSet{
+		Enabled:  []kubeschedulerconfig.Plugin{{Name: "ClusterCapacityBinder"}},
+		Disabled: []kubeschedulerconfig.Plugin{{Name: "DefaultBinder"}},
+	}
+
+	opts := &kubescheduleroptions.Options{
+		ComponentConfig: &kcfg,
+		Logs:            logs.NewOptions(),
 	}
 
 	kubeSchedulerConfig, err := framework.InitKubeSchedulerConfiguration(opts)

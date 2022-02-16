@@ -109,6 +109,17 @@ func (c *ClusterCapacity) SyncWithClient(client externalclientset.Interface) err
 		}
 	}
 
+	nsItems, err := client.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to list ns: %v", err)
+	}
+
+	for _, item := range nsItems.Items {
+		if _, err := c.externalkubeclient.CoreV1().Namespaces().Create(context.TODO(), &item, metav1.CreateOptions{}); err != nil {
+			return fmt.Errorf("unable to copy ns: %v", err)
+		}
+	}
+
 	nodeItems, err := client.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to list nodes: %v", err)
@@ -373,7 +384,6 @@ func (c *ClusterCapacity) createScheduler(schedulerName string, cc *schedconfig.
 		getRecorderFactory(cc),
 		c.schedulerCh,
 		scheduler.WithProfiles(cc.ComponentConfig.Profiles...),
-		scheduler.WithAlgorithmSource(cc.ComponentConfig.AlgorithmSource),
 		scheduler.WithPercentageOfNodesToScore(cc.ComponentConfig.PercentageOfNodesToScore),
 		scheduler.WithFrameworkOutOfTreeRegistry(outOfTreeRegistry),
 		scheduler.WithPodMaxBackoffSeconds(cc.ComponentConfig.PodMaxBackoffSeconds),
