@@ -34,7 +34,6 @@ import (
 	kubeschedulerconfigv1beta1 "k8s.io/kube-scheduler/config/v1beta1"
 	schedconfig "k8s.io/kubernetes/cmd/kube-scheduler/app/config"
 	schedoptions "k8s.io/kubernetes/cmd/kube-scheduler/app/options"
-	_ "k8s.io/kubernetes/pkg/scheduler/algorithmprovider"
 	kubeschedulerconfig "k8s.io/kubernetes/pkg/scheduler/apis/config"
 	kubeschedulerscheme "k8s.io/kubernetes/pkg/scheduler/apis/config/scheme"
 
@@ -124,7 +123,7 @@ func Run(opt *options.ClusterCapacityOptions) error {
 	}
 
 	opts := &schedoptions.Options{
-		ComponentConfig: kcfg,
+		ComponentConfig: &kcfg,
 		ConfigFile:      conf.Options.DefaultSchedulerConfigFile,
 		Logs:            logs.NewOptions(),
 	}

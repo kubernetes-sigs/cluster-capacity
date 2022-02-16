@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"crypto/sha512"
+	"encoding/json"
 	"fmt"
 	"mime"
 	"net/http"
@@ -28,16 +29,14 @@ import (
 
 	"github.com/NYTimes/gziphandler"
 	"github.com/emicklei/go-restful"
-	"github.com/go-openapi/spec"
 	"github.com/golang/protobuf/proto"
-	"github.com/googleapis/gnostic/compiler"
 	openapi_v2 "github.com/googleapis/gnostic/openapiv2"
-	jsoniter "github.com/json-iterator/go"
 	"github.com/munnerz/goautoneg"
 	"gopkg.in/yaml.v2"
 	klog "k8s.io/klog/v2"
 	"k8s.io/kube-openapi/pkg/builder"
 	"k8s.io/kube-openapi/pkg/common"
+	"k8s.io/kube-openapi/pkg/validation/spec"
 )
 
 const (
@@ -139,18 +138,14 @@ func (o *OpenAPIService) UpdateSpec(openapiSpec *spec.Swagger) (err error) {
 	o.rwMutex.Lock()
 	defer o.rwMutex.Unlock()
 	o.jsonCache = o.jsonCache.New(func() ([]byte, error) {
-		return jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(openapiSpec)
+		return json.Marshal(openapiSpec)
 	})
 	o.protoCache = o.protoCache.New(func() ([]byte, error) {
 		json, _, err := o.jsonCache.Get()
 		if err != nil {
 			return nil, err
 		}
-		var jMap map[string]interface{}
-		if err := jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal(json, &jMap); err != nil {
-			return nil, err
-		}
-		return ToProtoBinary(jMap)
+		return ToProtoBinary(json)
 	})
 	o.lastModified = time.Now()
 
@@ -199,8 +194,8 @@ func jsonToYAMLValue(j interface{}) interface{} {
 	return j
 }
 
-func ToProtoBinary(json map[string]interface{}) ([]byte, error) {
-	document, err := openapi_v2.NewDocument(jsonToYAML(json), compiler.NewContext("$root", nil))
+func ToProtoBinary(json []byte) ([]byte, error) {
+	document, err := openapi_v2.ParseDocument(json)
 	if err != nil {
 		return nil, err
 	}
