@@ -29,7 +29,7 @@ import (
 	configv1alpha1 "k8s.io/component-base/config/v1alpha1"
 	"k8s.io/component-base/logs"
 	"k8s.io/component-base/version"
-	kubeschedulerconfigv1beta1 "k8s.io/kube-scheduler/config/v1beta1"
+	kubeschedulerconfigv1beta2 "k8s.io/kube-scheduler/config/v1beta2"
 	kubescheduleroptions "k8s.io/kubernetes/cmd/kube-scheduler/app/options"
 	kubeschedulerconfig "k8s.io/kubernetes/pkg/scheduler/apis/config"
 	kubeschedulerscheme "k8s.io/kubernetes/pkg/scheduler/apis/config/scheme"
@@ -221,7 +221,7 @@ func TestPrediction(t *testing.T) {
 
 			// 2. create predictor
 			// - create simple configuration file for scheduler (use the default values or from systemd env file if reasonable)
-			versionedCfg := kubeschedulerconfigv1beta1.KubeSchedulerConfiguration{}
+			versionedCfg := kubeschedulerconfigv1beta2.KubeSchedulerConfiguration{}
 			versionedCfg.DebuggingConfiguration = *configv1alpha1.NewRecommendedDebuggingConfiguration()
 
 			kubeschedulerscheme.Scheme.Default(&versionedCfg)
@@ -258,6 +258,7 @@ func TestPrediction(t *testing.T) {
 			}
 
 			cc, err := New(kubeSchedulerConfig,
+				nil,
 				simulatedPod,
 				test.limit,
 			)

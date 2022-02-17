@@ -30,7 +30,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	configv1alpha1 "k8s.io/component-base/config/v1alpha1"
 	"k8s.io/component-base/logs"
-	kubeschedulerconfigv1beta1 "k8s.io/kube-scheduler/config/v1beta1"
+	kubeschedulerconfigv1beta2 "k8s.io/kube-scheduler/config/v1beta2"
 	kubescheduleroptions "k8s.io/kubernetes/cmd/kube-scheduler/app/options"
 	kubeschedulerconfig "k8s.io/kubernetes/pkg/scheduler/apis/config"
 	kubeschedulerscheme "k8s.io/kubernetes/pkg/scheduler/apis/config/scheme"
@@ -43,7 +43,7 @@ const (
 	limit    = 5
 )
 
-func CreateClient(kubeconfig string) (clientset.Interface, error) {
+func CreateRestConfig(kubeconfig string) (*rest.Config, error) {
 	var cfg *rest.Config
 	if len(kubeconfig) != 0 {
 		master, err := GetMasterFromKubeconfig(kubeconfig)
@@ -63,8 +63,7 @@ func CreateClient(kubeconfig string) (clientset.Interface, error) {
 			return nil, fmt.Errorf("Unable to build in cluster config: %v", err)
 		}
 	}
-
-	return clientset.NewForConfig(cfg)
+	return cfg, nil
 }
 
 func GetMasterFromKubeconfig(filename string) (string, error) {
@@ -84,8 +83,13 @@ func GetMasterFromKubeconfig(filename string) (string, error) {
 	return "", fmt.Errorf("Failed to get master address from kubeconfig")
 }
 
-func initializeClient(t *testing.T) (clientset.Interface, chan struct{}) {
-	clientSet, err := CreateClient(os.Getenv("KUBECONFIG"))
+func initializeClient(t *testing.T) (*rest.Config, clientset.Interface, chan struct{}) {
+	restConfig, err := CreateRestConfig(os.Getenv("KUBECONFIG"))
+	if err != nil {
+		t.Fatalf("Error during rest config creation with %v", err)
+	}
+
+	clientSet, err := clientset.NewForConfig(restConfig)
 	if err != nil {
 		t.Fatalf("Error during client creation with %v", err)
 	}
@@ -96,7 +100,7 @@ func initializeClient(t *testing.T) (clientset.Interface, chan struct{}) {
 	sharedInformerFactory.Start(stopChannel)
 	sharedInformerFactory.WaitForCacheSync(stopChannel)
 
-	return clientSet, stopChannel
+	return restConfig, clientSet, stopChannel
 }
 
 func buildSimulatedPod() *v1.Pod {
@@ -135,10 +139,10 @@ func buildSimulatedPod() *v1.Pod {
 }
 
 func TestLimitReached(t *testing.T) {
-	clientSet, stopCh := initializeClient(t)
+	restConfig, clientSet, stopCh := initializeClient(t)
 	defer close(stopCh)
 
-	versionedCfg := kubeschedulerconfigv1beta1.KubeSchedulerConfiguration{}
+	versionedCfg := kubeschedulerconfigv1beta2.KubeSchedulerConfiguration{}
 	versionedCfg.DebuggingConfiguration = *configv1alpha1.NewRecommendedDebuggingConfiguration()
 
 	kubeschedulerscheme.Scheme.Default(&versionedCfg)
@@ -175,6 +179,7 @@ func TestLimitReached(t *testing.T) {
 	}
 
 	cc, err := framework.New(kubeSchedulerConfig,
+		restConfig,
 		buildSimulatedPod(),
 		limit,
 	)

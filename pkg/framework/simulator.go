@@ -26,9 +26,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/informers"
 	externalclientset "k8s.io/client-go/kubernetes"
 	fakeclientset "k8s.io/client-go/kubernetes/fake"
+	restclient "k8s.io/client-go/rest"
 	schedconfig "k8s.io/kubernetes/cmd/kube-scheduler/app/config"
 	schedoptions "k8s.io/kubernetes/cmd/kube-scheduler/app/options"
 	"k8s.io/kubernetes/pkg/scheduler"
@@ -53,6 +56,7 @@ type ClusterCapacity struct {
 
 	externalkubeclient externalclientset.Interface
 	informerFactory    informers.SharedInformerFactory
+	dynInformerFactory dynamicinformer.DynamicSharedInformerFactory
 
 	// schedulers
 	schedulers           map[string]*scheduler.Scheduler
@@ -98,17 +102,6 @@ func (c *ClusterCapacity) Report() *ClusterCapacityReview {
 }
 
 func (c *ClusterCapacity) SyncWithClient(client externalclientset.Interface) error {
-	podItems, err := client.CoreV1().Pods(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("unable to list pods: %v", err)
-	}
-
-	for _, item := range podItems.Items {
-		if _, err := c.externalkubeclient.CoreV1().Pods(item.Namespace).Create(context.TODO(), &item, metav1.CreateOptions{}); err != nil {
-			return fmt.Errorf("unable to copy pod: %v", err)
-		}
-	}
-
 	nsItems, err := client.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to list ns: %v", err)
@@ -117,6 +110,17 @@ func (c *ClusterCapacity) SyncWithClient(client externalclientset.Interface) err
 	for _, item := range nsItems.Items {
 		if _, err := c.externalkubeclient.CoreV1().Namespaces().Create(context.TODO(), &item, metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("unable to copy ns: %v", err)
+		}
+	}
+
+	podItems, err := client.CoreV1().Pods(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to list pods: %v", err)
+	}
+
+	for _, item := range podItems.Items {
+		if _, err := c.externalkubeclient.CoreV1().Pods(item.Namespace).Create(context.TODO(), &item, metav1.CreateOptions{}); err != nil {
+			return fmt.Errorf("unable to copy pod: %v", err)
 		}
 	}
 
@@ -299,8 +303,14 @@ func (c *ClusterCapacity) nextPod() error {
 
 func (c *ClusterCapacity) Run() error {
 	// Start all informers.
-	c.informerFactory.Start(c.informerStopCh)
-	c.informerFactory.WaitForCacheSync(c.informerStopCh)
+	// First sync the NS informer
+	// Disable the pods informer until the namespaces are populated.
+	// c.informerFactory.
+
+	// c.informerFactory.Start(c.informerStopCh)
+	// c.informerFactory.WaitForCacheSync(c.informerStopCh)
+	// c.dynInformerFactory.Start(c.informerStopCh)
+	// c.dynInformerFactory.WaitForCacheSync(c.informerStopCh)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -381,14 +391,18 @@ func (c *ClusterCapacity) createScheduler(schedulerName string, cc *schedconfig.
 	return scheduler.New(
 		c.externalkubeclient,
 		c.informerFactory,
+		c.dynInformerFactory,
 		getRecorderFactory(cc),
 		c.schedulerCh,
+		scheduler.WithComponentConfigVersion(cc.ComponentConfig.TypeMeta.APIVersion),
+		scheduler.WithKubeConfig(cc.KubeConfig),
 		scheduler.WithProfiles(cc.ComponentConfig.Profiles...),
 		scheduler.WithPercentageOfNodesToScore(cc.ComponentConfig.PercentageOfNodesToScore),
 		scheduler.WithFrameworkOutOfTreeRegistry(outOfTreeRegistry),
 		scheduler.WithPodMaxBackoffSeconds(cc.ComponentConfig.PodMaxBackoffSeconds),
 		scheduler.WithPodInitialBackoffSeconds(cc.ComponentConfig.PodInitialBackoffSeconds),
 		scheduler.WithExtenders(cc.ComponentConfig.Extenders...),
+		scheduler.WithParallelism(cc.ComponentConfig.Parallelism),
 	)
 }
 
@@ -412,9 +426,12 @@ func getRecorderFactory(cc *schedconfig.CompletedConfig) profile.RecorderFactory
 // Create new cluster capacity analysis
 // The analysis is completely independent of apiserver so no need
 // for kubeconfig nor for apiserver url
-func New(kubeSchedulerConfig *schedconfig.CompletedConfig, simulatedPod *v1.Pod, maxPods int) (*ClusterCapacity, error) {
+func New(kubeSchedulerConfig *schedconfig.CompletedConfig, kubeConfig *restclient.Config, simulatedPod *v1.Pod, maxPods int) (*ClusterCapacity, error) {
 	client := fakeclientset.NewSimpleClientset()
 	sharedInformerFactory := informers.NewSharedInformerFactory(client, 0)
+
+	// build a list of informers to wait for
+	sharedInformerFactory.Core().V1().Namespaces().Informer()
 
 	kubeSchedulerConfig.Client = client
 
@@ -430,6 +447,11 @@ func New(kubeSchedulerConfig *schedconfig.CompletedConfig, simulatedPod *v1.Pod,
 		schedulerCh:        make(chan struct{}),
 	}
 
+	if kubeConfig != nil {
+		dynClient := dynamic.NewForConfigOrDie(kubeConfig)
+		cc.dynInformerFactory = dynamicinformer.NewFilteredDynamicSharedInformerFactory(dynClient, 0, v1.NamespaceAll, nil)
+	}
+
 	cc.schedulers = make(map[string]*scheduler.Scheduler)
 
 	scheduler, err := cc.createScheduler(v1.DefaultSchedulerName, kubeSchedulerConfig)
@@ -439,6 +461,14 @@ func New(kubeSchedulerConfig *schedconfig.CompletedConfig, simulatedPod *v1.Pod,
 
 	cc.schedulers[v1.DefaultSchedulerName] = scheduler
 	cc.defaultSchedulerName = v1.DefaultSchedulerName
+
+	cc.informerFactory.Start(cc.informerStopCh)
+	cc.informerFactory.WaitForCacheSync(cc.informerStopCh)
+	if cc.dynInformerFactory != nil {
+		cc.dynInformerFactory.Start(cc.informerStopCh)
+		cc.dynInformerFactory.WaitForCacheSync(cc.informerStopCh)
+	}
+
 	return cc, nil
 }
 
@@ -447,7 +477,6 @@ func InitKubeSchedulerConfiguration(opts *schedoptions.Options) (*schedconfig.Co
 	// clear out all unnecesary options so no port is bound
 	// to allow running multiple instances in a row
 	opts.Deprecated = nil
-	opts.CombinedInsecureServing = nil
 	opts.SecureServing = nil
 	if err := opts.ApplyTo(c); err != nil {
 		return nil, fmt.Errorf("unable to get scheduler config: %v", err)
