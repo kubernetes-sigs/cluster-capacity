@@ -29,6 +29,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	clientset "k8s.io/client-go/kubernetes"
+	restclient "k8s.io/client-go/rest"
 	api "k8s.io/kubernetes/pkg/apis/core"
 	apiv1 "k8s.io/kubernetes/pkg/apis/core/v1"
 	"k8s.io/kubernetes/pkg/apis/core/validation"
@@ -37,6 +38,7 @@ import (
 type ClusterCapacityConfig struct {
 	Pod        *v1.Pod
 	KubeClient clientset.Interface
+	RestConfig *restclient.Config
 	Options    *ClusterCapacityOptions
 }
 

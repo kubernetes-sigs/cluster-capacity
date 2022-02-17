@@ -31,7 +31,7 @@ import (
 	aflag "k8s.io/component-base/cli/flag"
 	configv1alpha1 "k8s.io/component-base/config/v1alpha1"
 	"k8s.io/component-base/logs"
-	kubeschedulerconfigv1beta1 "k8s.io/kube-scheduler/config/v1beta1"
+	kubeschedulerconfigv1beta2 "k8s.io/kube-scheduler/config/v1beta2"
 	schedconfig "k8s.io/kubernetes/cmd/kube-scheduler/app/config"
 	schedoptions "k8s.io/kubernetes/cmd/kube-scheduler/app/options"
 	kubeschedulerconfig "k8s.io/kubernetes/pkg/scheduler/apis/config"
@@ -96,7 +96,7 @@ func Validate(opt *options.ClusterCapacityOptions) error {
 func Run(opt *options.ClusterCapacityOptions) error {
 	conf := options.NewClusterCapacityConfig(opt)
 
-	versionedCfg := kubeschedulerconfigv1beta1.KubeSchedulerConfiguration{}
+	versionedCfg := kubeschedulerconfigv1beta2.KubeSchedulerConfiguration{}
 	versionedCfg.DebuggingConfiguration = *configv1alpha1.NewRecommendedDebuggingConfiguration()
 
 	kubeschedulerscheme.Scheme.Default(&versionedCfg)
@@ -158,6 +158,7 @@ func Run(opt *options.ClusterCapacityOptions) error {
 	}
 
 	conf.KubeClient, err = clientset.NewForConfig(cfg)
+	conf.RestConfig = cfg
 
 	if err != nil {
 		return err
@@ -174,7 +175,7 @@ func Run(opt *options.ClusterCapacityOptions) error {
 }
 
 func runSimulator(s *options.ClusterCapacityConfig, kubeSchedulerConfig *schedconfig.CompletedConfig) (*framework.ClusterCapacityReview, error) {
-	cc, err := framework.New(kubeSchedulerConfig, s.Pod, s.Options.MaxLimit)
+	cc, err := framework.New(kubeSchedulerConfig, s.RestConfig, s.Pod, s.Options.MaxLimit)
 	if err != nil {
 		return nil, err
 	}
