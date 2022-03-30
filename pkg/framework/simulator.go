@@ -89,6 +89,55 @@ type Status struct {
 	StopReason string
 }
 
+// Create new cluster capacity analysis
+// The analysis is completely independent of apiserver so no need
+// for kubeconfig nor for apiserver url
+func New(kubeSchedulerConfig *schedconfig.CompletedConfig, kubeConfig *restclient.Config, simulatedPod *v1.Pod, maxPods int) (*ClusterCapacity, error) {
+	client := fakeclientset.NewSimpleClientset()
+	sharedInformerFactory := informers.NewSharedInformerFactory(client, 0)
+
+	// build a list of informers to wait for
+	sharedInformerFactory.Core().V1().Namespaces().Informer()
+
+	kubeSchedulerConfig.Client = client
+
+	cc := &ClusterCapacity{
+		strategy:           strategy.NewPredictiveStrategy(client),
+		externalkubeclient: client,
+		simulatedPod:       simulatedPod,
+		simulated:          0,
+		maxSimulated:       maxPods,
+		stop:               make(chan struct{}),
+		informerFactory:    sharedInformerFactory,
+		informerStopCh:     make(chan struct{}),
+		schedulerCh:        make(chan struct{}),
+	}
+
+	if kubeConfig != nil {
+		dynClient := dynamic.NewForConfigOrDie(kubeConfig)
+		cc.dynInformerFactory = dynamicinformer.NewFilteredDynamicSharedInformerFactory(dynClient, 0, v1.NamespaceAll, nil)
+	}
+
+	cc.schedulers = make(map[string]*scheduler.Scheduler)
+
+	scheduler, err := cc.createScheduler(v1.DefaultSchedulerName, kubeSchedulerConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	cc.schedulers[v1.DefaultSchedulerName] = scheduler
+	cc.defaultSchedulerName = v1.DefaultSchedulerName
+
+	cc.informerFactory.Start(cc.informerStopCh)
+	cc.informerFactory.WaitForCacheSync(cc.informerStopCh)
+	if cc.dynInformerFactory != nil {
+		cc.dynInformerFactory.Start(cc.informerStopCh)
+		cc.dynInformerFactory.WaitForCacheSync(cc.informerStopCh)
+	}
+
+	return cc, nil
+}
+
 func (c *ClusterCapacity) Report() *ClusterCapacityReview {
 	if c.report == nil {
 		// Preparation before pod sequence scheduling is done
@@ -421,55 +470,6 @@ func getRecorderFactory(cc *schedconfig.CompletedConfig) profile.RecorderFactory
 	return func(name string) events.EventRecorder {
 		return cc.EventBroadcaster.NewRecorder(name)
 	}
-}
-
-// Create new cluster capacity analysis
-// The analysis is completely independent of apiserver so no need
-// for kubeconfig nor for apiserver url
-func New(kubeSchedulerConfig *schedconfig.CompletedConfig, kubeConfig *restclient.Config, simulatedPod *v1.Pod, maxPods int) (*ClusterCapacity, error) {
-	client := fakeclientset.NewSimpleClientset()
-	sharedInformerFactory := informers.NewSharedInformerFactory(client, 0)
-
-	// build a list of informers to wait for
-	sharedInformerFactory.Core().V1().Namespaces().Informer()
-
-	kubeSchedulerConfig.Client = client
-
-	cc := &ClusterCapacity{
-		strategy:           strategy.NewPredictiveStrategy(client),
-		externalkubeclient: client,
-		simulatedPod:       simulatedPod,
-		simulated:          0,
-		maxSimulated:       maxPods,
-		stop:               make(chan struct{}),
-		informerFactory:    sharedInformerFactory,
-		informerStopCh:     make(chan struct{}),
-		schedulerCh:        make(chan struct{}),
-	}
-
-	if kubeConfig != nil {
-		dynClient := dynamic.NewForConfigOrDie(kubeConfig)
-		cc.dynInformerFactory = dynamicinformer.NewFilteredDynamicSharedInformerFactory(dynClient, 0, v1.NamespaceAll, nil)
-	}
-
-	cc.schedulers = make(map[string]*scheduler.Scheduler)
-
-	scheduler, err := cc.createScheduler(v1.DefaultSchedulerName, kubeSchedulerConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	cc.schedulers[v1.DefaultSchedulerName] = scheduler
-	cc.defaultSchedulerName = v1.DefaultSchedulerName
-
-	cc.informerFactory.Start(cc.informerStopCh)
-	cc.informerFactory.WaitForCacheSync(cc.informerStopCh)
-	if cc.dynInformerFactory != nil {
-		cc.dynInformerFactory.Start(cc.informerStopCh)
-		cc.dynInformerFactory.WaitForCacheSync(cc.informerStopCh)
-	}
-
-	return cc, nil
 }
 
 func InitKubeSchedulerConfiguration(opts *schedoptions.Options) (*schedconfig.CompletedConfig, error) {
