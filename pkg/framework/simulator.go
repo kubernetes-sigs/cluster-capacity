@@ -44,7 +44,6 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 	"sigs.k8s.io/cluster-capacity/pkg/framework/plugins/clustercapacitybinder"
-	"sigs.k8s.io/cluster-capacity/pkg/framework/strategy"
 )
 
 const (
@@ -52,9 +51,6 @@ const (
 )
 
 type ClusterCapacity struct {
-	// emulation strategy
-	strategy strategy.Strategy
-
 	externalkubeclient externalclientset.Interface
 	informerFactory    informers.SharedInformerFactory
 	dynInformerFactory dynamicinformer.DynamicSharedInformerFactory
@@ -104,7 +100,6 @@ func New(kubeSchedulerConfig *schedconfig.CompletedConfig, kubeConfig *restclien
 	kubeSchedulerConfig.Client = client
 
 	cc := &ClusterCapacity{
-		strategy:           strategy.NewPredictiveStrategy(client),
 		externalkubeclient: client,
 		simulatedPod:       simulatedPod,
 		simulated:          0,
