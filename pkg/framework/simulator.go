@@ -43,6 +43,7 @@ import (
 	"k8s.io/client-go/tools/events"
 
 	uuid "github.com/satori/go.uuid"
+	"sigs.k8s.io/cluster-capacity/pkg/framework/plugins/clustercapacitybinder"
 	"sigs.k8s.io/cluster-capacity/pkg/framework/strategy"
 )
 
@@ -62,6 +63,7 @@ type ClusterCapacity struct {
 	schedulers           map[string]*scheduler.Scheduler
 	defaultSchedulerName string
 	defaultSchedulerConf *schedconfig.CompletedConfig
+
 	// pod to schedule
 	simulatedPod     *v1.Pod
 	lastSimulatedPod *v1.Pod
@@ -264,21 +266,7 @@ func (c *ClusterCapacity) SyncWithClient(client externalclientset.Interface) err
 	return nil
 }
 
-func (c *ClusterCapacity) Bind(ctx context.Context, state *framework.CycleState, p *v1.Pod, nodeName string, schedulerName string) *framework.Status {
-	// run the pod through strategy
-	pod, err := c.externalkubeclient.CoreV1().Pods(p.Namespace).Get(context.TODO(), p.Name, metav1.GetOptions{})
-	if err != nil {
-		return framework.NewStatus(framework.Error, fmt.Sprintf("Unable to bind: %v", err))
-	}
-	updatedPod := pod.DeepCopy()
-	updatedPod.Spec.NodeName = nodeName
-	updatedPod.Status.Phase = v1.PodRunning
-
-	// TODO(jchaloup): rename Add to Update as this actually updates the scheduled pod
-	if err := c.strategy.Add(updatedPod); err != nil {
-		return framework.NewStatus(framework.Error, fmt.Sprintf("Unable to recompute new cluster state: %v", err))
-	}
-
+func (c *ClusterCapacity) postBindHook(updatedPod *v1.Pod) error {
 	c.status.Pods = append(c.status.Pods, updatedPod)
 
 	if c.maxSimulated > 0 && c.simulated >= c.maxSimulated {
@@ -290,7 +278,7 @@ func (c *ClusterCapacity) Bind(ctx context.Context, state *framework.CycleState,
 
 	// all good, create another pod
 	if err := c.nextPod(); err != nil {
-		return framework.NewStatus(framework.Error, fmt.Sprintf("Unable to create next pod to schedule: %v", err))
+		return fmt.Errorf("Unable to create next pod for simulated scheduling: %v", err)
 	}
 	return nil
 }
@@ -365,8 +353,9 @@ func (c *ClusterCapacity) Run() error {
 
 	// TODO(jchaloup): remove all pods that are not scheduled yet
 	for _, scheduler := range c.schedulers {
+		s := scheduler
 		go func() {
-			scheduler.Run(ctx)
+			s.Run(ctx)
 		}()
 	}
 	// wait some time before at least nodes are populated
@@ -386,31 +375,10 @@ func (c *ClusterCapacity) Run() error {
 	return nil
 }
 
-type localBinderPodConditionUpdater struct {
-	schedulerName string
-	c             *ClusterCapacity
-}
-
-func (b *localBinderPodConditionUpdater) Name() string {
-	return "ClusterCapacityBinder"
-}
-
-// TODO(jchaloup): Needs to be locked since the scheduler runs the binding phase in a go routine
-func (b *localBinderPodConditionUpdater) Bind(ctx context.Context, state *framework.CycleState, p *v1.Pod, nodeName string) *framework.Status {
-	return b.c.Bind(ctx, state, p, nodeName, b.schedulerName)
-}
-
-func (c *ClusterCapacity) NewBindPlugin(schedulerName string, configuration runtime.Object, f framework.Handle) (framework.Plugin, error) {
-	return &localBinderPodConditionUpdater{
-		schedulerName: schedulerName,
-		c:             c,
-	}, nil
-}
-
 func (c *ClusterCapacity) createScheduler(schedulerName string, cc *schedconfig.CompletedConfig) (*scheduler.Scheduler, error) {
 	outOfTreeRegistry := frameworkruntime.Registry{
 		"ClusterCapacityBinder": func(configuration runtime.Object, f framework.Handle) (framework.Plugin, error) {
-			return c.NewBindPlugin(schedulerName, configuration, f)
+			return clustercapacitybinder.New(c.externalkubeclient, configuration, f, c.postBindHook)
 		},
 	}
 
