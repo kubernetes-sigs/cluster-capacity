@@ -32,7 +32,6 @@ import (
 	fakeclientset "k8s.io/client-go/kubernetes/fake"
 	restclient "k8s.io/client-go/rest"
 	schedconfig "k8s.io/kubernetes/cmd/kube-scheduler/app/config"
-	schedoptions "k8s.io/kubernetes/cmd/kube-scheduler/app/options"
 	"k8s.io/kubernetes/pkg/scheduler"
 	framework "k8s.io/kubernetes/pkg/scheduler/framework"
 	frameworkruntime "k8s.io/kubernetes/pkg/scheduler/framework/runtime"
@@ -399,23 +398,4 @@ func getRecorderFactory(cc *schedconfig.CompletedConfig) profile.RecorderFactory
 	return func(name string) events.EventRecorder {
 		return cc.EventBroadcaster.NewRecorder(name)
 	}
-}
-
-func InitKubeSchedulerConfiguration(opts *schedoptions.Options) (*schedconfig.CompletedConfig, error) {
-	c := &schedconfig.Config{}
-	// clear out all unnecesary options so no port is bound
-	// to allow running multiple instances in a row
-	opts.Deprecated = nil
-	opts.SecureServing = nil
-	if err := opts.ApplyTo(c); err != nil {
-		return nil, fmt.Errorf("unable to get scheduler config: %v", err)
-	}
-
-	// Get the completed config
-	cc := c.Complete()
-
-	// completely ignore the events
-	cc.EventBroadcaster = events.NewEventBroadcasterAdapter(fakeclientset.NewSimpleClientset())
-
-	return &cc, nil
 }

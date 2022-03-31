@@ -19,6 +19,7 @@ package app
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 
 	"github.com/lithammer/dedent"
@@ -29,13 +30,10 @@ import (
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	aflag "k8s.io/component-base/cli/flag"
-	configv1alpha1 "k8s.io/component-base/config/v1alpha1"
-	"k8s.io/component-base/logs"
-	kubeschedulerconfigv1beta2 "k8s.io/kube-scheduler/config/v1beta2"
 	schedconfig "k8s.io/kubernetes/cmd/kube-scheduler/app/config"
-	schedoptions "k8s.io/kubernetes/cmd/kube-scheduler/app/options"
 	kubeschedulerconfig "k8s.io/kubernetes/pkg/scheduler/apis/config"
 	kubeschedulerscheme "k8s.io/kubernetes/pkg/scheduler/apis/config/scheme"
+	"k8s.io/kubernetes/pkg/scheduler/apis/config/validation"
 
 	"sigs.k8s.io/cluster-capacity/cmd/cluster-capacity/app/options"
 	"sigs.k8s.io/cluster-capacity/pkg/framework"
@@ -96,39 +94,21 @@ func Validate(opt *options.ClusterCapacityOptions) error {
 func Run(opt *options.ClusterCapacityOptions) error {
 	conf := options.NewClusterCapacityConfig(opt)
 
-	versionedCfg := kubeschedulerconfigv1beta2.KubeSchedulerConfiguration{}
-	versionedCfg.DebuggingConfiguration = *configv1alpha1.NewRecommendedDebuggingConfiguration()
-
-	kubeschedulerscheme.Scheme.Default(&versionedCfg)
-	kcfg := kubeschedulerconfig.KubeSchedulerConfiguration{}
-	if err := kubeschedulerscheme.Scheme.Convert(&versionedCfg, &kcfg, nil); err != nil {
-		return err
-	}
-
-	// Always set the list of bind plugins to ClusterCapacityBinder
-	if len(kcfg.Profiles) == 0 {
-		kcfg.Profiles = []kubeschedulerconfig.KubeSchedulerProfile{
-			{},
+	kcfg := &kubeschedulerconfig.KubeSchedulerConfiguration{}
+	if len(conf.Options.DefaultSchedulerConfigFile) > 0 {
+		cfg, err := loadConfigFromFile(conf.Options.DefaultSchedulerConfigFile)
+		if err != nil {
+			return err
 		}
+		if err := validation.ValidateKubeSchedulerConfiguration(cfg); err != nil {
+			return err
+		}
+		kcfg = cfg
+	} else {
+		kcfg = nil
 	}
 
-	kcfg.Profiles[0].SchedulerName = v1.DefaultSchedulerName
-	if kcfg.Profiles[0].Plugins == nil {
-		kcfg.Profiles[0].Plugins = &kubeschedulerconfig.Plugins{}
-	}
-
-	kcfg.Profiles[0].Plugins.Bind = kubeschedulerconfig.PluginSet{
-		Enabled:  []kubeschedulerconfig.Plugin{{Name: "ClusterCapacityBinder"}},
-		Disabled: []kubeschedulerconfig.Plugin{{Name: "DefaultBinder"}},
-	}
-
-	opts := &schedoptions.Options{
-		ComponentConfig: &kcfg,
-		ConfigFile:      conf.Options.DefaultSchedulerConfigFile,
-		Logs:            logs.NewOptions(),
-	}
-
-	cc, err := framework.InitKubeSchedulerConfiguration(opts)
+	cc, err := utils.BuildKubeSchedulerCompletedConfig(kcfg)
 	if err != nil {
 		return fmt.Errorf("failed to init kube scheduler configuration: %v ", err)
 	}
@@ -192,4 +172,29 @@ func runSimulator(s *options.ClusterCapacityConfig, kubeSchedulerConfig *schedco
 
 	report := cc.Report()
 	return report, nil
+}
+
+func loadConfigFromFile(file string) (*kubeschedulerconfig.KubeSchedulerConfiguration, error) {
+	data, err := ioutil.ReadFile(file)
+	if err != nil {
+		return nil, err
+	}
+	return loadConfig(data)
+}
+
+func loadConfig(data []byte) (*kubeschedulerconfig.KubeSchedulerConfiguration, error) {
+	// The UniversalDecoder runs defaulting and returns the internal type by default.
+	obj, gvk, err := kubeschedulerscheme.Codecs.UniversalDecoder().Decode(data, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	if cfgObj, ok := obj.(*kubeschedulerconfig.KubeSchedulerConfiguration); ok {
+		// We don't set this field in pkg/scheduler/apis/config/{version}/conversion.go
+		// because the field will be cleared later by API machinery during
+		// conversion. See KubeSchedulerConfiguration internal type definition for
+		// more details.
+		cfgObj.TypeMeta.APIVersion = gvk.GroupVersion().String()
+		return cfgObj, nil
+	}
+	return nil, fmt.Errorf("couldn't decode as KubeSchedulerConfiguration, got %s: ", gvk)
 }

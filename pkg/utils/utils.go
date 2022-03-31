@@ -22,8 +22,17 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	fakeclientset "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/events"
+	configv1alpha1 "k8s.io/component-base/config/v1alpha1"
+	"k8s.io/component-base/logs"
+	kubeschedulerconfigv1beta2 "k8s.io/kube-scheduler/config/v1beta2"
+	schedconfig "k8s.io/kubernetes/cmd/kube-scheduler/app/config"
+	kubescheduleroptions "k8s.io/kubernetes/cmd/kube-scheduler/app/options"
 	"k8s.io/kubernetes/pkg/api/legacyscheme"
+	kubeschedulerconfig "k8s.io/kubernetes/pkg/scheduler/apis/config"
+	kubeschedulerscheme "k8s.io/kubernetes/pkg/scheduler/apis/config/scheme"
 )
 
 func init() {
@@ -73,4 +82,55 @@ func GetMasterFromKubeConfig(filename string) (string, error) {
 		return val.Server, nil
 	}
 	return "", fmt.Errorf("Failed to get master address from kubeconfig")
+}
+
+func BuildKubeSchedulerCompletedConfig(kcfg *kubeschedulerconfig.KubeSchedulerConfiguration) (*schedconfig.CompletedConfig, error) {
+	if kcfg == nil {
+		kcfg = &kubeschedulerconfig.KubeSchedulerConfiguration{}
+		versionedCfg := kubeschedulerconfigv1beta2.KubeSchedulerConfiguration{}
+		versionedCfg.DebuggingConfiguration = *configv1alpha1.NewRecommendedDebuggingConfiguration()
+
+		kubeschedulerscheme.Scheme.Default(&versionedCfg)
+		if err := kubeschedulerscheme.Scheme.Convert(&versionedCfg, kcfg, nil); err != nil {
+			return nil, err
+		}
+	}
+	// inject scheduler config config
+	if len(kcfg.Profiles) == 0 {
+		kcfg.Profiles = []kubeschedulerconfig.KubeSchedulerProfile{
+			{},
+		}
+	}
+
+	kcfg.Profiles[0].SchedulerName = v1.DefaultSchedulerName
+	if kcfg.Profiles[0].Plugins == nil {
+		kcfg.Profiles[0].Plugins = &kubeschedulerconfig.Plugins{}
+	}
+
+	kcfg.Profiles[0].Plugins.Bind = kubeschedulerconfig.PluginSet{
+		Enabled:  []kubeschedulerconfig.Plugin{{Name: "ClusterCapacityBinder"}},
+		Disabled: []kubeschedulerconfig.Plugin{{Name: "DefaultBinder"}},
+	}
+
+	opts := &kubescheduleroptions.Options{
+		ComponentConfig: kcfg,
+		Logs:            logs.NewOptions(),
+	}
+
+	c := &schedconfig.Config{}
+	// clear out all unnecesary options so no port is bound
+	// to allow running multiple instances in a row
+	opts.Deprecated = nil
+	opts.SecureServing = nil
+	if err := opts.ApplyTo(c); err != nil {
+		return nil, fmt.Errorf("unable to get scheduler config: %v", err)
+	}
+
+	// Get the completed config
+	cc := c.Complete()
+
+	// completely ignore the events
+	cc.EventBroadcaster = events.NewEventBroadcasterAdapter(fakeclientset.NewSimpleClientset())
+
+	return &cc, nil
 }
