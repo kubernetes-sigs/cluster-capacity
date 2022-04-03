@@ -146,6 +146,10 @@ func (c *ClusterCapacity) Report() *ClusterCapacityReview {
 	return c.report
 }
 
+func (c *ClusterCapacity) ScheduledPods() []*v1.Pod {
+	return c.status.Pods
+}
+
 func (c *ClusterCapacity) SyncWithClient(client externalclientset.Interface) error {
 	nsItems, err := client.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
