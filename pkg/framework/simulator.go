@@ -25,7 +25,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/informers"
@@ -33,7 +32,6 @@ import (
 	fakeclientset "k8s.io/client-go/kubernetes/fake"
 	restclient "k8s.io/client-go/rest"
 	schedconfig "k8s.io/kubernetes/cmd/kube-scheduler/app/config"
-	schedoptions "k8s.io/kubernetes/cmd/kube-scheduler/app/options"
 	"k8s.io/kubernetes/pkg/scheduler"
 	framework "k8s.io/kubernetes/pkg/scheduler/framework"
 	frameworkruntime "k8s.io/kubernetes/pkg/scheduler/framework/runtime"
@@ -42,8 +40,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/events"
 
-	uuid "github.com/satori/go.uuid"
-	"sigs.k8s.io/cluster-capacity/pkg/framework/strategy"
+	"sigs.k8s.io/cluster-capacity/pkg/framework/plugins/clustercapacitybinder"
 )
 
 const (
@@ -51,9 +48,6 @@ const (
 )
 
 type ClusterCapacity struct {
-	// emulation strategy
-	strategy strategy.Strategy
-
 	externalkubeclient externalclientset.Interface
 	informerFactory    informers.SharedInformerFactory
 	dynInformerFactory dynamicinformer.DynamicSharedInformerFactory
@@ -62,7 +56,9 @@ type ClusterCapacity struct {
 	schedulers           map[string]*scheduler.Scheduler
 	defaultSchedulerName string
 	defaultSchedulerConf *schedconfig.CompletedConfig
+
 	// pod to schedule
+	podGenerator     PodGenerator
 	simulatedPod     *v1.Pod
 	lastSimulatedPod *v1.Pod
 	maxSimulated     int
@@ -89,6 +85,55 @@ type Status struct {
 	StopReason string
 }
 
+// Create new cluster capacity analysis
+// The analysis is completely independent of apiserver so no need
+// for kubeconfig nor for apiserver url
+func New(kubeSchedulerConfig *schedconfig.CompletedConfig, kubeConfig *restclient.Config, simulatedPod *v1.Pod, maxPods int) (*ClusterCapacity, error) {
+	client := fakeclientset.NewSimpleClientset()
+	sharedInformerFactory := informers.NewSharedInformerFactory(client, 0)
+
+	// build a list of informers to wait for
+	sharedInformerFactory.Core().V1().Namespaces().Informer()
+
+	kubeSchedulerConfig.Client = client
+
+	cc := &ClusterCapacity{
+		externalkubeclient: client,
+		podGenerator:       NewSinglePodGenerator(simulatedPod),
+		simulatedPod:       simulatedPod,
+		simulated:          0,
+		maxSimulated:       maxPods,
+		stop:               make(chan struct{}),
+		informerFactory:    sharedInformerFactory,
+		informerStopCh:     make(chan struct{}),
+		schedulerCh:        make(chan struct{}),
+	}
+
+	if kubeConfig != nil {
+		dynClient := dynamic.NewForConfigOrDie(kubeConfig)
+		cc.dynInformerFactory = dynamicinformer.NewFilteredDynamicSharedInformerFactory(dynClient, 0, v1.NamespaceAll, nil)
+	}
+
+	cc.schedulers = make(map[string]*scheduler.Scheduler)
+
+	scheduler, err := cc.createScheduler(v1.DefaultSchedulerName, kubeSchedulerConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	cc.schedulers[v1.DefaultSchedulerName] = scheduler
+	cc.defaultSchedulerName = v1.DefaultSchedulerName
+
+	cc.informerFactory.Start(cc.informerStopCh)
+	cc.informerFactory.WaitForCacheSync(cc.informerStopCh)
+	if cc.dynInformerFactory != nil {
+		cc.dynInformerFactory.Start(cc.informerStopCh)
+		cc.dynInformerFactory.WaitForCacheSync(cc.informerStopCh)
+	}
+
+	return cc, nil
+}
+
 func (c *ClusterCapacity) Report() *ClusterCapacityReview {
 	if c.report == nil {
 		// Preparation before pod sequence scheduling is done
@@ -99,6 +144,10 @@ func (c *ClusterCapacity) Report() *ClusterCapacityReview {
 	}
 
 	return c.report
+}
+
+func (c *ClusterCapacity) ScheduledPods() []*v1.Pod {
+	return c.status.Pods
 }
 
 func (c *ClusterCapacity) SyncWithClient(client externalclientset.Interface) error {
@@ -215,21 +264,7 @@ func (c *ClusterCapacity) SyncWithClient(client externalclientset.Interface) err
 	return nil
 }
 
-func (c *ClusterCapacity) Bind(ctx context.Context, state *framework.CycleState, p *v1.Pod, nodeName string, schedulerName string) *framework.Status {
-	// run the pod through strategy
-	pod, err := c.externalkubeclient.CoreV1().Pods(p.Namespace).Get(context.TODO(), p.Name, metav1.GetOptions{})
-	if err != nil {
-		return framework.NewStatus(framework.Error, fmt.Sprintf("Unable to bind: %v", err))
-	}
-	updatedPod := pod.DeepCopy()
-	updatedPod.Spec.NodeName = nodeName
-	updatedPod.Status.Phase = v1.PodRunning
-
-	// TODO(jchaloup): rename Add to Update as this actually updates the scheduled pod
-	if err := c.strategy.Add(updatedPod); err != nil {
-		return framework.NewStatus(framework.Error, fmt.Sprintf("Unable to recompute new cluster state: %v", err))
-	}
-
+func (c *ClusterCapacity) postBindHook(updatedPod *v1.Pod) error {
 	c.status.Pods = append(c.status.Pods, updatedPod)
 
 	if c.maxSimulated > 0 && c.simulated >= c.maxSimulated {
@@ -240,8 +275,8 @@ func (c *ClusterCapacity) Bind(ctx context.Context, state *framework.CycleState,
 	}
 
 	// all good, create another pod
-	if err := c.nextPod(); err != nil {
-		return framework.NewStatus(framework.Error, fmt.Sprintf("Unable to create next pod to schedule: %v", err))
+	if err := c.createNextPod(); err != nil {
+		return fmt.Errorf("Unable to create next pod for simulated scheduling: %v", err)
 	}
 	return nil
 }
@@ -276,55 +311,33 @@ func (c *ClusterCapacity) Update(pod *v1.Pod, podCondition *v1.PodCondition, sch
 	return nil
 }
 
-func (c *ClusterCapacity) nextPod() error {
-	pod := v1.Pod{}
-	pod = *c.simulatedPod.DeepCopy()
-	// reset any node designation set
-	pod.Spec.NodeName = ""
-	// use simulated pod name with an index to construct the name
-	pod.ObjectMeta.Name = fmt.Sprintf("%v-%v", c.simulatedPod.Name, c.simulated)
-	pod.ObjectMeta.UID = types.UID(uuid.NewV4().String())
+func (c *ClusterCapacity) createNextPod() error {
+	pod := c.podGenerator.Generate()
 	pod.Spec.SchedulerName = c.defaultSchedulerName
-
-	// Add pod provisioner annotation
-	if pod.ObjectMeta.Annotations == nil {
-		pod.ObjectMeta.Annotations = map[string]string{}
-	}
-
-	// Stores the scheduler name
 	pod.ObjectMeta.Annotations[podProvisioner] = c.defaultSchedulerName
 
 	c.simulated++
-	c.lastSimulatedPod = &pod
+	c.lastSimulatedPod = pod
 
-	_, err := c.externalkubeclient.CoreV1().Pods(pod.Namespace).Create(context.TODO(), &pod, metav1.CreateOptions{})
+	_, err := c.externalkubeclient.CoreV1().Pods(pod.Namespace).Create(context.TODO(), pod, metav1.CreateOptions{})
 	return err
 }
 
 func (c *ClusterCapacity) Run() error {
-	// Start all informers.
-	// First sync the NS informer
-	// Disable the pods informer until the namespaces are populated.
-	// c.informerFactory.
-
-	// c.informerFactory.Start(c.informerStopCh)
-	// c.informerFactory.WaitForCacheSync(c.informerStopCh)
-	// c.dynInformerFactory.Start(c.informerStopCh)
-	// c.dynInformerFactory.WaitForCacheSync(c.informerStopCh)
-
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// TODO(jchaloup): remove all pods that are not scheduled yet
 	for _, scheduler := range c.schedulers {
+		s := scheduler
 		go func() {
-			scheduler.Run(ctx)
+			s.Run(ctx)
 		}()
 	}
 	// wait some time before at least nodes are populated
 	// TODO(jchaloup); find a better way how to do this or at least decrease it to <100ms
 	time.Sleep(100 * time.Millisecond)
 	// create the first simulated pod
-	err := c.nextPod()
+	err := c.createNextPod()
 	if err != nil {
 		cancel()
 		c.Close()
@@ -337,31 +350,10 @@ func (c *ClusterCapacity) Run() error {
 	return nil
 }
 
-type localBinderPodConditionUpdater struct {
-	schedulerName string
-	c             *ClusterCapacity
-}
-
-func (b *localBinderPodConditionUpdater) Name() string {
-	return "ClusterCapacityBinder"
-}
-
-// TODO(jchaloup): Needs to be locked since the scheduler runs the binding phase in a go routine
-func (b *localBinderPodConditionUpdater) Bind(ctx context.Context, state *framework.CycleState, p *v1.Pod, nodeName string) *framework.Status {
-	return b.c.Bind(ctx, state, p, nodeName, b.schedulerName)
-}
-
-func (c *ClusterCapacity) NewBindPlugin(schedulerName string, configuration runtime.Object, f framework.Handle) (framework.Plugin, error) {
-	return &localBinderPodConditionUpdater{
-		schedulerName: schedulerName,
-		c:             c,
-	}, nil
-}
-
 func (c *ClusterCapacity) createScheduler(schedulerName string, cc *schedconfig.CompletedConfig) (*scheduler.Scheduler, error) {
 	outOfTreeRegistry := frameworkruntime.Registry{
 		"ClusterCapacityBinder": func(configuration runtime.Object, f framework.Handle) (framework.Plugin, error) {
-			return c.NewBindPlugin(schedulerName, configuration, f)
+			return clustercapacitybinder.New(c.externalkubeclient, configuration, f, c.postBindHook)
 		},
 	}
 
@@ -406,87 +398,8 @@ func (c *ClusterCapacity) createScheduler(schedulerName string, cc *schedconfig.
 	)
 }
 
-// TODO(avesh): enable when support for multiple schedulers is added.
-/*func (c *ClusterCapacity) AddScheduler(s *sapps.SchedulerServer) error {
-	scheduler, err := c.createScheduler(s)
-	if err != nil {
-		return err
-	}
-
-	c.schedulers[s.SchedulerName] = scheduler
-	return nil
-}*/
-
 func getRecorderFactory(cc *schedconfig.CompletedConfig) profile.RecorderFactory {
 	return func(name string) events.EventRecorder {
 		return cc.EventBroadcaster.NewRecorder(name)
 	}
-}
-
-// Create new cluster capacity analysis
-// The analysis is completely independent of apiserver so no need
-// for kubeconfig nor for apiserver url
-func New(kubeSchedulerConfig *schedconfig.CompletedConfig, kubeConfig *restclient.Config, simulatedPod *v1.Pod, maxPods int) (*ClusterCapacity, error) {
-	client := fakeclientset.NewSimpleClientset()
-	sharedInformerFactory := informers.NewSharedInformerFactory(client, 0)
-
-	// build a list of informers to wait for
-	sharedInformerFactory.Core().V1().Namespaces().Informer()
-
-	kubeSchedulerConfig.Client = client
-
-	cc := &ClusterCapacity{
-		strategy:           strategy.NewPredictiveStrategy(client),
-		externalkubeclient: client,
-		simulatedPod:       simulatedPod,
-		simulated:          0,
-		maxSimulated:       maxPods,
-		stop:               make(chan struct{}),
-		informerFactory:    sharedInformerFactory,
-		informerStopCh:     make(chan struct{}),
-		schedulerCh:        make(chan struct{}),
-	}
-
-	if kubeConfig != nil {
-		dynClient := dynamic.NewForConfigOrDie(kubeConfig)
-		cc.dynInformerFactory = dynamicinformer.NewFilteredDynamicSharedInformerFactory(dynClient, 0, v1.NamespaceAll, nil)
-	}
-
-	cc.schedulers = make(map[string]*scheduler.Scheduler)
-
-	scheduler, err := cc.createScheduler(v1.DefaultSchedulerName, kubeSchedulerConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	cc.schedulers[v1.DefaultSchedulerName] = scheduler
-	cc.defaultSchedulerName = v1.DefaultSchedulerName
-
-	cc.informerFactory.Start(cc.informerStopCh)
-	cc.informerFactory.WaitForCacheSync(cc.informerStopCh)
-	if cc.dynInformerFactory != nil {
-		cc.dynInformerFactory.Start(cc.informerStopCh)
-		cc.dynInformerFactory.WaitForCacheSync(cc.informerStopCh)
-	}
-
-	return cc, nil
-}
-
-func InitKubeSchedulerConfiguration(opts *schedoptions.Options) (*schedconfig.CompletedConfig, error) {
-	c := &schedconfig.Config{}
-	// clear out all unnecesary options so no port is bound
-	// to allow running multiple instances in a row
-	opts.Deprecated = nil
-	opts.SecureServing = nil
-	if err := opts.ApplyTo(c); err != nil {
-		return nil, fmt.Errorf("unable to get scheduler config: %v", err)
-	}
-
-	// Get the completed config
-	cc := c.Complete()
-
-	// completely ignore the events
-	cc.EventBroadcaster = events.NewEventBroadcasterAdapter(fakeclientset.NewSimpleClientset())
-
-	return &cc, nil
 }
