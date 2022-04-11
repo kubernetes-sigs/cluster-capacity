@@ -25,6 +25,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/informers"
@@ -65,6 +66,7 @@ type ClusterCapacity struct {
 	simulated        int
 	status           Status
 	report           *ClusterCapacityReview
+	excludeNodes     sets.String
 
 	// analysis limitation
 	informerStopCh chan struct{}
@@ -88,7 +90,7 @@ type Status struct {
 // Create new cluster capacity analysis
 // The analysis is completely independent of apiserver so no need
 // for kubeconfig nor for apiserver url
-func New(kubeSchedulerConfig *schedconfig.CompletedConfig, kubeConfig *restclient.Config, simulatedPod *v1.Pod, maxPods int) (*ClusterCapacity, error) {
+func New(kubeSchedulerConfig *schedconfig.CompletedConfig, kubeConfig *restclient.Config, simulatedPod *v1.Pod, maxPods int, excludeNodes []string) (*ClusterCapacity, error) {
 	client := fakeclientset.NewSimpleClientset()
 	sharedInformerFactory := informers.NewSharedInformerFactory(client, 0)
 
@@ -107,6 +109,7 @@ func New(kubeSchedulerConfig *schedconfig.CompletedConfig, kubeConfig *restclien
 		informerFactory:    sharedInformerFactory,
 		informerStopCh:     make(chan struct{}),
 		schedulerCh:        make(chan struct{}),
+		excludeNodes:       sets.NewString(excludeNodes...),
 	}
 
 	if kubeConfig != nil {
@@ -179,6 +182,9 @@ func (c *ClusterCapacity) SyncWithClient(client externalclientset.Interface) err
 	}
 
 	for _, item := range nodeItems.Items {
+		if c.excludeNodes.Has(item.Name) {
+			continue
+		}
 		if _, err := c.externalkubeclient.CoreV1().Nodes().Create(context.TODO(), &item, metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("unable to copy node: %v", err)
 		}

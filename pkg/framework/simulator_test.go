@@ -226,6 +226,7 @@ func TestPrediction(t *testing.T) {
 				nil,
 				simulatedPod,
 				test.limit,
+				nil,
 			)
 
 			if err != nil {
