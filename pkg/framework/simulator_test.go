@@ -17,7 +17,6 @@
 package framework
 
 import (
-	"fmt"
 	goruntime "runtime"
 	"testing"
 
@@ -48,7 +47,7 @@ func getGeneralNode(nodeName string) *v1.Node {
 					Type:               v1.NodeMemoryPressure,
 					Status:             v1.ConditionFalse,
 					Reason:             "KubeletHasSufficientMemory",
-					Message:            fmt.Sprintf("kubelet has sufficient memory available"),
+					Message:            "kubelet has sufficient memory available",
 					LastHeartbeatTime:  metav1.Time{},
 					LastTransitionTime: metav1.Time{},
 				},
@@ -56,7 +55,7 @@ func getGeneralNode(nodeName string) *v1.Node {
 					Type:               v1.NodeDiskPressure,
 					Status:             v1.ConditionFalse,
 					Reason:             "KubeletHasNoDiskPressure",
-					Message:            fmt.Sprintf("kubelet has no disk pressure"),
+					Message:            "kubelet has no disk pressure",
 					LastHeartbeatTime:  metav1.Time{},
 					LastTransitionTime: metav1.Time{},
 				},
@@ -64,7 +63,7 @@ func getGeneralNode(nodeName string) *v1.Node {
 					Type:               v1.NodeReady,
 					Status:             v1.ConditionTrue,
 					Reason:             "KubeletReady",
-					Message:            fmt.Sprintf("kubelet is posting ready status"),
+					Message:            "kubelet is posting ready status",
 					LastHeartbeatTime:  metav1.Time{},
 					LastTransitionTime: metav1.Time{},
 				},
