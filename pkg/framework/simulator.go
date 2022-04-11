@@ -60,14 +60,14 @@ type ClusterCapacity struct {
 	defaultSchedulerConf *schedconfig.CompletedConfig
 
 	// pod to schedule
-	podGenerator     PodGenerator
-	simulatedPod     *v1.Pod
-	lastSimulatedPod *v1.Pod
-	maxSimulated     int
-	simulated        int
-	status           Status
-	report           *ClusterCapacityReview
-	excludeNodes     sets.String
+	podGeneratorManager PodGenerator
+	simulatedPods       []*v1.Pod
+	lastSimulatedPod    *v1.Pod
+	maxSimulated        int
+	simulated           int
+	status              Status
+	report              *ClusterCapacityReview
+	excludeNodes        sets.String
 
 	// analysis limitation
 	informerStopCh chan struct{}
@@ -88,10 +88,20 @@ type Status struct {
 	StopReason string
 }
 
+func NewSinglePod(kubeSchedulerConfig *schedconfig.CompletedConfig, kubeConfig *restclient.Config, simulatedPod *v1.Pod, maxPods int, excludeNodes []string) (*ClusterCapacity, error) {
+	simulatedPods := []*v1.Pod{simulatedPod}
+	podGenerators := make([]PodGenerator, len(simulatedPods))
+	for i, tmp := range simulatedPods {
+		podGenerators[i] = NewSinglePodGenerator(tmp, maxPods)
+	}
+
+	return New(kubeSchedulerConfig, kubeConfig, simulatedPods, NewPodGeneratorManager(podGenerators), excludeNodes)
+}
+
 // Create new cluster capacity analysis
 // The analysis is completely independent of apiserver so no need
 // for kubeconfig nor for apiserver url
-func New(kubeSchedulerConfig *schedconfig.CompletedConfig, kubeConfig *restclient.Config, simulatedPod *v1.Pod, maxPods int, excludeNodes []string) (*ClusterCapacity, error) {
+func New(kubeSchedulerConfig *schedconfig.CompletedConfig, kubeConfig *restclient.Config, simulatedPods []*v1.Pod, podGeneratorManager PodGenerator, excludeNodes []string) (*ClusterCapacity, error) {
 	client := fakeclientset.NewSimpleClientset()
 	sharedInformerFactory := informers.NewSharedInformerFactory(client, 0)
 
@@ -101,16 +111,16 @@ func New(kubeSchedulerConfig *schedconfig.CompletedConfig, kubeConfig *restclien
 	kubeSchedulerConfig.Client = client
 
 	cc := &ClusterCapacity{
-		externalkubeclient: client,
-		podGenerator:       NewSinglePodGenerator(simulatedPod),
-		simulatedPod:       simulatedPod,
-		simulated:          0,
-		maxSimulated:       maxPods,
-		stop:               make(chan struct{}),
-		informerFactory:    sharedInformerFactory,
-		informerStopCh:     make(chan struct{}),
-		schedulerCh:        make(chan struct{}),
-		excludeNodes:       sets.NewString(excludeNodes...),
+		externalkubeclient:  client,
+		podGeneratorManager: podGeneratorManager,
+		simulatedPods:       simulatedPods,
+		simulated:           0,
+		maxSimulated:        0,
+		stop:                make(chan struct{}),
+		informerFactory:     sharedInformerFactory,
+		informerStopCh:      make(chan struct{}),
+		schedulerCh:         make(chan struct{}),
+		excludeNodes:        sets.NewString(excludeNodes...),
 	}
 
 	if kubeConfig != nil {
@@ -142,9 +152,7 @@ func New(kubeSchedulerConfig *schedconfig.CompletedConfig, kubeConfig *restclien
 func (c *ClusterCapacity) Report() *ClusterCapacityReview {
 	if c.report == nil {
 		// Preparation before pod sequence scheduling is done
-		pods := make([]*v1.Pod, 0)
-		pods = append(pods, c.simulatedPod)
-		c.report = GetReport(pods, c.status)
+		c.report = GetReport(c.simulatedPods, c.status)
 		c.report.Spec.Replicas = int32(c.maxSimulated)
 	}
 
@@ -275,17 +283,16 @@ func (c *ClusterCapacity) SyncWithClient(client externalclientset.Interface) err
 func (c *ClusterCapacity) postBindHook(updatedPod *v1.Pod) error {
 	c.status.Pods = append(c.status.Pods, updatedPod)
 
-	if c.maxSimulated > 0 && c.simulated >= c.maxSimulated {
+	// all good, create another pod
+	if finish, err := c.createNextPod(); err != nil {
+		return fmt.Errorf("Unable to create next pod for simulated scheduling: %v", err)
+	} else if finish {
 		c.status.StopReason = fmt.Sprintf("LimitReached: Maximum number of pods simulated: %v", c.maxSimulated)
 		c.Close()
 		c.stop <- struct{}{}
 		return nil
 	}
 
-	// all good, create another pod
-	if err := c.createNextPod(); err != nil {
-		return fmt.Errorf("Unable to create next pod for simulated scheduling: %v", err)
-	}
 	return nil
 }
 
@@ -319,8 +326,12 @@ func (c *ClusterCapacity) Update(pod *v1.Pod, podCondition *v1.PodCondition, sch
 	return nil
 }
 
-func (c *ClusterCapacity) createNextPod() error {
-	pod := c.podGenerator.Generate()
+func (c *ClusterCapacity) createNextPod() (bool, error) {
+	pod, genTotal, genFinish := c.podGeneratorManager.Generate()
+	if genFinish {
+		c.maxSimulated = c.maxSimulated + genTotal
+		return true, nil
+	}
 	pod.Spec.SchedulerName = c.defaultSchedulerName
 	pod.ObjectMeta.Annotations[podProvisioner] = c.defaultSchedulerName
 
@@ -328,7 +339,7 @@ func (c *ClusterCapacity) createNextPod() error {
 	c.lastSimulatedPod = pod
 
 	_, err := c.externalkubeclient.CoreV1().Pods(pod.Namespace).Create(context.TODO(), pod, metav1.CreateOptions{})
-	return err
+	return false, err
 }
 
 func (c *ClusterCapacity) Run() error {
@@ -345,12 +356,18 @@ func (c *ClusterCapacity) Run() error {
 	// TODO(jchaloup); find a better way how to do this or at least decrease it to <100ms
 	time.Sleep(100 * time.Millisecond)
 	// create the first simulated pod
-	err := c.createNextPod()
+	finish, err := c.createNextPod()
 	if err != nil {
 		cancel()
 		c.Close()
 		close(c.stop)
 		return fmt.Errorf("Unable to create next pod to schedule: %v", err)
+	}
+	if finish {
+		cancel()
+		c.Close()
+		close(c.stop)
+		return fmt.Errorf("Unable to create next pod to schedule: finish")
 	}
 	<-c.stop
 	cancel()

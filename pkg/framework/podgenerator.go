@@ -9,22 +9,27 @@ import (
 )
 
 type PodGenerator interface {
-	Generate() *v1.Pod
+	Generate() (*v1.Pod, int, bool)
 }
 
 type singlePodGenerator struct {
-	counter     uint
+	counter     int
 	podTemplate *v1.Pod
+	maxPods     int
 }
 
-func NewSinglePodGenerator(podTemplate *v1.Pod) PodGenerator {
+func NewSinglePodGenerator(podTemplate *v1.Pod, maxPods int) PodGenerator {
 	return &singlePodGenerator{
 		counter:     0,
 		podTemplate: podTemplate,
+		maxPods:     maxPods,
 	}
 }
 
-func (g *singlePodGenerator) Generate() *v1.Pod {
+func (g *singlePodGenerator) Generate() (*v1.Pod, int, bool) {
+	if g.maxPods != 0 && g.counter > g.maxPods {
+		return nil, g.counter, true
+	}
 	pod := g.podTemplate.DeepCopy()
 
 	// reset any node designation set
@@ -42,5 +47,5 @@ func (g *singlePodGenerator) Generate() *v1.Pod {
 	// Ensures uniqueness
 	g.counter++
 
-	return pod
+	return pod, g.counter, false
 }

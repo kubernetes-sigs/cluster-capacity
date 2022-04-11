@@ -202,6 +202,9 @@ func TestPrediction(t *testing.T) {
 			for _, node := range test.nodes {
 				objs = append(objs, node)
 			}
+
+			objs = append(objs, &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "test-node-3"}})
+
 			client := fakeclientset.NewSimpleClientset(objs...)
 
 			// set pod's resource consumption
@@ -221,7 +224,7 @@ func TestPrediction(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			cc, err := New(kubeSchedulerConfig,
+			cc, err := NewSinglePod(kubeSchedulerConfig,
 				nil,
 				simulatedPod,
 				test.limit,

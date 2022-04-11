@@ -17,7 +17,9 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"os"
 	"testing"
 
@@ -89,6 +91,16 @@ func initializeClient(t *testing.T) (*rest.Config, clientset.Interface, chan str
 		t.Fatalf("Error during client creation with %v", err)
 	}
 
+	_, err = clientSet.CoreV1().Namespaces().Get(context.TODO(), "test-node-3", metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			_, newErr := clientSet.CoreV1().Namespaces().Create(context.TODO(), &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "test-node-3"}}, metav1.CreateOptions{})
+			if newErr != nil {
+				t.Fatalf("create namespace fail with %v", err)
+			}
+		}
+	}
+
 	stopChannel := make(chan struct{})
 
 	sharedInformerFactory := informers.NewSharedInformerFactory(clientSet, 0)
@@ -142,7 +154,7 @@ func TestLimitReached(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cc, err := framework.New(kubeSchedulerConfig,
+	cc, err := framework.NewSinglePod(kubeSchedulerConfig,
 		restConfig,
 		buildSimulatedPod(),
 		limit,

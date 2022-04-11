@@ -52,7 +52,7 @@ func TestPodAffinityHardConstraintSingleNode(t *testing.T) {
 		},
 	}
 
-	cc, err := framework.New(kubeSchedulerConfig,
+	cc, err := framework.NewSinglePod(kubeSchedulerConfig,
 		nil,
 		pod,
 		100,
@@ -149,7 +149,7 @@ func TestPodAffinityHardConstraintManyNodes(t *testing.T) {
 		},
 	}
 
-	cc, err := framework.New(kubeSchedulerConfig,
+	cc, err := framework.NewSinglePod(kubeSchedulerConfig,
 		nil,
 		pod,
 		100,
