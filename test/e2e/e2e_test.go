@@ -146,6 +146,7 @@ func TestLimitReached(t *testing.T) {
 		restConfig,
 		buildSimulatedPod(),
 		limit,
+		nil,
 	)
 	defer cc.Close()
 

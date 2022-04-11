@@ -59,7 +59,9 @@ func NewClusterCapacityCommand() *cobra.Command {
 			err := Validate(opt)
 			if err != nil {
 				fmt.Println(err)
-				cmd.Help()
+				if err := cmd.Help(); err != nil {
+					fmt.Println(err)
+				}
 				return
 			}
 			err = Run(opt)
@@ -94,7 +96,7 @@ func Validate(opt *options.ClusterCapacityOptions) error {
 func Run(opt *options.ClusterCapacityOptions) error {
 	conf := options.NewClusterCapacityConfig(opt)
 
-	kcfg := &kubeschedulerconfig.KubeSchedulerConfiguration{}
+	var kcfg *kubeschedulerconfig.KubeSchedulerConfiguration
 	if len(conf.Options.DefaultSchedulerConfigFile) > 0 {
 		cfg, err := loadConfigFromFile(conf.Options.DefaultSchedulerConfigFile)
 		if err != nil {
@@ -155,7 +157,7 @@ func Run(opt *options.ClusterCapacityOptions) error {
 }
 
 func runSimulator(s *options.ClusterCapacityConfig, kubeSchedulerConfig *schedconfig.CompletedConfig) (*framework.ClusterCapacityReview, error) {
-	cc, err := framework.New(kubeSchedulerConfig, s.RestConfig, s.Pod, s.Options.MaxLimit)
+	cc, err := framework.New(kubeSchedulerConfig, s.RestConfig, s.Pod, s.Options.MaxLimit, s.Options.ExcludeNodes)
 	if err != nil {
 		return nil, err
 	}

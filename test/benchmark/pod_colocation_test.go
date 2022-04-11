@@ -56,6 +56,7 @@ func TestPodAffinityHardConstraintSingleNode(t *testing.T) {
 		nil,
 		pod,
 		100,
+		nil,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -152,6 +153,7 @@ func TestPodAffinityHardConstraintManyNodes(t *testing.T) {
 		nil,
 		pod,
 		100,
+		nil,
 	)
 	if err != nil {
 		t.Fatal(err)
