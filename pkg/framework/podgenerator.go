@@ -25,8 +25,7 @@ func NewSinglePodGenerator(podTemplate *v1.Pod) PodGenerator {
 }
 
 func (g *singlePodGenerator) Generate() *v1.Pod {
-	pod := &v1.Pod{}
-	pod = g.podTemplate.DeepCopy()
+	pod := g.podTemplate.DeepCopy()
 
 	// reset any node designation set
 	pod.Spec.NodeName = ""

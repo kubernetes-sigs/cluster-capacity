@@ -42,7 +42,9 @@ func NewGenPodCommand() *cobra.Command {
 			err := Validate(opt)
 			if err != nil {
 				fmt.Println(err)
-				cmd.Help()
+				if err := cmd.Help(); err != nil {
+					fmt.Println(err)
+				}
 				return
 			}
 			err = Run(opt)

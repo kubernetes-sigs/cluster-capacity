@@ -89,7 +89,7 @@ func initializeClient(t *testing.T) (*rest.Config, clientset.Interface, chan str
 		t.Fatalf("Error during client creation with %v", err)
 	}
 
-	stopChannel := make(chan struct{}, 0)
+	stopChannel := make(chan struct{})
 
 	sharedInformerFactory := informers.NewSharedInformerFactory(clientSet, 0)
 	sharedInformerFactory.Start(stopChannel)
@@ -148,11 +148,12 @@ func TestLimitReached(t *testing.T) {
 		limit,
 		nil,
 	)
-	defer cc.Close()
 
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
+
+	defer cc.Close()
 
 	if err := cc.SyncWithClient(clientSet); err != nil {
 		t.Fatalf("Unable to sync resources: %v", err)

@@ -19,6 +19,7 @@ package framework
 import (
 	"context"
 	"fmt"
+	"k8s.io/klog/v2"
 	"sync"
 	"time"
 
@@ -126,6 +127,7 @@ func New(kubeSchedulerConfig *schedconfig.CompletedConfig, kubeConfig *restclien
 
 	cc.schedulers[v1.DefaultSchedulerName] = scheduler
 	cc.defaultSchedulerName = v1.DefaultSchedulerName
+	cc.defaultSchedulerConf = kubeSchedulerConfig
 
 	cc.informerFactory.Start(cc.informerStopCh)
 	cc.informerFactory.WaitForCacheSync(cc.informerStopCh)
@@ -376,7 +378,9 @@ func (c *ClusterCapacity) createScheduler(schedulerName string, cc *schedconfig.
 					if pod, ok := newObj.(*v1.Pod); ok {
 						for _, podCondition := range pod.Status.Conditions {
 							if podCondition.Type == v1.PodScheduled {
-								c.Update(pod, &podCondition, schedulerName)
+								if err := c.Update(pod, &podCondition, schedulerName); err != nil {
+									klog.Errorf("update pod fail, err: %v", err)
+								}
 							}
 						}
 					}
