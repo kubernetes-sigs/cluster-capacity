@@ -18,7 +18,7 @@ set -o errexit
 # This just run e2e tests.
 if [ -n "$KIND_E2E" ]; then
     K8S_VERSION=${KUBERNETES_VERSION:-v1.18.2}
-    wget https://github.com/kubernetes-sigs/kind/releases/download/v0.11.0/kind-linux-amd64
+    wget https://github.com/kubernetes-sigs/kind/releases/download/v0.15.0/kind-linux-amd64
     chmod +x kind-linux-amd64
     mv kind-linux-amd64 kind
     export PATH=$PATH:$PWD
