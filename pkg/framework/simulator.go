@@ -19,9 +19,10 @@ package framework
 import (
 	"context"
 	"fmt"
-	"k8s.io/klog/v2"
 	"sync"
 	"time"
+
+	"k8s.io/klog/v2"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,6 +31,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/informers"
+	coreinformers "k8s.io/client-go/informers/core/v1"
 	externalclientset "k8s.io/client-go/kubernetes"
 	fakeclientset "k8s.io/client-go/kubernetes/fake"
 	restclient "k8s.io/client-go/rest"
@@ -88,12 +90,22 @@ type Status struct {
 	StopReason string
 }
 
+// newPodInformer creates a shared index informer that returns only non-terminal pods.
+func newPodInformer(cs externalclientset.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	selector := fmt.Sprintf("status.phase!=%v,status.phase!=%v", v1.PodSucceeded, v1.PodFailed)
+	tweakListOptions := func(options *metav1.ListOptions) {
+		options.FieldSelector = selector
+	}
+	return coreinformers.NewFilteredPodInformer(cs, metav1.NamespaceAll, resyncPeriod, nil, tweakListOptions)
+}
+
 // Create new cluster capacity analysis
 // The analysis is completely independent of apiserver so no need
 // for kubeconfig nor for apiserver url
 func New(kubeSchedulerConfig *schedconfig.CompletedConfig, kubeConfig *restclient.Config, simulatedPod *v1.Pod, maxPods int, excludeNodes []string) (*ClusterCapacity, error) {
 	client := fakeclientset.NewSimpleClientset()
 	sharedInformerFactory := informers.NewSharedInformerFactory(client, 0)
+	sharedInformerFactory.InformerFor(&v1.Pod{}, newPodInformer)
 
 	// build a list of informers to wait for
 	sharedInformerFactory.Core().V1().Namespaces().Informer()
@@ -173,8 +185,12 @@ func (c *ClusterCapacity) SyncWithClient(client externalclientset.Interface) err
 	}
 
 	for _, item := range podItems.Items {
-		if _, err := c.externalkubeclient.CoreV1().Pods(item.Namespace).Create(context.TODO(), &item, metav1.CreateOptions{}); err != nil {
-			return fmt.Errorf("unable to copy pod: %v", err)
+		// selector := fmt.Sprintf("status.phase!=%v,status.phase!=%v", v1.PodSucceeded, v1.PodFailed)
+		// field selector are not supported by fake clientset/informers
+		if item.Status.Phase != v1.PodSucceeded && item.Status.Phase != v1.PodFailed {
+			if _, err := c.externalkubeclient.CoreV1().Pods(item.Namespace).Create(context.TODO(), &item, metav1.CreateOptions{}); err != nil {
+				return fmt.Errorf("unable to copy pod: %v", err)
+			}
 		}
 	}
 
