@@ -241,13 +241,13 @@ func (c *ClusterCapacity) SyncWithClient(client externalclientset.Interface) err
 		}
 	}
 
-	pdbItems, err := client.PolicyV1beta1().PodDisruptionBudgets(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
+	pdbItems, err := client.PolicyV1().PodDisruptionBudgets(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to list PDBs: %v", err)
 	}
 
 	for _, item := range pdbItems.Items {
-		if _, err := c.externalkubeclient.PolicyV1beta1().PodDisruptionBudgets(item.Namespace).Create(context.TODO(), &item, metav1.CreateOptions{}); err != nil {
+		if _, err := c.externalkubeclient.PolicyV1().PodDisruptionBudgets(item.Namespace).Create(context.TODO(), &item, metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("unable to copy PDB: %v", err)
 		}
 	}
