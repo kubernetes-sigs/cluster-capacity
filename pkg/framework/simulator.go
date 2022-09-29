@@ -104,8 +104,12 @@ func (c *ClusterCapacity) SyncWithClient(client externalclientset.Interface) err
 	}
 
 	for _, item := range podItems.Items {
-		if _, err := c.externalkubeclient.CoreV1().Pods(item.Namespace).Create(context.TODO(), &item, metav1.CreateOptions{}); err != nil {
-			return fmt.Errorf("unable to copy pod: %v", err)
+		// selector := fmt.Sprintf("status.phase!=%v,status.phase!=%v", v1.PodSucceeded, v1.PodFailed)
+		// field selector are not supported by fake clientset/informers
+		if item.Status.Phase != v1.PodSucceeded && item.Status.Phase != v1.PodFailed {
+			if _, err := c.externalkubeclient.CoreV1().Pods(item.Namespace).Create(context.TODO(), &item, metav1.CreateOptions{}); err != nil {
+				return fmt.Errorf("unable to copy pod: %v", err)
+			}
 		}
 	}
 
