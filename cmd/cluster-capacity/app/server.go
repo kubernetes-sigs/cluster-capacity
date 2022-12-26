@@ -19,7 +19,6 @@ package app
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/lithammer/dedent"
@@ -177,7 +176,7 @@ func runSimulator(s *options.ClusterCapacityConfig, kubeSchedulerConfig *schedco
 }
 
 func loadConfigFromFile(file string) (*kubeschedulerconfig.KubeSchedulerConfiguration, error) {
-	data, err := ioutil.ReadFile(file)
+	data, err := os.ReadFile(file)
 	if err != nil {
 		return nil, err
 	}
