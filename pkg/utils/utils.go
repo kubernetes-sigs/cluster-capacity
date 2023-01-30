@@ -27,7 +27,7 @@ import (
 	"k8s.io/client-go/tools/events"
 	configv1alpha1 "k8s.io/component-base/config/v1alpha1"
 	"k8s.io/component-base/logs"
-	kubeschedulerconfigv1beta2 "k8s.io/kube-scheduler/config/v1beta2"
+	kubeschedulerconfigv1 "k8s.io/kube-scheduler/config/v1"
 	schedconfig "k8s.io/kubernetes/cmd/kube-scheduler/app/config"
 	kubescheduleroptions "k8s.io/kubernetes/cmd/kube-scheduler/app/options"
 	"k8s.io/kubernetes/pkg/api/legacyscheme"
@@ -87,7 +87,7 @@ func GetMasterFromKubeConfig(filename string) (string, error) {
 func BuildKubeSchedulerCompletedConfig(kcfg *kubeschedulerconfig.KubeSchedulerConfiguration) (*schedconfig.CompletedConfig, error) {
 	if kcfg == nil {
 		kcfg = &kubeschedulerconfig.KubeSchedulerConfiguration{}
-		versionedCfg := kubeschedulerconfigv1beta2.KubeSchedulerConfiguration{}
+		versionedCfg := kubeschedulerconfigv1.KubeSchedulerConfiguration{}
 		versionedCfg.DebuggingConfiguration = *configv1alpha1.NewRecommendedDebuggingConfiguration()
 
 		kubeschedulerscheme.Scheme.Default(&versionedCfg)
@@ -115,6 +115,8 @@ func BuildKubeSchedulerCompletedConfig(kcfg *kubeschedulerconfig.KubeSchedulerCo
 	opts := &kubescheduleroptions.Options{
 		ComponentConfig: kcfg,
 		Logs:            logs.NewOptions(),
+		// due to https://github.com/kubernetes/kubernetes/pull/113559
+		Master: "fakemaster",
 	}
 
 	c := &schedconfig.Config{}
