@@ -17,6 +17,7 @@ limitations under the License.
 package utils
 
 import (
+	"context"
 	"fmt"
 
 	v1 "k8s.io/api/core/v1"
@@ -27,6 +28,7 @@ import (
 	"k8s.io/client-go/tools/events"
 	configv1alpha1 "k8s.io/component-base/config/v1alpha1"
 	"k8s.io/component-base/logs"
+	"k8s.io/klog/v2"
 	kubeschedulerconfigv1 "k8s.io/kube-scheduler/config/v1"
 	schedconfig "k8s.io/kubernetes/cmd/kube-scheduler/app/config"
 	kubescheduleroptions "k8s.io/kubernetes/cmd/kube-scheduler/app/options"
@@ -124,7 +126,8 @@ func BuildKubeSchedulerCompletedConfig(kcfg *kubeschedulerconfig.KubeSchedulerCo
 	// to allow running multiple instances in a row
 	opts.Deprecated = nil
 	opts.SecureServing = nil
-	if err := opts.ApplyTo(c); err != nil {
+	logger := klog.FromContext(context.TODO())
+	if err := opts.ApplyTo(logger, c); err != nil {
 		return nil, fmt.Errorf("unable to get scheduler config: %v", err)
 	}
 
