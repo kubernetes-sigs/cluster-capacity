@@ -3,7 +3,6 @@ module sigs.k8s.io/cluster-capacity
 go 1.20
 
 require (
-	github.com/ghodss/yaml v1.0.0
 	github.com/lithammer/dedent v1.1.0
 	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/cobra v1.6.0
@@ -15,6 +14,7 @@ require (
 	k8s.io/klog/v2 v2.90.1
 	k8s.io/kube-scheduler v0.27.1
 	k8s.io/kubernetes v1.27.1
+	sigs.k8s.io/yaml v1.3.0
 )
 
 require (
@@ -113,7 +113,6 @@ require (
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.1.1 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
-	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
 replace (
