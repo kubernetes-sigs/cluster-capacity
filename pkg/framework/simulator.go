@@ -74,8 +74,9 @@ type ClusterCapacity struct {
 
 	// analysis limitation
 	informerStopCh chan struct{}
-	// schedulers channel
-	schedulerCh chan struct{}
+	// scheduler context
+	schedulerContext       context.Context
+	schedulerContextCancel context.CancelFunc
 
 	// stop the analysis
 	stop      chan struct{}
@@ -114,17 +115,20 @@ func New(kubeSchedulerConfig *schedconfig.CompletedConfig, kubeConfig *restclien
 
 	kubeSchedulerConfig.Client = client
 
+	schedulerContext, schedulerContextCancel := context.WithCancel(context.Background())
+
 	cc := &ClusterCapacity{
-		externalkubeclient: client,
-		podGenerator:       NewSinglePodGenerator(simulatedPod),
-		simulatedPod:       simulatedPod,
-		simulated:          0,
-		maxSimulated:       maxPods,
-		stop:               make(chan struct{}),
-		informerFactory:    sharedInformerFactory,
-		informerStopCh:     make(chan struct{}),
-		schedulerCh:        make(chan struct{}),
-		excludeNodes:       sets.NewString(excludeNodes...),
+		externalkubeclient:     client,
+		podGenerator:           NewSinglePodGenerator(simulatedPod),
+		simulatedPod:           simulatedPod,
+		simulated:              0,
+		maxSimulated:           maxPods,
+		stop:                   make(chan struct{}),
+		informerFactory:        sharedInformerFactory,
+		informerStopCh:         make(chan struct{}),
+		schedulerContext:       schedulerContext,
+		schedulerContextCancel: schedulerContextCancel,
+		excludeNodes:           sets.NewString(excludeNodes...),
 	}
 
 	if kubeConfig != nil {
@@ -315,7 +319,7 @@ func (c *ClusterCapacity) Close() {
 		return
 	}
 
-	close(c.schedulerCh)
+	c.schedulerContextCancel()
 	close(c.informerStopCh)
 	c.closed = true
 }
@@ -409,11 +413,11 @@ func (c *ClusterCapacity) createScheduler(schedulerName string, cc *schedconfig.
 
 	// Create the scheduler.
 	return scheduler.New(
+		c.schedulerContext,
 		c.externalkubeclient,
 		c.informerFactory,
 		c.dynInformerFactory,
 		getRecorderFactory(cc),
-		c.schedulerCh,
 		scheduler.WithComponentConfigVersion(cc.ComponentConfig.TypeMeta.APIVersion),
 		scheduler.WithKubeConfig(cc.KubeConfig),
 		scheduler.WithProfiles(cc.ComponentConfig.Profiles...),
