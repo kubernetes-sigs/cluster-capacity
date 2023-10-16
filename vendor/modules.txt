@@ -306,7 +306,7 @@ go.uber.org/zap/internal/color
 go.uber.org/zap/internal/exit
 go.uber.org/zap/zapcore
 go.uber.org/zap/zapgrpc
-# golang.org/x/crypto v0.11.0
+# golang.org/x/crypto v0.14.0
 ## explicit; go 1.17
 golang.org/x/crypto/cryptobyte
 golang.org/x/crypto/cryptobyte/asn1
@@ -319,7 +319,7 @@ golang.org/x/crypto/salsa20/salsa
 ## explicit; go 1.18
 golang.org/x/exp/constraints
 golang.org/x/exp/slices
-# golang.org/x/net v0.13.0
+# golang.org/x/net v0.17.0
 ## explicit; go 1.17
 golang.org/x/net/context
 golang.org/x/net/http/httpguts
@@ -336,18 +336,17 @@ golang.org/x/oauth2/internal
 # golang.org/x/sync v0.2.0
 ## explicit
 golang.org/x/sync/singleflight
-# golang.org/x/sys v0.10.0
+# golang.org/x/sys v0.13.0
 ## explicit; go 1.17
 golang.org/x/sys/cpu
-golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 golang.org/x/sys/windows/registry
-# golang.org/x/term v0.10.0
+# golang.org/x/term v0.13.0
 ## explicit; go 1.17
 golang.org/x/term
-# golang.org/x/text v0.11.0
+# golang.org/x/text v0.13.0
 ## explicit; go 1.17
 golang.org/x/text/feature/plural
 golang.org/x/text/internal
@@ -495,7 +494,7 @@ gopkg.in/yaml.v2
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
-# k8s.io/api v0.28.2 => k8s.io/api v0.28.2
+# k8s.io/api v0.28.2 => k8s.io/kubernetes/staging/src/k8s.io/api v0.0.0-20231014014128-db4ac26123a3
 ## explicit; go 1.20
 k8s.io/api/admission/v1
 k8s.io/api/admission/v1beta1
@@ -554,7 +553,7 @@ k8s.io/api/storage/v1beta1
 # k8s.io/apiextensions-apiserver v0.0.0 => k8s.io/apiextensions-apiserver v0.28.2
 ## explicit; go 1.20
 k8s.io/apiextensions-apiserver/pkg/features
-# k8s.io/apimachinery v0.28.2 => k8s.io/apimachinery v0.28.2
+# k8s.io/apimachinery v0.28.2 => k8s.io/kubernetes/staging/src/k8s.io/apimachinery v0.0.0-20231014014128-db4ac26123a3
 ## explicit; go 1.20
 k8s.io/apimachinery/pkg/api/equality
 k8s.io/apimachinery/pkg/api/errors
@@ -612,7 +611,7 @@ k8s.io/apimachinery/pkg/version
 k8s.io/apimachinery/pkg/watch
 k8s.io/apimachinery/third_party/forked/golang/json
 k8s.io/apimachinery/third_party/forked/golang/reflect
-# k8s.io/apiserver v0.28.2 => k8s.io/apiserver v0.28.2
+# k8s.io/apiserver v0.28.2 => k8s.io/kubernetes/staging/src/k8s.io/apiserver v0.0.0-20231014014128-db4ac26123a3
 ## explicit; go 1.20
 k8s.io/apiserver/pkg/admission
 k8s.io/apiserver/pkg/admission/cel
@@ -757,7 +756,7 @@ k8s.io/apiserver/plugin/pkg/audit/truncate
 k8s.io/apiserver/plugin/pkg/audit/webhook
 k8s.io/apiserver/plugin/pkg/authenticator/token/webhook
 k8s.io/apiserver/plugin/pkg/authorizer/webhook
-# k8s.io/client-go v0.28.2 => k8s.io/client-go v0.28.2
+# k8s.io/client-go v0.28.2 => k8s.io/kubernetes/staging/src/k8s.io/client-go v0.0.0-20231014014128-db4ac26123a3
 ## explicit; go 1.20
 k8s.io/client-go/applyconfigurations/admissionregistration/v1
 k8s.io/client-go/applyconfigurations/admissionregistration/v1alpha1
@@ -1079,7 +1078,7 @@ k8s.io/cloud-provider/names
 k8s.io/cloud-provider/options
 k8s.io/cloud-provider/volume
 k8s.io/cloud-provider/volume/helpers
-# k8s.io/component-base v0.28.2 => k8s.io/component-base v0.28.2
+# k8s.io/component-base v0.28.2 => k8s.io/kubernetes/staging/src/k8s.io/component-base v0.0.0-20231014014128-db4ac26123a3
 ## explicit; go 1.20
 k8s.io/component-base/cli/flag
 k8s.io/component-base/config
@@ -1289,16 +1288,16 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.3.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# k8s.io/api => k8s.io/api v0.28.2
+# k8s.io/api => k8s.io/kubernetes/staging/src/k8s.io/api v0.0.0-20231014014128-db4ac26123a3
+# k8s.io/apimachinery => k8s.io/kubernetes/staging/src/k8s.io/apimachinery v0.0.0-20231014014128-db4ac26123a3
+# k8s.io/apiserver => k8s.io/kubernetes/staging/src/k8s.io/apiserver v0.0.0-20231014014128-db4ac26123a3
+# k8s.io/client-go => k8s.io/kubernetes/staging/src/k8s.io/client-go v0.0.0-20231014014128-db4ac26123a3
+# k8s.io/component-base => k8s.io/kubernetes/staging/src/k8s.io/component-base v0.0.0-20231014014128-db4ac26123a3
 # k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.28.2
-# k8s.io/apimachinery => k8s.io/apimachinery v0.28.2
-# k8s.io/apiserver => k8s.io/apiserver v0.28.2
 # k8s.io/cli-runtime => k8s.io/cli-runtime v0.28.2
-# k8s.io/client-go => k8s.io/client-go v0.28.2
 # k8s.io/cloud-provider => k8s.io/cloud-provider v0.28.2
 # k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.28.2
 # k8s.io/code-generator => k8s.io/code-generator v0.28.2
-# k8s.io/component-base => k8s.io/component-base v0.28.2
 # k8s.io/component-helpers => k8s.io/component-helpers v0.28.2
 # k8s.io/controller-manager => k8s.io/controller-manager v0.28.2
 # k8s.io/cri-api => k8s.io/cri-api v0.28.2
