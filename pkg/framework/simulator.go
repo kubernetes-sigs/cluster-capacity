@@ -382,7 +382,7 @@ func (c *ClusterCapacity) Run() error {
 
 func (c *ClusterCapacity) createScheduler(schedulerName string, cc *schedconfig.CompletedConfig) (*scheduler.Scheduler, error) {
 	outOfTreeRegistry := frameworkruntime.Registry{
-		"ClusterCapacityBinder": func(configuration runtime.Object, f framework.Handle) (framework.Plugin, error) {
+		"ClusterCapacityBinder": func(ctx context.Context, configuration runtime.Object, f framework.Handle) (framework.Plugin, error) {
 			return clustercapacitybinder.New(c.externalkubeclient, configuration, f, c.postBindHook)
 		},
 	}
