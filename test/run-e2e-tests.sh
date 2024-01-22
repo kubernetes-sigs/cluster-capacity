@@ -17,14 +17,14 @@ set -o errexit
 
 # This just run e2e tests.
 if [ -n "$KIND_E2E" ]; then
-    K8S_VERSION=${KUBERNETES_VERSION:-v1.18.2}
-    wget https://github.com/kubernetes-sigs/kind/releases/download/v0.15.0/kind-linux-amd64
+    K8S_VERSION=${KUBERNETES_VERSION:-v1.19.0}
+    wget https://github.com/kubernetes-sigs/kind/releases/download/v0.20.0/kind-linux-amd64
     chmod +x kind-linux-amd64
     mv kind-linux-amd64 kind
     export PATH=$PATH:$PWD
     kind create cluster --image kindest/node:${K8S_VERSION} --config=./hack/kind_config.yaml
-    docker pull kubernetes/pause
-    kind load docker-image kubernetes/pause
+    docker pull registry.k8s.io/pause
+    kind load docker-image registry.k8s.io/pause
     kind get kubeconfig > /tmp/admin.conf
     export KUBECONFIG="/tmp/admin.conf"
 fi
