@@ -19,4 +19,4 @@ MAINTAINER Avesh Agarwal <avagarwa@redhat.com>
 COPY hypercc /bin/hypercc
 RUN ln -sf /bin/hypercc /bin/cluster-capacity
 RUN ln -sf /bin/hypercc /bin/genpod
-CMD ["/bin/cluster-capacity --help"]
+CMD ["/bin/cluster-capacity", "--help"]
