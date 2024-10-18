@@ -38,7 +38,6 @@ import (
 	"k8s.io/kubernetes/pkg/apis/core/validation"
 	"k8s.io/kubernetes/pkg/scheduler/framework"
 	"k8s.io/kubernetes/pkg/scheduler/framework/parallelize"
-	internalqueue "k8s.io/kubernetes/pkg/scheduler/internal/queue"
 	"k8s.io/kubernetes/pkg/scheduler/metrics"
 	"k8s.io/kubernetes/pkg/scheduler/util"
 	utiltrace "k8s.io/utils/trace"
@@ -292,6 +291,17 @@ func (sched *Scheduler) bindingCycle(
 
 	// Run "prebind" plugins.
 	if status := fwk.RunPreBindPlugins(ctx, state, assumedPod, scheduleResult.SuggestedHost); !status.IsSuccess() {
+		if status.IsRejected() {
+			fitErr := &framework.FitError{
+				NumAllNodes: 1,
+				Pod:         assumedPodInfo.Pod,
+				Diagnosis: framework.Diagnosis{
+					NodeToStatusMap:      framework.NodeToStatusMap{scheduleResult.SuggestedHost: status},
+					UnschedulablePlugins: sets.New(status.Plugin()),
+				},
+			}
+			return framework.NewStatus(status.Code()).WithError(fitErr)
+		}
 		return status
 	}
 
@@ -344,11 +354,11 @@ func (sched *Scheduler) handleBindingCycleError(
 		// It's intentional to "defer" this operation; otherwise MoveAllToActiveOrBackoffQueue() would
 		// add this event to in-flight events and thus move the assumed pod to backoffQ anyways if the plugins don't have appropriate QueueingHint.
 		if status.IsRejected() {
-			defer sched.SchedulingQueue.MoveAllToActiveOrBackoffQueue(logger, internalqueue.AssignedPodDelete, assumedPod, nil, func(pod *v1.Pod) bool {
+			defer sched.SchedulingQueue.MoveAllToActiveOrBackoffQueue(logger, framework.AssignedPodDelete, assumedPod, nil, func(pod *v1.Pod) bool {
 				return assumedPod.UID != pod.UID
 			})
 		} else {
-			sched.SchedulingQueue.MoveAllToActiveOrBackoffQueue(logger, internalqueue.AssignedPodDelete, assumedPod, nil, nil)
+			sched.SchedulingQueue.MoveAllToActiveOrBackoffQueue(logger, framework.AssignedPodDelete, assumedPod, nil, nil)
 		}
 	}
 
@@ -441,19 +451,17 @@ func (sched *Scheduler) schedulePod(ctx context.Context, fwk framework.Framework
 // filter plugins and filter extenders.
 func (sched *Scheduler) findNodesThatFitPod(ctx context.Context, fwk framework.Framework, state *framework.CycleState, pod *v1.Pod) ([]*framework.NodeInfo, framework.Diagnosis, error) {
 	logger := klog.FromContext(ctx)
+	diagnosis := framework.Diagnosis{
+		NodeToStatusMap: make(framework.NodeToStatusMap),
+	}
 
 	allNodes, err := sched.nodeInfoSnapshot.NodeInfos().List()
 	if err != nil {
-		return nil, framework.Diagnosis{
-			NodeToStatusMap: make(framework.NodeToStatusMap),
-		}, err
-	}
-
-	diagnosis := framework.Diagnosis{
-		NodeToStatusMap: make(framework.NodeToStatusMap, len(allNodes)),
+		return nil, diagnosis, err
 	}
 	// Run "prefilter" plugins.
-	preRes, s := fwk.RunPreFilterPlugins(ctx, state, pod)
+	preRes, s, unscheduledPlugins := fwk.RunPreFilterPlugins(ctx, state, pod)
+	diagnosis.UnschedulablePlugins = unscheduledPlugins
 	if !s.IsSuccess() {
 		if !s.IsRejected() {
 			return nil, diagnosis, s.AsError()
@@ -488,21 +496,19 @@ func (sched *Scheduler) findNodesThatFitPod(ctx context.Context, fwk framework.F
 	nodes := allNodes
 	if !preRes.AllNodes() {
 		nodes = make([]*framework.NodeInfo, 0, len(preRes.NodeNames))
-		for _, n := range allNodes {
-			if !preRes.NodeNames.Has(n.Node().Name) {
-				// We consider Nodes that are filtered out by PreFilterResult as rejected via UnschedulableAndUnresolvable.
-				// We have to record them in NodeToStatusMap so that they won't be considered as candidates in the preemption.
-				diagnosis.NodeToStatusMap[n.Node().Name] = framework.NewStatus(framework.UnschedulableAndUnresolvable, "node is filtered out by the prefilter result")
-				continue
+		for nodeName := range preRes.NodeNames {
+			// PreRes may return nodeName(s) which do not exist; we verify
+			// node exists in the Snapshot.
+			if nodeInfo, err := sched.nodeInfoSnapshot.Get(nodeName); err == nil {
+				nodes = append(nodes, nodeInfo)
 			}
-			nodes = append(nodes, n)
 		}
 	}
 	feasibleNodes, err := sched.findNodesThatPassFilters(ctx, fwk, state, pod, &diagnosis, nodes)
 	// always try to update the sched.nextStartNodeIndex regardless of whether an error has occurred
 	// this is helpful to make sure that all the nodes have a chance to be searched
 	processedNodes := len(feasibleNodes) + len(diagnosis.NodeToStatusMap)
-	sched.nextStartNodeIndex = (sched.nextStartNodeIndex + processedNodes) % len(nodes)
+	sched.nextStartNodeIndex = (sched.nextStartNodeIndex + processedNodes) % len(allNodes)
 	if err != nil {
 		return nil, diagnosis, err
 	}

@@ -23,6 +23,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	utilversion "k8s.io/apiserver/pkg/util/version"
 	fakeclientset "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/events"
@@ -115,8 +116,9 @@ func BuildKubeSchedulerCompletedConfig(kcfg *kubeschedulerconfig.KubeSchedulerCo
 	}
 
 	opts := &kubescheduleroptions.Options{
-		ComponentConfig: kcfg,
-		Logs:            logs.NewOptions(),
+		ComponentGlobalsRegistry: utilversion.DefaultComponentGlobalsRegistry,
+		ComponentConfig:          kcfg,
+		Logs:                     logs.NewOptions(),
 		// due to https://github.com/kubernetes/kubernetes/pull/113559
 		Master: "fakemaster",
 	}
