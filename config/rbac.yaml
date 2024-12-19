@@ -5,7 +5,7 @@ metadata:
   name: cluster-capacity-role
 rules:
 - apiGroups: [""]
-  resources: ["pods", "nodes", "persistentvolumeclaims", "persistentvolumes", "services", "replicationcontrollers"]
+  resources: ["pods", "nodes", "persistentvolumeclaims", "persistentvolumes", "services", "replicationcontrollers","namespaces"]
   verbs: ["get", "watch", "list"]
 - apiGroups: ["apps"]
   resources: ["replicasets", "statefulsets"]
