@@ -31,7 +31,7 @@ $ make build
 and run the analysis:
 
 ```sh
-$ ./cluster-capacity --kubeconfig <path to kubeconfig> --podspec=examples/pod.yaml
+$ ./cluster-capacity --podspec=examples/pod.yaml
 ```
 
 For more information about available options run:
@@ -45,7 +45,7 @@ Assuming a cluster is running with 4 nodes and 1 master with each node with 2 CP
 With pod resource requirements to be `150m` of CPU and ``100Mi`` of Memory.
 
 ```sh
-$ ./cluster-capacity --kubeconfig <path to kubeconfig> --podspec=pod.yaml --verbose
+$ ./cluster-capacity --podspec=pod.yaml --verbose
 Pod requirements:
 	- cpu: 150m
 	- memory: 100Mi
@@ -81,7 +81,7 @@ Once the number of running pods in the cluster grows and the analysis is run aga
 the number of schedulable pods decreases as well:
 
 ```sh
-$ ./cluster-capacity --kubeconfig <path to kubeconfig> --podspec=pod.yaml --verbose
+$ ./cluster-capacity --podspec=pod.yaml --verbose
 Pod requirements:
 	- cpu: 150m
 	- memory: 100Mi
@@ -105,8 +105,8 @@ Pod distribution among nodes:
 `cluster capacity` command has a flag `--output (-o)` to format its output as json or yaml.
 
 ```sh
-$ ./cluster-capacity --kubeconfig <path to kubeconfig> --podspec=pod.yaml -o json
-$ ./cluster-capacity --kubeconfig <path to kubeconfig> --podspec=pod.yaml -o yaml
+$ ./cluster-capacity --podspec=pod.yaml -o json
+$ ./cluster-capacity --podspec=pod.yaml -o yaml
 ```
 
 The json or yaml output is not versioned and is not guaranteed to be stable across various releases.

@@ -86,7 +86,12 @@ func Validate(opt *options.ClusterCapacityOptions) error {
 	_, present := os.LookupEnv("CC_INCLUSTER")
 	if !present {
 		if len(opt.Kubeconfig) == 0 {
-			return fmt.Errorf("kubeconfig is missing")
+			loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+			_, err := loadingRules.Load()
+			if err != nil {
+				return err
+			}
+			opt.Kubeconfig = loadingRules.GetDefaultFilename()
 		}
 	}
 	return nil
