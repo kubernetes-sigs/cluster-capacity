@@ -2,3 +2,6 @@
 *.swo
 /bazel-*
 .idea
+cluster-capacity
+genpod
+hypercc
