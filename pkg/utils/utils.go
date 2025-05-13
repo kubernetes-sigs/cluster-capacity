@@ -26,8 +26,8 @@ import (
 	fakeclientset "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/events"
+	"k8s.io/component-base/compatibility"
 	configv1alpha1 "k8s.io/component-base/config/v1alpha1"
-	"k8s.io/component-base/featuregate"
 	"k8s.io/component-base/logs"
 	"k8s.io/klog/v2"
 	kubeschedulerconfigv1 "k8s.io/kube-scheduler/config/v1"
@@ -116,7 +116,7 @@ func BuildKubeSchedulerCompletedConfig(kcfg *kubeschedulerconfig.KubeSchedulerCo
 	}
 
 	opts := &kubescheduleroptions.Options{
-		ComponentGlobalsRegistry: featuregate.DefaultComponentGlobalsRegistry,
+		ComponentGlobalsRegistry: compatibility.NewComponentGlobalsRegistry(),
 		ComponentConfig:          kcfg,
 		Logs:                     logs.NewOptions(),
 		// due to https://github.com/kubernetes/kubernetes/pull/113559
