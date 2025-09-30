@@ -37,6 +37,7 @@ import (
 	"sigs.k8s.io/cluster-capacity/cmd/cluster-capacity/app/options"
 	"sigs.k8s.io/cluster-capacity/pkg/framework"
 	"sigs.k8s.io/cluster-capacity/pkg/utils"
+	"sigs.k8s.io/cluster-capacity/pkg/version"
 )
 
 var (
@@ -63,6 +64,7 @@ func NewClusterCapacityCommand() *cobra.Command {
 				}
 				return
 			}
+			fmt.Printf("Cluster capacity version %+v\n", version.Get())
 			err = Run(opt)
 			if err != nil {
 				fmt.Println(err)

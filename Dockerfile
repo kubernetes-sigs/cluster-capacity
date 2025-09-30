@@ -11,12 +11,23 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+FROM golang:1.24.2
 
-FROM golang:latest
+WORKDIR /go/src/sigs.k8s.io/cluster-capacity
+COPY . .
+ARG ARCH
+ARG VERSION
+RUN VERSION=${VERSION} make build.$ARCH
 
-MAINTAINER Avesh Agarwal <avagarwa@redhat.com>
+FROM scratch
 
-COPY hypercc /bin/hypercc
-RUN ln -sf /bin/hypercc /bin/cluster-capacity
-RUN ln -sf /bin/hypercc /bin/genpod
+MAINTAINER Kubernetes SIG Scheduling <sig-scheduling@kubernetes.io>
+
+LABEL org.opencontainers.image.source https://github.com/kubernetes-sigs/cluster-capacity
+
+USER 1000
+
+COPY --from=0 /go/src/sigs.k8s.io/cluster-capacity/_output/bin/cluster-capacity /bin/cluster-capacity
+COPY --from=0 /go/src/sigs.k8s.io/cluster-capacity/_output/bin/genpod /bin/genpod
+
 CMD ["/bin/cluster-capacity", "--help"]
