@@ -12,3 +12,4 @@ spec:
     imagePullPolicy: Always
   restartPolicy: "OnFailure"
   dnsPolicy: "Default"
+  terminationGracePeriodSeconds: 5
