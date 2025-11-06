@@ -45,7 +45,7 @@ func (b *ClusterCapacityBinder) Bind(ctx context.Context, state *framework.Cycle
 	}
 
 	if err := b.postBindHook(updatedPod); err != nil {
-		framework.NewStatus(framework.Error, fmt.Sprintf("Invoking postBindHook gives an error: %v", err))
+		return framework.NewStatus(framework.Error, fmt.Sprintf("Invoking postBindHook gives an error: %v", err))
 	}
 
 	return nil
