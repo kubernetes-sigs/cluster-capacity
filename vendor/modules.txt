@@ -16,6 +16,11 @@ github.com/blang/semver/v4
 # github.com/cenkalti/backoff/v4 v4.3.0
 ## explicit; go 1.18
 github.com/cenkalti/backoff/v4
+# github.com/cert-manager/boilersuite v0.1.0
+## explicit; go 1.19
+github.com/cert-manager/boilersuite
+github.com/cert-manager/boilersuite/internal/boilersuite
+github.com/cert-manager/boilersuite/internal/version
 # github.com/cespare/xxhash/v2 v2.3.0
 ## explicit; go 1.11
 github.com/cespare/xxhash/v2

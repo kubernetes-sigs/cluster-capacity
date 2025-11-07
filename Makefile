@@ -38,8 +38,19 @@ IMAGE_GCLOUD:=$(REGISTRY)/cluster-capacity:$(VERSION)
 run:
 	@./cluster-capacity --kubeconfig ~/.kube/config --podspec=examples/pod.yaml --verbose
 
+
+.PHONY: verify verify-gofmt verify-boilerplates
+verify: verify-gofmt verify-boilerplates
+
 verify-gofmt:
 	./hack/verify-gofmt.sh
+
+verify-boilerplates:
+	go tool boilersuite --author "Kubernetes" --skip defs .
+
+
+.PHONY: test test-unit test-integration test-e2e
+test: test-unit test-integration test-e2e
 
 test-unit:
 	./test/run-unit-test.sh
