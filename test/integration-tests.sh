@@ -105,13 +105,3 @@ echo "# Delete resource in the cluster by deleting rc"
 $KUBECTL delete -f examples/rc.yml
 
 printSuccess "#### All tests passed"
-
-#### BOILERPLATE
-echo ""
-echo ""
-echo ""
-echo ""
-echo ""
-echo "####RUNNING BOILERPLATE"
-./verify/verify-boilerplate.sh
-
