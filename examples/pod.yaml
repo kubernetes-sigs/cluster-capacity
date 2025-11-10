@@ -19,3 +19,4 @@ spec:
         memory: 100Mi
   restartPolicy: "OnFailure"
   dnsPolicy: "Default"
+  terminationGracePeriodSeconds: 5

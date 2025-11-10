@@ -42,10 +42,10 @@ verify-gofmt:
 	./hack/verify-gofmt.sh
 
 test-unit:
-	./hack/unit-test.sh
+	./test/run-unit-test.sh
 
 test-integration:
-	./integration-tests.sh
+	./test/integration-tests.sh
 
 test-e2e:
 	./test/run-e2e-tests.sh
