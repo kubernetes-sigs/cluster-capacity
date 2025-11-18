@@ -1,7 +1,5 @@
 /*
-Copyright 2014 The Kubernetes Authors.
-
-fail
+Copyright 2023 The cert-manager Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,4 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package version
+
+var (
+	// AppVersion is set by the Go linker
+	AppVersion = "development"
+
+	// AppGitCommit is set by the Go linker
+	AppGitCommit = "0000000000000000000000000000000000000000"
+)
