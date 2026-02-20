@@ -25,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	fwk "k8s.io/kube-scheduler/framework"
-	framework "k8s.io/kubernetes/pkg/scheduler/framework"
 )
 
 const Name = "ClusterCapacityBinder"
@@ -35,7 +34,7 @@ type ClusterCapacityBinder struct {
 	postBindHook func(*v1.Pod) error
 }
 
-func New(client kubernetes.Interface, _ runtime.Object, _ framework.Handle, postBindHook func(*v1.Pod) error) (framework.Plugin, error) {
+func New(client kubernetes.Interface, _ runtime.Object, _ fwk.Handle, postBindHook func(*v1.Pod) error) (fwk.Plugin, error) {
 	return &ClusterCapacityBinder{
 		client:       client,
 		postBindHook: postBindHook,

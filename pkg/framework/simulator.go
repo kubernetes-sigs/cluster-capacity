@@ -36,9 +36,9 @@ import (
 	externalclientset "k8s.io/client-go/kubernetes"
 	fakeclientset "k8s.io/client-go/kubernetes/fake"
 	restclient "k8s.io/client-go/rest"
+	fwk "k8s.io/kube-scheduler/framework"
 	schedconfig "k8s.io/kubernetes/cmd/kube-scheduler/app/config"
 	"k8s.io/kubernetes/pkg/scheduler"
-	framework "k8s.io/kubernetes/pkg/scheduler/framework"
 	frameworkruntime "k8s.io/kubernetes/pkg/scheduler/framework/runtime"
 	"k8s.io/kubernetes/pkg/scheduler/profile"
 
@@ -382,7 +382,7 @@ func (c *ClusterCapacity) Run() error {
 
 func (c *ClusterCapacity) createScheduler(schedulerName string, cc *schedconfig.CompletedConfig) (*scheduler.Scheduler, error) {
 	outOfTreeRegistry := frameworkruntime.Registry{
-		"ClusterCapacityBinder": func(ctx context.Context, configuration runtime.Object, f framework.Handle) (framework.Plugin, error) {
+		"ClusterCapacityBinder": func(ctx context.Context, configuration runtime.Object, f fwk.Handle) (fwk.Plugin, error) {
 			return clustercapacitybinder.New(c.externalkubeclient, configuration, f, c.postBindHook)
 		},
 	}
