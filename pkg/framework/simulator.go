@@ -431,7 +431,7 @@ func (c *ClusterCapacity) createScheduler(schedulerName string, cc *schedconfig.
 }
 
 func getRecorderFactory(cc *schedconfig.CompletedConfig) profile.RecorderFactory {
-	return func(name string) events.EventRecorder {
+	return func(name string) events.EventRecorderLogger {
 		return cc.EventBroadcaster.NewRecorder(name)
 	}
 }
