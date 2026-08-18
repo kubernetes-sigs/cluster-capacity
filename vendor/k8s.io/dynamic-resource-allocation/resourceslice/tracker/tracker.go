@@ -25,13 +25,13 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	resourceapi "k8s.io/api/resource/v1"
-	resourcealphaapi "k8s.io/api/resource/v1alpha3"
+	resourcebetaapi "k8s.io/api/resource/v1beta2"
 	labels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/diff"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	resourceinformers "k8s.io/client-go/informers/resource/v1"
-	resourcealphainformers "k8s.io/client-go/informers/resource/v1alpha3"
+	resourcebetainformers "k8s.io/client-go/informers/resource/v1beta2"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -71,8 +71,16 @@ type Tracker struct {
 	// may be overridden in tests.
 	handleError func(context.Context, error, string, ...any)
 
+	// wg and cancel track resp. kill goroutines.
+	wg     sync.WaitGroup
+	cancel func(error)
+
 	// Synchronizes updates to these fields related to event handlers.
 	rwMutex sync.RWMutex
+
+	// synced gets closed once all the tracker's event handlers are synced.
+	synced chan struct{}
+
 	// All registered event handlers.
 	eventHandlers []cache.ResourceEventHandler
 	// The eventQueue contains functions which deliver an event to one
@@ -111,7 +119,7 @@ type Options struct {
 	EnableConsumableCapacity bool
 
 	SliceInformer resourceinformers.ResourceSliceInformer
-	TaintInformer resourcealphainformers.DeviceTaintRuleInformer
+	TaintInformer resourcebetainformers.DeviceTaintRuleInformer
 	ClassInformer resourceinformers.DeviceClassInformer
 
 	// KubeClient is used to generate Events when CEL expressions
@@ -155,6 +163,8 @@ func newTracker(ctx context.Context, opts Options) (finalT *Tracker, finalErr er
 		deviceClasses:          opts.ClassInformer.Informer(),
 		patchedResourceSlices:  cache.NewStore(cache.MetaNamespaceKeyFunc),
 		handleError:            utilruntime.HandleErrorWithContext,
+		synced:                 make(chan struct{}),
+		cancel:                 func(error) {}, // Real function set in initInformers.
 		eventQueue:             *buffer.NewRing[func()](buffer.RingOptions{InitialSize: 0, NormalSize: 4}),
 	}
 	defer func() {
@@ -212,6 +222,22 @@ func (t *Tracker) initInformers(ctx context.Context) error {
 		return fmt.Errorf("add event handler for DeviceClasses: %w", err)
 	}
 
+	// This usually short-lived goroutines monitors our upstream event handlers and
+	// closes our own synced channel when they are synced.
+	monitorCtx, cancel := context.WithCancelCause(ctx)
+	t.cancel = cancel
+	t.wg.Go(func() {
+		for _, handle := range []cache.ResourceEventHandlerRegistration{t.resourceSlicesHandle, t.deviceTaintsHandle, t.deviceClassesHandle} {
+			select {
+			case <-handle.HasSyncedChecker().Done():
+			case <-monitorCtx.Done():
+				// Abort without closing our synced channel.
+				return
+			}
+		}
+		close(t.synced)
+	})
+
 	return nil
 }
 
@@ -220,21 +246,28 @@ func (t *Tracker) initInformers(ctx context.Context) error {
 // point is possible and will emit events with up-to-date ResourceSlice
 // objects.
 func (t *Tracker) HasSynced() bool {
+	select {
+	case <-t.HasSyncedChecker().Done():
+		return true
+	default:
+		return false
+	}
+}
+
+func (t *Tracker) HasSyncedChecker() cache.DoneChecker {
 	if !t.enableDeviceTaintRules {
-		return t.resourceSlices.HasSynced()
+		return t.resourceSlices.HasSyncedChecker()
 	}
 
-	if t.resourceSlicesHandle != nil && !t.resourceSlicesHandle.HasSynced() {
-		return false
-	}
-	if t.deviceTaintsHandle != nil && !t.deviceTaintsHandle.HasSynced() {
-		return false
-	}
-	if t.deviceClassesHandle != nil && !t.deviceClassesHandle.HasSynced() {
-		return false
-	}
+	return trackerHasSynced{t}
+}
 
-	return true
+type trackerHasSynced struct{ t *Tracker }
+
+func (s trackerHasSynced) Name() string { return "ResourceSlice tracker" }
+
+func (s trackerHasSynced) Done() <-chan struct{} {
+	return s.t.synced
 }
 
 // Stop ends all background activity and blocks until that shutdown is complete.
@@ -243,12 +276,16 @@ func (t *Tracker) Stop() {
 		return
 	}
 
+	t.cancel(errors.New("stopped"))
+
 	if t.broadcaster != nil {
 		t.broadcaster.Shutdown()
 	}
 	_ = t.resourceSlices.RemoveEventHandler(t.resourceSlicesHandle)
 	_ = t.deviceTaints.RemoveEventHandler(t.deviceTaintsHandle)
 	_ = t.deviceClasses.RemoveEventHandler(t.deviceClassesHandle)
+
+	t.wg.Wait()
 }
 
 // ListPatchedResourceSlices returns all ResourceSlices in the cluster with
@@ -320,7 +357,6 @@ func (t *Tracker) pushEvent(oldObj, newObj any) {
 	t.rwMutex.Lock()
 	defer t.rwMutex.Unlock()
 	for _, handler := range t.eventHandlers {
-		handler := handler
 		if oldObj == nil {
 			t.eventQueue.WriteOne(func() {
 				handler.OnAdd(newObj, false)
@@ -359,15 +395,15 @@ func sliceDriverPoolDeviceIndexFunc(obj any) ([]string, error) {
 	return indexValues, nil
 }
 
-func driverPoolDeviceIndexPatchKey(patch *resourcealphaapi.DeviceTaintRule) string {
-	deviceSelector := ptr.Deref(patch.Spec.DeviceSelector, resourcealphaapi.DeviceTaintSelector{})
+func driverPoolDeviceIndexPatchKey(patch *resourcebetaapi.DeviceTaintRule) string {
+	deviceSelector := ptr.Deref(patch.Spec.DeviceSelector, resourcebetaapi.DeviceTaintSelector{})
 	driverKey := ptr.Deref(deviceSelector.Driver, anyDriver)
 	poolKey := ptr.Deref(deviceSelector.Pool, anyPool)
 	deviceKey := ptr.Deref(deviceSelector.Device, anyDevice)
 	return deviceID(driverKey, poolKey, deviceKey)
 }
 
-func (t *Tracker) sliceNamesForPatch(ctx context.Context, patch *resourcealphaapi.DeviceTaintRule) []string {
+func (t *Tracker) sliceNamesForPatch(ctx context.Context, patch *resourcebetaapi.DeviceTaintRule) []string {
 	patchKey := driverPoolDeviceIndexPatchKey(patch)
 	sliceNames, err := t.resourceSlices.GetIndexer().IndexKeys(driverPoolDeviceIndexName, patchKey)
 	if err != nil {
@@ -433,7 +469,7 @@ func (t *Tracker) resourceSliceDelete(ctx context.Context) func(obj any) {
 func (t *Tracker) deviceTaintAdd(ctx context.Context) func(obj any) {
 	logger := klog.FromContext(ctx)
 	return func(obj any) {
-		rule, ok := obj.(*resourcealphaapi.DeviceTaintRule)
+		rule, ok := obj.(*resourcebetaapi.DeviceTaintRule)
 		if !ok {
 			return
 		}
@@ -451,11 +487,11 @@ func (t *Tracker) deviceTaintAdd(ctx context.Context) func(obj any) {
 func (t *Tracker) deviceTaintUpdate(ctx context.Context) func(oldObj, newObj any) {
 	logger := klog.FromContext(ctx)
 	return func(oldObj, newObj any) {
-		oldRule, ok := oldObj.(*resourcealphaapi.DeviceTaintRule)
+		oldRule, ok := oldObj.(*resourcebetaapi.DeviceTaintRule)
 		if !ok {
 			return
 		}
-		newRule, ok := newObj.(*resourcealphaapi.DeviceTaintRule)
+		newRule, ok := newObj.(*resourcebetaapi.DeviceTaintRule)
 		if !ok {
 			return
 		}
@@ -483,7 +519,7 @@ func (t *Tracker) deviceTaintDelete(ctx context.Context) func(obj any) {
 		if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
 			obj = tombstone.Obj
 		}
-		patch, ok := obj.(*resourcealphaapi.DeviceTaintRule)
+		patch, ok := obj.(*resourcebetaapi.DeviceTaintRule)
 		if !ok {
 			return
 		}
@@ -595,7 +631,7 @@ func (t *Tracker) syncSlice(ctx context.Context, name string, sendEvent bool) {
 		return
 	}
 
-	patches := typedSlice[*resourcealphaapi.DeviceTaintRule](t.deviceTaints.GetIndexer().List())
+	patches := typedSlice[*resourcebetaapi.DeviceTaintRule](t.deviceTaints.GetIndexer().List())
 	patchedSlice, err := t.applyPatches(ctx, slice, patches)
 	if err != nil {
 		t.handleError(ctx, err, "failed to apply patches to ResourceSlice", "resourceslice", klog.KObj(slice))
@@ -630,7 +666,7 @@ func (t *Tracker) syncSlice(ctx context.Context, name string, sendEvent bool) {
 	}
 }
 
-func (t *Tracker) applyPatches(ctx context.Context, slice *resourceapi.ResourceSlice, taintRules []*resourcealphaapi.DeviceTaintRule) (*resourceapi.ResourceSlice, error) {
+func (t *Tracker) applyPatches(ctx context.Context, slice *resourceapi.ResourceSlice, taintRules []*resourcebetaapi.DeviceTaintRule) (*resourceapi.ResourceSlice, error) {
 	logger := klog.FromContext(ctx)
 
 	// slice will be DeepCopied just-in-time, only when necessary.
