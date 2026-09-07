@@ -113,20 +113,9 @@ func (s *ClusterCapacityConfig) ParseAPISpec(schedulerName string) error {
 		versionedPod.Spec.SchedulerName = schedulerName
 	}
 
-	// hardcoded from kube api defaults and validation
-	// TODO: rewrite when object validation gets more available for non kubectl approaches in kube
-	if versionedPod.Spec.DNSPolicy == "" {
-		versionedPod.Spec.DNSPolicy = v1.DNSClusterFirst
-	}
-	if versionedPod.Spec.RestartPolicy == "" {
-		versionedPod.Spec.RestartPolicy = v1.RestartPolicyAlways
-	}
-
-	for i := range versionedPod.Spec.Containers {
-		if versionedPod.Spec.Containers[i].TerminationMessagePolicy == "" {
-			versionedPod.Spec.Containers[i].TerminationMessagePolicy = v1.TerminationMessageFallbackToLogsOnError
-		}
-	}
+	// Apply Kubernetes defaults before converting and validating the pod, including
+	// defaults for regular and init containers.
+	apiv1.SetObjectDefaults_Pod(versionedPod)
 
 	// TODO: client side validation seems like a long term problem for this command.
 	internalPod := &api.Pod{}
