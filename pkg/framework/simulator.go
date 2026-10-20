@@ -98,7 +98,10 @@ func newPodInformer(cs externalclientset.Interface, resyncPeriod time.Duration) 
 	tweakListOptions := func(options *metav1.ListOptions) {
 		options.FieldSelector = selector
 	}
-	return coreinformers.NewFilteredPodInformer(cs, metav1.NamespaceAll, resyncPeriod, nil, tweakListOptions)
+	// Use the same indexers as the factory's default pod informer, so that plugins
+	// (e.g. dynamicresources) can register additional indexers on it.
+	indexers := cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}
+	return coreinformers.NewFilteredPodInformer(cs, metav1.NamespaceAll, resyncPeriod, indexers, tweakListOptions)
 }
 
 // Create new cluster capacity analysis
