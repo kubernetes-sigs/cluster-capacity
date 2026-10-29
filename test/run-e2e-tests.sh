@@ -21,13 +21,13 @@ set -o nounset
 # Set to empty if unbound/empty
 SKIP_INSTALL=${SKIP_INSTALL:-}
 KIND_E2E=${KIND_E2E:-}
-KIND_VERSION=${KIND_VERSION:-v0.32.0}
+KIND_VERSION=${KIND_VERSION:-v0.33.0}
 
 # This just runs e2e tests.
 if [ -n "$KIND_E2E" ]; then
     # If we did not set SKIP_INSTALL
     if [ -z "$SKIP_INSTALL" ]; then
-        K8S_VERSION=${KUBERNETES_VERSION:-v1.36.3}
+        K8S_VERSION=${KUBERNETES_VERSION:-v1.37.0}
         curl -Lo kubectl https://dl.k8s.io/release/${K8S_VERSION}/bin/linux/amd64/kubectl && chmod +x kubectl && mv kubectl /usr/local/bin/
         wget https://github.com/kubernetes-sigs/kind/releases/download/${KIND_VERSION}/kind-linux-amd64
         chmod +x kind-linux-amd64
